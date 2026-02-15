@@ -1,8 +1,6 @@
 "use client"
 
-import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import {
   TrendingUp,
   TrendingDown,
@@ -15,8 +13,6 @@ import {
   Lightbulb
 } from "lucide-react"
 
-type TimeRange = '1d' | '1w' | '1m'
-
 interface AssetClass {
   name: string
   symbol: string
@@ -28,204 +24,72 @@ interface AssetClass {
   color: string
 }
 
-const TIME_PERIODS = [
-  { value: '1d' as TimeRange, label: '1D' },
-  { value: '1w' as TimeRange, label: '1W' },
-  { value: '1m' as TimeRange, label: '1M' },
+// Mock data - represents TODAY's "risk-off" day where money flowed out of stocks into safety
+const MOCK_ASSET_DATA: AssetClass[] = [
+  {
+    name: 'Stocks',
+    symbol: 'SPY',
+    price: '$498.20',
+    change: -25.80,
+    changePercent: -5.2,
+    flow: 'sold',
+    icon: <TrendingUp className="h-5 w-5" />,
+    color: 'red'
+  },
+  {
+    name: 'Bonds',
+    symbol: 'AGG',
+    price: '$102.40',
+    change: 3.10,
+    changePercent: 3.1,
+    flow: 'bought',
+    icon: <Landmark className="h-5 w-5" />,
+    color: 'green'
+  },
+  {
+    name: 'Gold',
+    symbol: 'GLD',
+    price: '$204.50',
+    change: 4.00,
+    changePercent: 2.0,
+    flow: 'bought',
+    icon: <Gem className="h-5 w-5" />,
+    color: 'green'
+  },
+  {
+    name: 'Crypto',
+    symbol: 'BTC',
+    price: '$51,240',
+    change: 510,
+    changePercent: 1.0,
+    flow: 'bought',
+    icon: <Bitcoin className="h-5 w-5" />,
+    color: 'yellow'
+  },
+  {
+    name: 'Oil',
+    symbol: 'USO',
+    price: '$72.50',
+    change: 0.58,
+    changePercent: 0.8,
+    flow: 'bought',
+    icon: <Droplet className="h-5 w-5" />,
+    color: 'green'
+  },
+  {
+    name: 'US Dollar',
+    symbol: 'DXY',
+    price: '103.45',
+    change: -0.52,
+    changePercent: -0.5,
+    flow: 'sold',
+    icon: <DollarSign className="h-5 w-5" />,
+    color: 'red'
+  },
 ]
 
-// Mock data - represents a "risk-off" day where money flowed out of stocks into safety
-const MOCK_ASSET_DATA: Record<TimeRange, AssetClass[]> = {
-  '1d': [
-    {
-      name: 'Stocks',
-      symbol: 'SPY',
-      price: '$498.20',
-      change: -25.80,
-      changePercent: -5.2,
-      flow: 'sold',
-      icon: <TrendingUp className="h-5 w-5" />,
-      color: 'red'
-    },
-    {
-      name: 'Bonds',
-      symbol: 'AGG',
-      price: '$102.40',
-      change: 3.10,
-      changePercent: 3.1,
-      flow: 'bought',
-      icon: <Landmark className="h-5 w-5" />,
-      color: 'green'
-    },
-    {
-      name: 'Gold',
-      symbol: 'GLD',
-      price: '$204.50',
-      change: 4.00,
-      changePercent: 2.0,
-      flow: 'bought',
-      icon: <Gem className="h-5 w-5" />,
-      color: 'green'
-    },
-    {
-      name: 'Crypto',
-      symbol: 'BTC',
-      price: '$51,240',
-      change: 510,
-      changePercent: 1.0,
-      flow: 'bought',
-      icon: <Bitcoin className="h-5 w-5" />,
-      color: 'yellow'
-    },
-    {
-      name: 'Oil',
-      symbol: 'USO',
-      price: '$72.50',
-      change: 0.58,
-      changePercent: 0.8,
-      flow: 'bought',
-      icon: <Droplet className="h-5 w-5" />,
-      color: 'green'
-    },
-    {
-      name: 'US Dollar',
-      symbol: 'DXY',
-      price: '103.45',
-      change: -0.52,
-      changePercent: -0.5,
-      flow: 'sold',
-      icon: <DollarSign className="h-5 w-5" />,
-      color: 'red'
-    },
-  ],
-  '1w': [
-    {
-      name: 'Stocks',
-      symbol: 'SPY',
-      price: '$498.20',
-      change: -18.50,
-      changePercent: -3.7,
-      flow: 'sold',
-      icon: <TrendingUp className="h-5 w-5" />,
-      color: 'red'
-    },
-    {
-      name: 'Bonds',
-      symbol: 'AGG',
-      price: '$102.40',
-      change: 2.20,
-      changePercent: 2.2,
-      flow: 'bought',
-      icon: <Landmark className="h-5 w-5" />,
-      color: 'green'
-    },
-    {
-      name: 'Gold',
-      symbol: 'GLD',
-      price: '$204.50',
-      change: 3.80,
-      changePercent: 1.9,
-      flow: 'bought',
-      icon: <Gem className="h-5 w-5" />,
-      color: 'green'
-    },
-    {
-      name: 'Crypto',
-      symbol: 'BTC',
-      price: '$51,240',
-      change: 2050,
-      changePercent: 4.2,
-      flow: 'bought',
-      icon: <Bitcoin className="h-5 w-5" />,
-      color: 'yellow'
-    },
-    {
-      name: 'Oil',
-      symbol: 'USO',
-      price: '$72.50',
-      change: -1.80,
-      changePercent: -2.4,
-      flow: 'sold',
-      icon: <Droplet className="h-5 w-5" />,
-      color: 'red'
-    },
-    {
-      name: 'US Dollar',
-      symbol: 'DXY',
-      price: '103.45',
-      change: 0.82,
-      changePercent: 0.8,
-      flow: 'bought',
-      icon: <DollarSign className="h-5 w-5" />,
-      color: 'green'
-    },
-  ],
-  '1m': [
-    {
-      name: 'Stocks',
-      symbol: 'SPY',
-      price: '$498.20',
-      change: -10.20,
-      changePercent: -2.0,
-      flow: 'sold',
-      icon: <TrendingUp className="h-5 w-5" />,
-      color: 'red'
-    },
-    {
-      name: 'Bonds',
-      symbol: 'AGG',
-      price: '$102.40',
-      change: 1.50,
-      changePercent: 1.5,
-      flow: 'bought',
-      icon: <Landmark className="h-5 w-5" />,
-      color: 'green'
-    },
-    {
-      name: 'Gold',
-      symbol: 'GLD',
-      price: '$204.50',
-      change: 8.20,
-      changePercent: 4.2,
-      flow: 'bought',
-      icon: <Gem className="h-5 w-5" />,
-      color: 'green'
-    },
-    {
-      name: 'Crypto',
-      symbol: 'BTC',
-      price: '$51,240',
-      change: 5620,
-      changePercent: 12.3,
-      flow: 'bought',
-      icon: <Bitcoin className="h-5 w-5" />,
-      color: 'yellow'
-    },
-    {
-      name: 'Oil',
-      symbol: 'USO',
-      price: '$72.50',
-      change: -3.20,
-      changePercent: -4.2,
-      flow: 'sold',
-      icon: <Droplet className="h-5 w-5" />,
-      color: 'red'
-    },
-    {
-      name: 'US Dollar',
-      symbol: 'DXY',
-      price: '103.45',
-      change: 2.15,
-      changePercent: 2.1,
-      flow: 'bought',
-      icon: <DollarSign className="h-5 w-5" />,
-      color: 'green'
-    },
-  ],
-}
-
-// Rules-based narrative generation
-function generateNarrative(assets: AssetClass[], timeRange: TimeRange): string {
+// Rules-based narrative generation for TODAY
+function generateNarrative(assets: AssetClass[]): string {
   const stocks = assets.find(a => a.symbol === 'SPY')
   const bonds = assets.find(a => a.symbol === 'AGG')
   const gold = assets.find(a => a.symbol === 'GLD')
@@ -233,29 +97,23 @@ function generateNarrative(assets: AssetClass[], timeRange: TimeRange): string {
 
   if (!stocks || !bonds || !gold || !crypto) return ''
 
-  const timeLabel = timeRange === '1d' ? 'today' : timeRange === '1w' ? 'this week' : 'this month'
-
   // Risk-off scenario: Stocks down, bonds/gold up
   if (stocks.changePercent < -3 && bonds.changePercent > 1 && gold.changePercent > 1) {
-    return `Risk-off rotation ${timeLabel}: Investors sold growth stocks (${stocks.changePercent.toFixed(1)}%) and moved capital into safe-haven assets like bonds (+${bonds.changePercent.toFixed(1)}%) and gold (+${gold.changePercent.toFixed(1)}%). This flight to safety suggests increased market uncertainty.`
+    return `Risk-off rotation today: Investors sold growth stocks (${stocks.changePercent.toFixed(1)}%) and moved capital into safe-haven assets like bonds (+${bonds.changePercent.toFixed(1)}%) and gold (+${gold.changePercent.toFixed(1)}%). This flight to safety suggests increased market uncertainty.`
   }
 
   // Risk-on scenario: Stocks up, bonds/gold down
   if (stocks.changePercent > 2 && bonds.changePercent < -1) {
-    return `Risk-on rally ${timeLabel}: Strong buying in equities (+${stocks.changePercent.toFixed(1)}%) as investors rotated out of defensive assets. This suggests growing confidence in economic growth and corporate earnings.`
+    return `Risk-on rally today: Strong buying in equities (+${stocks.changePercent.toFixed(1)}%) as investors rotated out of defensive assets. This suggests growing confidence in economic growth and corporate earnings.`
   }
 
   // Crypto surge scenario
   if (crypto.changePercent > 5 && stocks.changePercent > 0) {
-    return `Broad risk appetite ${timeLabel}: Both traditional markets (+${stocks.changePercent.toFixed(1)}%) and crypto (+${crypto.changePercent.toFixed(1)}%) rallied, indicating strong investor confidence and liquidity flowing into risk assets across the board.`
+    return `Broad risk appetite today: Both traditional markets (+${stocks.changePercent.toFixed(1)}%) and crypto (+${crypto.changePercent.toFixed(1)}%) rallied, indicating strong investor confidence and liquidity flowing into risk assets across the board.`
   }
 
   // Mixed/choppy market
-  return `Mixed signals ${timeLabel}: Markets showed no clear directional bias with stocks ${stocks.changePercent > 0 ? 'up' : 'down'} ${Math.abs(stocks.changePercent).toFixed(1)}%. Investors appear cautious, waiting for clearer catalysts before making large allocation shifts.`
-}
-
-function formatCurrency(value: string): string {
-  return value
+  return `Mixed signals today: Markets showed no clear directional bias with stocks ${stocks.changePercent > 0 ? 'up' : 'down'} ${Math.abs(stocks.changePercent).toFixed(1)}%. Investors appear cautious, waiting for clearer catalysts before making large allocation shifts.`
 }
 
 function formatChange(value: number): string {
@@ -264,38 +122,18 @@ function formatChange(value: number): string {
 }
 
 export default function MoneyFlowDashboard() {
-  const [timeRange, setTimeRange] = useState<TimeRange>('1d')
-
-  const assets = MOCK_ASSET_DATA[timeRange]
-  const narrative = generateNarrative(assets, timeRange)
+  const assets = MOCK_ASSET_DATA
+  const narrative = generateNarrative(assets)
 
   return (
     <Card className="border-border bg-card">
       <CardHeader>
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          {/* Title */}
-          <CardTitle className="text-xl font-bold flex items-center gap-2">
-            <Coins className="h-5 w-5 text-blue-500" />
-            Money Flow Dashboard
-          </CardTitle>
-
-          {/* Time Period Selector */}
-          <div className="flex gap-1 bg-secondary rounded-lg p-1">
-            {TIME_PERIODS.map(period => (
-              <Button
-                key={period.value}
-                variant={timeRange === period.value ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setTimeRange(period.value)}
-                className="h-8 px-4"
-              >
-                {period.label}
-              </Button>
-            ))}
-          </div>
-        </div>
-        <p className="text-sm text-muted-foreground mt-2">
-          Track where money is flowing across major asset classes
+        <CardTitle className="text-xl font-bold flex items-center gap-2">
+          <Coins className="h-5 w-5 text-blue-500" />
+          Money Flow Dashboard
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Track where money is flowing across major asset classes today
         </p>
       </CardHeader>
 

@@ -19,6 +19,7 @@ import Image from "next/image"
 import PortfolioChart from "@/components/portfolio-chart"
 import MarketMovers from "@/components/market-movers"
 import SectorPerformance from "@/components/sector-performance"
+import MarketTicker from "@/components/market-ticker"
 import { usePortfolio } from "@/lib/portfolio-context"
 
 const formatCurrency = (value: number) => {
@@ -373,28 +374,25 @@ export default function DashboardPage() {
         {/* ==================== TAB 2: MARKET OVERVIEW ==================== */}
         <TabsContent value="market" className="space-y-6">
 
+          {/* Market Summary Ticker */}
+          <MarketTicker />
+
+          {/* Placeholder for Money Flow Dashboard */}
           <Card>
             <CardHeader>
-              <CardTitle>🚧 Market Overview - Coming Soon</CardTitle>
+              <CardTitle>🚧 Money Flow Dashboard - Coming Next</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground">
-                We'll build this section step-by-step with:
+                Next: Asset class performance cards (Stocks, Bonds, Gold, Crypto, Oil, Dollar) with narrative explanation
               </p>
-              <ul className="list-disc list-inside mt-4 space-y-2 text-sm text-muted-foreground">
-                <li>Market Summary Ticker (scrolling banner)</li>
-                <li>Money Flow Dashboard (6 asset classes)</li>
-                <li>Sector Breakdown (expandable)</li>
-                <li>Your Portfolio vs Market comparison</li>
-                <li>Fear & Greed Index (Stock + Crypto)</li>
-                <li>Market Movers (enhanced with "YOU OWN" badges)</li>
-                <li>Sector Performance table</li>
-              </ul>
             </CardContent>
           </Card>
 
-          {/* Temporarily keep existing market components here */}
+          {/* Market Movers */}
           <MarketMovers />
+
+          {/* Sector Performance */}
           <SectorPerformance />
 
         </TabsContent>

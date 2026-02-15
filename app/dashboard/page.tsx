@@ -34,8 +34,25 @@ const formatPercent = (value: number | undefined | null) => {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
 }
 
-export default function DashboardPage() {
-  // Use PortfolioContext for all data
+// Loading skeleton component
+function DashboardSkeleton() {
+  return (
+    <div className="p-4 lg:p-6 space-y-6">
+      <div className="h-20 bg-secondary rounded-lg animate-pulse" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="h-24 bg-secondary rounded-lg animate-pulse" />
+        ))}
+      </div>
+      <div className="h-96 bg-secondary rounded-lg animate-pulse" />
+      <div className="h-96 bg-secondary rounded-lg animate-pulse" />
+      <div className="h-96 bg-secondary rounded-lg animate-pulse" />
+    </div>
+  )
+}
+
+// Main dashboard content component
+function DashboardContent() {
   const {
     holdings,
     portfolioValue: totalPortfolioValue,
@@ -46,25 +63,13 @@ export default function DashboardPage() {
     isLoading
   } = usePortfolio()
 
+  if (isLoading) {
+    return <DashboardSkeleton />
+  }
+
   const todayGain = performance.todayReturn.value
   const todayGainPercent = performance.todayReturn.percent
   const unrealizedGains = totalGain
-
-  if (isLoading) {
-    return (
-      <div className="p-4 lg:p-6 space-y-6">
-        <div className="h-20 bg-secondary rounded-lg animate-pulse" />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-24 bg-secondary rounded-lg animate-pulse" />
-          ))}
-        </div>
-        <div className="h-96 bg-secondary rounded-lg animate-pulse" />
-        <div className="h-96 bg-secondary rounded-lg animate-pulse" />
-        <div className="h-96 bg-secondary rounded-lg animate-pulse" />
-      </div>
-    )
-  }
 
   const topGainers = [...holdings]
     .sort((a, b) => b.totalGainPercent - a.totalGainPercent)
@@ -358,4 +363,9 @@ export default function DashboardPage() {
       </Card>
     </div>
   )
+}
+
+// Wrap with initial skeleton until portfolio loads
+export default function DashboardPage() {
+  return <DashboardContent />
 }

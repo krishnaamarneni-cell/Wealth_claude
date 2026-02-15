@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { TrendingUp, TrendingDown, Minus } from "lucide-react"
 
@@ -45,14 +46,14 @@ function getColor(value: number): string {
 }
 
 function getBgColor(value: number): string {
-  if (value <= 25) return 'bg-red-500'
+  if (value <= 25) return 'bg-red-600'
   if (value <= 45) return 'bg-orange-500'
   if (value <= 55) return 'bg-yellow-500'
   if (value <= 75) return 'bg-green-500'
-  return 'bg-emerald-500'
+  return 'bg-emerald-600'
 }
 
-interface GaugeProps {
+interface SpeedometerProps {
   value: number
   label: string
   previousValue: number
@@ -61,10 +62,33 @@ interface GaugeProps {
   description: string
 }
 
-function FearGreedGauge({ value, label, previousValue, change, title, description }: GaugeProps) {
-  const percentage = value
+function Speedometer({ value, label, previousValue, change, title, description }: SpeedometerProps) {
+  const [animatedValue, setAnimatedValue] = useState(0)
   const color = getColor(value)
   const bgColor = getBgColor(value)
+
+  // Animate needle from 0 to value on mount
+  useEffect(() => {
+    const duration = 1500 // 1.5 seconds
+    const steps = 60
+    const stepValue = value / steps
+    const stepDuration = duration / steps
+
+    let currentStep = 0
+    const timer = setInterval(() => {
+      currentStep++
+      setAnimatedValue(Math.min(currentStep * stepValue, value))
+
+      if (currentStep >= steps) {
+        clearInterval(timer)
+      }
+    }, stepDuration)
+
+    return () => clearInterval(timer)
+  }, [value])
+
+  // Calculate needle rotation (-90deg = 0, 90deg = 100)
+  const rotation = -90 + (animatedValue * 1.8) // 180 degrees total range
 
   return (
     <div className="flex flex-col items-center">
@@ -72,37 +96,79 @@ function FearGreedGauge({ value, label, previousValue, change, title, descriptio
       <h3 className="font-bold text-lg mb-1">{title}</h3>
       <p className="text-xs text-muted-foreground mb-4">{description}</p>
 
-      {/* Circular Gauge */}
-      <div className="relative w-40 h-40 mb-4">
-        {/* Background circle */}
-        <svg className="w-full h-full transform -rotate-90">
-          <circle
-            cx="80"
-            cy="80"
-            r="70"
+      {/* Speedometer Gauge */}
+      <div className="relative w-48 h-32 mb-4">
+        {/* Semi-circle background with color zones */}
+        <svg viewBox="0 0 200 110" className="w-full h-full">
+          {/* Background arc (gray) */}
+          <path
+            d="M 20 100 A 80 80 0 0 1 180 100"
             fill="none"
             stroke="currentColor"
-            strokeWidth="12"
+            strokeWidth="20"
             className="text-secondary"
           />
-          {/* Progress circle */}
-          <circle
-            cx="80"
-            cy="80"
-            r="70"
+
+          {/* Color zones */}
+          {/* Extreme Fear (0-25) - Red */}
+          <path
+            d="M 20 100 A 80 80 0 0 1 65 35"
             fill="none"
-            stroke="currentColor"
-            strokeWidth="12"
-            strokeDasharray={`${(percentage / 100) * 440} 440`}
-            className={bgColor}
-            strokeLinecap="round"
+            stroke="#dc2626"
+            strokeWidth="20"
+            opacity="0.8"
           />
+          {/* Fear (25-45) - Orange */}
+          <path
+            d="M 65 35 A 80 80 0 0 1 100 20"
+            fill="none"
+            stroke="#f97316"
+            strokeWidth="20"
+            opacity="0.8"
+          />
+          {/* Neutral (45-55) - Yellow */}
+          <path
+            d="M 100 20 A 80 80 0 0 1 135 35"
+            fill="none"
+            stroke="#eab308"
+            strokeWidth="20"
+            opacity="0.8"
+          />
+          {/* Greed (55-75) - Green */}
+          <path
+            d="M 135 35 A 80 80 0 0 1 180 100"
+            fill="none"
+            stroke="#22c55e"
+            strokeWidth="20"
+            opacity="0.8"
+          />
+
+          {/* Needle */}
+          <line
+            x1="100"
+            y1="100"
+            x2="100"
+            y2="40"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            className="text-foreground origin-center transition-transform duration-100 ease-out"
+            style={{
+              transform: `rotate(${rotation}deg)`,
+              transformOrigin: '100px 100px'
+            }}
+          />
+
+          {/* Needle center dot */}
+          <circle cx="100" cy="100" r="6" fill="currentColor" className="text-foreground" />
         </svg>
 
-        {/* Center value */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className={`text-4xl font-bold ${color}`}>{value}</span>
-          <span className="text-xs text-muted-foreground">/ 100</span>
+        {/* Value display */}
+        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 text-center">
+          <span className={`text-4xl font-bold ${color}`}>
+            {Math.round(animatedValue)}
+          </span>
+          <span className="text-xs text-muted-foreground ml-1">/ 100</span>
         </div>
       </div>
 
@@ -149,10 +215,10 @@ export default function FearGreed() {
       </CardHeader>
 
       <CardContent>
-        {/* Dual Gauges */}
+        {/* Dual Speedometers */}
         <div className="grid md:grid-cols-2 gap-8 divide-x-0 md:divide-x divide-border">
-          {/* Stock Market Gauge */}
-          <FearGreedGauge
+          {/* Stock Market Speedometer */}
+          <Speedometer
             value={stock.value}
             label={stock.label}
             previousValue={stock.previousValue}
@@ -161,8 +227,8 @@ export default function FearGreed() {
             description="CNN Fear & Greed Index"
           />
 
-          {/* Crypto Market Gauge */}
-          <FearGreedGauge
+          {/* Crypto Market Speedometer */}
+          <Speedometer
             value={crypto.value}
             label={crypto.label}
             previousValue={crypto.previousValue}

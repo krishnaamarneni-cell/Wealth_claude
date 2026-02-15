@@ -314,6 +314,9 @@ export default function DashboardPage() {
             </Card>
           </div>
 
+          {/* Portfolio vs Market - MOVED HERE! */}
+          <PortfolioVsMarket />
+
           {/* Quick Holdings Overview */}
           <Card>
             <CardHeader>
@@ -386,9 +389,6 @@ export default function DashboardPage() {
 
           {/* Sector Breakdown */}
           <SectorBreakdown />
-
-          {/* Portfolio vs Market */}
-          <PortfolioVsMarket />
 
           {/* Fear & Greed Index */}
           <FearGreed />

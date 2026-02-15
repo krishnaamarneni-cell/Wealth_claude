@@ -20,6 +20,7 @@ import PortfolioChart from "@/components/portfolio-chart"
 import MarketMovers from "@/components/market-movers"
 import SectorPerformance from "@/components/sector-performance"
 import MarketTicker from "@/components/market-ticker"
+import MoneyFlowDashboard from "@/components/money-flow-dashboard"
 import { usePortfolio } from "@/lib/portfolio-context"
 
 const formatCurrency = (value: number) => {
@@ -377,17 +378,8 @@ export default function DashboardPage() {
           {/* Market Summary Ticker */}
           <MarketTicker />
 
-          {/* Placeholder for Money Flow Dashboard */}
-          <Card>
-            <CardHeader>
-              <CardTitle>🚧 Money Flow Dashboard - Coming Next</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Next: Asset class performance cards (Stocks, Bonds, Gold, Crypto, Oil, Dollar) with narrative explanation
-              </p>
-            </CardContent>
-          </Card>
+          {/* Money Flow Dashboard */}
+          <MoneyFlowDashboard />
 
           {/* Market Movers */}
           <MarketMovers />

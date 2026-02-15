@@ -32,10 +32,12 @@ export async function GET(request: NextRequest) {
 
     if (!FINNHUB_API_KEY) {
       console.error('❌ FINNHUB_API_KEY is not set')
-      return NextResponse.json(
-        { error: 'API key not configured' },
-        { status: 500 }
-      )
+      // Return empty dividend data instead of error
+      const result: DividendResponse = {
+        symbol: ticker,
+        data: [],
+      }
+      return NextResponse.json(result, { status: 200 })
     }
 
     // Calculate date range (last 5 years + next 1 year for upcoming)

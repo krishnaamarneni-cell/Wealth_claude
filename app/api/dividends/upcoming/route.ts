@@ -14,10 +14,8 @@ export async function GET(request: NextRequest) {
   }
 
   if (!FINNHUB_API_KEY || !POLYGON_API_KEY) {
-    return NextResponse.json(
-      { error: 'API keys not configured on server' },
-      { status: 500 }
-    )
+    // Return empty data instead of error when keys are missing
+    return NextResponse.json({ source: 'none', data: [] })
   }
 
   try {

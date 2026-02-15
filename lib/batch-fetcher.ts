@@ -69,9 +69,10 @@ export async function fetchStocksBatch(
 
           const data = await response.json()
 
-          // Validate data
-          if (!data.price || data.price === 0) {
-            throw new Error('Invalid price data')
+          // ✅ Accept data even if price is 0 (fallback data when API keys missing)
+          // Validate that we at least have required fields
+          if (!data.sector || !data.industry) {
+            throw new Error('Invalid response structure')
           }
 
           // Cache the result
@@ -146,6 +147,11 @@ export async function fetchSingleStock(symbol: string): Promise<boolean> {
     }
 
     const data = await response.json()
+
+    // ✅ Accept data even with price=0 (API keys not configured)
+    if (!data.sector || !data.industry) {
+      throw new Error('Invalid response structure')
+    }
 
     setCachedStock(symbol, {
       symbol: data.symbol || symbol,

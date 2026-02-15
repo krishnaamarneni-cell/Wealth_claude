@@ -45,14 +45,6 @@ function getColor(value: number): string {
   return 'text-emerald-600'
 }
 
-function getBgColor(value: number): string {
-  if (value <= 25) return 'bg-red-600'
-  if (value <= 45) return 'bg-orange-500'
-  if (value <= 55) return 'bg-yellow-500'
-  if (value <= 75) return 'bg-green-500'
-  return 'bg-emerald-600'
-}
-
 interface SpeedometerProps {
   value: number
   label: string
@@ -65,7 +57,6 @@ interface SpeedometerProps {
 function Speedometer({ value, label, previousValue, change, title, description }: SpeedometerProps) {
   const [animatedValue, setAnimatedValue] = useState(0)
   const color = getColor(value)
-  const bgColor = getBgColor(value)
 
   // Animate needle from 0 to value on mount
   useEffect(() => {

@@ -8,7 +8,6 @@ import { TrendingUp, TrendingDown, Sparkles } from "lucide-react"
 import { usePortfolio } from "@/lib/portfolio-context"
 import Image from "next/image"
 
-type TimeRange = '1d' | '1w' | '1m' | '3m' | '6m' | '1y'
 type IndexType = 'sp500' | 'nasdaq' | 'dow'
 
 interface Mover {
@@ -20,22 +19,13 @@ interface Mover {
   logo?: string
 }
 
-const TIME_PERIODS = [
-  { value: '1d' as TimeRange, label: '1D' },
-  { value: '1w' as TimeRange, label: '1W' },
-  { value: '1m' as TimeRange, label: '1M' },
-  { value: '3m' as TimeRange, label: '3M' },
-  { value: '6m' as TimeRange, label: '6M' },
-  { value: '1y' as TimeRange, label: '1Y' },
-]
-
 const INDEXES = [
   { value: 'sp500' as IndexType, label: 'S&P 500' },
   { value: 'nasdaq' as IndexType, label: 'Nasdaq' },
   { value: 'dow' as IndexType, label: 'Dow Jones' },
 ]
 
-// Mock data - will replace with real API later
+// Mock data - TODAY only
 const MOCK_GAINERS: Record<IndexType, Mover[]> = {
   sp500: [
     { symbol: 'NVDA', name: 'Nvidia Corp', price: 920.50, change: 72.30, changePercent: 8.5 },
@@ -100,7 +90,6 @@ function formatPercent(value: number): string {
 export default function MarketMovers() {
   const { holdings } = usePortfolio()
   const [selectedIndex, setSelectedIndex] = useState<IndexType>('sp500')
-  const [timeRange, setTimeRange] = useState<TimeRange>('1d')
 
   // Get user's holdings symbols
   const userSymbols = new Set(holdings.map(h => h.symbol))
@@ -119,37 +108,19 @@ export default function MarketMovers() {
             Market Movers
           </CardTitle>
 
-          {/* Controls */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            {/* Index Selector */}
-            <div className="flex gap-1 bg-secondary rounded-lg p-1">
-              {INDEXES.map(index => (
-                <Button
-                  key={index.value}
-                  variant={selectedIndex === index.value ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setSelectedIndex(index.value)}
-                  className="h-8 px-3"
-                >
-                  {index.label}
-                </Button>
-              ))}
-            </div>
-
-            {/* Time Period Selector */}
-            <div className="flex gap-1 bg-secondary rounded-lg p-1">
-              {TIME_PERIODS.map(period => (
-                <Button
-                  key={period.value}
-                  variant={timeRange === period.value ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setTimeRange(period.value)}
-                  className="h-8 px-3"
-                >
-                  {period.label}
-                </Button>
-              ))}
-            </div>
+          {/* Index Selector */}
+          <div className="flex gap-1 bg-secondary rounded-lg p-1">
+            {INDEXES.map(index => (
+              <Button
+                key={index.value}
+                variant={selectedIndex === index.value ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setSelectedIndex(index.value)}
+                className="h-8 px-3"
+              >
+                {index.label}
+              </Button>
+            ))}
           </div>
         </div>
       </CardHeader>
@@ -165,15 +136,14 @@ export default function MarketMovers() {
 
             {topGainers.map((stock) => {
               const youOwn = userSymbols.has(stock.symbol)
-              
+
               return (
                 <div
                   key={stock.symbol}
-                  className={`p-4 rounded-lg transition-all ${
-                    youOwn 
-                      ? 'bg-green-500/10 border-2 border-green-500/30' 
+                  className={`p-4 rounded-lg transition-all ${youOwn
+                      ? 'bg-green-500/10 border-2 border-green-500/30'
                       : 'bg-secondary/50 hover:bg-secondary'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center justify-between">
                     {/* Left: Stock Info */}
@@ -216,15 +186,14 @@ export default function MarketMovers() {
 
             {topLosers.map((stock) => {
               const youOwn = userSymbols.has(stock.symbol)
-              
+
               return (
                 <div
                   key={stock.symbol}
-                  className={`p-4 rounded-lg transition-all ${
-                    youOwn 
-                      ? 'bg-red-500/10 border-2 border-red-500/30' 
+                  className={`p-4 rounded-lg transition-all ${youOwn
+                      ? 'bg-red-500/10 border-2 border-red-500/30'
                       : 'bg-secondary/50 hover:bg-secondary'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center justify-between">
                     {/* Left: Stock Info */}

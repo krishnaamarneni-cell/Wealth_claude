@@ -22,6 +22,8 @@ import SectorPerformance from "@/components/sector-performance"
 import MarketTicker from "@/components/market-ticker"
 import MoneyFlowDashboard from "@/components/money-flow-dashboard"
 import SectorBreakdown from "@/components/sector-breakdown"
+import PortfolioVsMarket from "@/components/portfolio-vs-market"
+import FearGreed from "@/components/fear-greed"
 import { usePortfolio } from "@/lib/portfolio-context"
 
 const formatCurrency = (value: number) => {
@@ -384,6 +386,12 @@ export default function DashboardPage() {
 
           {/* Sector Breakdown */}
           <SectorBreakdown />
+
+          {/* Portfolio vs Market */}
+          <PortfolioVsMarket />
+
+          {/* Fear & Greed Index */}
+          <FearGreed />
 
           {/* Market Movers */}
           <MarketMovers />

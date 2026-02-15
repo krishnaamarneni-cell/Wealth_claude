@@ -21,6 +21,7 @@ import MarketMovers from "@/components/market-movers"
 import SectorPerformance from "@/components/sector-performance"
 import MarketTicker from "@/components/market-ticker"
 import MoneyFlowDashboard from "@/components/money-flow-dashboard"
+import SectorBreakdown from "@/components/sector-breakdown"
 import { usePortfolio } from "@/lib/portfolio-context"
 
 const formatCurrency = (value: number) => {
@@ -380,6 +381,9 @@ export default function DashboardPage() {
 
           {/* Money Flow Dashboard */}
           <MoneyFlowDashboard />
+
+          {/* Sector Breakdown */}
+          <SectorBreakdown />
 
           {/* Market Movers */}
           <MarketMovers />

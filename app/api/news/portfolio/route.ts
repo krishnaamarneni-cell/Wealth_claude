@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const FMP_API_KEY = process.env.FMP_API_KEY
+const POLYGON_API_KEY = process.env.POLYGON_API_KEY
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,38 +14,59 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const symbolArray = symbols.split(',').slice(0, 10) // Max 10 symbols
-    const limit = 5 // News articles per symbol
+    if (!POLYGON_API_KEY) {
+      return NextResponse.json(
+        { error: 'POLYGON_API_KEY not configured' },
+        { status: 500 }
+      )
+    }
 
-    // Fetch news for each symbol
-    const newsPromises = symbolArray.map(async (symbol) => {
-      const url = `https://financialmodelingprep.com/api/v3/stock_news?tickers=${symbol}&limit=${limit}&apikey=${FMP_API_KEY}`
-      const response = await fetch(url)
+    const symbolArray = symbols.split(',').slice(0, 5) // Max 5 symbols to stay under rate limit
 
-      if (!response.ok) {
-        console.error(`Failed to fetch news for ${symbol}`)
-        return []
-      }
+    // Fetch news for multiple tickers at once
+    const tickersParam = symbolArray.join(',')
+    const url = `https://api.polygon.io/v2/reference/news?ticker=${tickersParam}&limit=20&apiKey=${POLYGON_API_KEY}`
 
-      return response.json()
+    const response = await fetch(url, {
+      next: { revalidate: 300 } // Cache for 5 minutes
     })
 
-    const allNewsArrays = await Promise.all(newsPromises)
+    if (!response.ok) {
+      console.error('Polygon API error:', response.status)
+      return NextResponse.json(
+        { error: 'Failed to fetch news from Polygon' },
+        { status: response.status }
+      )
+    }
 
-    // Flatten and combine all news
-    const allNews = allNewsArrays.flat()
+    const data = await response.json()
 
-    // Sort by publishedDate (most recent first)
-    const sortedNews = allNews.sort((a, b) => {
+    if (!data.results || !Array.isArray(data.results)) {
+      return NextResponse.json([])
+    }
+
+    // Transform Polygon format to our format
+    const transformedNews = data.results.map((article: any) => ({
+      symbol: article.tickers?.[0] || 'MARKET', // First ticker
+      publishedDate: article.published_utc,
+      title: article.title,
+      image: article.image_url,
+      site: article.publisher?.name || 'Unknown',
+      text: article.description || '',
+      url: article.article_url,
+      author: article.author || '',
+    }))
+
+    // Sort by date (most recent first)
+    const sortedNews = transformedNews.sort((a: any, b: any) => {
       return new Date(b.publishedDate).getTime() - new Date(a.publishedDate).getTime()
     })
 
     // Remove duplicates by URL
     const uniqueNews = Array.from(
-      new Map(sortedNews.map(item => [item.url, item])).values()
+      new Map(sortedNews.map((item: any) => [item.url, item])).values()
     )
 
-    // Return top 15 articles
     return NextResponse.json(uniqueNews.slice(0, 15))
 
   } catch (error) {

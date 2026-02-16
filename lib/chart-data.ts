@@ -37,34 +37,29 @@ export function generatePortfolioHistory(
   numPoints: number
 ): ChartDataPoint[] {
   const dataPoints: ChartDataPoint[] = []
-
+  
   // Guard against invalid inputs
   if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-    console.error('[Chart] Invalid start/end dates:', { startDate, endDate })
+    console.error('[v0] Invalid start/end dates:', { startDate, endDate })
     return dataPoints
   }
-
+  
   if (!Number.isFinite(numPoints) || numPoints <= 0) {
-    console.error('[Chart] Invalid numPoints:', { numPoints })
-    // DEFAULT: Create at least 10 points
-    numPoints = 10
+    console.error('[v0] Invalid numPoints:', { numPoints })
+    numPoints = 50
   }
-
+  
   if (!Number.isFinite(startValue) || !Number.isFinite(endValue)) {
-    console.error('[Chart] Invalid start/end values:', { startValue, endValue })
+    console.error('[v0] Invalid start/end values:', { startValue, endValue })
     return dataPoints
   }
-
-  // Ensure we have valid values
-  if (startValue <= 0) startValue = 1000
-  if (endValue <= 0) endValue = startValue * 1.1
-
+  
+  const totalGrowth = (endValue - startValue) / startValue
   const daysBetween = Math.max(1, (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
-  const daysPerPoint = Math.max(0.1, daysBetween / numPoints)
-
-  console.log(`[Chart] Generating ${numPoints} points from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`)
-  console.log(`[Chart] Start value: $${startValue.toFixed(2)}, End value: $${endValue.toFixed(2)}`)
-
+  const daysPerPoint = Math.max(1, daysBetween / numPoints)
+  
+  console.log(`[v0] generatePortfolioHistory: ${numPoints} points, ${daysBetween} days, ${daysPerPoint} daysPerPoint`)
+  
   let previousValue = startValue
 
   for (let i = 0; i <= numPoints; i++) {

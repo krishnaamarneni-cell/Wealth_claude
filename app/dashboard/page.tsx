@@ -24,8 +24,8 @@ import MoneyFlowDashboard from "@/components/money-flow-dashboard"
 import SectorBreakdown from "@/components/sector-breakdown"
 import PortfolioVsMarket from "@/components/portfolio-vs-market"
 import FearGreed from "@/components/fear-greed"
+import NewsFeed from "@/components/news-feed"
 import { usePortfolio } from "@/lib/portfolio-context"
-import { Suspense } from "react"
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -43,23 +43,8 @@ const formatPercent = (value: number | undefined | null) => {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
 }
 
-// Loading skeleton component
-function DashboardSkeleton() {
-  return (
-    <div className="p-4 lg:p-6 space-y-6">
-      <div className="h-20 bg-secondary rounded-lg animate-pulse" />
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-24 bg-secondary rounded-lg animate-pulse" />
-        ))}
-      </div>
-      <div className="h-96 bg-secondary rounded-lg animate-pulse" />
-    </div>
-  )
-}
-
-// Main dashboard content component
-function DashboardContent() {
+export default function DashboardPage() {
+  // Use PortfolioContext for all data
   const {
     holdings,
     portfolioValue: totalPortfolioValue,
@@ -67,11 +52,26 @@ function DashboardContent() {
     totalGain,
     totalGainPercent,
     performance,
+    isLoading
   } = usePortfolio()
 
   const todayGain = performance.todayReturn.value
   const todayGainPercent = performance.todayReturn.percent
   const unrealizedGains = totalGain
+
+  if (isLoading) {
+    return (
+      <div className="p-4 lg:p-6 space-y-6">
+        <div className="h-20 bg-secondary rounded-lg animate-pulse" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-24 bg-secondary rounded-lg animate-pulse" />
+          ))}
+        </div>
+        <div className="h-96 bg-secondary rounded-lg animate-pulse" />
+      </div>
+    )
+  }
 
   const topGainers = [...holdings]
     .sort((a, b) => b.totalGainPercent - a.totalGainPercent)
@@ -315,8 +315,15 @@ function DashboardContent() {
             </Card>
           </div>
 
-          {/* Portfolio vs Market - MOVED HERE! */}
+          {/* Portfolio vs Market */}
           <PortfolioVsMarket />
+
+          {/* Portfolio News - Shows news for YOUR holdings */}
+          <NewsFeed
+            type="portfolio"
+            title="Your Portfolio News"
+            description="Latest news for stocks you own"
+          />
 
           {/* Quick Holdings Overview */}
           <Card>
@@ -394,6 +401,13 @@ function DashboardContent() {
           {/* Fear & Greed Index */}
           <FearGreed />
 
+          {/* Market News - Shows trending market news */}
+          <NewsFeed
+            type="market"
+            title="Market News"
+            description="Trending stories and market updates"
+          />
+
           {/* Market Movers */}
           <MarketMovers />
 
@@ -403,14 +417,5 @@ function DashboardContent() {
         </TabsContent>
       </Tabs>
     </div>
-  )
-}
-
-// Main page component with Suspense boundary
-export default function DashboardPage() {
-  return (
-    <Suspense fallback={<DashboardSkeleton />}>
-      <DashboardContent />
-    </Suspense>
   )
 }

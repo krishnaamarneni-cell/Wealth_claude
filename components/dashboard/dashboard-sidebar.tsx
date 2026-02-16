@@ -56,7 +56,7 @@ export function DashboardSidebar() {
   return (
     <Sidebar className="border-r border-border">
       <SidebarHeader className="p-4">
-        <Link href="/dashboard" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
             <LineChart className="h-5 w-5 text-primary-foreground" />
           </div>

@@ -58,8 +58,6 @@ export function generatePortfolioHistory(
   const daysBetween = Math.max(1, (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
   const daysPerPoint = Math.max(1, daysBetween / numPoints)
   
-  console.log(`[v0] generatePortfolioHistory: ${numPoints} points, ${daysBetween} days, ${daysPerPoint} daysPerPoint`)
-  
   let previousValue = startValue
 
   for (let i = 0; i <= numPoints; i++) {
@@ -106,8 +104,6 @@ export function generatePortfolioHistory(
     })
   }
 
-  console.log(`[Chart] Generated ${dataPoints.length} data points`)
-
   return dataPoints
 }
 
@@ -118,16 +114,12 @@ export function getChartData(
   totalCost: number,
   transactions: any[]
 ): ChartDataPoint[] {
-  console.log(`[Chart] getChartData called with timeRange: ${timeRange}, currentValue: $${currentValue}, totalCost: $${totalCost}`)
-
   // Handle edge cases
   if (!currentValue || currentValue <= 0) {
-    console.warn('[Chart] Invalid current value, using default')
     currentValue = 10000
   }
 
   if (!totalCost || totalCost <= 0) {
-    console.warn('[Chart] Invalid total cost, using 90% of current value')
     totalCost = currentValue * 0.9
   }
 
@@ -152,15 +144,11 @@ export function getChartData(
 
     // Validate
     if (isNaN(earliestTransaction.getTime())) {
-      console.warn('[Chart] Invalid transaction date, using 1 year ago')
       earliestTransaction = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
     }
   } else {
-    console.warn('[Chart] No transactions found, using 1 year ago')
     earliestTransaction = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
   }
-
-  console.log(`[Chart] Earliest transaction: ${earliestTransaction.toLocaleDateString()}`)
 
   switch (timeRange) {
     case '1w':
@@ -197,13 +185,11 @@ export function getChartData(
 
   // Ensure startDate is valid
   if (!startDate || isNaN(startDate.getTime())) {
-    console.error('[Chart] Invalid start date after switch, using 1 year ago')
     startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
   }
 
   // Ensure startDate isn't in the future
   if (startDate > now) {
-    console.warn('[Chart] Start date is in future, using 1 week ago')
     startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
   }
 

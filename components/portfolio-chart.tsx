@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceDot } from "recharts"
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceDot, CartesianGrid } from "recharts"
 import { getChartData, calculateBenchmarkValues, type TimeRange, type ChartDataPoint } from "@/lib/chart-data"
 import { usePortfolio } from "@/lib/portfolio-context"
 import { TrendingUp, TrendingDown } from "lucide-react"
@@ -54,15 +54,15 @@ function getTimeRangeLabel(range: TimeRange): string {
 }
 
 export default function PortfolioChart() {
-  const { 
-    portfolioValue, 
-    totalCost, 
+  const {
+    portfolioValue,
+    totalCost,
     totalGain,
     totalGainPercent,
     transactions,
-    isLoading: portfolioLoading 
+    isLoading: portfolioLoading
   } = usePortfolio()
-  
+
   const [timeRange, setTimeRange] = useState<TimeRange>('all')
   const [chartData, setChartData] = useState<ChartDataPoint[]>([])
   const [selectedBenchmark, setSelectedBenchmark] = useState('SPY')
@@ -71,62 +71,48 @@ export default function PortfolioChart() {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [containerWidth, setContainerWidth] = useState(0)
 
-  // Mark component as mounted to avoid SSR/client mismatch
+  // Mark component as mounted
   useEffect(() => {
     setIsMounted(true)
   }, [])
 
-  // Track container width for chart
-  useEffect(() => {
-    const updateWidth = () => {
-      if (containerRef.current) {
-        const width = containerRef.current.clientWidth
-        if (width > 0) {
-          setContainerWidth(width)
-        }
-      }
-    }
-
-    updateWidth()
-    const resizeObserver = new ResizeObserver(updateWidth)
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current)
-    }
-
-    return () => resizeObserver.disconnect()
-  }, [])
-
   // Load chart data
   useEffect(() => {
-    if (portfolioLoading || portfolioValue === 0 || totalCost === 0) return
-    
+    if (portfolioLoading || portfolioValue === 0) return
+
     const loadData = async () => {
       setIsLoading(true)
-      
-      // Generate portfolio chart data
-      let data = getChartData(timeRange, portfolioValue, totalCost, transactions)
-      
-      // Add benchmark comparison if enabled
-      if (showBenchmark) {
-        data = await calculateBenchmarkValues(transactions, selectedBenchmark, data)
+
+      try {
+        // Generate portfolio chart data
+        let data = getChartData(timeRange, portfolioValue, totalCost, transactions)
+
+        console.log('Chart data generated:', data.length, 'points')
+        console.log('Sample data:', data.slice(0, 2))
+
+        // Add benchmark comparison if enabled
+        if (showBenchmark) {
+          data = await calculateBenchmarkValues(transactions, selectedBenchmark, data)
+        }
+
+        setChartData(data)
+      } catch (error) {
+        console.error('Error loading chart data:', error)
+      } finally {
+        setIsLoading(false)
       }
-      
-      setChartData(data)
-      setIsLoading(false)
     }
-    
+
     loadData()
   }, [timeRange, showBenchmark, selectedBenchmark, portfolioValue, totalCost, transactions, portfolioLoading])
 
-  // ✅ Calculate period-specific values (changes per time range!)
+  // Calculate period-specific values
   const startValue = chartData.length > 0 ? chartData[0].portfolioValue : totalCost
   const endValue = chartData.length > 0 ? chartData[chartData.length - 1].portfolioValue : portfolioValue
   const periodGain = endValue - startValue
   const periodGainPercent = startValue > 0 ? ((endValue - startValue) / startValue) * 100 : 0
-  
+
   const currentData = {
     portfolioValue: endValue,
     portfolioChange: periodGain,
@@ -135,22 +121,22 @@ export default function PortfolioChart() {
     benchmarkChange: chartData.length > 0 ? chartData[chartData.length - 1]?.benchmarkChange : undefined,
     benchmarkChangePercent: chartData.length > 0 ? chartData[chartData.length - 1]?.benchmarkChangePercent : undefined,
   }
-  
+
   const displayData = hoveredData || currentData
-  
+
   // Calculate benchmark performance difference
   const benchmarkDiff = showBenchmark && displayData.benchmarkValue
     ? displayData.portfolioValue - displayData.benchmarkValue
     : 0
-  
+
   const benchmarkDiffPercent = showBenchmark && displayData.benchmarkValue && displayData.benchmarkValue > 0
     ? ((displayData.portfolioValue - displayData.benchmarkValue) / displayData.benchmarkValue) * 100
     : 0
 
   if (portfolioLoading) {
     return (
-      <Card className="border-none shadow-none bg-transparent">
-        <CardContent className="p-0">
+      <Card>
+        <CardContent className="p-6">
           <div className="h-[400px] flex items-center justify-center">
             <p className="text-muted-foreground">Loading portfolio data...</p>
           </div>
@@ -160,8 +146,8 @@ export default function PortfolioChart() {
   }
 
   return (
-    <Card className="border-none shadow-none bg-transparent">
-      <CardHeader className="px-0 pt-0 pb-4">
+    <Card>
+      <CardHeader className="pb-4">
         {/* Portfolio Value Display */}
         <div className="space-y-1">
           <h2 className="text-4xl font-bold tracking-tight">
@@ -180,49 +166,50 @@ export default function PortfolioChart() {
               {getTimeRangeLabel(timeRange)}
             </span>
           </div>
-          
+
           {/* Benchmark Comparison Badge */}
           {showBenchmark && displayData.benchmarkValue && (
-            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${
-              benchmarkDiff >= 0 
-                ? 'bg-green-500/10 text-green-500' 
+            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${benchmarkDiff >= 0
+                ? 'bg-green-500/10 text-green-500'
                 : 'bg-red-500/10 text-red-500'
-            }`}>
+              }`}>
               {benchmarkDiff >= 0 ? '🎉' : '📉'} vs {selectedBenchmark}: {formatCurrency(benchmarkDiff)} ({formatPercent(benchmarkDiffPercent)})
             </div>
           )}
         </div>
       </CardHeader>
 
-      <CardContent className="px-0 pb-0">
+      <CardContent>
         {!isMounted ? (
           <div className="h-[300px] flex items-center justify-center">
             <p className="text-muted-foreground">Loading chart...</p>
           </div>
         ) : isLoading ? (
           <div className="h-[300px] flex items-center justify-center">
-            <p className="text-muted-foreground">Loading chart...</p>
+            <p className="text-muted-foreground">Generating chart...</p>
+          </div>
+        ) : chartData.length === 0 ? (
+          <div className="h-[300px] flex items-center justify-center">
+            <p className="text-muted-foreground">No data available for this time period</p>
           </div>
         ) : (
           <>
             {/* Chart Container */}
-            <div ref={containerRef} className="w-full" style={{ minHeight: '300px' }}>
-              {containerWidth > 0 && (
-                <ResponsiveContainer width={containerWidth} height={300}>
-                  <LineChart
+            <div className="w-full h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
                   data={chartData}
                   onMouseMove={(e: any) => {
                     if (e.activePayload && e.activePayload[0]) {
                       const payload = e.activePayload[0].payload
-                      // Calculate gain from START of period, not all-time
                       const periodStart = chartData[0]
                       setHoveredData({
                         ...payload,
                         portfolioChange: payload.portfolioValue - periodStart.portfolioValue,
                         portfolioChangePercent: ((payload.portfolioValue - periodStart.portfolioValue) / periodStart.portfolioValue) * 100,
                         benchmarkChange: payload.benchmarkValue ? payload.benchmarkValue - (chartData[0].benchmarkValue || 0) : undefined,
-                        benchmarkChangePercent: payload.benchmarkValue && chartData[0].benchmarkValue 
-                          ? ((payload.benchmarkValue - chartData[0].benchmarkValue) / chartData[0].benchmarkValue) * 100 
+                        benchmarkChangePercent: payload.benchmarkValue && chartData[0].benchmarkValue
+                          ? ((payload.benchmarkValue - chartData[0].benchmarkValue) / chartData[0].benchmarkValue) * 100
                           : undefined
                       })
                       setHoveredIndex(e.activeTooltipIndex)
@@ -232,56 +219,68 @@ export default function PortfolioChart() {
                     setHoveredData(null)
                     setHoveredIndex(null)
                   }}
-                  margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+                  margin={{ top: 10, right: 10, left: 10, bottom: 10 }}
                 >
-                  {/* Minimal X Axis - No labels */}
-                  <XAxis 
+                  {/* Add subtle grid for reference */}
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="rgba(255,255,255,0.05)"
+                    vertical={false}
+                  />
+
+                  {/* X Axis - Hidden but needed for data */}
+                  <XAxis
                     dataKey="displayDate"
                     hide={true}
                   />
-                  
-                  {/* Minimal Y Axis - No labels */}
-                  <YAxis hide={true} domain={['auto', 'auto']} />
-                  
-                  {/* Custom Tooltip */}
+
+                  {/* Y Axis - Hidden but with proper domain */}
+                  <YAxis
+                    hide={true}
+                    domain={['dataMin - 1000', 'dataMax + 1000']}
+                  />
+
+                  {/* Tooltip - cursor only */}
                   <Tooltip
                     content={() => null}
-                    cursor={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1 }}
+                    cursor={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1, strokeDasharray: '5 5' }}
                   />
-                  
-                  {/* ✅ Portfolio Line - GREEN SOLID */}
+
+                  {/* Portfolio Line - BRIGHT GREEN SOLID */}
                   <Line
                     type="monotone"
                     dataKey="portfolioValue"
                     stroke="#22c55e"
-                    strokeWidth={2.5}
+                    strokeWidth={3}
                     dot={false}
-                    activeDot={false}
+                    activeDot={{ r: 6, fill: "#22c55e", stroke: "#ffffff", strokeWidth: 2 }}
                     isAnimationActive={true}
-                    animationDuration={800}
+                    animationDuration={1000}
+                    animationEasing="ease-in-out"
                   />
-                  
-                  {/* ✅ Benchmark Line - ORANGE SOLID (NOT DOTTED!) */}
+
+                  {/* Benchmark Line - BRIGHT ORANGE SOLID */}
                   {showBenchmark && (
                     <Line
                       type="monotone"
                       dataKey="benchmarkValue"
                       stroke="#f97316"
-                      strokeWidth={2.5}
+                      strokeWidth={3}
                       dot={false}
-                      activeDot={false}
+                      activeDot={{ r: 6, fill: "#f97316", stroke: "#ffffff", strokeWidth: 2 }}
                       isAnimationActive={true}
-                      animationDuration={800}
+                      animationDuration={1000}
+                      animationEasing="ease-in-out"
                     />
                   )}
-                  
+
                   {/* Hover Dots */}
                   {hoveredIndex !== null && chartData[hoveredIndex] && (
                     <>
                       <ReferenceDot
                         x={chartData[hoveredIndex].displayDate}
                         y={chartData[hoveredIndex].portfolioValue}
-                        r={5}
+                        r={6}
                         fill="#22c55e"
                         stroke="#ffffff"
                         strokeWidth={2}
@@ -290,7 +289,7 @@ export default function PortfolioChart() {
                         <ReferenceDot
                           x={chartData[hoveredIndex].displayDate}
                           y={chartData[hoveredIndex].benchmarkValue}
-                          r={5}
+                          r={6}
                           fill="#f97316"
                           stroke="#ffffff"
                           strokeWidth={2}
@@ -300,20 +299,18 @@ export default function PortfolioChart() {
                   )}
                 </LineChart>
               </ResponsiveContainer>
-              )}
             </div>
 
             {/* Time Period Buttons */}
-            <div className="flex items-center justify-center gap-6 mt-4 mb-4">
+            <div className="flex items-center justify-center gap-6 mt-6 mb-4">
               {TIME_PERIODS.map(period => (
                 <button
                   key={period.value}
                   onClick={() => setTimeRange(period.value)}
-                  className={`text-sm font-medium transition-colors ${
-                    timeRange === period.value
-                      ? 'text-foreground'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
+                  className={`text-sm font-medium transition-colors px-3 py-1.5 rounded-md ${timeRange === period.value
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                    }`}
                 >
                   {period.label}
                 </button>
@@ -334,10 +331,10 @@ export default function PortfolioChart() {
                   ))}
                 </SelectContent>
               </Select>
-              
+
               <label className="flex items-center gap-2 cursor-pointer">
-                <Checkbox 
-                  checked={showBenchmark} 
+                <Checkbox
+                  checked={showBenchmark}
                   onCheckedChange={(checked) => setShowBenchmark(checked as boolean)}
                 />
                 <span className="text-sm text-muted-foreground">Compare with benchmark</span>
@@ -348,11 +345,11 @@ export default function PortfolioChart() {
             {showBenchmark && (
               <div className="flex items-center justify-center gap-4 mt-3 text-xs">
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-0.5 bg-green-500"></div>
+                  <div className="w-6 h-1 bg-green-500 rounded-full"></div>
                   <span className="text-muted-foreground">Your Portfolio</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-0.5 bg-orange-500"></div>
+                  <div className="w-6 h-1 bg-orange-500 rounded-full"></div>
                   <span className="text-muted-foreground">{selectedBenchmark}</span>
                 </div>
               </div>

@@ -40,17 +40,14 @@ export function generatePortfolioHistory(
   
   // Guard against invalid inputs
   if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-    console.error('[v0] Invalid start/end dates:', { startDate, endDate })
     return dataPoints
   }
   
   if (!Number.isFinite(numPoints) || numPoints <= 0) {
-    console.error('[v0] Invalid numPoints:', { numPoints })
     numPoints = 50
   }
   
   if (!Number.isFinite(startValue) || !Number.isFinite(endValue)) {
-    console.error('[v0] Invalid start/end values:', { startValue, endValue })
     return dataPoints
   }
   
@@ -68,7 +65,6 @@ export function generatePortfolioHistory(
 
     // Validate date is valid before processing
     if (isNaN(date.getTime())) {
-      console.error('[Chart] Invalid date calculated:', { i, daysPerPoint })
       continue
     }
 
@@ -198,9 +194,6 @@ export function getChartData(
     startDate = new Date(earliestTransaction)
   }
 
-  console.log(`[Chart] Using date range: ${startDate.toLocaleDateString()} to ${now.toLocaleDateString()}`)
-  console.log(`[Chart] Number of points: ${numPoints}`)
-
   // For shorter time periods, estimate start value based on current performance
   let startValue: number
   if (timeRange === 'all') {
@@ -214,13 +207,10 @@ export function getChartData(
     startValue = currentValue / (1 + periodGainPercent / 100)
   }
 
-  console.log(`[Chart] Start value: $${startValue.toFixed(2)}`)
-
   // Generate portfolio history
   const data = generatePortfolioHistory(startValue, currentValue, startDate, now, numPoints)
 
   if (data.length === 0) {
-    console.error('[Chart] No data generated! Creating fallback data')
     // FALLBACK: Create simple 2-point chart
     return [
       {

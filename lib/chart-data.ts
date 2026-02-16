@@ -49,6 +49,12 @@ export function generatePortfolioHistory(
     
     if (date > endDate) date.setTime(endDate.getTime())
     
+    // Validate date is valid before processing
+    if (isNaN(date.getTime())) {
+      console.error('[v0] Invalid date calculated:', { startDate, i, daysPerPoint })
+      continue
+    }
+    
     // Calculate target value with smooth growth curve
     const progress = i / numPoints
     const smoothProgress = 1 - Math.pow(1 - progress, 2) // Ease-out curve

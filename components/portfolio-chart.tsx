@@ -70,8 +70,14 @@ export default function PortfolioChart() {
   const [hoveredData, setHoveredData] = useState<ChartDataPoint | null>(null)
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(0)
+
+  // Mark component as mounted to avoid SSR/client mismatch
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   // Track container width for chart
   useEffect(() => {
@@ -189,7 +195,11 @@ export default function PortfolioChart() {
       </CardHeader>
 
       <CardContent className="px-0 pb-0">
-        {isLoading ? (
+        {!isMounted ? (
+          <div className="h-[300px] flex items-center justify-center">
+            <p className="text-muted-foreground">Loading chart...</p>
+          </div>
+        ) : isLoading ? (
           <div className="h-[300px] flex items-center justify-center">
             <p className="text-muted-foreground">Loading chart...</p>
           </div>

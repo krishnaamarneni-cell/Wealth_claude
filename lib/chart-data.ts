@@ -136,7 +136,7 @@ export function getChartData(
   }
 
   const now = new Date()
-  let startDate: Date
+  let startDate: Date = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000) // Default to 1 year ago
   let numPoints: number = 50
 
   // Get earliest transaction date

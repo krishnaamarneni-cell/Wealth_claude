@@ -174,7 +174,7 @@ export default function PortfolioChart() {
         ) : (
           <>
             {/* Chart */}
-            <div className="h-[300px] -mx-4">
+            <div className="w-full h-[300px] overflow-hidden">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
                   data={chartData}

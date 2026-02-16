@@ -38,9 +38,9 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className={`font-sans antialiased`} suppressHydrationWarning>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`font-sans antialiased bg-background text-foreground`} suppressHydrationWarning>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem storageKey="trackfolio-theme" disableTransitionOnChange>
           {children}
           <Toaster />
         </ThemeProvider>

@@ -1,15 +1,7 @@
-'use client'
-
-import * as React from 'react'
-import {
-  ThemeProvider as NextThemesProvider,
-  type ThemeProviderProps,
-} from 'next-themes'
-
-export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
+export default function Home() {
   return (
-    <NextThemesProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange {...props}>
-      {children}
-    </NextThemesProvider>
+    <main className="min-h-screen bg-red-500 p-8">
+      <h1 className="text-4xl text-white">TEST - Can you see this red screen?</h1>
+    </main>
   )
 }

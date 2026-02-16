@@ -17,6 +17,10 @@ export async function signUp(formData: FormData) {
     password: data.password,
     options: {
       emailRedirectTo: `${process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/callback`,
+      // Skip email verification for demo purposes
+      data: {
+        email_verified: true,
+      },
     },
   })
 
@@ -25,7 +29,8 @@ export async function signUp(formData: FormData) {
   }
 
   revalidatePath('/', 'layout')
-  redirect('/auth/sign-up-success')
+  // Auto-sign in after successful signup
+  redirect('/dashboard')
 }
 
 export async function signIn(formData: FormData) {

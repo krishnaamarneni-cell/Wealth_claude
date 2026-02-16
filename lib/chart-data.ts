@@ -169,10 +169,8 @@ export function getChartData(
       break
     case 'all':
       startDate = new Date(earliestTransaction)
-      {
-        const daysSinceStart = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-        numPoints = Math.min(Math.max(Math.floor(daysSinceStart / 7), 10), 100) // At least 10 points, max 100
-      }
+      const daysSinceStart = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+      numPoints = Math.min(Math.max(Math.floor(daysSinceStart / 7), 10), 100) // At least 10 points, max 100
       break
     default:
       startDate = new Date(earliestTransaction)
@@ -205,6 +203,11 @@ export function getChartData(
     const totalDays = Math.max((now.getTime() - earliestTransaction.getTime()) / (1000 * 60 * 60 * 24), 30)
     const periodGainPercent = (totalGainPercent * daysInPeriod) / totalDays
     startValue = currentValue / (1 + periodGainPercent / 100)
+  }
+
+  // Ensure numPoints is valid
+  if (!Number.isFinite(numPoints) || numPoints <= 0) {
+    numPoints = 50
   }
 
   // Generate portfolio history

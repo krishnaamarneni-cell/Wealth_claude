@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -70,6 +70,28 @@ export default function PortfolioChart() {
   const [hoveredData, setHoveredData] = useState<ChartDataPoint | null>(null)
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [containerWidth, setContainerWidth] = useState(0)
+
+  // Track container width for chart
+  useEffect(() => {
+    const updateWidth = () => {
+      if (containerRef.current) {
+        const width = containerRef.current.clientWidth
+        if (width > 0) {
+          setContainerWidth(width)
+        }
+      }
+    }
+
+    updateWidth()
+    const resizeObserver = new ResizeObserver(updateWidth)
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current)
+    }
+
+    return () => resizeObserver.disconnect()
+  }, [])
 
   // Load chart data
   useEffect(() => {
@@ -173,10 +195,11 @@ export default function PortfolioChart() {
           </div>
         ) : (
           <>
-            {/* Chart */}
-            <div className="w-full h-[300px] overflow-hidden">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
+            {/* Chart Container */}
+            <div ref={containerRef} className="w-full" style={{ minHeight: '300px' }}>
+              {containerWidth > 0 && (
+                <ResponsiveContainer width={containerWidth} height={300}>
+                  <LineChart
                   data={chartData}
                   onMouseMove={(e: any) => {
                     if (e.activePayload && e.activePayload[0]) {
@@ -267,6 +290,7 @@ export default function PortfolioChart() {
                   )}
                 </LineChart>
               </ResponsiveContainer>
+              )}
             </div>
 
             {/* Time Period Buttons */}

@@ -4,9 +4,8 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Newspaper, ExternalLink, Clock, TrendingUp, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react"
+import { Newspaper, ExternalLink, Clock, TrendingUp, AlertCircle, ChevronLeft, ChevronRight, FileText } from "lucide-react"
 import { usePortfolio } from "@/lib/portfolio-context"
-import Image from "next/image"
 
 interface NewsArticle {
   symbol: string
@@ -26,6 +25,30 @@ interface NewsFeedProps {
 }
 
 const NEWS_PER_PAGE = 5
+
+// Separate component for news thumbnail with fallback
+function NewsThumbnail({ imageUrl, title }: { imageUrl: string; title: string }) {
+  const [imageError, setImageError] = useState(false)
+
+  if (!imageUrl || imageError) {
+    return (
+      <div className="w-24 h-24 rounded-lg overflow-hidden bg-blue-500/10 flex-shrink-0 flex items-center justify-center">
+        <FileText className="w-10 h-10 text-blue-500" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-24 h-24 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+      <img
+        src={imageUrl}
+        alt={title}
+        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+        onError={() => setImageError(true)}
+      />
+    </div>
+  )
+}
 
 export default function NewsFeed({ type, title, description }: NewsFeedProps) {
   const { holdings, isLoading: portfolioLoading } = usePortfolio()
@@ -217,37 +240,8 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
                   rel="noopener noreferrer"
                   className="flex gap-4 p-3 rounded-lg hover:bg-secondary/50 transition-colors group"
                 >
-                  {/* Thumbnail with Logo Fallback */}
-                  <div className="w-24 h-24 rounded-lg overflow-hidden bg-muted flex-shrink-0 flex items-center justify-center">
-                    {article.image ? (
-                      <img
-                        src={article.image}
-                        alt={article.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                        onError={(e) => {
-                          // Replace with logo on error
-                          const target = e.currentTarget
-                          target.style.display = 'none'
-                          const parent = target.parentElement
-                          if (parent) {
-                            parent.innerHTML = `
-                              <div class="w-full h-full flex items-center justify-center bg-blue-500/10">
-                                <svg class="w-12 h-12 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                                  <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
-                                </svg>
-                              </div>
-                            `
-                          }
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-blue-500/10">
-                        <svg className="w-12 h-12 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-                        </svg>
-                      </div>
-                    )}
-                  </div>
+                  {/* Thumbnail with proper React fallback */}
+                  <NewsThumbnail imageUrl={article.image} title={article.title} />
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-2 flex-wrap">

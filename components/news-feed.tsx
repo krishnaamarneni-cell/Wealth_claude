@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Newspaper, ExternalLink, Clock, TrendingUp, AlertCircle } from "lucide-react"
+import { Newspaper, ExternalLink, Clock, TrendingUp, AlertCircle, RefreshCw } from "lucide-react"
 import { usePortfolio } from "@/lib/portfolio-context"
 
 interface NewsArticle {
@@ -15,6 +15,7 @@ interface NewsArticle {
   site: string
   text: string
   url: string
+  source?: 'polygon' | 'finnhub'
 }
 
 interface NewsFeedProps {
@@ -28,96 +29,68 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
   const [news, setNews] = useState<NewsArticle[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [debugInfo, setDebugInfo] = useState<string>('')
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
   useEffect(() => {
     async function fetchNews() {
       setIsLoading(true)
       setError(null)
-      setDebugInfo('')
 
       try {
-        // For portfolio type, check if we have holdings
-        if (type === 'portfolio') {
-          console.log('Portfolio holdings:', holdings)
+        let url = '/api/news/market'
 
+        if (type === 'portfolio') {
           if (holdings.length === 0) {
-            setDebugInfo('No holdings found. Add stocks to see news.')
             setNews([])
             setIsLoading(false)
             return
           }
 
-          // Get symbols from holdings
           const symbols = holdings.map(h => h.symbol).filter(Boolean).join(',')
-          console.log('Fetching news for symbols:', symbols)
 
           if (!symbols) {
-            setDebugInfo('No valid symbols found in holdings')
             setNews([])
             setIsLoading(false)
             return
           }
 
-          const url = `/api/news/portfolio?symbols=${symbols}`
-          console.log('Calling API:', url)
-
-          const response = await fetch(url)
-          console.log('API response status:', response.status)
-
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}))
-            console.error('API error:', errorData)
-            throw new Error(errorData.error || `API returned ${response.status}`)
-          }
-
-          const data = await response.json()
-          console.log('Received news articles:', data.length)
-          setNews(data)
-
-        } else {
-          // Market news
-          const url = '/api/news/market'
-          console.log('Calling market API:', url)
-
-          const response = await fetch(url)
-          console.log('Market API response status:', response.status)
-
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}))
-            console.error('Market API error:', errorData)
-            throw new Error(errorData.error || `API returned ${response.status}`)
-          }
-
-          const data = await response.json()
-          console.log('Received market news:', data.length)
-          setNews(data)
+          url = `/api/news/portfolio?symbols=${symbols}`
         }
+
+        console.log(`Fetching ${type} news from:`, url)
+
+        const response = await fetch(url)
+
+        if (!response.ok) {
+          throw new Error(`API returned ${response.status}`)
+        }
+
+        const data = await response.json()
+        console.log(`Received ${data.length} ${type} articles`)
+
+        setNews(data)
+        setLastUpdated(new Date())
 
       } catch (err) {
         console.error('Error fetching news:', err)
         setError(err instanceof Error ? err.message : 'Unable to load news')
-        setDebugInfo(err instanceof Error ? err.message : '')
       } finally {
         setIsLoading(false)
       }
     }
 
-    // Don't fetch portfolio news if portfolio is still loading
     if (type === 'portfolio' && portfolioLoading) {
-      console.log('Waiting for portfolio to load...')
       return
     }
 
     fetchNews()
 
-    // Refresh every 5 minutes
-    const interval = setInterval(fetchNews, 5 * 60 * 1000)
+    // Refresh every 1 HOUR (3600000 ms) = 24 API calls per day
+    const interval = setInterval(fetchNews, 60 * 60 * 1000)
     return () => clearInterval(interval)
 
   }, [type, holdings, portfolioLoading])
 
-  // Format date
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString)
@@ -138,7 +111,6 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
     }
   }
 
-  // Check if user owns this stock
   const userOwns = (symbol: string) => {
     return holdings.some(h => h.symbol === symbol)
   }
@@ -163,6 +135,12 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
             <p className="text-sm text-muted-foreground mt-1">
               {description || defaultDescription}
             </p>
+            {lastUpdated && (
+              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                <RefreshCw className="h-3 w-3" />
+                Updated {formatDate(lastUpdated.toISOString())} • Next refresh in 1 hour
+              </p>
+            )}
           </div>
           {type === 'market' && (
             <TrendingUp className="h-5 w-5 text-green-500" />
@@ -171,17 +149,6 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
       </CardHeader>
 
       <CardContent>
-        {/* Debug Info (only in development) */}
-        {debugInfo && process.env.NODE_ENV === 'development' && (
-          <div className="mb-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
-            <p className="text-xs text-yellow-600 flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" />
-              Debug: {debugInfo}
-            </p>
-          </div>
-        )}
-
-        {/* Loading State */}
         {isLoading && (
           <div className="space-y-4">
             {[...Array(3)].map((_, i) => (
@@ -197,18 +164,16 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
           </div>
         )}
 
-        {/* Error State */}
         {error && !isLoading && (
           <div className="text-center py-8">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-2" />
             <p className="text-red-500 font-semibold mb-1">{error}</p>
             <p className="text-xs text-muted-foreground">
-              Check console for details or try refreshing the page
+              Both APIs failed. Check console or try again later.
             </p>
           </div>
         )}
 
-        {/* Empty State */}
         {!isLoading && !error && news.length === 0 && (
           <div className="text-center py-8">
             <Newspaper className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
@@ -217,15 +182,15 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
                 ? 'No news available for your holdings'
                 : 'No news available'}
             </p>
-            <p className="text-xs text-muted-foreground">
-              {type === 'portfolio'
-                ? `Holdings: ${holdings.map(h => h.symbol).join(', ') || 'None'}`
-                : 'Check back later for updates'}
-            </p>
+            {type === 'portfolio' && holdings.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Tracking: {holdings.map(h => h.symbol).slice(0, 5).join(', ')}
+                {holdings.length > 5 && ` +${holdings.length - 5} more`}
+              </p>
+            )}
           </div>
         )}
 
-        {/* News Articles */}
         {!isLoading && !error && news.length > 0 && (
           <div className="space-y-4">
             {news.map((article, index) => (
@@ -236,7 +201,6 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
                 rel="noopener noreferrer"
                 className="flex gap-4 p-3 rounded-lg hover:bg-secondary/50 transition-colors group"
               >
-                {/* Thumbnail */}
                 {article.image && (
                   <div className="w-24 h-24 rounded-lg overflow-hidden bg-muted flex-shrink-0">
                     <img
@@ -250,9 +214,7 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
                   </div>
                 )}
 
-                {/* Content */}
                 <div className="flex-1 min-w-0">
-                  {/* Badges */}
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
                     {article.symbol && article.symbol !== 'MARKET' && (
                       <Badge
@@ -269,19 +231,16 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
                     </span>
                   </div>
 
-                  {/* Title */}
                   <h3 className="font-semibold text-sm leading-tight mb-1 group-hover:text-blue-500 transition-colors line-clamp-2">
                     {article.title}
                   </h3>
 
-                  {/* Excerpt */}
                   {article.text && (
                     <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
                       {article.text}
                     </p>
                   )}
 
-                  {/* Source */}
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
                       {article.site}
@@ -291,15 +250,6 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
                 </div>
               </a>
             ))}
-          </div>
-        )}
-
-        {/* View All Button */}
-        {!isLoading && news.length > 0 && (
-          <div className="mt-4 text-center">
-            <Button variant="outline" size="sm">
-              View More News
-            </Button>
           </div>
         )}
       </CardContent>

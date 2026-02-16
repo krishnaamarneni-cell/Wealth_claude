@@ -27,15 +27,6 @@ const MOCK_FEAR_GREED_DATA = {
   }
 }
 
-// Get label from value
-function getLabel(value: number): string {
-  if (value <= 25) return 'Extreme Fear'
-  if (value <= 45) return 'Fear'
-  if (value <= 55) return 'Neutral'
-  if (value <= 75) return 'Greed'
-  return 'Extreme Greed'
-}
-
 // Get text color class
 function getTextColorClass(value: number): string {
   if (value <= 25) return 'text-red-500'
@@ -88,61 +79,79 @@ function FearGreedGauge({ value, label, previousValue, change, title, descriptio
       <h3 className="font-bold text-xl mb-1">{title}</h3>
       <p className="text-xs text-muted-foreground mb-8">{description}</p>
 
-      {/* Gauge SVG */}
-      <div className="relative w-full max-w-[280px] mb-4">
-        <svg viewBox="0 0 200 120" className="w-full h-auto">
-          {/* Define gradient for the arc */}
-          <defs>
-            <linearGradient id={`gradient-${title}`} x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#ef4444" />
-              <stop offset="25%" stopColor="#f97316" />
-              <stop offset="50%" stopColor="#eab308" />
-              <stop offset="75%" stopColor="#22c55e" />
-              <stop offset="100%" stopColor="#10b981" />
-            </linearGradient>
-          </defs>
-
-          {/* Background arc */}
+      {/* Gauge Container */}
+      <div className="relative w-full max-w-[300px]">
+        <svg viewBox="0 0 200 140" className="w-full h-auto">
+          {/* Background arc - VISIBLE */}
           <path
-            d="M 20 100 A 80 80 0 0 1 180 100"
+            d="M 30 110 A 70 70 0 0 1 170 110"
             fill="none"
-            stroke="hsl(var(--muted))"
-            strokeWidth="20"
+            stroke="rgba(255,255,255,0.1)"
+            strokeWidth="24"
             strokeLinecap="round"
           />
 
-          {/* Colored arc with gradient */}
+          {/* Colored segments - VISIBLE */}
+          {/* Extreme Fear - Red (0-25) */}
           <path
-            d="M 20 100 A 80 80 0 0 1 180 100"
+            d="M 30 110 A 70 70 0 0 1 65 50"
             fill="none"
-            stroke={`url(#gradient-${title})`}
-            strokeWidth="20"
+            stroke="#ef4444"
+            strokeWidth="24"
             strokeLinecap="round"
           />
 
-          {/* Needle - WHITE for visibility */}
-          <g transform={`rotate(${needleAngle} 100 100)`}>
+          {/* Fear - Orange (25-45) */}
+          <path
+            d="M 65 50 A 70 70 0 0 1 100 40"
+            fill="none"
+            stroke="#f97316"
+            strokeWidth="24"
+            strokeLinecap="round"
+          />
+
+          {/* Neutral - Yellow (45-55) */}
+          <path
+            d="M 100 40 A 70 70 0 0 1 135 50"
+            fill="none"
+            stroke="#eab308"
+            strokeWidth="24"
+            strokeLinecap="round"
+          />
+
+          {/* Greed - Green (55-100) */}
+          <path
+            d="M 135 50 A 70 70 0 0 1 170 110"
+            fill="none"
+            stroke="#22c55e"
+            strokeWidth="24"
+            strokeLinecap="round"
+          />
+
+          {/* Needle with ARROW TIP */}
+          <g transform={`rotate(${needleAngle} 100 110)`}>
+            {/* Needle line */}
             <line
               x1="100"
-              y1="100"
+              y1="110"
               x2="100"
-              y2="30"
+              y2="50"
               stroke="#ffffff"
               strokeWidth="4"
               strokeLinecap="round"
             />
-            <circle
-              cx="100"
-              cy="30"
-              r="5"
+
+            {/* Arrow tip - Triangle pointing up */}
+            <polygon
+              points="100,45 95,55 105,55"
               fill="#ffffff"
             />
           </g>
 
-          {/* Center pivot */}
+          {/* Center pivot circle */}
           <circle
             cx="100"
-            cy="100"
+            cy="110"
             r="8"
             fill="hsl(var(--background))"
             stroke="#ffffff"
@@ -150,8 +159,8 @@ function FearGreedGauge({ value, label, previousValue, change, title, descriptio
           />
         </svg>
 
-        {/* Value display - positioned BELOW the gauge */}
-        <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 text-center">
+        {/* Value display - BELOW the gauge */}
+        <div className="absolute top-[75%] left-1/2 transform -translate-x-1/2 text-center">
           <div className={`text-6xl font-bold ${textColor}`}>
             {Math.round(displayValue)}
           </div>
@@ -159,7 +168,7 @@ function FearGreedGauge({ value, label, previousValue, change, title, descriptio
       </div>
 
       {/* Label */}
-      <div className={`text-3xl font-bold uppercase mt-12 ${textColor}`}>
+      <div className={`text-3xl font-bold uppercase mt-6 ${textColor}`}>
         {label}
       </div>
 

@@ -1,6 +1,7 @@
 "use client"
 
 import { Bell, Search, User } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SidebarTrigger } from "@/components/ui/sidebar"
@@ -15,6 +16,12 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 export function DashboardHeader() {
+  const router = useRouter()
+
+  const handleLogout = () => {
+    // Clear portfolio data and redirect to landing page
+    router.push('/')
+  }
   return (
     <header className="flex h-14 items-center justify-between border-b border-border px-4 lg:px-6">
       <div className="flex items-center gap-4">
@@ -50,7 +57,9 @@ export function DashboardHeader() {
             <DropdownMenuItem>Settings</DropdownMenuItem>
             <DropdownMenuItem>Connected Accounts</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Log out</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-500 focus:text-red-600">
+              Log out
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

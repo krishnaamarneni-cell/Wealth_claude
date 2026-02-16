@@ -35,11 +35,11 @@ export function Header() {
         </div>
 
         <div className="hidden md:flex items-center gap-3">
-          <Button variant="ghost" className="text-foreground">
-            Login
+          <Button variant="ghost" className="text-foreground" asChild>
+            <Link href="/auth">Login</Link>
           </Button>
-          <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
-            Try for Free
+          <Button className="bg-primary text-primary-foreground hover:bg-primary/90" asChild>
+            <Link href="/auth">Try for Free</Link>
           </Button>
         </div>
 
@@ -86,11 +86,11 @@ export function Header() {
               FAQ
             </Link>
             <div className="flex flex-col gap-2 pt-4 border-t border-border">
-              <Button variant="ghost" className="text-foreground justify-start">
-                Login
+              <Button variant="ghost" className="text-foreground justify-start" asChild>
+                <Link href="/auth">Login</Link>
               </Button>
-              <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
-                Try for Free
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90" asChild>
+                <Link href="/auth">Try for Free</Link>
               </Button>
             </div>
           </div>

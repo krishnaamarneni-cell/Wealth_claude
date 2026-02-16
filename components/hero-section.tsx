@@ -29,7 +29,7 @@ export function HeroSection() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
             <Button asChild size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 h-12 text-base">
-              <Link href="/dashboard">
+              <Link href="/auth">
                 Try for Free
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>

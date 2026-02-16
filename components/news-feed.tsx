@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Newspaper, ExternalLink, Clock, TrendingUp } from "lucide-react"
+import { Newspaper, ExternalLink, Clock, TrendingUp, AlertCircle } from "lucide-react"
 import { usePortfolio } from "@/lib/portfolio-context"
 
 interface NewsArticle {
@@ -24,53 +24,88 @@ interface NewsFeedProps {
 }
 
 export default function NewsFeed({ type, title, description }: NewsFeedProps) {
-  const { holdings } = usePortfolio()
+  const { holdings, isLoading: portfolioLoading } = usePortfolio()
   const [news, setNews] = useState<NewsArticle[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [debugInfo, setDebugInfo] = useState<string>('')
 
   useEffect(() => {
     async function fetchNews() {
       setIsLoading(true)
       setError(null)
+      setDebugInfo('')
 
       try {
-        let url = '/api/news/market'
-
+        // For portfolio type, check if we have holdings
         if (type === 'portfolio') {
-          // Get symbols from holdings
-          const symbols = holdings.map(h => h.symbol).join(',')
+          console.log('Portfolio holdings:', holdings)
 
-          if (!symbols) {
+          if (holdings.length === 0) {
+            setDebugInfo('No holdings found. Add stocks to see news.')
             setNews([])
             setIsLoading(false)
             return
           }
 
-          url = `/api/news/portfolio?symbols=${symbols}`
+          // Get symbols from holdings
+          const symbols = holdings.map(h => h.symbol).filter(Boolean).join(',')
+          console.log('Fetching news for symbols:', symbols)
+
+          if (!symbols) {
+            setDebugInfo('No valid symbols found in holdings')
+            setNews([])
+            setIsLoading(false)
+            return
+          }
+
+          const url = `/api/news/portfolio?symbols=${symbols}`
+          console.log('Calling API:', url)
+
+          const response = await fetch(url)
+          console.log('API response status:', response.status)
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}))
+            console.error('API error:', errorData)
+            throw new Error(errorData.error || `API returned ${response.status}`)
+          }
+
+          const data = await response.json()
+          console.log('Received news articles:', data.length)
+          setNews(data)
+
+        } else {
+          // Market news
+          const url = '/api/news/market'
+          console.log('Calling market API:', url)
+
+          const response = await fetch(url)
+          console.log('Market API response status:', response.status)
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}))
+            console.error('Market API error:', errorData)
+            throw new Error(errorData.error || `API returned ${response.status}`)
+          }
+
+          const data = await response.json()
+          console.log('Received market news:', data.length)
+          setNews(data)
         }
-
-        const response = await fetch(url)
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch news')
-        }
-
-        const data = await response.json()
-        setNews(data)
 
       } catch (err) {
         console.error('Error fetching news:', err)
-        setError('Unable to load news')
+        setError(err instanceof Error ? err.message : 'Unable to load news')
+        setDebugInfo(err instanceof Error ? err.message : '')
       } finally {
         setIsLoading(false)
       }
     }
 
-    // Only fetch if we have holdings for portfolio type
-    if (type === 'portfolio' && holdings.length === 0) {
-      setNews([])
-      setIsLoading(false)
+    // Don't fetch portfolio news if portfolio is still loading
+    if (type === 'portfolio' && portfolioLoading) {
+      console.log('Waiting for portfolio to load...')
       return
     }
 
@@ -80,27 +115,26 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
     const interval = setInterval(fetchNews, 5 * 60 * 1000)
     return () => clearInterval(interval)
 
-  }, [type, holdings])
+  }, [type, holdings, portfolioLoading])
 
   // Format date
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
-    const diffDays = Math.floor(diffHours / 24)
-
-    if (diffHours < 1) {
+    try {
+      const date = new Date(dateString)
+      const now = new Date()
+      const diffMs = now.getTime() - date.getTime()
       const diffMins = Math.floor(diffMs / (1000 * 60))
-      return `${diffMins}m ago`
-    } else if (diffHours < 24) {
-      return `${diffHours}h ago`
-    } else if (diffDays === 1) {
-      return 'Yesterday'
-    } else if (diffDays < 7) {
-      return `${diffDays}d ago`
-    } else {
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+      const diffDays = Math.floor(diffHours / 24)
+
+      if (diffMins < 1) return 'Just now'
+      if (diffMins < 60) return `${diffMins}m ago`
+      if (diffHours < 24) return `${diffHours}h ago`
+      if (diffDays === 1) return 'Yesterday'
+      if (diffDays < 7) return `${diffDays}d ago`
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    } catch {
+      return 'Recently'
     }
   }
 
@@ -137,11 +171,22 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
       </CardHeader>
 
       <CardContent>
+        {/* Debug Info (only in development) */}
+        {debugInfo && process.env.NODE_ENV === 'development' && (
+          <div className="mb-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+            <p className="text-xs text-yellow-600 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              Debug: {debugInfo}
+            </p>
+          </div>
+        )}
+
+        {/* Loading State */}
         {isLoading && (
           <div className="space-y-4">
             {[...Array(3)].map((_, i) => (
               <div key={i} className="flex gap-4 animate-pulse">
-                <div className="w-24 h-24 bg-secondary rounded-lg" />
+                <div className="w-24 h-24 bg-secondary rounded-lg flex-shrink-0" />
                 <div className="flex-1 space-y-2">
                   <div className="h-4 bg-secondary rounded w-3/4" />
                   <div className="h-3 bg-secondary rounded w-1/2" />
@@ -152,23 +197,35 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
           </div>
         )}
 
-        {error && (
+        {/* Error State */}
+        {error && !isLoading && (
           <div className="text-center py-8">
-            <p className="text-muted-foreground">{error}</p>
-          </div>
-        )}
-
-        {!isLoading && !error && news.length === 0 && (
-          <div className="text-center py-8">
-            <Newspaper className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-            <p className="text-muted-foreground">
-              {type === 'portfolio'
-                ? 'Add stocks to your portfolio to see relevant news'
-                : 'No news available'}
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-2" />
+            <p className="text-red-500 font-semibold mb-1">{error}</p>
+            <p className="text-xs text-muted-foreground">
+              Check console for details or try refreshing the page
             </p>
           </div>
         )}
 
+        {/* Empty State */}
+        {!isLoading && !error && news.length === 0 && (
+          <div className="text-center py-8">
+            <Newspaper className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+            <p className="text-muted-foreground font-semibold mb-1">
+              {type === 'portfolio'
+                ? 'No news available for your holdings'
+                : 'No news available'}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {type === 'portfolio'
+                ? `Holdings: ${holdings.map(h => h.symbol).join(', ') || 'None'}`
+                : 'Check back later for updates'}
+            </p>
+          </div>
+        )}
+
+        {/* News Articles */}
         {!isLoading && !error && news.length > 0 && (
           <div className="space-y-4">
             {news.map((article, index) => (
@@ -197,7 +254,7 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
                 <div className="flex-1 min-w-0">
                   {/* Badges */}
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
-                    {article.symbol && (
+                    {article.symbol && article.symbol !== 'MARKET' && (
                       <Badge
                         variant="secondary"
                         className={userOwns(article.symbol) ? 'bg-blue-500/20 text-blue-500' : ''}
@@ -218,9 +275,11 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
                   </h3>
 
                   {/* Excerpt */}
-                  <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
-                    {article.text}
-                  </p>
+                  {article.text && (
+                    <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                      {article.text}
+                    </p>
+                  )}
 
                   {/* Source */}
                   <div className="flex items-center justify-between">
@@ -238,14 +297,8 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
         {/* View All Button */}
         {!isLoading && news.length > 0 && (
           <div className="mt-4 text-center">
-            <Button variant="outline" size="sm" asChild>
-              <a
-                href={type === 'portfolio' ? '#' : 'https://finance.yahoo.com/news'}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                View More News
-              </a>
+            <Button variant="outline" size="sm">
+              View More News
             </Button>
           </div>
         )}

@@ -79,9 +79,9 @@ function FearGreedGauge({ value, label, previousValue, change, title, descriptio
       <h3 className="font-bold text-xl mb-1">{title}</h3>
       <p className="text-xs text-muted-foreground mb-8">{description}</p>
 
-      {/* Gauge Container */}
-      <div className="relative w-full max-w-[300px]">
-        <svg viewBox="0 0 200 140" className="w-full h-auto">
+      {/* Gauge SVG */}
+      <div className="w-full max-w-[300px] mb-6">
+        <svg viewBox="0 0 200 120" className="w-full h-auto">
           {/* Background arc - VISIBLE */}
           <path
             d="M 30 110 A 70 70 0 0 1 170 110"
@@ -158,17 +158,15 @@ function FearGreedGauge({ value, label, previousValue, change, title, descriptio
             strokeWidth="3"
           />
         </svg>
+      </div>
 
-        {/* Value display - BELOW the gauge */}
-        <div className="absolute top-[75%] left-1/2 transform -translate-x-1/2 text-center">
-          <div className={`text-6xl font-bold ${textColor}`}>
-            {Math.round(displayValue)}
-          </div>
-        </div>
+      {/* Value - ABOVE label, smaller size */}
+      <div className={`text-4xl font-bold mb-2 ${textColor}`}>
+        {Math.round(displayValue)}
       </div>
 
       {/* Label */}
-      <div className={`text-3xl font-bold uppercase mt-6 ${textColor}`}>
+      <div className={`text-2xl font-bold uppercase ${textColor}`}>
         {label}
       </div>
 

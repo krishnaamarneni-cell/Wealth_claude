@@ -1,11 +1,11 @@
 "use client"
 
 import { Bell, Search, User } from "lucide-react"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { signOut } from "@/app/auth/actions"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,11 +16,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 export function DashboardHeader() {
-  const router = useRouter()
-
-  const handleLogout = () => {
-    // Clear portfolio data and redirect to landing page
-    router.push('/')
+  const handleLogout = async () => {
+    await signOut()
   }
   return (
     <header className="flex h-14 items-center justify-between border-b border-border px-4 lg:px-6">

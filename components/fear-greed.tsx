@@ -27,22 +27,21 @@ const MOCK_FEAR_GREED_DATA = {
   }
 }
 
-// Helper to determine label from value
-function getLabel(value: number): string {
-  if (value <= 25) return 'Extreme Fear'
-  if (value <= 45) return 'Fear'
-  if (value <= 55) return 'Neutral'
-  if (value <= 75) return 'Greed'
-  return 'Extreme Greed'
+// Helper to get color based on value
+function getColorClass(value: number): string {
+  if (value <= 25) return '#dc2626' // red-600
+  if (value <= 45) return '#f97316' // orange-500
+  if (value <= 55) return '#eab308' // yellow-500
+  if (value <= 75) return '#22c55e' // green-500
+  return '#10b981' // emerald-500
 }
 
-// Helper to get color based on value
-function getColor(value: number): string {
+function getTextColorClass(value: number): string {
   if (value <= 25) return 'text-red-600'
   if (value <= 45) return 'text-orange-500'
   if (value <= 55) return 'text-yellow-500'
   if (value <= 75) return 'text-green-500'
-  return 'text-emerald-600'
+  return 'text-emerald-500'
 }
 
 interface SpeedometerProps {
@@ -56,12 +55,13 @@ interface SpeedometerProps {
 
 function Speedometer({ value, label, previousValue, change, title, description }: SpeedometerProps) {
   const [animatedValue, setAnimatedValue] = useState(0)
-  const color = getColor(value)
+  const color = getColorClass(value)
+  const textColor = getTextColorClass(value)
 
   // Animate needle from 0 to value on mount
   useEffect(() => {
-    const duration = 1500 // 1.5 seconds
-    const steps = 60
+    const duration = 2000 // 2 seconds
+    const steps = 100
     const stepValue = value / steps
     const stepDuration = duration / steps
 
@@ -78,93 +78,127 @@ function Speedometer({ value, label, previousValue, change, title, description }
     return () => clearInterval(timer)
   }, [value])
 
-  // Calculate needle rotation (-90deg = 0, 90deg = 100)
-  const rotation = -90 + (animatedValue * 1.8) // 180 degrees total range
+  // Calculate needle rotation angle
+  // Range: -135deg (left) to +135deg (right) = 270 degrees total
+  const rotation = -135 + (animatedValue / 100) * 270
+
+  // Calculate arc path for the gauge background
+  const radius = 80
+  const centerX = 100
+  const centerY = 100
+  const strokeWidth = 16
 
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col items-center w-full">
       {/* Title */}
       <h3 className="font-bold text-lg mb-1">{title}</h3>
-      <p className="text-xs text-muted-foreground mb-4">{description}</p>
+      <p className="text-xs text-muted-foreground mb-6">{description}</p>
 
-      {/* Speedometer Gauge */}
-      <div className="relative w-48 h-32 mb-4">
-        {/* Semi-circle background with color zones */}
-        <svg viewBox="0 0 200 110" className="w-full h-full">
-          {/* Background arc (gray) */}
+      {/* Speedometer Container */}
+      <div className="relative w-full max-w-[240px] aspect-square mb-6">
+        <svg viewBox="0 0 200 130" className="w-full h-auto">
+          {/* Background Arc - Gray */}
           <path
-            d="M 20 100 A 80 80 0 0 1 180 100"
+            d="M 30 100 A 70 70 0 0 1 170 100"
             fill="none"
-            stroke="currentColor"
-            strokeWidth="20"
-            className="text-secondary"
+            stroke="hsl(var(--muted))"
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
           />
 
-          {/* Color zones */}
-          {/* Extreme Fear (0-25) - Red */}
+          {/* Colored Zones */}
+          {/* Extreme Fear: 0-25 (Red) */}
           <path
-            d="M 20 100 A 80 80 0 0 1 65 35"
+            d="M 30 100 A 70 70 0 0 1 56 45"
             fill="none"
             stroke="#dc2626"
-            strokeWidth="20"
-            opacity="0.8"
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            opacity="0.6"
           />
-          {/* Fear (25-45) - Orange */}
+
+          {/* Fear: 25-45 (Orange) */}
           <path
-            d="M 65 35 A 80 80 0 0 1 100 20"
+            d="M 56 45 A 70 70 0 0 1 85 25"
             fill="none"
             stroke="#f97316"
-            strokeWidth="20"
-            opacity="0.8"
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            opacity="0.6"
           />
-          {/* Neutral (45-55) - Yellow */}
+
+          {/* Neutral: 45-55 (Yellow) */}
           <path
-            d="M 100 20 A 80 80 0 0 1 135 35"
+            d="M 85 25 A 70 70 0 0 1 115 25"
             fill="none"
             stroke="#eab308"
-            strokeWidth="20"
-            opacity="0.8"
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            opacity="0.6"
           />
-          {/* Greed (55-75) - Green */}
+
+          {/* Greed: 55-75 (Green) */}
           <path
-            d="M 135 35 A 80 80 0 0 1 180 100"
+            d="M 115 25 A 70 70 0 0 1 144 45"
             fill="none"
             stroke="#22c55e"
-            strokeWidth="20"
-            opacity="0.8"
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            opacity="0.6"
+          />
+
+          {/* Extreme Greed: 75-100 (Emerald) */}
+          <path
+            d="M 144 45 A 70 70 0 0 1 170 100"
+            fill="none"
+            stroke="#10b981"
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            opacity="0.6"
           />
 
           {/* Needle */}
-          <line
-            x1="100"
-            y1="100"
-            x2="100"
-            y2="40"
-            stroke="currentColor"
-            strokeWidth="3"
-            strokeLinecap="round"
-            className="text-foreground origin-center transition-transform duration-100 ease-out"
-            style={{
-              transform: `rotate(${rotation}deg)`,
-              transformOrigin: '100px 100px'
-            }}
-          />
+          <g transform={`rotate(${rotation} 100 100)`}>
+            <line
+              x1="100"
+              y1="100"
+              x2="100"
+              y2="35"
+              stroke="hsl(var(--foreground))"
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+            {/* Needle tip triangle */}
+            <polygon
+              points="100,35 95,45 105,45"
+              fill="hsl(var(--foreground))"
+            />
+          </g>
 
-          {/* Needle center dot */}
-          <circle cx="100" cy="100" r="6" fill="currentColor" className="text-foreground" />
+          {/* Center circle */}
+          <circle
+            cx="100"
+            cy="100"
+            r="8"
+            fill="hsl(var(--background))"
+            stroke="hsl(var(--foreground))"
+            strokeWidth="2"
+          />
         </svg>
 
-        {/* Value display */}
-        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 text-center">
-          <span className={`text-4xl font-bold ${color}`}>
-            {Math.round(animatedValue)}
-          </span>
-          <span className="text-xs text-muted-foreground ml-1">/ 100</span>
+        {/* Value Display Below Gauge */}
+        <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-center w-full">
+          <div className="flex items-center justify-center gap-1">
+            <span className={`text-5xl font-bold ${textColor}`}>
+              {Math.round(animatedValue)}
+            </span>
+            <span className="text-sm text-muted-foreground mt-2">/ 100</span>
+          </div>
         </div>
       </div>
 
       {/* Label */}
-      <div className={`text-2xl font-bold mb-2 ${color}`}>
+      <div className={`text-2xl font-bold mb-3 mt-8 ${textColor}`}>
         {label}
       </div>
 
@@ -207,7 +241,7 @@ export default function FearGreed() {
 
       <CardContent>
         {/* Dual Speedometers */}
-        <div className="grid md:grid-cols-2 gap-8 divide-x-0 md:divide-x divide-border">
+        <div className="grid md:grid-cols-2 gap-12 md:gap-8">
           {/* Stock Market Speedometer */}
           <Speedometer
             value={stock.value}
@@ -230,7 +264,7 @@ export default function FearGreed() {
         </div>
 
         {/* What This Means */}
-        <div className="mt-6 p-4 rounded-lg bg-secondary/30 border border-border">
+        <div className="mt-8 p-4 rounded-lg bg-secondary/30 border border-border">
           <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
             💡 What this means:
           </h4>
@@ -269,33 +303,33 @@ export default function FearGreed() {
         </div>
 
         {/* Scale Legend */}
-        <div className="mt-4 p-4 rounded-lg bg-secondary/20">
-          <h4 className="font-semibold text-xs mb-3 text-muted-foreground">SCALE:</h4>
-          <div className="flex justify-between items-center text-xs">
+        <div className="mt-6 p-4 rounded-lg bg-secondary/20">
+          <h4 className="font-semibold text-xs mb-3 text-muted-foreground uppercase">Scale Guide:</h4>
+          <div className="flex flex-wrap justify-between items-start gap-4 text-xs">
             <div className="flex flex-col items-center">
-              <div className="w-3 h-3 rounded-full bg-red-600 mb-1"></div>
+              <div className="w-4 h-4 rounded-full bg-red-600 mb-1.5"></div>
               <span className="text-red-600 font-semibold">0-25</span>
-              <span className="text-muted-foreground">Extreme Fear</span>
+              <span className="text-muted-foreground text-center">Extreme<br />Fear</span>
             </div>
             <div className="flex flex-col items-center">
-              <div className="w-3 h-3 rounded-full bg-orange-500 mb-1"></div>
+              <div className="w-4 h-4 rounded-full bg-orange-500 mb-1.5"></div>
               <span className="text-orange-500 font-semibold">26-45</span>
               <span className="text-muted-foreground">Fear</span>
             </div>
             <div className="flex flex-col items-center">
-              <div className="w-3 h-3 rounded-full bg-yellow-500 mb-1"></div>
+              <div className="w-4 h-4 rounded-full bg-yellow-500 mb-1.5"></div>
               <span className="text-yellow-500 font-semibold">46-55</span>
               <span className="text-muted-foreground">Neutral</span>
             </div>
             <div className="flex flex-col items-center">
-              <div className="w-3 h-3 rounded-full bg-green-500 mb-1"></div>
+              <div className="w-4 h-4 rounded-full bg-green-500 mb-1.5"></div>
               <span className="text-green-500 font-semibold">56-75</span>
               <span className="text-muted-foreground">Greed</span>
             </div>
             <div className="flex flex-col items-center">
-              <div className="w-3 h-3 rounded-full bg-emerald-600 mb-1"></div>
-              <span className="text-emerald-600 font-semibold">76-100</span>
-              <span className="text-muted-foreground">Extreme Greed</span>
+              <div className="w-4 h-4 rounded-full bg-emerald-500 mb-1.5"></div>
+              <span className="text-emerald-500 font-semibold">76-100</span>
+              <span className="text-muted-foreground text-center">Extreme<br />Greed</span>
             </div>
           </div>
         </div>

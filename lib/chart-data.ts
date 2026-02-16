@@ -37,6 +37,23 @@ export function generatePortfolioHistory(
   numPoints: number
 ): ChartDataPoint[] {
   const dataPoints: ChartDataPoint[] = []
+  
+  // Guard against invalid inputs
+  if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+    console.error('[v0] Invalid start/end dates:', { startDate, endDate })
+    return dataPoints
+  }
+  
+  if (!Number.isFinite(numPoints) || numPoints <= 0) {
+    console.error('[v0] Invalid numPoints:', { numPoints })
+    return dataPoints
+  }
+  
+  if (!Number.isFinite(startValue) || !Number.isFinite(endValue)) {
+    console.error('[v0] Invalid start/end values:', { startValue, endValue })
+    return dataPoints
+  }
+  
   const totalGrowth = (endValue - startValue) / startValue
   const daysBetween = Math.max(1, (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
   const daysPerPoint = Math.max(1, daysBetween / numPoints)
@@ -45,13 +62,13 @@ export function generatePortfolioHistory(
   
   for (let i = 0; i <= numPoints; i++) {
     const date = new Date(startDate)
-    date.setDate(date.getDate() + (i * daysPerPoint))
+    date.setDate(date.getDate() + Math.floor(i * daysPerPoint))
     
     if (date > endDate) date.setTime(endDate.getTime())
     
     // Validate date is valid before processing
     if (isNaN(date.getTime())) {
-      console.error('[v0] Invalid date calculated:', { startDate, i, daysPerPoint })
+      console.error('[v0] Invalid date calculated:', { i, daysPerPoint, startDate: startDate.toISOString() })
       continue
     }
     
@@ -102,14 +119,20 @@ export function getChartData(
   }
   
   const now = new Date()
-  let startDate: Date
-  let numPoints: number
-  
+  let startDate: Date | null = null
+  let numPoints: number = 100
+
   // Get earliest transaction date
   const earliestTransaction = transactions.length > 0 
     ? new Date(transactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0].date)
     : new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
-  
+
+  // Validate earliest transaction is valid
+  if (isNaN(earliestTransaction.getTime())) {
+    console.error('[v0] Invalid earliest transaction date')
+    return []
+  }
+
   switch (timeRange) {
     case '1w':
       startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
@@ -132,18 +155,26 @@ export function getChartData(
       numPoints = 52
       break
     case 'all':
-      startDate = earliestTransaction
-      const daysSinceStart = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-      numPoints = Math.min(Math.floor(daysSinceStart), 200)
+      startDate = new Date(earliestTransaction)
+      {
+        const daysSinceStart = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+        numPoints = Math.min(Math.floor(daysSinceStart), 200)
+      }
       break
     default:
-      startDate = earliestTransaction
+      startDate = new Date(earliestTransaction)
       numPoints = 100
   }
   
+  // Ensure startDate is valid
+  if (!startDate || isNaN(startDate.getTime())) {
+    console.error('[v0] Invalid start date after switch')
+    return []
+  }
+
   // Ensure startDate isn't before first transaction
   if (startDate < earliestTransaction) {
-    startDate = earliestTransaction
+    startDate = new Date(earliestTransaction)
   }
   
   // For shorter time periods, estimate start value based on current performance

@@ -4,8 +4,9 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Newspaper, ExternalLink, Clock, TrendingUp, AlertCircle, RefreshCw } from "lucide-react"
+import { Newspaper, ExternalLink, Clock, TrendingUp, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react"
 import { usePortfolio } from "@/lib/portfolio-context"
+import Image from "next/image"
 
 interface NewsArticle {
   symbol: string
@@ -24,12 +25,14 @@ interface NewsFeedProps {
   description?: string
 }
 
+const NEWS_PER_PAGE = 5
+
 export default function NewsFeed({ type, title, description }: NewsFeedProps) {
   const { holdings, isLoading: portfolioLoading } = usePortfolio()
   const [news, setNews] = useState<NewsArticle[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
 
   useEffect(() => {
     async function fetchNews() {
@@ -69,7 +72,7 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
         console.log(`Received ${data.length} ${type} articles`)
 
         setNews(data)
-        setLastUpdated(new Date())
+        setCurrentPage(1) // Reset to page 1 on new data
 
       } catch (err) {
         console.error('Error fetching news:', err)
@@ -85,7 +88,7 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
 
     fetchNews()
 
-    // Refresh every 1 HOUR (3600000 ms) = 24 API calls per day
+    // Refresh every 1 HOUR (3600000 ms)
     const interval = setInterval(fetchNews, 60 * 60 * 1000)
     return () => clearInterval(interval)
 
@@ -123,6 +126,24 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
     ? 'Latest news for stocks you own'
     : 'Trending stories and market updates'
 
+  // Pagination
+  const totalPages = Math.ceil(news.length / NEWS_PER_PAGE)
+  const startIndex = (currentPage - 1) * NEWS_PER_PAGE
+  const endIndex = startIndex + NEWS_PER_PAGE
+  const currentNews = news.slice(startIndex, endIndex)
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(prev => prev + 1)
+    }
+  }
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(prev => prev - 1)
+    }
+  }
+
   return (
     <Card className="border-border bg-card">
       <CardHeader>
@@ -135,12 +156,6 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
             <p className="text-sm text-muted-foreground mt-1">
               {description || defaultDescription}
             </p>
-            {lastUpdated && (
-              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                <RefreshCw className="h-3 w-3" />
-                Updated {formatDate(lastUpdated.toISOString())} • Next refresh in 1 hour
-              </p>
-            )}
           </div>
           {type === 'market' && (
             <TrendingUp className="h-5 w-5 text-green-500" />
@@ -151,7 +166,7 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
       <CardContent>
         {isLoading && (
           <div className="space-y-4">
-            {[...Array(3)].map((_, i) => (
+            {[...Array(NEWS_PER_PAGE)].map((_, i) => (
               <div key={i} className="flex gap-4 animate-pulse">
                 <div className="w-24 h-24 bg-secondary rounded-lg flex-shrink-0" />
                 <div className="flex-1 space-y-2">
@@ -169,7 +184,7 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-2" />
             <p className="text-red-500 font-semibold mb-1">{error}</p>
             <p className="text-xs text-muted-foreground">
-              Both APIs failed. Check console or try again later.
+              Check console or try again later.
             </p>
           </div>
         )}
@@ -191,66 +206,125 @@ export default function NewsFeed({ type, title, description }: NewsFeedProps) {
           </div>
         )}
 
-        {!isLoading && !error && news.length > 0 && (
-          <div className="space-y-4">
-            {news.map((article, index) => (
-              <a
-                key={`${article.url}-${index}`}
-                href={article.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex gap-4 p-3 rounded-lg hover:bg-secondary/50 transition-colors group"
-              >
-                {article.image && (
-                  <div className="w-24 h-24 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-                    <img
-                      src={article.image}
-                      alt={article.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none'
-                      }}
-                    />
-                  </div>
-                )}
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2 flex-wrap">
-                    {article.symbol && article.symbol !== 'MARKET' && (
-                      <Badge
-                        variant="secondary"
-                        className={userOwns(article.symbol) ? 'bg-blue-500/20 text-blue-500' : ''}
-                      >
-                        {article.symbol}
-                        {userOwns(article.symbol) && ' ✓'}
-                      </Badge>
+        {!isLoading && !error && currentNews.length > 0 && (
+          <>
+            <div className="space-y-4">
+              {currentNews.map((article, index) => (
+                <a
+                  key={`${article.url}-${index}`}
+                  href={article.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex gap-4 p-3 rounded-lg hover:bg-secondary/50 transition-colors group"
+                >
+                  {/* Thumbnail with Logo Fallback */}
+                  <div className="w-24 h-24 rounded-lg overflow-hidden bg-muted flex-shrink-0 flex items-center justify-center">
+                    {article.image ? (
+                      <img
+                        src={article.image}
+                        alt={article.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        onError={(e) => {
+                          // Replace with logo on error
+                          const target = e.currentTarget
+                          target.style.display = 'none'
+                          const parent = target.parentElement
+                          if (parent) {
+                            parent.innerHTML = `
+                              <div class="w-full h-full flex items-center justify-center bg-blue-500/10">
+                                <svg class="w-12 h-12 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
+                                </svg>
+                              </div>
+                            `
+                          }
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-blue-500/10">
+                        <svg className="w-12 h-12 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                        </svg>
+                      </div>
                     )}
-                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {formatDate(article.publishedDate)}
-                    </span>
                   </div>
 
-                  <h3 className="font-semibold text-sm leading-tight mb-1 group-hover:text-blue-500 transition-colors line-clamp-2">
-                    {article.title}
-                  </h3>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      {article.symbol && article.symbol !== 'MARKET' && (
+                        <Badge
+                          variant="secondary"
+                          className={userOwns(article.symbol) ? 'bg-blue-500/20 text-blue-500' : ''}
+                        >
+                          {article.symbol}
+                          {userOwns(article.symbol) && ' ✓'}
+                        </Badge>
+                      )}
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {formatDate(article.publishedDate)}
+                      </span>
+                    </div>
 
-                  {article.text && (
-                    <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
-                      {article.text}
-                    </p>
-                  )}
+                    <h3 className="font-semibold text-sm leading-tight mb-1 group-hover:text-blue-500 transition-colors line-clamp-2">
+                      {article.title}
+                    </h3>
 
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">
-                      {article.site}
-                    </span>
-                    <ExternalLink className="h-3 w-3 text-muted-foreground group-hover:text-blue-500 transition-colors" />
+                    {article.text && (
+                      <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                        {article.text}
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">
+                        {article.site}
+                      </span>
+                      <ExternalLink className="h-3 w-3 text-muted-foreground group-hover:text-blue-500 transition-colors" />
+                    </div>
                   </div>
-                </div>
-              </a>
-            ))}
-          </div>
+                </a>
+              ))}
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="mt-6 flex items-center justify-between">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={goToPreviousPage}
+                  disabled={currentPage === 1}
+                  className="flex items-center gap-2"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+
+                <span className="text-sm text-muted-foreground">
+                  Page {currentPage} of {totalPages}
+                </span>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={goToNextPage}
+                  disabled={currentPage === totalPages}
+                  className="flex items-center gap-2"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+
+            {/* Article Count Info */}
+            <div className="mt-4 text-center">
+              <p className="text-xs text-muted-foreground">
+                Showing {startIndex + 1}-{Math.min(endIndex, news.length)} of {news.length} articles
+              </p>
+            </div>
+          </>
         )}
       </CardContent>
     </Card>

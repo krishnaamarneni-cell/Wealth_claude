@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import dynamic from "next/dynamic"
 import PortfolioChart from "@/components/portfolio-chart"
 import MarketMovers from "@/components/market-movers"
 import SectorPerformance from "@/components/sector-performance"
@@ -26,7 +27,6 @@ import PortfolioVsMarket from "@/components/portfolio-vs-market"
 import FearGreed from "@/components/fear-greed"
 import NewsFeed from "@/components/news-feed"
 import { usePortfolio } from "@/lib/portfolio-context"
-import { Suspense } from "react"
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -44,23 +44,7 @@ const formatPercent = (value: number | undefined | null) => {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
 }
 
-// Skeleton loader for dashboard
-function DashboardSkeleton() {
-  return (
-    <div className="p-4 lg:p-6 space-y-6">
-      <div className="h-20 bg-secondary rounded-lg animate-pulse" />
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-24 bg-secondary rounded-lg animate-pulse" />
-        ))}
-      </div>
-      <div className="h-96 bg-secondary rounded-lg animate-pulse" />
-    </div>
-  )
-}
-
-// Client-only dashboard content - only rendered on client after hydration
-function DashboardContent() {
+export default function DashboardPage() {
   const {
     holdings,
     portfolioValue: totalPortfolioValue,
@@ -68,11 +52,26 @@ function DashboardContent() {
     totalGain,
     totalGainPercent,
     performance,
+    isLoading
   } = usePortfolio()
 
   const todayGain = performance.todayReturn.value
   const todayGainPercent = performance.todayReturn.percent
   const unrealizedGains = totalGain
+
+  if (isLoading) {
+    return (
+      <div className="p-4 lg:p-6 space-y-6">
+        <div className="h-20 bg-secondary rounded-lg animate-pulse" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-24 bg-secondary rounded-lg animate-pulse" />
+          ))}
+        </div>
+        <div className="h-96 bg-secondary rounded-lg animate-pulse" />
+      </div>
+    )
+  }
 
   const topGainers = [...holdings]
     .sort((a, b) => b.totalGainPercent - a.totalGainPercent)
@@ -418,14 +417,5 @@ function DashboardContent() {
         </TabsContent>
       </Tabs>
     </div>
-  )
-}
-
-// Main page component with Suspense boundary to prevent hydration mismatch
-export default function DashboardPage() {
-  return (
-    <Suspense fallback={<DashboardSkeleton />}>
-      <DashboardContent />
-    </Suspense>
   )
 }

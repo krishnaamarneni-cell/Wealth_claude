@@ -293,10 +293,10 @@ export default function HoldingsTable() {
           break
       }
 
-      return {
-        ...h,
-        performanceValue: isFinite(performanceValue) ? performanceValue : 0,
-        performancePercent: isFinite(performancePercent) ? performancePercent : 0
+      return { 
+        ...h, 
+        performanceValue: isFinite(performanceValue) ? performanceValue : 0, 
+        performancePercent: isFinite(performancePercent) ? performancePercent : 0 
       }
     })
 

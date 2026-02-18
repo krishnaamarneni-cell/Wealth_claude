@@ -37,24 +37,34 @@ export function generatePortfolioHistory(
   numPoints: number
 ): ChartDataPoint[] {
   const dataPoints: ChartDataPoint[] = []
-  
+
   // Guard against invalid inputs
   if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+    console.error('[Chart] Invalid start/end dates:', { startDate, endDate })
     return dataPoints
   }
-  
+
   if (!Number.isFinite(numPoints) || numPoints <= 0) {
-    numPoints = 50
+    console.error('[Chart] Invalid numPoints:', { numPoints })
+    // DEFAULT: Create at least 10 points
+    numPoints = 10
   }
-  
+
   if (!Number.isFinite(startValue) || !Number.isFinite(endValue)) {
+    console.error('[Chart] Invalid start/end values:', { startValue, endValue })
     return dataPoints
   }
-  
-  const totalGrowth = (endValue - startValue) / startValue
+
+  // Ensure we have valid values
+  if (startValue <= 0) startValue = 1000
+  if (endValue <= 0) endValue = startValue * 1.1
+
   const daysBetween = Math.max(1, (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
-  const daysPerPoint = Math.max(1, daysBetween / numPoints)
-  
+  const daysPerPoint = Math.max(0.1, daysBetween / numPoints)
+
+  console.log(`[Chart] Generating ${numPoints} points from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`)
+  console.log(`[Chart] Start value: $${startValue.toFixed(2)}, End value: $${endValue.toFixed(2)}`)
+
   let previousValue = startValue
 
   for (let i = 0; i <= numPoints; i++) {
@@ -65,6 +75,7 @@ export function generatePortfolioHistory(
 
     // Validate date is valid before processing
     if (isNaN(date.getTime())) {
+      console.error('[Chart] Invalid date calculated:', { i, daysPerPoint })
       continue
     }
 
@@ -100,6 +111,8 @@ export function generatePortfolioHistory(
     })
   }
 
+  console.log(`[Chart] Generated ${dataPoints.length} data points`)
+
   return dataPoints
 }
 
@@ -110,12 +123,16 @@ export function getChartData(
   totalCost: number,
   transactions: any[]
 ): ChartDataPoint[] {
+  console.log(`[Chart] getChartData called with timeRange: ${timeRange}, currentValue: $${currentValue}, totalCost: $${totalCost}`)
+
   // Handle edge cases
   if (!currentValue || currentValue <= 0) {
+    console.warn('[Chart] Invalid current value, using default')
     currentValue = 10000
   }
 
   if (!totalCost || totalCost <= 0) {
+    console.warn('[Chart] Invalid total cost, using 90% of current value')
     totalCost = currentValue * 0.9
   }
 
@@ -124,7 +141,7 @@ export function getChartData(
   }
 
   const now = new Date()
-  let startDate: Date = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000) // Default to 1 year ago
+  let startDate: Date
   let numPoints: number = 50
 
   // Get earliest transaction date
@@ -140,11 +157,15 @@ export function getChartData(
 
     // Validate
     if (isNaN(earliestTransaction.getTime())) {
+      console.warn('[Chart] Invalid transaction date, using 1 year ago')
       earliestTransaction = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
     }
   } else {
+    console.warn('[Chart] No transactions found, using 1 year ago')
     earliestTransaction = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
   }
+
+  console.log(`[Chart] Earliest transaction: ${earliestTransaction.toLocaleDateString()}`)
 
   switch (timeRange) {
     case '1w':
@@ -169,8 +190,10 @@ export function getChartData(
       break
     case 'all':
       startDate = new Date(earliestTransaction)
-      const daysSinceStart = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-      numPoints = Math.min(Math.max(Math.floor(daysSinceStart / 7), 10), 100) // At least 10 points, max 100
+      {
+        const daysSinceStart = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+        numPoints = Math.min(Math.max(Math.floor(daysSinceStart / 7), 10), 100) // At least 10 points, max 100
+      }
       break
     default:
       startDate = new Date(earliestTransaction)
@@ -179,11 +202,13 @@ export function getChartData(
 
   // Ensure startDate is valid
   if (!startDate || isNaN(startDate.getTime())) {
+    console.error('[Chart] Invalid start date after switch, using 1 year ago')
     startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
   }
 
   // Ensure startDate isn't in the future
   if (startDate > now) {
+    console.warn('[Chart] Start date is in future, using 1 week ago')
     startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
   }
 
@@ -191,6 +216,9 @@ export function getChartData(
   if (timeRange !== 'all' && startDate < earliestTransaction) {
     startDate = new Date(earliestTransaction)
   }
+
+  console.log(`[Chart] Using date range: ${startDate.toLocaleDateString()} to ${now.toLocaleDateString()}`)
+  console.log(`[Chart] Number of points: ${numPoints}`)
 
   // For shorter time periods, estimate start value based on current performance
   let startValue: number
@@ -205,15 +233,13 @@ export function getChartData(
     startValue = currentValue / (1 + periodGainPercent / 100)
   }
 
-  // Ensure numPoints is valid
-  if (!Number.isFinite(numPoints) || numPoints <= 0) {
-    numPoints = 50
-  }
+  console.log(`[Chart] Start value: $${startValue.toFixed(2)}`)
 
   // Generate portfolio history
   const data = generatePortfolioHistory(startValue, currentValue, startDate, now, numPoints)
 
   if (data.length === 0) {
+    console.error('[Chart] No data generated! Creating fallback data')
     // FALLBACK: Create simple 2-point chart
     return [
       {

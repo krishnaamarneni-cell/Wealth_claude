@@ -305,8 +305,8 @@ function InteractiveHoldingsDonut({
             <div
               key={item.name}
               className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 border-2 ${hoveredItem === item.name
-                  ? "border-gray-400 dark:border-gray-600"
-                  : "border-transparent hover:border-gray-300 dark:hover:border-gray-700"
+                ? "border-gray-400 dark:border-gray-600"
+                : "border-transparent hover:border-gray-300 dark:hover:border-gray-700"
                 }`}
               onMouseEnter={() => setHoveredItem(item.name)}
               onMouseLeave={() => setHoveredItem(null)}

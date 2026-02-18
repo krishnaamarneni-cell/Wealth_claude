@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
         )
         
         if (!response.ok) {
-          console.warn(`Failed to fetch dividend data for ${symbol}`)
+          // API failed - will use mock data fallback
           return null
         }
         
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
         
         return null
       } catch (error) {
-        console.error(`Error fetching ${symbol}:`, error)
+        // Silent failure - will use mock data fallback
         return null
       }
     })

@@ -27,6 +27,7 @@ import PortfolioVsMarket from "@/components/portfolio-vs-market"
 import FearGreed from "@/components/fear-greed"
 import NewsFeed from "@/components/news-feed"
 import { usePortfolio } from "@/lib/portfolio-context"
+import { Suspense, useState, useEffect } from "react"
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -44,7 +45,23 @@ const formatPercent = (value: number | undefined | null) => {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
 }
 
-export default function DashboardPage() {
+// Loading skeleton
+function DashboardSkeleton() {
+  return (
+    <div className="p-4 lg:p-6 space-y-6">
+      <div className="h-20 bg-secondary rounded-lg animate-pulse" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="h-24 bg-secondary rounded-lg animate-pulse" />
+        ))}
+      </div>
+      <div className="h-96 bg-secondary rounded-lg animate-pulse" />
+    </div>
+  )
+}
+
+// Main dashboard content
+function DashboardContent() {
   const {
     holdings,
     portfolioValue: totalPortfolioValue,
@@ -52,26 +69,22 @@ export default function DashboardPage() {
     totalGain,
     totalGainPercent,
     performance,
-    isLoading
   } = usePortfolio()
+  
+  const [isMounted, setIsMounted] = useState(false)
+  
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+  
+  // Prevent hydration mismatch by not rendering on first pass
+  if (!isMounted) {
+    return null
+  }
 
   const todayGain = performance.todayReturn.value
   const todayGainPercent = performance.todayReturn.percent
   const unrealizedGains = totalGain
-
-  if (isLoading) {
-    return (
-      <div className="p-4 lg:p-6 space-y-6">
-        <div className="h-20 bg-secondary rounded-lg animate-pulse" />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-24 bg-secondary rounded-lg animate-pulse" />
-          ))}
-        </div>
-        <div className="h-96 bg-secondary rounded-lg animate-pulse" />
-      </div>
-    )
-  }
 
   const topGainers = [...holdings]
     .sort((a, b) => b.totalGainPercent - a.totalGainPercent)
@@ -417,5 +430,14 @@ export default function DashboardPage() {
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+// Main page with Suspense boundary
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<DashboardSkeleton />}>
+      <DashboardContent />
+    </Suspense>
   )
 }

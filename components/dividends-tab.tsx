@@ -47,6 +47,7 @@ import {
 import { getTransactionsFromStorage } from "@/lib/transaction-storage"
 
 type CalendarViewType = "upcoming" | "historical" | "transactions"
+type DividendSubTab = "overview" | "growth"
 
 interface DividendCalendarEvent {
   symbol: string
@@ -818,11 +819,10 @@ const FORECAST_CACHE_KEY = "dividend_page_forecasts_session"
 const FORECAST_LOADED_KEY = "dividend_page_loaded_session"
 
 export default function DividendsTab() {
+  const [dividendSubTab, setDividendSubTab] = useState<DividendSubTab>("overview")
   const [dripTransactions, setDRIPTransactions] = useState<DRIPTransaction[]>([])
   const [forecasts, setForecasts] = useState<DividendForecast[]>([])
   const [isLoadingForecasts, setIsLoadingForecasts] = useState(false)
-  const [isDripExpanded, setIsDripExpanded] = useState(false)
-  const [isGrowthExpanded, setIsGrowthExpanded] = useState(false)
   const hasLoadedRef = useRef(false)
 
   const {
@@ -948,6 +948,21 @@ export default function DividendsTab() {
     (f) => new Date(f.date) >= startOfYear
   ).length
 
+  // Calculate last year's dividends for YoY growth
+  const startOfLastYear = new Date(now.getFullYear() - 1, 0, 1)
+  const endOfLastYear = new Date(now.getFullYear() - 1, 11, 31)
+  const lastYearDividends = receivedDividends
+    .filter((f) => {
+      const date = new Date(f.date)
+      return date >= startOfLastYear && date <= endOfLastYear
+    })
+    .reduce((sum, f) => sum + f.totalAmount, 0)
+
+  // Calculate YoY Growth Rate
+  const yoyGrowthRate = lastYearDividends > 0
+    ? ((ytdDividends - lastYearDividends) / lastYearDividends) * 100
+    : 0
+
   // Calculate upcoming 12 months
   const oneYearFromNow = new Date()
   oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1)
@@ -962,6 +977,13 @@ export default function DividendsTab() {
 
   // Annual projection (upcoming 12 months)
   const annualProjection = upcoming12Months
+
+  // Average monthly growth
+  const monthsIntoYear = now.getMonth() + 1
+  const avgMonthlyGrowth = monthsIntoYear > 0 ? yoyGrowthRate / monthsIntoYear : 0
+
+  // 5-year projection (assuming constant growth rate)
+  const fiveYearProjection = annualProjection * Math.pow(1 + (yoyGrowthRate / 100), 5)
 
   // Monthly data for cylinder chart
   const monthlyRaw = forecasts.reduce(
@@ -1083,37 +1105,11 @@ export default function DividendsTab() {
   }, [transactions, forecasts, holdings])
 
   const totalDRIP = dripTransactions.reduce((sum, d) => sum + d.amount, 0)
+  const totalSharesAcquired = dripTransactions.reduce((sum, d) => sum + d.shares, 0)
+  const dripRate = ytdDividends > 0 ? (totalDRIP / ytdDividends) * 100 : 0
 
-  // Growth Calculation
-  const growthData = useMemo(() => {
-    const monthlyData: { [month: string]: { received: number; reinvested: number } } = {}
-
-    receivedDividends.forEach((div) => {
-      const month = div.date.substring(0, 7)
-      if (!monthlyData[month]) {
-        monthlyData[month] = { received: 0, reinvested: 0 }
-      }
-      monthlyData[month].received += div.totalAmount
-    })
-
-    dripTransactions.forEach((drip) => {
-      const month = drip.date.substring(0, 7)
-      if (!monthlyData[month]) {
-        monthlyData[month] = { received: 0, reinvested: 0 }
-      }
-      monthlyData[month].reinvested += drip.amount
-    })
-
-    return Object.entries(monthlyData)
-      .map(([month, data]) => ({
-        month,
-        received: data.received,
-        reinvested: data.reinvested,
-        growth: ((data.reinvested / (data.received || 1)) * 100).toFixed(1),
-      }))
-      .sort((a, b) => a.month.localeCompare(b.month))
-      .slice(-12)
-  }, [receivedDividends, dripTransactions])
+  // Growth chart data (last 12 months)
+  const growthChartData = monthlyChartData.slice(-12)
 
   if (isLoading) {
     return (
@@ -1126,321 +1122,394 @@ export default function DividendsTab() {
 
   return (
     <div className="space-y-6">
-      {/* Dividend Stats Row 1 - Core Metrics */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Portfolio Value</p>
-              <p className="text-2xl font-bold">{formatCurrency(portfolioValue)}</p>
-              <p className="text-xs text-muted-foreground">
-                Number of Assets: {totalStocks}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Dividend-Paying: {dividendPayingStocks}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Received (YTD)</p>
-              <p className="text-2xl font-bold text-green-600">{formatCurrency(ytdDividends)}</p>
-              <p className="text-xs text-muted-foreground">{ytdPaymentCount} payment{ytdPaymentCount !== 1 ? 's' : ''}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Upcoming (12M)</p>
-              <p className="text-2xl font-bold text-blue-600">{formatCurrency(upcoming12Months)}</p>
-              <p className="text-xs text-muted-foreground">{upcoming12MonthsCount} payment{upcoming12MonthsCount !== 1 ? 's' : ''}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Annual Projection</p>
-              <p className="text-2xl font-bold text-purple-600">{formatCurrency(annualProjection)}</p>
-              <p className="text-xs text-muted-foreground">Next 12 months</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Dividend Stats Row 2 - Yield Metrics */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Portfolio Yield (TTM)</p>
-              <p className="text-2xl font-bold">{portfolioYield.toFixed(2)}%</p>
-              <p className="text-xs text-muted-foreground">Based on current value</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Yield on Cost (TTM)</p>
-              <p className="text-2xl font-bold">{yieldOnCost.toFixed(2)}%</p>
-              <p className="text-xs text-muted-foreground">Based on cost basis</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Avg Monthly Income</p>
-              <p className="text-2xl font-bold">{formatCurrency(avgMonthlyIncome)}</p>
-              <p className="text-xs text-muted-foreground">Based on YTD</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Avg Daily Income</p>
-              <p className="text-2xl font-bold">{formatCurrency(avgDailyIncome)}</p>
-              <p className="text-xs text-muted-foreground">Based on YTD</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <InteractiveDividendDonut />
-
-        {/* Monthly Income Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Monthly Dividend Income</CardTitle>
-            <p className="text-sm text-muted-foreground">Last 12 months + upcoming</p>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={400}>
-              <BarChart data={monthlyChartData.slice(-12)}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis
-                  dataKey="month"
-                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                  tickFormatter={(value) => {
-                    const date = new Date(value + "-01")
-                    return date.toLocaleDateString("en-US", { month: "short" })
-                  }}
-                />
-                <YAxis
-                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                  tickFormatter={(value) => `$${value}`}
-                />
-                <Tooltip
-                  formatter={(value: number) => formatCurrency(value)}
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px",
-                  }}
-                />
-                <Legend />
-                <Bar
-                  dataKey="received"
-                  fill={PRIMARY_GREEN}
-                  name="Received"
-                  shape={<CylinderBar />}
-                />
-                <Bar
-                  dataKey="upcoming"
-                  fill="#3b82f6"
-                  name="Upcoming"
-                  shape={<CylinderBar />}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Calendar Section */}
-      <CalendarSection />
-
-      {/* Top Dividend Payers */}
+      {/* Sub-Tab Navigation */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            <TrendingUp className="inline h-4 w-4 mr-2" />
-            Top 5 Dividend Payers
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {topPayers.length > 0 ? (
-              topPayers.map((payer, idx) => (
-                <div
-                  key={payer.symbol}
-                  className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      <span className="text-sm font-bold">{idx + 1}</span>
-                    </div>
-                    <div>
-                      <p className="font-semibold">{payer.symbol}</p>
-                      <p className="text-xs text-muted-foreground">{payer.count} payments</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-green-600">{formatCurrency(payer.total)}</p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-center py-8 text-muted-foreground">No dividend data available</p>
-            )}
+        <CardContent className="pt-4 pb-4">
+          <div className="flex items-center gap-2">
+            <Button
+              variant={dividendSubTab === "overview" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setDividendSubTab("overview")}
+              className="h-9"
+            >
+              Overview
+            </Button>
+            <Button
+              variant={dividendSubTab === "growth" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setDividendSubTab("growth")}
+              className="h-9"
+            >
+              Growth & DRIP
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Growth Section (Collapsible) */}
-      <Card>
-        <CardHeader>
-          <div
-            className="flex items-center justify-between cursor-pointer"
-            onClick={() => setIsGrowthExpanded(!isGrowthExpanded)}
-          >
-            <div className="flex items-center gap-2">
+      {/* OVERVIEW TAB */}
+      {dividendSubTab === "overview" && (
+        <>
+          {/* Dividend Stats Row 1 - Core Metrics */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Portfolio Value</p>
+                  <p className="text-2xl font-bold">{formatCurrency(portfolioValue)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Number of Assets: {totalStocks}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Dividend-Paying: {dividendPayingStocks}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Received (YTD)</p>
+                  <p className="text-2xl font-bold text-green-600">{formatCurrency(ytdDividends)}</p>
+                  <p className="text-xs text-muted-foreground">{ytdPaymentCount} payment{ytdPaymentCount !== 1 ? 's' : ''}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Upcoming (12M)</p>
+                  <p className="text-2xl font-bold text-blue-600">{formatCurrency(upcoming12Months)}</p>
+                  <p className="text-xs text-muted-foreground">{upcoming12MonthsCount} payment{upcoming12MonthsCount !== 1 ? 's' : ''}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Annual Projection</p>
+                  <p className="text-2xl font-bold text-purple-600">{formatCurrency(annualProjection)}</p>
+                  <p className="text-xs text-muted-foreground">Next 12 months</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Dividend Stats Row 2 - Yield Metrics */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Portfolio Yield (TTM)</p>
+                  <p className="text-2xl font-bold">{portfolioYield.toFixed(2)}%</p>
+                  <p className="text-xs text-muted-foreground">Based on current value</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Yield on Cost (TTM)</p>
+                  <p className="text-2xl font-bold">{yieldOnCost.toFixed(2)}%</p>
+                  <p className="text-xs text-muted-foreground">Based on cost basis</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Avg Monthly Income</p>
+                  <p className="text-2xl font-bold">{formatCurrency(avgMonthlyIncome)}</p>
+                  <p className="text-xs text-muted-foreground">Based on YTD</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Avg Daily Income</p>
+                  <p className="text-2xl font-bold">{formatCurrency(avgDailyIncome)}</p>
+                  <p className="text-xs text-muted-foreground">Based on YTD</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Charts Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <InteractiveDividendDonut />
+
+            {/* Monthly Income Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Monthly Dividend Income</CardTitle>
+                <p className="text-sm text-muted-foreground">Last 12 months + upcoming</p>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={400}>
+                  <BarChart data={monthlyChartData.slice(-12)}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis
+                      dataKey="month"
+                      tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                      tickFormatter={(value) => {
+                        const date = new Date(value + "-01")
+                        return date.toLocaleDateString("en-US", { month: "short" })
+                      }}
+                    />
+                    <YAxis
+                      tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                      tickFormatter={(value) => `$${value}`}
+                    />
+                    <Tooltip
+                      formatter={(value: number) => formatCurrency(value)}
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "8px",
+                      }}
+                    />
+                    <Legend />
+                    <Bar
+                      dataKey="received"
+                      fill={PRIMARY_GREEN}
+                      name="Received"
+                      shape={<CylinderBar />}
+                    />
+                    <Bar
+                      dataKey="upcoming"
+                      fill="#3b82f6"
+                      name="Upcoming"
+                      shape={<CylinderBar />}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Calendar Section */}
+          <CalendarSection />
+
+          {/* Top Dividend Payers */}
+          <Card>
+            <CardHeader>
               <CardTitle className="text-base">
                 <TrendingUp className="inline h-4 w-4 mr-2" />
-                Dividend Growth
+                Top 5 Dividend Payers
               </CardTitle>
-              <span className="text-sm text-muted-foreground">
-                Reinvestment Rate
-              </span>
-            </div>
-            {isGrowthExpanded ? (
-              <ChevronUp className="h-5 w-5 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="h-5 w-5 text-muted-foreground" />
-            )}
-          </div>
-        </CardHeader>
-        {isGrowthExpanded && (
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={growthData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis
-                  dataKey="month"
-                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                  tickFormatter={(value) => {
-                    const date = new Date(value + "-01")
-                    return date.toLocaleDateString("en-US", { month: "short" })
-                  }}
-                />
-                <YAxis
-                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                  tickFormatter={(value) => `$${value}`}
-                />
-                <Tooltip
-                  formatter={(value: number) => formatCurrency(value)}
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px",
-                  }}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="received"
-                  stroke={PRIMARY_GREEN}
-                  strokeWidth={2}
-                  name="Dividends Received"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="reinvested"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  name="Reinvested"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        )}
-      </Card>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {topPayers.length > 0 ? (
+                  topPayers.map((payer, idx) => (
+                    <div
+                      key={payer.symbol}
+                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                          <span className="text-sm font-bold">{idx + 1}</span>
+                        </div>
+                        <div>
+                          <p className="font-semibold">{payer.symbol}</p>
+                          <p className="text-xs text-muted-foreground">{payer.count} payments</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-green-600">{formatCurrency(payer.total)}</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-center py-8 text-muted-foreground">No dividend data available</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
 
-      {/* DRIP Section (Collapsible) */}
-      <Card>
-        <CardHeader>
-          <div
-            className="flex items-center justify-between cursor-pointer"
-            onClick={() => setIsDripExpanded(!isDripExpanded)}
-          >
-            <div className="flex items-center gap-2">
+      {/* GROWTH & DRIP TAB */}
+      {dividendSubTab === "growth" && (
+        <>
+          {/* Growth Stats Row */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">YoY Growth Rate</p>
+                  <p className={`text-2xl font-bold ${yoyGrowthRate >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {yoyGrowthRate >= 0 ? '+' : ''}{yoyGrowthRate.toFixed(2)}%
+                  </p>
+                  <p className="text-xs text-muted-foreground">Based on received vs upcoming</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Avg Monthly Growth</p>
+                  <p className="text-2xl font-bold">{avgMonthlyGrowth.toFixed(2)}%</p>
+                  <p className="text-xs text-muted-foreground">Annualized into monthly rate</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">5-Year Projection</p>
+                  <p className="text-2xl font-bold text-purple-600">{formatCurrency(fiveYearProjection)}</p>
+                  <p className="text-xs text-muted-foreground">Assuming constant growth rate</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Total Reinvested</p>
+                  <p className="text-2xl font-bold text-blue-600">{formatCurrency(totalDRIP)}</p>
+                  <p className="text-xs text-muted-foreground">{dripTransactions.length} transaction{dripTransactions.length !== 1 ? 's' : ''}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* DRIP Stats Row */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Shares Acquired</p>
+                  <p className="text-2xl font-bold">{totalSharesAcquired.toFixed(4)}</p>
+                  <p className="text-xs text-muted-foreground">Through DRIP</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">DRIP Rate</p>
+                  <p className="text-2xl font-bold">{dripRate.toFixed(0)}%</p>
+                  <p className="text-xs text-muted-foreground">Of total dividends</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Avg DRIP Per Month</p>
+                  <p className="text-2xl font-bold">{formatCurrency(totalDRIP / 12)}</p>
+                  <p className="text-xs text-muted-foreground">Based on YTD</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Growth Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                <TrendingUp className="inline h-4 w-4 mr-2" />
+                Dividend Growth Over Time
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">Dividend Income</p>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={400}>
+                <LineChart data={growthChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                    tickFormatter={(value) => {
+                      const date = new Date(value + "-01")
+                      return date.toLocaleDateString("en-US", { month: "short", year: "2-digit" })
+                    }}
+                  />
+                  <YAxis
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                    tickFormatter={(value) => `$${value}`}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => formatCurrency(value)}
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "8px",
+                    }}
+                  />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="total"
+                    stroke={PRIMARY_GREEN}
+                    strokeWidth={3}
+                    name="Total Dividends"
+                    dot={{ r: 4 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* DRIP Transactions Table */}
+          <Card>
+            <CardHeader>
               <CardTitle className="text-base">
                 <DollarSign className="inline h-4 w-4 mr-2" />
-                DRIP Transactions
+                Dividend Reinvestment (DRIP)
               </CardTitle>
-              <span className="text-sm text-muted-foreground">
-                Total: {formatCurrency(totalDRIP)}
-              </span>
-            </div>
-            {isDripExpanded ? (
-              <ChevronUp className="h-5 w-5 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="h-5 w-5 text-muted-foreground" />
-            )}
-          </div>
-        </CardHeader>
-        {isDripExpanded && (
-          <CardContent>
-            {dripTransactions.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Symbol</TableHead>
-                    <TableHead className="text-right">Shares Acquired</TableHead>
-                    <TableHead className="text-right">Price</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dripTransactions.map((drip, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell className="text-sm">{formatDate(drip.date)}</TableCell>
-                      <TableCell className="font-medium">{drip.symbol}</TableCell>
-                      <TableCell className="text-right">{drip.shares.toFixed(4)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(drip.price)}</TableCell>
-                      <TableCell className="text-right font-medium text-green-600">
-                        {formatCurrency(drip.amount)}
-                      </TableCell>
+            </CardHeader>
+            <CardContent>
+              {dripTransactions.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Symbol</TableHead>
+                      <TableHead className="text-right">Shares</TableHead>
+                      <TableHead className="text-right">Price</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <AlertCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p className="font-medium">No DRIP transactions detected</p>
-                <p className="text-sm mt-1">
-                  DRIP transactions are detected when a BUY matches a DIVIDEND within 3 days
-                </p>
-              </div>
-            )}
-          </CardContent>
-        )}
-      </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {dripTransactions.map((drip, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell className="text-sm">{formatDate(drip.date)}</TableCell>
+                        <TableCell className="font-medium">{drip.symbol}</TableCell>
+                        <TableCell className="text-right">{drip.shares.toFixed(6)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(drip.price)}</TableCell>
+                        <TableCell className="text-right font-medium text-green-600">
+                          {formatCurrency(drip.amount)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <AlertCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p className="font-medium">No DRIP transactions detected</p>
+                  <p className="text-sm mt-1">
+                    DRIP transactions are detected when a BUY matches a DIVIDEND within 3 days
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   )
 }

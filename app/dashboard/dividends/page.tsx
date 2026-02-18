@@ -841,6 +841,7 @@ export default function DividendsPage() {
   const [dripTransactions, setDRIPTransactions] = useState<DRIPTransaction[]>([])
   const [forecasts, setForecasts] = useState<DividendForecast[]>([])
   const [isLoadingForecasts, setIsLoadingForecasts] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
   const hasLoadedRef = useRef(false)
 
   const {
@@ -852,6 +853,11 @@ export default function DividendsPage() {
     isRefreshing,
     refresh,
   } = usePortfolio()
+
+  // Prevent hydration mismatch by not rendering until client
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   const dividendPayingStocks = Object.keys(income.dividendsBySymbol).length
   const totalStocks = holdings.length
@@ -1186,13 +1192,8 @@ export default function DividendsPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-        <RefreshCw className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-muted-foreground">Loading dividend data...</p>
-      </div>
-    )
+  if (!isMounted) {
+    return null
   }
 
   return (
@@ -1441,8 +1442,8 @@ export default function DividendsPage() {
                 <div className="h-[300px] flex items-center justify-center">
                   <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
-              ) : (
-                <div className="h-[300px]">
+              ) : monthlyChartData && monthlyChartData.length > 0 ? (
+                <div className="h-[300px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={monthlyChartData}
@@ -1509,6 +1510,10 @@ export default function DividendsPage() {
                       />
                     </BarChart>
                   </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  <p>No dividend data available. Add transactions or click refresh to load data.</p>
                 </div>
               )}
             </CardContent>
@@ -1589,7 +1594,8 @@ export default function DividendsPage() {
               <CardTitle className="text-base">Dividend Growth Over Time</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[300px]">
+              {Object.entries(dividendsByMonthData).length > 0 ? (
+              <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
                     data={Object.entries(dividendsByMonthData)
@@ -1631,6 +1637,11 @@ export default function DividendsPage() {
                   </LineChart>
                 </ResponsiveContainer>
               </div>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  <p>No dividend growth data available.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

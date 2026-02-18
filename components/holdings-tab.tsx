@@ -12,13 +12,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from "recharts"
 import { RefreshCw, TrendingUp, TrendingDown, Lock, Info } from "lucide-react"
 import { getTransactionsFromStorage } from "@/lib/transaction-storage"
 import type { Transaction, Holding } from "@/lib/holdings-calculator"
 import { calculateHoldings, buildHoldingsWithPrices } from "@/lib/holdings-calculator"
 
-const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8", "#82ca9d", "#ffc658"]
+const COLORS = ["#22c55e", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#14b8a6"]
 
 // ==================== CACHE HELPERS ====================
 
@@ -76,27 +75,255 @@ const setCachedHoldings = (data: Omit<CachedHoldingsData, 'transactionCount'>): 
   }
 }
 
-const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }: any) => {
-  const RADIAN = Math.PI / 180
-  const radius = innerRadius + (outerRadius - innerRadius) * 0.5
-  const x = cx + radius * Math.cos(-midAngle * RADIAN)
-  const y = cy + radius * Math.sin(-midAngle * RADIAN)
+// ============ INTERACTIVE SVG DONUT ============
 
-  if (percent < 0.05) return null
+interface InteractiveDonutProps {
+  data: Array<{
+    name: string
+    value: number
+    color?: string
+    marketValue?: number
+    costBasis?: number
+    gain?: number
+    gainPercent?: number
+    sector?: string
+  }>
+  title: string
+  centerLabel?: string
+  showDetails?: boolean
+  viewType?: string
+}
+
+function InteractiveHoldingsDonut({
+  data,
+  title,
+  centerLabel = "Total",
+  showDetails = false,
+  viewType = "marketValue",
+}: InteractiveDonutProps) {
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null)
+
+  const total = data.reduce((sum, item) => sum + item.value, 0)
+
+  if (total === 0 || data.length === 0) {
+    return (
+      <div className="h-[400px] flex items-center justify-center text-muted-foreground">
+        No data available
+      </div>
+    )
+  }
+
+  const isSingleItem = data.length === 1
+  let currentAngle = -90
+
+  const segments = data.map((item, index) => {
+    const percentage = (item.value / total) * 100
+    const angle = isSingleItem ? 360 : (percentage / 100) * 360
+    const segment = {
+      ...item,
+      percentage,
+      color: item.color || COLORS[index % COLORS.length],
+      startAngle: currentAngle,
+      endAngle: currentAngle + angle,
+    }
+    currentAngle += angle
+    return segment
+  })
+
+  const polarToCartesian = (
+    centerX: number,
+    centerY: number,
+    radius: number,
+    angleInDegrees: number
+  ) => {
+    const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180.0
+    return {
+      x: centerX + radius * Math.cos(angleInRadians),
+      y: centerY + radius * Math.sin(angleInRadians),
+    }
+  }
+
+  const createArc = (
+    startAngle: number,
+    endAngle: number,
+    innerRadius: number,
+    outerRadius: number
+  ) => {
+    const start = polarToCartesian(200, 200, outerRadius, endAngle)
+    const end = polarToCartesian(200, 200, outerRadius, startAngle)
+    const innerStart = polarToCartesian(200, 200, innerRadius, endAngle)
+    const innerEnd = polarToCartesian(200, 200, innerRadius, startAngle)
+
+    const isFullCircle = Math.abs(endAngle - startAngle - 360) < 0.01
+
+    if (isFullCircle) {
+      const mid = polarToCartesian(200, 200, outerRadius, startAngle + 180)
+      const innerMid = polarToCartesian(200, 200, innerRadius, startAngle + 180)
+      return [
+        `M ${start.x} ${start.y}`,
+        `A ${outerRadius} ${outerRadius} 0 0 0 ${mid.x} ${mid.y}`,
+        `A ${outerRadius} ${outerRadius} 0 0 0 ${end.x} ${end.y}`,
+        `L ${innerEnd.x} ${innerEnd.y}`,
+        `A ${innerRadius} ${innerRadius} 0 0 1 ${innerMid.x} ${innerMid.y}`,
+        `A ${innerRadius} ${innerRadius} 0 0 1 ${innerStart.x} ${innerStart.y}`,
+        `Z`,
+      ].join(" ")
+    }
+
+    const largeArcFlag = endAngle - startAngle <= 180 ? 0 : 1
+
+    return [
+      `M ${start.x} ${start.y}`,
+      `A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`,
+      `L ${innerEnd.x} ${innerEnd.y}`,
+      `A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 1 ${innerStart.x} ${innerStart.y}`,
+      `Z`,
+    ].join(" ")
+  }
+
+  const formatCurrencyValue = (value: number) => {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value)
+  }
 
   return (
-    <text
-      x={x}
-      y={y}
-      fill="white"
-      textAnchor={x > cx ? "start" : "end"}
-      dominantBaseline="central"
-      className="text-xs font-bold"
-    >
-      {name} ({(percent * 100).toFixed(0)}%)
-    </text>
+    <div className="flex flex-col lg:flex-row gap-8">
+      {/* SVG Donut */}
+      <div className="flex-1">
+        <svg viewBox="0 0 400 400" className="w-full h-auto max-w-[400px] mx-auto">
+          {segments.map((segment) => {
+            const isHovered = hoveredItem === segment.name
+            const outerRadius = isHovered ? 175 : 165
+
+            return (
+              <path
+                key={segment.name}
+                d={createArc(segment.startAngle, segment.endAngle, 100, outerRadius)}
+                fill={segment.color}
+                opacity={hoveredItem && !isHovered ? 0.3 : 1}
+                className="transition-all duration-200 cursor-pointer"
+                onMouseEnter={() => setHoveredItem(segment.name)}
+                onMouseLeave={() => setHoveredItem(null)}
+              />
+            )
+          })}
+
+          {/* Center Text */}
+          {hoveredItem ? (
+            <>
+              <text
+                x="200"
+                y="185"
+                textAnchor="middle"
+                fill="#ffffff"
+                fontSize="14"
+                fontWeight="500"
+              >
+                {hoveredItem}
+              </text>
+              <text
+                x="200"
+                y="210"
+                textAnchor="middle"
+                fill="#22c55e"
+                fontSize="20"
+                fontWeight="700"
+              >
+                {formatCurrencyValue(segments.find((s) => s.name === hoveredItem)?.value || 0)}
+              </text>
+              <text x="200" y="230" textAnchor="middle" fill="#ffffff" fontSize="12">
+                {segments.find((s) => s.name === hoveredItem)?.percentage.toFixed(1)}% of{" "}
+                {title.toLowerCase()}
+              </text>
+            </>
+          ) : (
+            <>
+              <text
+                x="200"
+                y="185"
+                textAnchor="middle"
+                fill="#ffffff"
+                fontSize="14"
+                fontWeight="500"
+              >
+                {centerLabel}
+              </text>
+              <text
+                x="200"
+                y="215"
+                textAnchor="middle"
+                fill="#22c55e"
+                fontSize="24"
+                fontWeight="700"
+              >
+                {formatCurrencyValue(total)}
+              </text>
+            </>
+          )}
+        </svg>
+      </div>
+
+      {/* Legend */}
+      <div className="flex-1 max-w-md">
+        <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+          {segments.map((item) => (
+            <div
+              key={item.name}
+              className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 border-2 ${hoveredItem === item.name
+                  ? "border-gray-400 dark:border-gray-600"
+                  : "border-transparent hover:border-gray-300 dark:hover:border-gray-700"
+                }`}
+              onMouseEnter={() => setHoveredItem(item.name)}
+              onMouseLeave={() => setHoveredItem(null)}
+            >
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div
+                  className="w-3 h-3 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: item.color }}
+                />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-foreground">{item.name}</span>
+                    {item.sector && (
+                      <span className="text-xs text-muted-foreground truncate">{item.sector}</span>
+                    )}
+                  </div>
+                  {showDetails && item.gain !== undefined && (
+                    <div className="flex items-center gap-2 mt-1 text-xs">
+                      <span className={item.gain >= 0 ? "text-green-500" : "text-red-500"}>
+                        {item.gain >= 0 ? "+" : ""}
+                        {formatCurrencyValue(item.gain)} ({item.gainPercent?.toFixed(2)}%)
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="text-right shrink-0 ml-2">
+                <div className="text-sm font-bold text-foreground">{item.percentage.toFixed(2)}%</div>
+                <div className="text-xs text-green-500 font-medium">
+                  {formatCurrencyValue(item.value)}
+                </div>
+                {showDetails && item.costBasis && (
+                  <div className="text-xs text-muted-foreground">
+                    {viewType === "marketValue"
+                      ? `Cost: ${formatCurrencyValue(item.costBasis)}`
+                      : viewType === "cost"
+                        ? `Value: ${formatCurrencyValue(item.marketValue || 0)}`
+                        : viewType === "gain"
+                          ? `${item.gainPercent?.toFixed(2)}% gain`
+                          : `${Math.abs(item.gainPercent || 0).toFixed(2)}% loss`}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   )
 }
+
+// ============ MAIN COMPONENT ============
 
 export default function HoldingsTab() {
   const [holdings, setHoldings] = useState<Holding[]>([])
@@ -105,7 +332,6 @@ export default function HoldingsTab() {
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [pieChartView, setPieChartView] = useState<"marketValue" | "cost" | "gain" | "loss">("marketValue")
-  const [valueView, setValueView] = useState<"portfolio" | "cost">("portfolio")
   const [statsView, setStatsView] = useState<"keystats" | "gains" | "pnl">("keystats")
   const [performanceView, setPerformanceView] = useState<"1D" | "1W" | "1M" | "1Y" | "All">("1D")
   const [selectedBroker, setSelectedBroker] = useState<string>("All")
@@ -398,100 +624,57 @@ export default function HoldingsTab() {
     return { gainers, losers }
   }
 
+  // FIXED: Chart data logic for SVG donut
   const getChartData = () => {
-    let sortedHoldings = [...holdings]
-    let totalValue = 0
-
     if (pieChartView === "marketValue") {
-      sortedHoldings.sort((a, b) => b.marketValue - a.marketValue)
-      totalValue = totalPortfolioValue
-      const top6 = sortedHoldings.slice(0, 6)
-      const others = sortedHoldings.slice(6)
-      const othersValue = others.reduce((sum, h) => sum + h.marketValue, 0)
-
-      const data = top6.map((h) => ({
+      return holdings.map((h, index) => ({
         name: h.symbol,
         value: h.marketValue,
-        percentage: h.allocation,
+        marketValue: h.marketValue,
+        costBasis: h.totalCost,
+        gain: h.totalGain,
+        gainPercent: h.totalGainPercent,
+        sector: h.sector,
+        color: COLORS[index % COLORS.length],
       }))
-
-      if (othersValue > 0) {
-        data.push({
-          name: "Other",
-          value: othersValue,
-          percentage: (othersValue / totalValue) * 100,
-        })
-      }
-
-      return data
     } else if (pieChartView === "cost") {
-      sortedHoldings.sort((a, b) => b.totalCost - a.totalCost)
-      totalValue = totalCost
-      const top6 = sortedHoldings.slice(0, 6)
-      const others = sortedHoldings.slice(6)
-      const othersValue = others.reduce((sum, h) => sum + h.totalCost, 0)
-
-      const data = top6.map((h) => ({
+      return holdings.map((h, index) => ({
         name: h.symbol,
         value: h.totalCost,
-        percentage: (h.totalCost / totalValue) * 100,
+        marketValue: h.marketValue,
+        costBasis: h.totalCost,
+        gain: h.totalGain,
+        gainPercent: h.totalGainPercent,
+        sector: h.sector,
+        color: COLORS[index % COLORS.length],
       }))
-
-      if (othersValue > 0) {
-        data.push({
-          name: "Other",
-          value: othersValue,
-          percentage: (othersValue / totalValue) * 100,
-        })
-      }
-
-      return data
     } else if (pieChartView === "gain") {
-      sortedHoldings = sortedHoldings.filter((h) => h.totalGain > 0)
-      sortedHoldings.sort((a, b) => b.totalGain - a.totalGain)
-      totalValue = sortedHoldings.reduce((sum, h) => sum + h.totalGain, 0)
-      const top6 = sortedHoldings.slice(0, 6)
-      const others = sortedHoldings.slice(6)
-      const othersValue = others.reduce((sum, h) => sum + h.totalGain, 0)
-
-      const data = top6.map((h) => ({
-        name: h.symbol,
-        value: h.totalGain,
-        percentage: (h.totalGain / totalValue) * 100,
-      }))
-
-      if (othersValue > 0) {
-        data.push({
-          name: "Other",
-          value: othersValue,
-          percentage: (othersValue / totalValue) * 100,
-        })
-      }
-
-      return data
+      return holdings
+        .filter((h) => h.totalGain > 0)
+        .map((h, index) => ({
+          name: h.symbol,
+          value: h.totalGain,
+          marketValue: h.marketValue,
+          costBasis: h.totalCost,
+          gain: h.totalGain,
+          gainPercent: h.totalGainPercent,
+          sector: h.sector,
+          color: COLORS[index % COLORS.length],
+        }))
     } else {
-      sortedHoldings = sortedHoldings.filter((h) => h.totalGain < 0)
-      sortedHoldings.sort((a, b) => a.totalGain - b.totalGain)
-      totalValue = sortedHoldings.reduce((sum, h) => sum + Math.abs(h.totalGain), 0)
-      const top6 = sortedHoldings.slice(0, 6)
-      const others = sortedHoldings.slice(6)
-      const othersValue = others.reduce((sum, h) => sum + Math.abs(h.totalGain), 0)
-
-      const data = top6.map((h) => ({
-        name: h.symbol,
-        value: Math.abs(h.totalGain),
-        percentage: (Math.abs(h.totalGain) / totalValue) * 100,
-      }))
-
-      if (othersValue > 0) {
-        data.push({
-          name: "Other",
-          value: othersValue,
-          percentage: (othersValue / totalValue) * 100,
-        })
-      }
-
-      return data
+      // loss
+      return holdings
+        .filter((h) => h.totalGain < 0)
+        .map((h, index) => ({
+          name: h.symbol,
+          value: Math.abs(h.totalGain),
+          marketValue: h.marketValue,
+          costBasis: h.totalCost,
+          gain: h.totalGain,
+          gainPercent: h.totalGainPercent,
+          sector: h.sector,
+          color: COLORS[index % COLORS.length],
+        }))
     }
   }
 
@@ -613,7 +796,7 @@ export default function HoldingsTab() {
 
       {/* Chart & Stats Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Pie Chart */}
+        {/* SVG Donut Chart */}
         <Card className="lg:col-span-7">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
@@ -663,38 +846,20 @@ export default function HoldingsTab() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="pt-2 relative">
-            <ResponsiveContainer width="100%" height={400}>
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={renderCustomLabel}
-                  innerRadius={80}
-                  outerRadius={120}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <RechartsTooltip
-                  formatter={(value: number) => formatCurrency(value)}
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px",
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-              <p className="text-3xl font-bold">{formatCurrency(totalPortfolioValue)}</p>
-              <p className="text-sm text-muted-foreground">Portfolio Value</p>
-            </div>
+          <CardContent className="pt-2">
+            {chartData.length > 0 ? (
+              <InteractiveHoldingsDonut
+                data={chartData}
+                title="Portfolio"
+                centerLabel={pieChartView === "marketValue" ? "Total Value" : pieChartView === "cost" ? "Total Cost" : pieChartView === "gain" ? "Total Gains" : "Total Losses"}
+                showDetails={true}
+                viewType={pieChartView}
+              />
+            ) : (
+              <div className="h-[400px] flex items-center justify-center text-muted-foreground">
+                No data available for this view
+              </div>
+            )}
           </CardContent>
         </Card>
 

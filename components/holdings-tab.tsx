@@ -4,6 +4,8 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Table,
   TableBody,
@@ -12,10 +14,33 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { RefreshCw, TrendingUp, TrendingDown, Lock, Info } from "lucide-react"
+import {
+  RefreshCw,
+  TrendingUp,
+  TrendingDown,
+  Lock,
+  Info,
+  Search,
+  Plus,
+  Trash2,
+  Bell,
+  BellOff,
+  BarChart3
+} from "lucide-react"
 import { getTransactionsFromStorage } from "@/lib/transaction-storage"
 import type { Transaction, Holding } from "@/lib/holdings-calculator"
 import { calculateHoldings, buildHoldingsWithPrices } from "@/lib/holdings-calculator"
+import {
+  getWatchlistFromStorage,
+  saveWatchlistToStorage,
+  getWatchlistCache,
+  saveWatchlistCache,
+  addToWatchlist,
+  removeFromWatchlist,
+  type WatchlistItem,
+  type WatchlistPriceData
+} from "@/lib/watchlist-storage"
+import { searchStocks, getBatchStockQuotes, type StockSearchResult } from "@/lib/stock-search-api"
 
 const COLORS = ["#22c55e", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#14b8a6"]
 
@@ -339,6 +364,16 @@ export default function HoldingsTab() {
   const [sortBy, setSortBy] = useState<"allocation" | "value-high" | "value-low" | "gain-high" | "gain-low" | "alphabetical">("allocation")
   const [allTimeHigh, setAllTimeHigh] = useState<number>(0)
 
+  // Watchlist states
+  const [activeTab, setActiveTab] = useState<"holdings" | "watchlist">("holdings")
+  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
+  const [watchlistPrices, setWatchlistPrices] = useState<Record<string, WatchlistPriceData>>({})
+  const [isLoadingWatchlist, setIsLoadingWatchlist] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchResults, setSearchResults] = useState<StockSearchResult[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false)
+
   useEffect(() => {
     const cached = getCachedHoldings()
 
@@ -445,6 +480,120 @@ export default function HoldingsTab() {
 
     setHoldings(filteredHoldings)
   }, [selectedBroker, allHoldings, sortBy])
+
+  // Load watchlist on mount
+  useEffect(() => {
+    loadWatchlist()
+  }, [])
+
+  const loadWatchlist = async () => {
+    const items = getWatchlistFromStorage()
+    setWatchlist(items)
+
+    if (items.length === 0) return
+
+    // Check cache first
+    const cache = getWatchlistCache()
+    if (cache && cache.data.length === items.length) {
+      setWatchlistPrices(cache.priceData)
+      console.log('⚡ Using cached watchlist prices')
+      return
+    }
+
+    // Fetch fresh prices
+    await fetchWatchlistPrices(items)
+  }
+
+  const fetchWatchlistPrices = async (items: WatchlistItem[]) => {
+    setIsLoadingWatchlist(true)
+
+    try {
+      const symbols = items.map(item => item.symbol)
+      const quotes = await getBatchStockQuotes(symbols)
+
+      const priceData: Record<string, WatchlistPriceData> = {}
+
+      Object.entries(quotes).forEach(([symbol, quote]) => {
+        priceData[symbol] = {
+          currentPrice: quote.price,
+          change: quote.change,
+          changePercent: quote.changesPercentage,
+          high52Week: quote.yearHigh,
+          low52Week: quote.yearLow,
+          dividendYield: 0, // Will be calculated separately if needed
+          marketCap: quote.marketCap,
+          peRatio: quote.pe,
+          volume: quote.volume,
+          lastUpdated: Date.now()
+        }
+      })
+
+      setWatchlistPrices(priceData)
+      saveWatchlistCache(items, priceData)
+    } catch (error) {
+      console.error('Failed to fetch watchlist prices:', error)
+    } finally {
+      setIsLoadingWatchlist(false)
+    }
+  }
+
+  // Search stocks with debounce
+  useEffect(() => {
+    if (searchQuery.length < 2) {
+      setSearchResults([])
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearching(true)
+      const results = await searchStocks(searchQuery)
+      setSearchResults(results)
+      setIsSearching(false)
+      setShowSearchDropdown(true)
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  const handleAddToWatchlist = async (result: StockSearchResult) => {
+    try {
+      // Fetch current price
+      const quotes = await getBatchStockQuotes([result.symbol])
+      const currentPrice = quotes[result.symbol]?.price || 0
+
+      addToWatchlist(result.symbol, result.name, currentPrice)
+
+      // Reload watchlist
+      const updatedWatchlist = getWatchlistFromStorage()
+      setWatchlist(updatedWatchlist)
+
+      // Fetch price for new stock immediately
+      await fetchWatchlistPrices(updatedWatchlist)
+
+      setSearchQuery("")
+      setShowSearchDropdown(false)
+    } catch (error: any) {
+      alert(error.message)
+    }
+  }
+
+  const handleRemoveFromWatchlist = (symbol: string) => {
+    if (confirm(`Remove ${symbol} from watchlist?`)) {
+      removeFromWatchlist(symbol)
+      setWatchlist(getWatchlistFromStorage())
+    }
+  }
+
+  const watchlistWithPrices = watchlist.map(item => ({
+    ...item,
+    ...watchlistPrices[item.symbol],
+    priceChange: watchlistPrices[item.symbol]
+      ? watchlistPrices[item.symbol].currentPrice - item.addedPrice
+      : 0,
+    priceChangePercent: watchlistPrices[item.symbol] && item.addedPrice > 0
+      ? ((watchlistPrices[item.symbol].currentPrice - item.addedPrice) / item.addedPrice) * 100
+      : 0
+  }))
 
   const loadTransactionsAndCalculateHoldings = async (silent = false) => {
     if (!silent) {
@@ -794,405 +943,592 @@ export default function HoldingsTab() {
         </Card>
       </div>
 
-      {/* Chart & Stats Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* SVG Donut Chart */}
-        <Card className="lg:col-span-7">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <div className="flex gap-1">
-                <Button
-                  variant={pieChartView === "marketValue" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => setPieChartView("marketValue")}
-                  className="text-xs h-8 px-2"
-                >
-                  Market Value
-                </Button>
-                <Button
-                  variant={pieChartView === "cost" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => setPieChartView("cost")}
-                  className="text-xs h-8 px-2"
-                >
-                  Cost
-                </Button>
-                <Button
-                  variant={pieChartView === "gain" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => setPieChartView("gain")}
-                  className="text-xs h-8 px-2"
-                >
-                  Gain
-                </Button>
-                <Button
-                  variant={pieChartView === "loss" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => setPieChartView("loss")}
-                  className="text-xs h-8 px-2"
-                >
-                  Loss
-                </Button>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="h-8 w-8"
-                title={isRefreshing ? "Fetching live prices..." : "Refresh prices"}
-              >
-                <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-2">
-            {chartData.length > 0 ? (
-              <InteractiveHoldingsDonut
-                data={chartData}
-                title="Portfolio"
-                centerLabel={pieChartView === "marketValue" ? "Total Value" : pieChartView === "cost" ? "Total Cost" : pieChartView === "gain" ? "Total Gains" : "Total Losses"}
-                showDetails={true}
-                viewType={pieChartView}
-              />
-            ) : (
-              <div className="h-[400px] flex items-center justify-center text-muted-foreground">
-                No data available for this view
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* Holdings | Watchlist Tabs */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-4">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="holdings" className="gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Holdings ({holdings.length})
+          </TabsTrigger>
+          <TabsTrigger value="watchlist" className="gap-2">
+            <Bell className="h-4 w-4" />
+            Watchlist ({watchlist.length})
+          </TabsTrigger>
+        </TabsList>
 
-        {/* Key Stats Card */}
-        <Card className="lg:col-span-5">
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold">{getStatsTitle()}</h3>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleInfoClick(statsView)}
-                  className="h-5 w-5 rounded-full hover:bg-muted"
-                  title="Learn more about this metric"
-                >
-                  <Info className="h-4 w-4 text-blue-600" />
-                </Button>
-              </div>
-              <div className="flex gap-1">
-                <Button
-                  variant={statsView === "keystats" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => setStatsView("keystats")}
-                  className="text-xs h-7 px-2"
-                >
-                  Key
-                </Button>
-                <Button
-                  variant={statsView === "gains" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => setStatsView("gains")}
-                  className="text-xs h-7 px-2"
-                >
-                  Gains
-                </Button>
-                <Button
-                  variant={statsView === "pnl" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => setStatsView("pnl")}
-                  className="text-xs h-7 px-2"
-                >
-                  P&L
-                </Button>
-              </div>
-            </div>
-            <div className="space-y-0.5">
-              {statsView === "keystats" && (
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-muted-foreground">All-time High</p>
-                    <p className="text-sm font-bold">{formatCurrency(allTimeHigh)}</p>
+        {/* HOLDINGS TAB */}
+        <TabsContent value="holdings" className="space-y-6">
+          {/* Chart & Stats Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            {/* SVG Donut Chart */}
+            <Card className="lg:col-span-7">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-1">
+                    <Button
+                      variant={pieChartView === "marketValue" ? "secondary" : "ghost"}
+                      size="sm"
+                      onClick={() => setPieChartView("marketValue")}
+                      className="text-xs h-8 px-2"
+                    >
+                      Market Value
+                    </Button>
+                    <Button
+                      variant={pieChartView === "cost" ? "secondary" : "ghost"}
+                      size="sm"
+                      onClick={() => setPieChartView("cost")}
+                      className="text-xs h-8 px-2"
+                    >
+                      Cost
+                    </Button>
+                    <Button
+                      variant={pieChartView === "gain" ? "secondary" : "ghost"}
+                      size="sm"
+                      onClick={() => setPieChartView("gain")}
+                      className="text-xs h-8 px-2"
+                    >
+                      Gain
+                    </Button>
+                    <Button
+                      variant={pieChartView === "loss" ? "secondary" : "ghost"}
+                      size="sm"
+                      onClick={() => setPieChartView("loss")}
+                      className="text-xs h-8 px-2"
+                    >
+                      Loss
+                    </Button>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-muted-foreground">Unrealized Gains</p>
-                    <p className="text-sm font-bold text-green-600">{formatCurrency(unrealizedGains)}</p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    className="h-8 w-8"
+                    title={isRefreshing ? "Fetching live prices..." : "Refresh prices"}
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-2">
+                {chartData.length > 0 ? (
+                  <InteractiveHoldingsDonut
+                    data={chartData}
+                    title="Portfolio"
+                    centerLabel={pieChartView === "marketValue" ? "Total Value" : pieChartView === "cost" ? "Total Cost" : pieChartView === "gain" ? "Total Gains" : "Total Losses"}
+                    showDetails={true}
+                    viewType={pieChartView}
+                  />
+                ) : (
+                  <div className="h-[400px] flex items-center justify-center text-muted-foreground">
+                    No data available for this view
                   </div>
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-muted-foreground">Dividends</p>
-                    <p className="text-sm font-bold text-green-600">{formatCurrency(dividends)}</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Key Stats Card */}
+            <Card className="lg:col-span-5">
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold">{getStatsTitle()}</h3>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleInfoClick(statsView)}
+                      className="h-5 w-5 rounded-full hover:bg-muted"
+                      title="Learn more about this metric"
+                    >
+                      <Info className="h-4 w-4 text-blue-600" />
+                    </Button>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-muted-foreground">Fees</p>
-                    <p className="text-sm font-bold text-red-600">-{formatCurrency(fees)}</p>
+                  <div className="flex gap-1">
+                    <Button
+                      variant={statsView === "keystats" ? "secondary" : "ghost"}
+                      size="sm"
+                      onClick={() => setStatsView("keystats")}
+                      className="text-xs h-7 px-2"
+                    >
+                      Key
+                    </Button>
+                    <Button
+                      variant={statsView === "gains" ? "secondary" : "ghost"}
+                      size="sm"
+                      onClick={() => setStatsView("gains")}
+                      className="text-xs h-7 px-2"
+                    >
+                      Gains
+                    </Button>
+                    <Button
+                      variant={statsView === "pnl" ? "secondary" : "ghost"}
+                      size="sm"
+                      onClick={() => setStatsView("pnl")}
+                      className="text-xs h-7 px-2"
+                    >
+                      P&L
+                    </Button>
                   </div>
                 </div>
-              )}
-
-              {statsView === "gains" && (
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-muted-foreground">Total Gain (1W)</p>
-                    <p className={`text-xs font-bold ${gain1W >= 0 ? "text-green-600" : "text-red-600"}`}>
-                      {formatCurrency(gain1W)} ({formatPercent(gain1WPercent)})
-                    </p>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-muted-foreground">Total Gain (1M)</p>
-                    <p className={`text-xs font-bold ${gain1M >= 0 ? "text-green-600" : "text-red-600"}`}>
-                      {formatCurrency(gain1M)} ({formatPercent(gain1MPercent)})
-                    </p>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-muted-foreground">Total Gain (3M)</p>
-                    <p className={`text-xs font-bold ${gain3M >= 0 ? "text-green-600" : "text-red-600"}`}>
-                      {formatCurrency(gain3M)} ({formatPercent(gain3MPercent)})
-                    </p>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-muted-foreground">Total Gain (6M)</p>
-                    <p className={`text-xs font-bold ${gain6M >= 0 ? "text-green-600" : "text-red-600"}`}>
-                      {formatCurrency(gain6M)} ({formatPercent(gain6MPercent)})
-                    </p>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-muted-foreground">Total Gain (YTD)</p>
-                    <p className={`text-xs font-bold ${gainYTD >= 0 ? "text-green-600" : "text-red-600"}`}>
-                      {formatCurrency(gainYTD)} ({formatPercent(gainYTDPercent)})
-                    </p>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-muted-foreground">Total Gain (1Y)</p>
-                    <p className={`text-xs font-bold ${gain1Y >= 0 ? "text-green-600" : "text-red-600"}`}>
-                      {formatCurrency(gain1Y)} ({formatPercent(gain1YPercent)})
-                    </p>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-muted-foreground">Total Gain (All)</p>
-                    <p className={`text-xs font-bold ${totalGain >= 0 ? "text-green-600" : "text-red-600"}`}>
-                      {formatCurrency(totalGain)} ({formatPercent(totalGainPercent)})
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {statsView === "pnl" && (
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-muted-foreground">Unrealized Gains</p>
-                    <p className="text-sm font-bold text-green-600">{formatCurrency(unrealizedGains)}</p>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-muted-foreground">Realized Gains</p>
-                    <p className="text-sm font-bold text-green-600">{formatCurrency(realizedGains)}</p>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-muted-foreground">Dividends</p>
-                    <p className="text-sm font-bold text-green-600">{formatCurrency(dividends)}</p>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-muted-foreground">Fees</p>
-                    <p className="text-sm font-bold text-red-600">-{formatCurrency(fees)}</p>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-muted-foreground">Taxes</p>
-                    <p className="text-sm font-bold">{formatCurrency(taxes)}</p>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-muted-foreground">Interests</p>
-                    <p className="text-sm font-bold text-green-600">{formatCurrency(interests)}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Performance Analysis */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">Performance Analysis</CardTitle>
-            <div className="flex gap-1">
-              <Button
-                variant={performanceView === "1D" ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => setPerformanceView("1D")}
-                className="text-xs h-8 px-3"
-              >
-                1D
-              </Button>
-              <Button
-                variant={performanceView === "1W" ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => setPerformanceView("1W")}
-                className="text-xs h-8 px-3"
-              >
-                1W
-              </Button>
-              <Button
-                variant={performanceView === "1M" ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => setPerformanceView("1M")}
-                className="text-xs h-8 px-3"
-              >
-                1M
-              </Button>
-              <Button
-                variant={performanceView === "1Y" ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => setPerformanceView("1Y")}
-                className="text-xs h-8 px-3"
-              >
-                1Y
-              </Button>
-              <Button
-                variant={performanceView === "All" ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => setPerformanceView("All")}
-                className="text-xs h-8 px-3"
-              >
-                All
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Top Gainers */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <TrendingUp className="h-5 w-5 text-green-600" />
-                <h3 className="text-sm font-semibold text-green-600">Top Gainers</h3>
-              </div>
-              <div className="space-y-2">
-                {gainers.length > 0 ? (
-                  gainers.map((stock) => (
-                    <div key={stock.symbol} className="flex items-center justify-between p-3 rounded-lg bg-green-600/10">
-                      <div>
-                        <p className="font-semibold text-foreground">{stock.symbol}</p>
-                        <p className="text-xs text-muted-foreground">{formatCurrency(stock.marketValue)}</p>
+                <div className="space-y-0.5">
+                  {statsView === "keystats" && (
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs text-muted-foreground">All-time High</p>
+                        <p className="text-sm font-bold">{formatCurrency(allTimeHigh)}</p>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold text-green-600">{formatCurrency(stock.performanceValue)}</p>
-                        <p className="text-xs font-medium text-green-600">{formatPercent(stock.performancePercent)}</p>
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs text-muted-foreground">Unrealized Gains</p>
+                        <p className="text-sm font-bold text-green-600">{formatCurrency(unrealizedGains)}</p>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs text-muted-foreground">Dividends</p>
+                        <p className="text-sm font-bold text-green-600">{formatCurrency(dividends)}</p>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs text-muted-foreground">Fees</p>
+                        <p className="text-sm font-bold text-red-600">-{formatCurrency(fees)}</p>
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">No gainers in this period</p>
-                )}
-              </div>
-            </div>
+                  )}
 
-            {/* Top Losers */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <TrendingDown className="h-5 w-5 text-red-600" />
-                <h3 className="text-sm font-semibold text-red-600">Top Losers</h3>
-              </div>
-              <div className="space-y-2">
-                {losers.length > 0 ? (
-                  losers.map((stock) => (
-                    <div key={stock.symbol} className="flex items-center justify-between p-3 rounded-lg bg-red-600/10">
-                      <div>
-                        <p className="font-semibold text-foreground">{stock.symbol}</p>
-                        <p className="text-xs text-muted-foreground">{formatCurrency(stock.marketValue)}</p>
+                  {statsView === "gains" && (
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs text-muted-foreground">Total Gain (1W)</p>
+                        <p className={`text-xs font-bold ${gain1W >= 0 ? "text-green-600" : "text-red-600"}`}>
+                          {formatCurrency(gain1W)} ({formatPercent(gain1WPercent)})
+                        </p>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold text-red-600">{formatCurrency(stock.performanceValue)}</p>
-                        <p className="text-xs font-medium text-red-600">{formatPercent(stock.performancePercent)}</p>
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs text-muted-foreground">Total Gain (1M)</p>
+                        <p className={`text-xs font-bold ${gain1M >= 0 ? "text-green-600" : "text-red-600"}`}>
+                          {formatCurrency(gain1M)} ({formatPercent(gain1MPercent)})
+                        </p>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs text-muted-foreground">Total Gain (3M)</p>
+                        <p className={`text-xs font-bold ${gain3M >= 0 ? "text-green-600" : "text-red-600"}`}>
+                          {formatCurrency(gain3M)} ({formatPercent(gain3MPercent)})
+                        </p>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs text-muted-foreground">Total Gain (6M)</p>
+                        <p className={`text-xs font-bold ${gain6M >= 0 ? "text-green-600" : "text-red-600"}`}>
+                          {formatCurrency(gain6M)} ({formatPercent(gain6MPercent)})
+                        </p>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs text-muted-foreground">Total Gain (YTD)</p>
+                        <p className={`text-xs font-bold ${gainYTD >= 0 ? "text-green-600" : "text-red-600"}`}>
+                          {formatCurrency(gainYTD)} ({formatPercent(gainYTDPercent)})
+                        </p>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs text-muted-foreground">Total Gain (1Y)</p>
+                        <p className={`text-xs font-bold ${gain1Y >= 0 ? "text-green-600" : "text-red-600"}`}>
+                          {formatCurrency(gain1Y)} ({formatPercent(gain1YPercent)})
+                        </p>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs text-muted-foreground">Total Gain (All)</p>
+                        <p className={`text-xs font-bold ${totalGain >= 0 ? "text-green-600" : "text-red-600"}`}>
+                          {formatCurrency(totalGain)} ({formatPercent(totalGainPercent)})
+                        </p>
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">No losers in this period</p>
-                )}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+                  )}
 
-      {/* Holdings Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Holdings</CardTitle>
-            <div className="flex items-center gap-2">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="text-sm border rounded-md px-3 py-1.5 bg-background"
-              >
-                <option value="allocation">Sort by Allocation</option>
-                <option value="value-high">Value: High to Low</option>
-                <option value="value-low">Value: Low to High</option>
-                <option value="gain-high">Gain: High to Low</option>
-                <option value="gain-low">Gain: Low to High</option>
-                <option value="alphabetical">Alphabetical</option>
-              </select>
-            </div>
+                  {statsView === "pnl" && (
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs text-muted-foreground">Unrealized Gains</p>
+                        <p className="text-sm font-bold text-green-600">{formatCurrency(unrealizedGains)}</p>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs text-muted-foreground">Realized Gains</p>
+                        <p className="text-sm font-bold text-green-600">{formatCurrency(realizedGains)}</p>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs text-muted-foreground">Dividends</p>
+                        <p className="text-sm font-bold text-green-600">{formatCurrency(dividends)}</p>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs text-muted-foreground">Fees</p>
+                        <p className="text-sm font-bold text-red-600">-{formatCurrency(fees)}</p>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs text-muted-foreground">Taxes</p>
+                        <p className="text-sm font-bold">{formatCurrency(taxes)}</p>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs text-muted-foreground">Interests</p>
+                        <p className="text-sm font-bold text-green-600">{formatCurrency(interests)}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Symbol</TableHead>
-                  <TableHead className="text-right">Shares</TableHead>
-                  <TableHead className="text-right">Avg Cost</TableHead>
-                  <TableHead className="text-right">Current Price</TableHead>
-                  <TableHead className="text-right">Market Value</TableHead>
-                  <TableHead className="text-right">Total Gain</TableHead>
-                  <TableHead className="text-right">Today's Gain</TableHead>
-                  <TableHead className="text-right">Allocation</TableHead>
-                  <TableHead>Broker</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {holdings.length > 0 ? (
-                  holdings.map((holding) => (
-                    <TableRow key={`${holding.symbol}-${holding.broker}`}>
-                      <TableCell className="font-medium">
-                        {holding.symbol}
-                        {holding.splitAdjusted && (
-                          <Badge variant="outline" className="ml-2 text-xs">
-                            Split Adjusted
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">{holding.shares.toFixed(4)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(holding.avgCost)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(holding.currentPrice)}</TableCell>
-                      <TableCell className="text-right font-medium">{formatCurrency(holding.marketValue)}</TableCell>
-                      <TableCell className={`text-right font-medium ${holding.totalGain >= 0 ? "text-green-600" : "text-red-600"}`}>
-                        {formatCurrency(holding.totalGain)}
-                        <div className="text-xs">{formatPercent(holding.totalGainPercent)}</div>
-                      </TableCell>
-                      <TableCell className={`text-right font-medium ${holding.todayGain >= 0 ? "text-green-600" : "text-red-600"}`}>
-                        {formatCurrency(holding.todayGain)}
-                        <div className="text-xs">{formatPercent(holding.todayGainPercent)}</div>
-                      </TableCell>
-                      <TableCell className="text-right">{holding.allocation.toFixed(2)}%</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{holding.broker}</Badge>
-                      </TableCell>
+
+          {/* Performance Analysis */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Performance Analysis</CardTitle>
+                <div className="flex gap-1">
+                  <Button
+                    variant={performanceView === "1D" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setPerformanceView("1D")}
+                    className="text-xs h-8 px-3"
+                  >
+                    1D
+                  </Button>
+                  <Button
+                    variant={performanceView === "1W" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setPerformanceView("1W")}
+                    className="text-xs h-8 px-3"
+                  >
+                    1W
+                  </Button>
+                  <Button
+                    variant={performanceView === "1M" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setPerformanceView("1M")}
+                    className="text-xs h-8 px-3"
+                  >
+                    1M
+                  </Button>
+                  <Button
+                    variant={performanceView === "1Y" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setPerformanceView("1Y")}
+                    className="text-xs h-8 px-3"
+                  >
+                    1Y
+                  </Button>
+                  <Button
+                    variant={performanceView === "All" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setPerformanceView("All")}
+                    className="text-xs h-8 px-3"
+                  >
+                    All
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Top Gainers */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <TrendingUp className="h-5 w-5 text-green-600" />
+                    <h3 className="text-sm font-semibold text-green-600">Top Gainers</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {gainers.length > 0 ? (
+                      gainers.map((stock) => (
+                        <div key={stock.symbol} className="flex items-center justify-between p-3 rounded-lg bg-green-600/10">
+                          <div>
+                            <p className="font-semibold text-foreground">{stock.symbol}</p>
+                            <p className="text-xs text-muted-foreground">{formatCurrency(stock.marketValue)}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-green-600">{formatCurrency(stock.performanceValue)}</p>
+                            <p className="text-xs font-medium text-green-600">{formatPercent(stock.performancePercent)}</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-4">No gainers in this period</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Top Losers */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <TrendingDown className="h-5 w-5 text-red-600" />
+                    <h3 className="text-sm font-semibold text-red-600">Top Losers</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {losers.length > 0 ? (
+                      losers.map((stock) => (
+                        <div key={stock.symbol} className="flex items-center justify-between p-3 rounded-lg bg-red-600/10">
+                          <div>
+                            <p className="font-semibold text-foreground">{stock.symbol}</p>
+                            <p className="text-xs text-muted-foreground">{formatCurrency(stock.marketValue)}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-red-600">{formatCurrency(stock.performanceValue)}</p>
+                            <p className="text-xs font-medium text-red-600">{formatPercent(stock.performancePercent)}</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-4">No losers in this period</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Holdings Table */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Holdings</CardTitle>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    className="text-sm border rounded-md px-3 py-1.5 bg-background"
+                  >
+                    <option value="allocation">Sort by Allocation</option>
+                    <option value="value-high">Value: High to Low</option>
+                    <option value="value-low">Value: Low to High</option>
+                    <option value="gain-high">Gain: High to Low</option>
+                    <option value="gain-low">Gain: Low to High</option>
+                    <option value="alphabetical">Alphabetical</option>
+                  </select>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Symbol</TableHead>
+                      <TableHead className="text-right">Shares</TableHead>
+                      <TableHead className="text-right">Avg Cost</TableHead>
+                      <TableHead className="text-right">Current Price</TableHead>
+                      <TableHead className="text-right">Market Value</TableHead>
+                      <TableHead className="text-right">Total Gain</TableHead>
+                      <TableHead className="text-right">Today's Gain</TableHead>
+                      <TableHead className="text-right">Allocation</TableHead>
+                      <TableHead>Broker</TableHead>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                      No holdings found
-                    </TableCell>
-                  </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {holdings.length > 0 ? (
+                      holdings.map((holding) => (
+                        <TableRow key={`${holding.symbol}-${holding.broker}`}>
+                          <TableCell className="font-medium">
+                            {holding.symbol}
+                            {holding.splitAdjusted && (
+                              <Badge variant="outline" className="ml-2 text-xs">
+                                Split Adjusted
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">{holding.shares.toFixed(4)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(holding.avgCost)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(holding.currentPrice)}</TableCell>
+                          <TableCell className="text-right font-medium">{formatCurrency(holding.marketValue)}</TableCell>
+                          <TableCell className={`text-right font-medium ${holding.totalGain >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            {formatCurrency(holding.totalGain)}
+                            <div className="text-xs">{formatPercent(holding.totalGainPercent)}</div>
+                          </TableCell>
+                          <TableCell className={`text-right font-medium ${holding.todayGain >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            {formatCurrency(holding.todayGain)}
+                            <div className="text-xs">{formatPercent(holding.todayGainPercent)}</div>
+                          </TableCell>
+                          <TableCell className="text-right">{holding.allocation.toFixed(2)}%</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{holding.broker}</Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                          No holdings found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* WATCHLIST TAB */}
+        <TabsContent value="watchlist" className="space-y-6">
+          {/* Search Bar */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="relative">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search stocks by symbol or company name (e.g., AAPL or Apple)..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onFocus={() => searchQuery.length >= 2 && setShowSearchDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
+                      className="pl-9"
+                    />
+                  </div>
+                  <Button
+                    onClick={() => fetchWatchlistPrices(watchlist)}
+                    disabled={isLoadingWatchlist || watchlist.length === 0}
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isLoadingWatchlist ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </Button>
+                </div>
+
+                {/* Search Dropdown */}
+                {showSearchDropdown && searchResults.length > 0 && (
+                  <div className="absolute z-10 mt-2 w-full bg-card border rounded-lg shadow-lg max-h-96 overflow-y-auto">
+                    {searchResults.map((result) => (
+                      <div
+                        key={result.symbol}
+                        className="flex items-center justify-between p-3 hover:bg-secondary cursor-pointer border-b last:border-b-0"
+                        onMouseDown={() => handleAddToWatchlist(result)}
+                      >
+                        <div>
+                          <p className="font-semibold">{result.symbol}</p>
+                          <p className="text-sm text-muted-foreground">{result.name}</p>
+                          <p className="text-xs text-muted-foreground">{result.exchangeShortName}</p>
+                        </div>
+                        <Plus className="h-5 w-5 text-primary" />
+                      </div>
+                    ))}
+                  </div>
                 )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+
+                {showSearchDropdown && isSearching && (
+                  <div className="absolute z-10 mt-2 w-full bg-card border rounded-lg shadow-lg p-4 text-center text-muted-foreground">
+                    Searching...
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Watchlist Table */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Your Watchlist</CardTitle>
+                {watchlist.length > 0 && (
+                  <Badge variant="secondary">{watchlist.length} stocks</Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {watchlist.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Bell className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg font-medium mb-2">No stocks in watchlist</p>
+                  <p className="text-sm">Search and add stocks above to start tracking them</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Symbol</TableHead>
+                        <TableHead>Company</TableHead>
+                        <TableHead className="text-right">Current Price</TableHead>
+                        <TableHead className="text-right">Today's Change</TableHead>
+                        <TableHead className="text-right">Since Added</TableHead>
+                        <TableHead className="text-right">52W High</TableHead>
+                        <TableHead className="text-right">52W Low</TableHead>
+                        <TableHead className="text-right">Market Cap</TableHead>
+                        <TableHead className="text-right">P/E Ratio</TableHead>
+                        <TableHead className="text-center">Alert</TableHead>
+                        <TableHead className="text-center">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {watchlistWithPrices.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-medium">{item.symbol}</TableCell>
+                          <TableCell className="max-w-[200px] truncate">{item.companyName}</TableCell>
+                          <TableCell className="text-right font-medium">
+                            {item.currentPrice ? formatCurrency(item.currentPrice) : '-'}
+                          </TableCell>
+                          <TableCell className={`text-right font-medium ${(item.change || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                            {item.change !== undefined ? (
+                              <>
+                                {formatCurrency(item.change)}
+                                <div className="text-xs">
+                                  {(item.changePercent || 0) >= 0 ? '+' : ''}{item.changePercent?.toFixed(2)}%
+                                </div>
+                              </>
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell className={`text-right font-medium ${item.priceChange >= 0 ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                            {item.priceChange !== undefined ? (
+                              <>
+                                {formatCurrency(item.priceChange)}
+                                <div className="text-xs">
+                                  {item.priceChangePercent >= 0 ? '+' : ''}{item.priceChangePercent.toFixed(2)}%
+                                </div>
+                              </>
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {item.high52Week ? formatCurrency(item.high52Week) : '-'}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {item.low52Week ? formatCurrency(item.low52Week) : '-'}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {item.marketCap ? (
+                              <span className="text-sm">
+                                ${(item.marketCap / 1e9).toFixed(2)}B
+                              </span>
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {item.peRatio ? item.peRatio.toFixed(2) : '-'}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="Price alerts (coming soon)"
+                              disabled
+                            >
+                              <BellOff className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleRemoveFromWatchlist(item.symbol)}
+                              className="h-8 w-8 text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

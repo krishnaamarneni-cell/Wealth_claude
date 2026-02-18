@@ -280,8 +280,8 @@ function InteractiveDividendDonut() {
             <button
               onClick={() => setViewType("current")}
               className={`px-3 py-1 text-sm rounded-md transition-colors ${viewType === "current"
-                  ? "bg-green-500 text-white"
-                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                ? "bg-green-500 text-white"
+                : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 }`}
             >
               Current
@@ -289,8 +289,8 @@ function InteractiveDividendDonut() {
             <button
               onClick={() => setViewType("invested")}
               className={`px-3 py-1 text-sm rounded-md transition-colors ${viewType === "invested"
-                  ? "bg-green-500 text-white"
-                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                ? "bg-green-500 text-white"
+                : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 }`}
             >
               Invested
@@ -387,8 +387,8 @@ function InteractiveDividendDonut() {
                 <div
                   key={stock.symbol}
                   className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 ${hoveredStock === stock.symbol
-                      ? "bg-gray-100/50 dark:bg-gray-800/50 ring-2 ring-gray-300 dark:ring-gray-700"
-                      : "hover:bg-gray-50 dark:hover:bg-gray-800/30"
+                    ? "bg-gray-100/50 dark:bg-gray-800/50 ring-2 ring-gray-300 dark:ring-gray-700"
+                    : "hover:bg-gray-50 dark:hover:bg-gray-800/30"
                     }`}
                   onMouseEnter={() => setHoveredStock(stock.symbol)}
                   onMouseLeave={() => setHoveredStock(null)}
@@ -593,8 +593,8 @@ function CalendarSection() {
             <button
               onClick={() => setCalendarView("upcoming")}
               className={`px-3 py-1 text-sm rounded-md transition-colors ${calendarView === "upcoming"
-                  ? "bg-green-500 text-white"
-                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                ? "bg-green-500 text-white"
+                : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 }`}
             >
               Upcoming
@@ -602,8 +602,8 @@ function CalendarSection() {
             <button
               onClick={() => setCalendarView("historical")}
               className={`px-3 py-1 text-sm rounded-md transition-colors ${calendarView === "historical"
-                  ? "bg-green-500 text-white"
-                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                ? "bg-green-500 text-white"
+                : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 }`}
             >
               Historical
@@ -611,8 +611,8 @@ function CalendarSection() {
             <button
               onClick={() => setCalendarView("transactions")}
               className={`px-3 py-1 text-sm rounded-md transition-colors ${calendarView === "transactions"
-                  ? "bg-green-500 text-white"
-                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                ? "bg-green-500 text-white"
+                : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 }`}
             >
               Transactions
@@ -651,8 +651,8 @@ function CalendarSection() {
                       <TableCell className="text-right">
                         <span
                           className={`px-2 py-1 rounded-md text-xs font-medium ${event.daysUntil <= 7
-                              ? "bg-orange-500/10 text-orange-500"
-                              : "bg-blue-500/10 text-blue-500"
+                            ? "bg-orange-500/10 text-orange-500"
+                            : "bg-blue-500/10 text-blue-500"
                             }`}
                         >
                           {event.daysUntil}d

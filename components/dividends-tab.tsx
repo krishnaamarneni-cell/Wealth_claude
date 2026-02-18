@@ -114,7 +114,6 @@ const CylinderBar: React.FC<any> = ({ x, y, width, height, fill, stroke, strokeW
   const radius = width / 2
   const centerX = x + width / 2
   const topY = y
-  const bottomY = y + height
 
   if (height <= 0) return null
 
@@ -280,8 +279,8 @@ function InteractiveDividendDonut() {
             <button
               onClick={() => setViewType("current")}
               className={`px-3 py-1 text-sm rounded-md transition-colors ${viewType === "current"
-                ? "bg-green-500 text-white"
-                : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  ? "bg-green-500 text-white"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 }`}
             >
               Current
@@ -289,8 +288,8 @@ function InteractiveDividendDonut() {
             <button
               onClick={() => setViewType("invested")}
               className={`px-3 py-1 text-sm rounded-md transition-colors ${viewType === "invested"
-                ? "bg-green-500 text-white"
-                : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  ? "bg-green-500 text-white"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 }`}
             >
               Invested
@@ -387,8 +386,8 @@ function InteractiveDividendDonut() {
                 <div
                   key={stock.symbol}
                   className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 ${hoveredStock === stock.symbol
-                    ? "bg-gray-100/50 dark:bg-gray-800/50 ring-2 ring-gray-300 dark:ring-gray-700"
-                    : "hover:bg-gray-50 dark:hover:bg-gray-800/30"
+                      ? "bg-gray-100/50 dark:bg-gray-800/50 ring-2 ring-gray-300 dark:ring-gray-700"
+                      : "hover:bg-gray-50 dark:hover:bg-gray-800/30"
                     }`}
                   onMouseEnter={() => setHoveredStock(stock.symbol)}
                   onMouseLeave={() => setHoveredStock(null)}
@@ -593,8 +592,8 @@ function CalendarSection() {
             <button
               onClick={() => setCalendarView("upcoming")}
               className={`px-3 py-1 text-sm rounded-md transition-colors ${calendarView === "upcoming"
-                ? "bg-green-500 text-white"
-                : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  ? "bg-green-500 text-white"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 }`}
             >
               Upcoming
@@ -602,8 +601,8 @@ function CalendarSection() {
             <button
               onClick={() => setCalendarView("historical")}
               className={`px-3 py-1 text-sm rounded-md transition-colors ${calendarView === "historical"
-                ? "bg-green-500 text-white"
-                : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  ? "bg-green-500 text-white"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 }`}
             >
               Historical
@@ -611,8 +610,8 @@ function CalendarSection() {
             <button
               onClick={() => setCalendarView("transactions")}
               className={`px-3 py-1 text-sm rounded-md transition-colors ${calendarView === "transactions"
-                ? "bg-green-500 text-white"
-                : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  ? "bg-green-500 text-white"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 }`}
             >
               Transactions
@@ -651,8 +650,8 @@ function CalendarSection() {
                       <TableCell className="text-right">
                         <span
                           className={`px-2 py-1 rounded-md text-xs font-medium ${event.daysUntil <= 7
-                            ? "bg-orange-500/10 text-orange-500"
-                            : "bg-blue-500/10 text-blue-500"
+                              ? "bg-orange-500/10 text-orange-500"
+                              : "bg-blue-500/10 text-blue-500"
                             }`}
                         >
                           {event.daysUntil}d
@@ -823,6 +822,7 @@ export default function DividendsTab() {
   const [forecasts, setForecasts] = useState<DividendForecast[]>([])
   const [isLoadingForecasts, setIsLoadingForecasts] = useState(false)
   const [isDripExpanded, setIsDripExpanded] = useState(false)
+  const [isGrowthExpanded, setIsGrowthExpanded] = useState(false)
   const hasLoadedRef = useRef(false)
 
   const {
@@ -937,6 +937,32 @@ export default function DividendsTab() {
   const totalReceived = receivedDividends.reduce((sum, f) => sum + f.totalAmount, 0)
   const totalUpcoming = upcomingDividends.reduce((sum, f) => sum + f.totalAmount, 0)
 
+  // Calculate YTD (Year-to-Date) dividends
+  const now = new Date()
+  const startOfYear = new Date(now.getFullYear(), 0, 1)
+  const ytdDividends = receivedDividends
+    .filter((f) => new Date(f.date) >= startOfYear)
+    .reduce((sum, f) => sum + f.totalAmount, 0)
+
+  const ytdPaymentCount = receivedDividends.filter(
+    (f) => new Date(f.date) >= startOfYear
+  ).length
+
+  // Calculate upcoming 12 months
+  const oneYearFromNow = new Date()
+  oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1)
+
+  const upcoming12Months = upcomingDividends
+    .filter((f) => new Date(f.date) <= oneYearFromNow)
+    .reduce((sum, f) => sum + f.totalAmount, 0)
+
+  const upcoming12MonthsCount = upcomingDividends.filter(
+    (f) => new Date(f.date) <= oneYearFromNow
+  ).length
+
+  // Annual projection (upcoming 12 months)
+  const annualProjection = upcoming12Months
+
   // Monthly data for cylinder chart
   const monthlyRaw = forecasts.reduce(
     (acc, f) => {
@@ -1005,6 +1031,11 @@ export default function DividendsTab() {
   const yieldOnCost = calculateYieldOnCost()
   const portfolioYield = portfolioValue > 0 ? (ttmDividends / portfolioValue) * 100 : 0
 
+  // Average monthly and daily income
+  const avgMonthlyIncome = ytdDividends / (now.getMonth() + 1 || 1)
+  const daysIntoYear = Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24))
+  const avgDailyIncome = ytdDividends / (daysIntoYear || 1)
+
   // DRIP from real transactions AND calculated dividends
   useEffect(() => {
     if (!transactions || transactions.length === 0) return
@@ -1053,6 +1084,37 @@ export default function DividendsTab() {
 
   const totalDRIP = dripTransactions.reduce((sum, d) => sum + d.amount, 0)
 
+  // Growth Calculation
+  const growthData = useMemo(() => {
+    const monthlyData: { [month: string]: { received: number; reinvested: number } } = {}
+
+    receivedDividends.forEach((div) => {
+      const month = div.date.substring(0, 7)
+      if (!monthlyData[month]) {
+        monthlyData[month] = { received: 0, reinvested: 0 }
+      }
+      monthlyData[month].received += div.totalAmount
+    })
+
+    dripTransactions.forEach((drip) => {
+      const month = drip.date.substring(0, 7)
+      if (!monthlyData[month]) {
+        monthlyData[month] = { received: 0, reinvested: 0 }
+      }
+      monthlyData[month].reinvested += drip.amount
+    })
+
+    return Object.entries(monthlyData)
+      .map(([month, data]) => ({
+        month,
+        received: data.received,
+        reinvested: data.reinvested,
+        growth: ((data.reinvested / (data.received || 1)) * 100).toFixed(1),
+      }))
+      .sort((a, b) => a.month.localeCompare(b.month))
+      .slice(-12)
+  }, [receivedDividends, dripTransactions])
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
@@ -1064,14 +1126,19 @@ export default function DividendsTab() {
 
   return (
     <div className="space-y-6">
-      {/* Dividend Stats Row */}
+      {/* Dividend Stats Row 1 - Core Metrics */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <Card>
           <CardContent className="pt-4 pb-4">
             <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Total Dividends (TTM)</p>
-              <p className="text-2xl font-bold text-green-600">{formatCurrency(ttmDividends)}</p>
-              <p className="text-xs text-muted-foreground">{dividendPayingStocks} stocks</p>
+              <p className="text-xs font-medium text-muted-foreground">Portfolio Value</p>
+              <p className="text-2xl font-bold">{formatCurrency(portfolioValue)}</p>
+              <p className="text-xs text-muted-foreground">
+                Number of Assets: {totalStocks}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Dividend-Paying: {dividendPayingStocks}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -1079,7 +1146,40 @@ export default function DividendsTab() {
         <Card>
           <CardContent className="pt-4 pb-4">
             <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Portfolio Yield</p>
+              <p className="text-xs font-medium text-muted-foreground">Received (YTD)</p>
+              <p className="text-2xl font-bold text-green-600">{formatCurrency(ytdDividends)}</p>
+              <p className="text-xs text-muted-foreground">{ytdPaymentCount} payment{ytdPaymentCount !== 1 ? 's' : ''}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-4 pb-4">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">Upcoming (12M)</p>
+              <p className="text-2xl font-bold text-blue-600">{formatCurrency(upcoming12Months)}</p>
+              <p className="text-xs text-muted-foreground">{upcoming12MonthsCount} payment{upcoming12MonthsCount !== 1 ? 's' : ''}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-4 pb-4">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">Annual Projection</p>
+              <p className="text-2xl font-bold text-purple-600">{formatCurrency(annualProjection)}</p>
+              <p className="text-xs text-muted-foreground">Next 12 months</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Dividend Stats Row 2 - Yield Metrics */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <Card>
+          <CardContent className="pt-4 pb-4">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">Portfolio Yield (TTM)</p>
               <p className="text-2xl font-bold">{portfolioYield.toFixed(2)}%</p>
               <p className="text-xs text-muted-foreground">Based on current value</p>
             </div>
@@ -1089,7 +1189,7 @@ export default function DividendsTab() {
         <Card>
           <CardContent className="pt-4 pb-4">
             <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Yield on Cost</p>
+              <p className="text-xs font-medium text-muted-foreground">Yield on Cost (TTM)</p>
               <p className="text-2xl font-bold">{yieldOnCost.toFixed(2)}%</p>
               <p className="text-xs text-muted-foreground">Based on cost basis</p>
             </div>
@@ -1099,9 +1199,19 @@ export default function DividendsTab() {
         <Card>
           <CardContent className="pt-4 pb-4">
             <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Upcoming (30d)</p>
-              <p className="text-2xl font-bold text-blue-600">{formatCurrency(totalUpcoming)}</p>
-              <p className="text-xs text-muted-foreground">Next month estimate</p>
+              <p className="text-xs font-medium text-muted-foreground">Avg Monthly Income</p>
+              <p className="text-2xl font-bold">{formatCurrency(avgMonthlyIncome)}</p>
+              <p className="text-xs text-muted-foreground">Based on YTD</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-4 pb-4">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">Avg Daily Income</p>
+              <p className="text-2xl font-bold">{formatCurrency(avgDailyIncome)}</p>
+              <p className="text-xs text-muted-foreground">Based on YTD</p>
             </div>
           </CardContent>
         </Card>
@@ -1198,6 +1308,75 @@ export default function DividendsTab() {
             )}
           </div>
         </CardContent>
+      </Card>
+
+      {/* Growth Section (Collapsible) */}
+      <Card>
+        <CardHeader>
+          <div
+            className="flex items-center justify-between cursor-pointer"
+            onClick={() => setIsGrowthExpanded(!isGrowthExpanded)}
+          >
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base">
+                <TrendingUp className="inline h-4 w-4 mr-2" />
+                Dividend Growth
+              </CardTitle>
+              <span className="text-sm text-muted-foreground">
+                Reinvestment Rate
+              </span>
+            </div>
+            {isGrowthExpanded ? (
+              <ChevronUp className="h-5 w-5 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+            )}
+          </div>
+        </CardHeader>
+        {isGrowthExpanded && (
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={growthData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                  tickFormatter={(value) => {
+                    const date = new Date(value + "-01")
+                    return date.toLocaleDateString("en-US", { month: "short" })
+                  }}
+                />
+                <YAxis
+                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                  tickFormatter={(value) => `$${value}`}
+                />
+                <Tooltip
+                  formatter={(value: number) => formatCurrency(value)}
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "8px",
+                  }}
+                />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="received"
+                  stroke={PRIMARY_GREEN}
+                  strokeWidth={2}
+                  name="Dividends Received"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="reinvested"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  name="Reinvested"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        )}
       </Card>
 
       {/* DRIP Section (Collapsible) */}

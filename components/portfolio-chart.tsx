@@ -218,6 +218,19 @@ export default function PortfolioChart() {
     )
   }
 
+  if (portfolioValue === 0 || totalCost === 0) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="h-[400px] flex items-center justify-center flex-col space-y-2">
+            <p className="text-muted-foreground">No portfolio data available</p>
+            <p className="text-sm text-muted-foreground">Add transactions to see your portfolio performance chart</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card>
       <CardHeader className="pb-4">

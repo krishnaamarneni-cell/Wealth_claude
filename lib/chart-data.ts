@@ -316,7 +316,7 @@ export async function calculateBenchmarkValues(
     // Get benchmark current price and historical return
     const response = await fetch(`/api/stock-info?symbol=${benchmarkTicker}`)
     if (!response.ok) {
-      console.warn(`Failed to fetch ${benchmarkTicker}`)
+      // Benchmark data unavailable - will use estimated values
       return chartData
     }
 

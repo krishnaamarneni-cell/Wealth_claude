@@ -4,7 +4,6 @@ import {
   BarChart3,
   Briefcase,
   ChevronDown,
-  CircleDollarSign,
   Flame,
   Home,
   LineChart,
@@ -40,12 +39,11 @@ const mainNav = [
   { title: "Overview", url: "/dashboard", icon: Home },
   { title: "Holdings", url: "/dashboard/holdings", icon: Briefcase },
   { title: "Performance", url: "/dashboard/performance", icon: TrendingUp },
-  { title: "Portfolio", url: "/dashboard/portfolio", icon: PieChart }, // ✅ COMBINED!
+  { title: "Portfolio", url: "/dashboard/portfolio", icon: PieChart },
   { title: "Transactions", url: "/dashboard/transactions", icon: Receipt },
 ]
 
 const analysisNav = [
-  { title: "Dividends", url: "/dashboard/dividends", icon: CircleDollarSign },
   { title: "Trade Analysis", url: "/dashboard/trades", icon: BarChart3 },
   { title: "Goal Tracker", url: "/dashboard/goals", icon: Target },
 ]
@@ -133,7 +131,7 @@ export function DashboardSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        
+
         <SidebarGroup>
           <SidebarGroupLabel>Development</SidebarGroupLabel>
           <SidebarGroupContent>

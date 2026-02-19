@@ -476,12 +476,12 @@ export default function InsightsPage() {
               <div
                 key={index}
                 className={`flex gap-3 p-4 rounded-lg border ${rec.type === "warning"
-                    ? "bg-yellow-500/10 border-yellow-500/30"
-                    : rec.type === "alert"
-                      ? "bg-red-500/10 border-red-500/30"
-                      : rec.type === "success"
-                        ? "bg-green-500/10 border-green-500/30"
-                        : "bg-blue-500/10 border-blue-500/30"
+                  ? "bg-yellow-500/10 border-yellow-500/30"
+                  : rec.type === "alert"
+                    ? "bg-red-500/10 border-red-500/30"
+                    : rec.type === "success"
+                      ? "bg-green-500/10 border-green-500/30"
+                      : "bg-blue-500/10 border-blue-500/30"
                   }`}
               >
                 {rec.type === "warning" ? (

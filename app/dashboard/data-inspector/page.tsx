@@ -374,7 +374,7 @@ export default function DataInspectorPage() {
       const currentCount = currentTxns.length
 
       if (currentCount !== previousTxnCount) {
-        console.log('🔄 Transaction change detected:', previousTxnCount, '→', currentCount)
+        console.log('🔄 Transaction change detected:', previousTxnCount, '��', currentCount)
         previousTxnCount = currentCount
         clearCache()
         portfolioContext.refresh()
@@ -396,14 +396,20 @@ export default function DataInspectorPage() {
           return
         }
         
+        setIsLoading(true)
         const holdings = await calculateAndFetchHoldings(txns)
         console.log('[v0] Data Inspector - Loaded independent holdings:', holdings.length)
-        console.log('[v0] Sample holding with returns:', holdings[0]?.returns)
+        if (holdings.length > 0) {
+          console.log('[v0] Sample holding with returns:', holdings[0]?.returns)
+        }
         setIndependentHoldings(holdings)
         setHoldingsLoaded(true)
       } catch (error) {
         console.error('[v0] Failed to load independent holdings:', error)
+        // Still set loaded to true so the page renders with fallback data
         setHoldingsLoaded(true)
+      } finally {
+        setIsLoading(false)
       }
     }
     

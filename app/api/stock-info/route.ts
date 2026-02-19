@@ -75,8 +75,24 @@ export async function GET(request: NextRequest) {
   }
 
   if (!FINNHUB_API_KEY || !POLYGON_API_KEY) {
-    console.error('❌ API keys not configured')
-    return NextResponse.json({ error: 'API keys not configured' }, { status: 500 })
+    console.warn(`⚠️ API keys not configured - using fallback data for ${symbol}`)
+    // Return fallback data with HTTP 200 instead of 500
+    const fallbackData = {
+      sector: 'Unknown',
+      industry: 'Unknown',
+      country: 'US',
+      name: symbol,
+      price: 0,
+      change: 0,
+      changePercent: 0,
+      week52High: 0,
+      week52Low: 0,
+      dividendYield: 0,
+      returns: { '1D': 0, '1W': 0, '1M': 0, '3M': 0, '6M': 0, '1Y': 0 },
+      dataSource: 'none'
+    }
+    cache.set(symbol, { data: fallbackData, timestamp: Date.now() })
+    return NextResponse.json(fallbackData)
   }
 
   console.log(`📊 Fetching ${symbol}...`)

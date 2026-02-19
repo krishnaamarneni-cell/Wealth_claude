@@ -44,6 +44,12 @@ import {
   Shield,
   Target,
   RefreshCw,
+  Trophy,
+  AlertTriangle,
+  PieChart,
+  Percent,
+  Crown,
+  Skull,
 } from "lucide-react"
 import { getTransactionsFromStorage, Transaction } from "@/lib/transaction-storage"
 import { calculateAndFetchHoldings, type Holding } from "@/lib/holdings-calculator"
@@ -71,6 +77,291 @@ function formatCurrency(value: number): string {
 function formatPercent(value: number | null | undefined): string {
   if (value === null || value === undefined || isNaN(value)) return "-"
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`
+}
+
+// ==================== KEY INSIGHTS CARDS ====================
+function KeyInsightsSection({ holdings }: { holdings: Holding[] }) {
+  if (!holdings || holdings.length === 0) {
+    return null
+  }
+
+  // Calculate insights
+  const winningPositions = holdings.filter(h => h.totalGain > 0)
+  const losingPositions = holdings.filter(h => h.totalGain < 0)
+
+  const topPerformer = [...holdings].sort((a, b) => b.totalGainPercent - a.totalGainPercent)[0]
+  const worstPerformer = [...holdings].sort((a, b) => a.totalGainPercent - b.totalGainPercent)[0]
+  const largestPosition = [...holdings].sort((a, b) => b.allocation - a.allocation)[0]
+
+  const totalWinnings = winningPositions.reduce((sum, h) => sum + h.totalGain, 0)
+  const totalLosses = Math.abs(losingPositions.reduce((sum, h) => sum + h.totalGain, 0))
+
+  const top3Holdings = [...holdings].sort((a, b) => b.allocation - a.allocation).slice(0, 3)
+  const top3Concentration = top3Holdings.reduce((sum, h) => sum + h.allocation, 0)
+
+  const winRate = holdings.length > 0 ? (winningPositions.length / holdings.length) * 100 : 0
+
+  // Get sector concentration
+  const sectorMap = holdings.reduce((acc, h) => {
+    const sector = h.sector || "Unknown"
+    acc[sector] = (acc[sector] || 0) + h.allocation
+    return acc
+  }, {} as Record<string, number>)
+  const dominantSector = Object.entries(sectorMap).sort((a, b) => b[1] - a[1])[0]
+
+  // Average position size
+  const avgPositionSize = holdings.reduce((sum, h) => sum + h.marketValue, 0) / holdings.length
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Target className="h-5 w-5 text-primary" />
+        <h2 className="text-xl font-bold">Key Portfolio Insights</h2>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {/* Top Performer */}
+        <Card className="border-green-500/30 bg-green-500/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+              <Trophy className="h-4 w-4 text-green-600" />
+              Top Performer
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl font-bold">{topPerformer.symbol}</div>
+            <p className="text-lg font-semibold text-green-600 mt-1">
+              {formatPercent(topPerformer.totalGainPercent)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {formatCurrency(topPerformer.totalGain)} gain
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Worst Performer */}
+        <Card className="border-red-500/30 bg-red-500/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+              <AlertTriangle className="h-4 w-4 text-red-600" />
+              Worst Performer
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl font-bold">{worstPerformer.symbol}</div>
+            <p className="text-lg font-semibold text-red-600 mt-1">
+              {formatPercent(worstPerformer.totalGainPercent)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {formatCurrency(worstPerformer.totalGain)} loss
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Largest Position */}
+        <Card className="border-blue-500/30 bg-blue-500/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+              <Crown className="h-4 w-4 text-blue-600" />
+              Largest Position
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl font-bold">{largestPosition.symbol}</div>
+            <p className="text-lg font-semibold text-blue-600 mt-1">
+              {largestPosition.allocation.toFixed(1)}%
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {formatCurrency(largestPosition.marketValue)}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Total Holdings */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+              <BarChart3 className="h-4 w-4" />
+              Total Holdings
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{holdings.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Active positions
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Winning Positions */}
+        <Card className="border-green-500/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+              <TrendingUp className="h-4 w-4 text-green-600" />
+              Winning Positions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{winningPositions.length}</div>
+            <p className="text-sm font-medium text-green-600 mt-1">
+              {formatCurrency(totalWinnings)}
+            </p>
+            <p className="text-xs text-muted-foreground">Total gains</p>
+          </CardContent>
+        </Card>
+
+        {/* Losing Positions */}
+        <Card className="border-red-500/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+              <TrendingDown className="h-4 w-4 text-red-600" />
+              Losing Positions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{losingPositions.length}</div>
+            <p className="text-sm font-medium text-red-600 mt-1">
+              {formatCurrency(totalLosses)}
+            </p>
+            <p className="text-xs text-muted-foreground">Total losses</p>
+          </CardContent>
+        </Card>
+
+        {/* Portfolio Concentration */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+              <PieChart className="h-4 w-4" />
+              Top 3 Concentration
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{top3Concentration.toFixed(1)}%</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {top3Holdings.map(h => h.symbol).join(', ')}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Win Rate */}
+        <Card className={winRate >= 50 ? "border-green-500/20" : "border-red-500/20"}>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+              <Percent className="h-4 w-4" />
+              Win Rate
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${winRate >= 50 ? "text-green-600" : "text-red-600"}`}>
+              {winRate.toFixed(1)}%
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {winningPositions.length} of {holdings.length} profitable
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Sector Concentration */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+              <Target className="h-4 w-4" />
+              Dominant Sector
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-lg font-bold">{dominantSector?.[0] || "N/A"}</div>
+            <p className="text-lg font-semibold text-primary mt-1">
+              {dominantSector?.[1]?.toFixed(1) || 0}%
+            </p>
+            <p className="text-xs text-muted-foreground">of portfolio</p>
+          </CardContent>
+        </Card>
+
+        {/* Average Position Size */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+              <Activity className="h-4 w-4" />
+              Avg Position Size
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl font-bold">{formatCurrency(avgPositionSize)}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Per holding
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Best Period Return */}
+        <Card className="border-green-500/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+              <TrendingUp className="h-4 w-4 text-green-600" />
+              Best Period
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {(() => {
+              const periods = ["1D", "1W", "1M", "3M", "6M", "1Y"]
+              const returns = periods.map(p => ({
+                period: p,
+                value: holdings.reduce((sum, h) => {
+                  const weight = h.allocation / 100
+                  const ret = h.returns?.[p] || 0
+                  return sum + weight * ret
+                }, 0)
+              }))
+              const best = returns.sort((a, b) => b.value - a.value)[0]
+              return (
+                <>
+                  <div className="text-xl font-bold">{best.period}</div>
+                  <p className="text-lg font-semibold text-green-600 mt-1">
+                    {formatPercent(best.value)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Return</p>
+                </>
+              )
+            })()}
+          </CardContent>
+        </Card>
+
+        {/* Worst Period Return */}
+        <Card className="border-red-500/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+              <TrendingDown className="h-4 w-4 text-red-600" />
+              Worst Period
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {(() => {
+              const periods = ["1D", "1W", "1M", "3M", "6M", "1Y"]
+              const returns = periods.map(p => ({
+                period: p,
+                value: holdings.reduce((sum, h) => {
+                  const weight = h.allocation / 100
+                  const ret = h.returns?.[p] || 0
+                  return sum + weight * ret
+                }, 0)
+              }))
+              const worst = returns.sort((a, b) => a.value - b.value)[0]
+              return (
+                <>
+                  <div className="text-xl font-bold">{worst.period}</div>
+                  <p className="text-lg font-semibold text-red-600 mt-1">
+                    {formatPercent(worst.value)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Return</p>
+                </>
+              )
+            })()}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
 }
 
 // ==================== INTERACTIVE DONUT CHART ====================
@@ -179,7 +470,6 @@ function InteractiveTradeDonut({ trades }: { trades: Trade[] }) {
       </CardHeader>
       <CardContent>
         <div className="flex flex-col lg:flex-row gap-6">
-          {/* SVG Donut */}
           <div className="flex-1">
             <svg viewBox="0 0 400 400" className="w-full h-auto max-w-[400px] mx-auto">
               {segments.map((segment, index) => {
@@ -198,7 +488,6 @@ function InteractiveTradeDonut({ trades }: { trades: Trade[] }) {
                 )
               })}
 
-              {/* Center Text */}
               {hoveredStock ? (
                 <>
                   <text x="200" y="185" textAnchor="middle" fill="currentColor" fontSize="14" fontWeight="500">
@@ -224,14 +513,12 @@ function InteractiveTradeDonut({ trades }: { trades: Trade[] }) {
             </svg>
           </div>
 
-          {/* Legend */}
           <div className="flex-1 max-w-md">
             <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
               {displayStocks.map((stock) => (
                 <div
                   key={stock.symbol}
-                  className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 border ${hoveredStock === stock.symbol ? "border-primary" : "border-transparent hover:border-muted"
-                    }`}
+                  className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 border ${hoveredStock === stock.symbol ? "border-primary" : "border-transparent hover:border-muted"}`}
                   onMouseEnter={() => setHoveredStock(stock.symbol)}
                   onMouseLeave={() => setHoveredStock(null)}
                 >
@@ -255,7 +542,7 @@ function InteractiveTradeDonut({ trades }: { trades: Trade[] }) {
 
 // ==================== MAIN PAGE ====================
 export default function InsightsPage() {
-  const [activeTab, setActiveTab] = useState("trades")
+  const [activeTab, setActiveTab] = useState("insights")
   const [trades, setTrades] = useState<Trade[]>([])
   const [holdings, setHoldings] = useState<Holding[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -275,7 +562,6 @@ export default function InsightsPage() {
         const txns = getTransactionsFromStorage()
         setTransactions(txns)
 
-        // Load trades
         const tradesData: Trade[] = txns
           .filter((t) => t.type === "BUY" || t.type === "SELL")
           .map((t) => ({
@@ -285,13 +571,12 @@ export default function InsightsPage() {
             shares: t.shares,
             price: t.price,
             total: t.total,
-            fees: t.fees,
+            fees: t.fees || 0,
           }))
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
         setTrades(tradesData)
 
-        // Load holdings for performance tab
         if (txns.length > 0) {
           const holdingsData = await calculateAndFetchHoldings(txns)
           setHoldings(holdingsData)
@@ -314,7 +599,6 @@ export default function InsightsPage() {
     setTimeout(() => setIsRefreshing(false), 1000)
   }
 
-  // Filter trades by time range
   const getFilteredTrades = () => {
     if (timeRange === "all") return trades
 
@@ -326,8 +610,6 @@ export default function InsightsPage() {
   }
 
   const filteredTrades = getFilteredTrades()
-
-  // Pagination
   const totalPages = Math.ceil(filteredTrades.length / rowsPerPage)
   const startIndex = (currentPage - 1) * rowsPerPage
   const endIndex = startIndex + rowsPerPage
@@ -338,14 +620,12 @@ export default function InsightsPage() {
     setCurrentPage(1)
   }
 
-  // Trade statistics
   const buyTrades = filteredTrades.filter((t) => t.type === "BUY")
   const sellTrades = filteredTrades.filter((t) => t.type === "SELL")
   const totalBuyVolume = buyTrades.reduce((acc, t) => acc + t.total, 0)
   const totalSellVolume = sellTrades.reduce((acc, t) => acc + t.total, 0)
   const totalFees = filteredTrades.reduce((acc, t) => acc + t.fees, 0)
 
-  // Monthly trades chart
   const monthlyTrades = filteredTrades.reduce((acc, trade) => {
     const month = trade.date.substring(0, 7)
     if (!acc[month]) {
@@ -367,7 +647,6 @@ export default function InsightsPage() {
     }))
     .sort((a, b) => a.month.localeCompare(b.month))
 
-  // Performance metrics
   const metrics = useMemo(() => {
     if (!holdings || holdings.length === 0) {
       return {
@@ -402,7 +681,6 @@ export default function InsightsPage() {
     }
   }, [holdings])
 
-  // Historical chart data (simplified)
   const historicalData = useMemo(() => {
     const months = []
     const today = new Date()
@@ -418,7 +696,7 @@ export default function InsightsPage() {
       months.push({
         month: monthKey,
         portfolio: estimatedValue,
-        benchmark: costBasis * 1.15, // Mock benchmark
+        benchmark: costBasis * 1.15,
       })
     }
 
@@ -441,9 +719,9 @@ export default function InsightsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Insights</h1>
+          <h1 className="text-2xl font-bold">Portfolio Insights</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Comprehensive analysis of trading activity and portfolio performance
+            Comprehensive analysis of your portfolio performance and trading activity
           </p>
         </div>
         <Button onClick={handleRefresh} disabled={isRefreshing} variant="outline" size="sm" className="gap-2">
@@ -454,10 +732,24 @@ export default function InsightsPage() {
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="insights">Key Insights</TabsTrigger>
           <TabsTrigger value="trades">Trade Analysis</TabsTrigger>
           <TabsTrigger value="performance">Performance</TabsTrigger>
         </TabsList>
+
+        {/* ==================== KEY INSIGHTS TAB ==================== */}
+        <TabsContent value="insights" className="space-y-6">
+          {holdings.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6 text-center text-muted-foreground">
+                No insights available. Upload transactions to get started.
+              </CardContent>
+            </Card>
+          ) : (
+            <KeyInsightsSection holdings={holdings} />
+          )}
+        </TabsContent>
 
         {/* ==================== TRADE ANALYSIS TAB ==================== */}
         <TabsContent value="trades" className="space-y-6">
@@ -469,7 +761,6 @@ export default function InsightsPage() {
             </Card>
           ) : (
             <>
-              {/* Summary Cards */}
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -518,7 +809,6 @@ export default function InsightsPage() {
                 </Card>
               </div>
 
-              {/* Charts */}
               <div className="grid gap-6 lg:grid-cols-2">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between">
@@ -567,7 +857,6 @@ export default function InsightsPage() {
                 <InteractiveTradeDonut trades={filteredTrades} />
               </div>
 
-              {/* Trade History Table */}
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">Trade History</CardTitle>
@@ -613,7 +902,6 @@ export default function InsightsPage() {
                     </TableBody>
                   </Table>
 
-                  {/* Pagination */}
                   <div className="flex items-center justify-between border-t pt-4 mt-4">
                     <p className="text-sm text-muted-foreground">
                       Showing {startIndex + 1}–{Math.min(endIndex, filteredTrades.length)} of {filteredTrades.length}
@@ -657,7 +945,6 @@ export default function InsightsPage() {
             </Card>
           ) : (
             <>
-              {/* Quick Stats */}
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <Card>
                   <CardHeader className="pb-3">
@@ -717,7 +1004,6 @@ export default function InsightsPage() {
                 </Card>
               </div>
 
-              {/* Historical Performance Chart */}
               <Card>
                 <CardHeader>
                   <CardTitle>Portfolio Performance (12 Months)</CardTitle>
@@ -768,7 +1054,6 @@ export default function InsightsPage() {
                 </CardContent>
               </Card>
 
-              {/* Period Returns */}
               <Card>
                 <CardHeader>
                   <CardTitle>Period Returns</CardTitle>

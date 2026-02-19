@@ -4,67 +4,20 @@ import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Progress } from "@/components/ui/progress"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-  AreaChart,
-  Area,
-} from "recharts"
-import {
-  ArrowDownRight,
-  ArrowUpRight,
-  BarChart3,
   TrendingUp,
   TrendingDown,
-  ChevronLeft,
-  ChevronRight,
-  Activity,
-  Shield,
   Target,
-  RefreshCw,
-  Trophy,
-  AlertTriangle,
   PieChart,
-  Percent,
-  Crown,
-  Skull,
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  Lightbulb,
+  RefreshCw,
 } from "lucide-react"
-import { getTransactionsFromStorage, Transaction } from "@/lib/transaction-storage"
+import { getTransactionsFromStorage } from "@/lib/transaction-storage"
 import { calculateAndFetchHoldings, type Holding } from "@/lib/holdings-calculator"
-
-const CHART_COLORS = ["#3b82f6", "#8b5cf6", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899", "#14b8a6"]
-
-interface Trade {
-  date: string
-  symbol: string
-  type: "BUY" | "SELL"
-  shares: number
-  price: number
-  total: number
-  fees: number
-}
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -75,508 +28,20 @@ function formatCurrency(value: number): string {
 }
 
 function formatPercent(value: number | null | undefined): string {
-  if (value === null || value === undefined || isNaN(value)) return "-"
+  if (value === null || value === undefined || isNaN(value)) return "NaN%"
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`
 }
 
-// ==================== KEY INSIGHTS CARDS ====================
-function KeyInsightsSection({ holdings }: { holdings: Holding[] }) {
-  if (!holdings || holdings.length === 0) {
-    return null
-  }
-
-  // Calculate insights
-  const winningPositions = holdings.filter(h => h.totalGain > 0)
-  const losingPositions = holdings.filter(h => h.totalGain < 0)
-
-  const topPerformer = [...holdings].sort((a, b) => b.totalGainPercent - a.totalGainPercent)[0]
-  const worstPerformer = [...holdings].sort((a, b) => a.totalGainPercent - b.totalGainPercent)[0]
-  const largestPosition = [...holdings].sort((a, b) => b.allocation - a.allocation)[0]
-
-  const totalWinnings = winningPositions.reduce((sum, h) => sum + h.totalGain, 0)
-  const totalLosses = Math.abs(losingPositions.reduce((sum, h) => sum + h.totalGain, 0))
-
-  const top3Holdings = [...holdings].sort((a, b) => b.allocation - a.allocation).slice(0, 3)
-  const top3Concentration = top3Holdings.reduce((sum, h) => sum + h.allocation, 0)
-
-  const winRate = holdings.length > 0 ? (winningPositions.length / holdings.length) * 100 : 0
-
-  // Get sector concentration
-  const sectorMap = holdings.reduce((acc, h) => {
-    const sector = h.sector || "Unknown"
-    acc[sector] = (acc[sector] || 0) + h.allocation
-    return acc
-  }, {} as Record<string, number>)
-  const dominantSector = Object.entries(sectorMap).sort((a, b) => b[1] - a[1])[0]
-
-  // Average position size
-  const avgPositionSize = holdings.reduce((sum, h) => sum + h.marketValue, 0) / holdings.length
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Target className="h-5 w-5 text-primary" />
-        <h2 className="text-xl font-bold">Key Portfolio Insights</h2>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {/* Top Performer */}
-        <Card className="border-green-500/30 bg-green-500/5">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-              <Trophy className="h-4 w-4 text-green-600" />
-              Top Performer
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-bold">{topPerformer.symbol}</div>
-            <p className="text-lg font-semibold text-green-600 mt-1">
-              {formatPercent(topPerformer.totalGainPercent)}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {formatCurrency(topPerformer.totalGain)} gain
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Worst Performer */}
-        <Card className="border-red-500/30 bg-red-500/5">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-              <AlertTriangle className="h-4 w-4 text-red-600" />
-              Worst Performer
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-bold">{worstPerformer.symbol}</div>
-            <p className="text-lg font-semibold text-red-600 mt-1">
-              {formatPercent(worstPerformer.totalGainPercent)}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {formatCurrency(worstPerformer.totalGain)} loss
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Largest Position */}
-        <Card className="border-blue-500/30 bg-blue-500/5">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-              <Crown className="h-4 w-4 text-blue-600" />
-              Largest Position
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-bold">{largestPosition.symbol}</div>
-            <p className="text-lg font-semibold text-blue-600 mt-1">
-              {largestPosition.allocation.toFixed(1)}%
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {formatCurrency(largestPosition.marketValue)}
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Total Holdings */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-              <BarChart3 className="h-4 w-4" />
-              Total Holdings
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{holdings.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Active positions
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Winning Positions */}
-        <Card className="border-green-500/20">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-              <TrendingUp className="h-4 w-4 text-green-600" />
-              Winning Positions
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{winningPositions.length}</div>
-            <p className="text-sm font-medium text-green-600 mt-1">
-              {formatCurrency(totalWinnings)}
-            </p>
-            <p className="text-xs text-muted-foreground">Total gains</p>
-          </CardContent>
-        </Card>
-
-        {/* Losing Positions */}
-        <Card className="border-red-500/20">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-              <TrendingDown className="h-4 w-4 text-red-600" />
-              Losing Positions
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{losingPositions.length}</div>
-            <p className="text-sm font-medium text-red-600 mt-1">
-              {formatCurrency(totalLosses)}
-            </p>
-            <p className="text-xs text-muted-foreground">Total losses</p>
-          </CardContent>
-        </Card>
-
-        {/* Portfolio Concentration */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-              <PieChart className="h-4 w-4" />
-              Top 3 Concentration
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{top3Concentration.toFixed(1)}%</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {top3Holdings.map(h => h.symbol).join(', ')}
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Win Rate */}
-        <Card className={winRate >= 50 ? "border-green-500/20" : "border-red-500/20"}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-              <Percent className="h-4 w-4" />
-              Win Rate
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${winRate >= 50 ? "text-green-600" : "text-red-600"}`}>
-              {winRate.toFixed(1)}%
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {winningPositions.length} of {holdings.length} profitable
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Sector Concentration */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-              <Target className="h-4 w-4" />
-              Dominant Sector
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-lg font-bold">{dominantSector?.[0] || "N/A"}</div>
-            <p className="text-lg font-semibold text-primary mt-1">
-              {dominantSector?.[1]?.toFixed(1) || 0}%
-            </p>
-            <p className="text-xs text-muted-foreground">of portfolio</p>
-          </CardContent>
-        </Card>
-
-        {/* Average Position Size */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-              <Activity className="h-4 w-4" />
-              Avg Position Size
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-bold">{formatCurrency(avgPositionSize)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Per holding
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Best Period Return */}
-        <Card className="border-green-500/20">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-              <TrendingUp className="h-4 w-4 text-green-600" />
-              Best Period
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {(() => {
-              const periods = ["1D", "1W", "1M", "3M", "6M", "1Y"]
-              const returns = periods.map(p => ({
-                period: p,
-                value: holdings.reduce((sum, h) => {
-                  const weight = h.allocation / 100
-                  const ret = h.returns?.[p] || 0
-                  return sum + weight * ret
-                }, 0)
-              }))
-              const best = returns.sort((a, b) => b.value - a.value)[0]
-              return (
-                <>
-                  <div className="text-xl font-bold">{best.period}</div>
-                  <p className="text-lg font-semibold text-green-600 mt-1">
-                    {formatPercent(best.value)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Return</p>
-                </>
-              )
-            })()}
-          </CardContent>
-        </Card>
-
-        {/* Worst Period Return */}
-        <Card className="border-red-500/20">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-              <TrendingDown className="h-4 w-4 text-red-600" />
-              Worst Period
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {(() => {
-              const periods = ["1D", "1W", "1M", "3M", "6M", "1Y"]
-              const returns = periods.map(p => ({
-                period: p,
-                value: holdings.reduce((sum, h) => {
-                  const weight = h.allocation / 100
-                  const ret = h.returns?.[p] || 0
-                  return sum + weight * ret
-                }, 0)
-              }))
-              const worst = returns.sort((a, b) => a.value - b.value)[0]
-              return (
-                <>
-                  <div className="text-xl font-bold">{worst.period}</div>
-                  <p className="text-lg font-semibold text-red-600 mt-1">
-                    {formatPercent(worst.value)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Return</p>
-                </>
-              )
-            })()}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  )
-}
-
-// ==================== INTERACTIVE DONUT CHART ====================
-function InteractiveTradeDonut({ trades }: { trades: Trade[] }) {
-  const [hoveredStock, setHoveredStock] = useState<string | null>(null)
-
-  const prepareChartData = () => {
-    const tradesBySymbol = trades.reduce((acc, trade) => {
-      if (!acc[trade.symbol]) {
-        acc[trade.symbol] = 0
-      }
-      acc[trade.symbol] += trade.total
-      return acc
-    }, {} as Record<string, number>)
-
-    if (Object.keys(tradesBySymbol).length === 0) {
-      return { stocks: [], total: 0 }
-    }
-
-    const total = Object.values(tradesBySymbol).reduce((sum, val) => sum + val, 0)
-
-    const stocks = Object.entries(tradesBySymbol)
-      .map(([symbol, value], index) => ({
-        symbol,
-        value,
-        percentage: total ? (value / total) * 100 : 0,
-        color: CHART_COLORS[index % CHART_COLORS.length],
-      }))
-      .sort((a, b) => b.value - a.value)
-
-    return { stocks, total }
-  }
-
-  const { stocks, total } = prepareChartData()
-
-  let currentAngle = -90
-  const segments = stocks.map((stock) => {
-    const angle = (stock.percentage / 100) * 360
-    const segment = {
-      ...stock,
-      startAngle: currentAngle,
-      endAngle: currentAngle + angle,
-    }
-    currentAngle += angle
-    return segment
-  })
-
-  const polarToCartesian = (
-    centerX: number,
-    centerY: number,
-    radius: number,
-    angleInDegrees: number
-  ) => {
-    const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180.0
-    return {
-      x: centerX + radius * Math.cos(angleInRadians),
-      y: centerY + radius * Math.sin(angleInRadians),
-    }
-  }
-
-  const createArc = (
-    startAngle: number,
-    endAngle: number,
-    innerRadius: number,
-    outerRadius: number
-  ) => {
-    const start = polarToCartesian(200, 200, outerRadius, endAngle)
-    const end = polarToCartesian(200, 200, outerRadius, startAngle)
-    const innerStart = polarToCartesian(200, 200, innerRadius, endAngle)
-    const innerEnd = polarToCartesian(200, 200, innerRadius, startAngle)
-    const largeArcFlag = endAngle - startAngle <= 180 ? 0 : 1
-
-    return [
-      `M ${start.x} ${start.y}`,
-      `A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`,
-      `L ${innerEnd.x} ${innerEnd.y}`,
-      `A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 1 ${innerStart.x} ${innerStart.y}`,
-      "Z",
-    ].join(" ")
-  }
-
-  const displayStocks = hoveredStock
-    ? [stocks.find((s) => s.symbol === hoveredStock)!, ...stocks.filter((s) => s.symbol !== hoveredStock)].filter(Boolean)
-    : stocks
-
-  if (stocks.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Trade Volume by Symbol</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[400px] flex items-center justify-center text-muted-foreground">
-            No trades found
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Trade Volume by Symbol</CardTitle>
-        <CardDescription>Total trading volume distribution</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-col lg:flex-row gap-6">
-          <div className="flex-1">
-            <svg viewBox="0 0 400 400" className="w-full h-auto max-w-[400px] mx-auto">
-              {segments.map((segment, index) => {
-                const isHovered = hoveredStock === segment.symbol
-                const outerRadius = isHovered ? 175 : 165
-                return (
-                  <path
-                    key={index}
-                    d={createArc(segment.startAngle, segment.endAngle, 100, outerRadius)}
-                    fill={segment.color}
-                    opacity={hoveredStock && !isHovered ? 0.3 : 1}
-                    className="transition-all duration-200 cursor-pointer"
-                    onMouseEnter={() => setHoveredStock(segment.symbol)}
-                    onMouseLeave={() => setHoveredStock(null)}
-                  />
-                )
-              })}
-
-              {hoveredStock ? (
-                <>
-                  <text x="200" y="185" textAnchor="middle" fill="currentColor" fontSize="14" fontWeight="500">
-                    {hoveredStock}
-                  </text>
-                  <text x="200" y="210" textAnchor="middle" fill="#22c55e" fontSize="20" fontWeight="700">
-                    {formatCurrency(segments.find((s) => s.symbol === hoveredStock)?.value || 0)}
-                  </text>
-                  <text x="200" y="230" textAnchor="middle" fill="currentColor" fontSize="12">
-                    {segments.find((s) => s.symbol === hoveredStock)?.percentage.toFixed(1)}% of volume
-                  </text>
-                </>
-              ) : (
-                <>
-                  <text x="200" y="185" textAnchor="middle" fill="currentColor" fontSize="14" fontWeight="500">
-                    Total Volume
-                  </text>
-                  <text x="200" y="215" textAnchor="middle" fill="#22c55e" fontSize="24" fontWeight="700">
-                    {formatCurrency(total)}
-                  </text>
-                </>
-              )}
-            </svg>
-          </div>
-
-          <div className="flex-1 max-w-md">
-            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
-              {displayStocks.map((stock) => (
-                <div
-                  key={stock.symbol}
-                  className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 border ${hoveredStock === stock.symbol ? "border-primary" : "border-transparent hover:border-muted"}`}
-                  onMouseEnter={() => setHoveredStock(stock.symbol)}
-                  onMouseLeave={() => setHoveredStock(null)}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: stock.color }} />
-                    <span className="text-sm font-semibold">{stock.symbol}</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-bold">{stock.percentage.toFixed(2)}%</div>
-                    <div className="text-xs text-green-600 font-medium">{formatCurrency(stock.value)}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-// ==================== MAIN PAGE ====================
 export default function InsightsPage() {
-  const [activeTab, setActiveTab] = useState("insights")
-  const [trades, setTrades] = useState<Trade[]>([])
   const [holdings, setHoldings] = useState<Holding[]>([])
-  const [transactions, setTransactions] = useState<Transaction[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  // Trade Analysis states
-  const [rowsPerPage, setRowsPerPage] = useState(10)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [timeRange, setTimeRange] = useState<"1m" | "3m" | "6m" | "1y" | "all">("all")
-
-  // Load data
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true)
       try {
         const txns = getTransactionsFromStorage()
-        setTransactions(txns)
-
-        const tradesData: Trade[] = txns
-          .filter((t) => t.type === "BUY" || t.type === "SELL")
-          .map((t) => ({
-            date: t.date,
-            symbol: t.symbol,
-            type: t.type as "BUY" | "SELL",
-            shares: t.shares,
-            price: t.price,
-            total: t.total,
-            fees: t.fees || 0,
-          }))
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-
-        setTrades(tradesData)
-
         if (txns.length > 0) {
           const holdingsData = await calculateAndFetchHoldings(txns)
           setHoldings(holdingsData)
@@ -587,7 +52,6 @@ export default function InsightsPage() {
         setIsLoading(false)
       }
     }
-
     loadData()
   }, [])
 
@@ -599,109 +63,156 @@ export default function InsightsPage() {
     setTimeout(() => setIsRefreshing(false), 1000)
   }
 
-  const getFilteredTrades = () => {
-    if (timeRange === "all") return trades
-
-    const now = new Date()
-    const monthsBack = timeRange === "1m" ? 1 : timeRange === "3m" ? 3 : timeRange === "6m" ? 6 : 12
-    const cutoffDate = new Date(now.getFullYear(), now.getMonth() - monthsBack, now.getDate())
-
-    return trades.filter((trade) => new Date(trade.date) >= cutoffDate)
-  }
-
-  const filteredTrades = getFilteredTrades()
-  const totalPages = Math.ceil(filteredTrades.length / rowsPerPage)
-  const startIndex = (currentPage - 1) * rowsPerPage
-  const endIndex = startIndex + rowsPerPage
-  const paginatedTrades = filteredTrades.slice(startIndex, endIndex)
-
-  const handleRowsPerPageChange = (value: string) => {
-    setRowsPerPage(Number(value))
-    setCurrentPage(1)
-  }
-
-  const buyTrades = filteredTrades.filter((t) => t.type === "BUY")
-  const sellTrades = filteredTrades.filter((t) => t.type === "SELL")
-  const totalBuyVolume = buyTrades.reduce((acc, t) => acc + t.total, 0)
-  const totalSellVolume = sellTrades.reduce((acc, t) => acc + t.total, 0)
-  const totalFees = filteredTrades.reduce((acc, t) => acc + t.fees, 0)
-
-  const monthlyTrades = filteredTrades.reduce((acc, trade) => {
-    const month = trade.date.substring(0, 7)
-    if (!acc[month]) {
-      acc[month] = { buys: 0, sells: 0 }
-    }
-    if (trade.type === "BUY") {
-      acc[month].buys += trade.total
-    } else {
-      acc[month].sells += trade.total
-    }
-    return acc
-  }, {} as Record<string, { buys: number; sells: number }>)
-
-  const chartData = Object.entries(monthlyTrades)
-    .map(([month, data]) => ({
-      month,
-      buys: data.buys,
-      sells: data.sells,
-    }))
-    .sort((a, b) => a.month.localeCompare(b.month))
-
-  const metrics = useMemo(() => {
+  const insights = useMemo(() => {
     if (!holdings || holdings.length === 0) {
       return {
+        totalReturn: 0,
+        totalReturnAmount: 0,
+        winningPositions: 0,
+        losingPositions: 0,
+        winRate: 0,
+        totalHoldings: 0,
         portfolioValue: 0,
-        totalCost: 0,
-        totalGain: 0,
-        totalGainPercent: 0,
-        todayChange: 0,
-        todayChangePercent: 0,
+        topPerformer: null,
+        worstPerformer: null,
+        largestPosition: null,
+        top3Concentration: 0,
+        avgPositionSize: 0,
+        bestPeriod: { period: "N/A", return: 0 },
+        worstPeriod: { period: "N/A", return: 0 },
+        dominantSector: { name: "Unknown", percentage: 0 },
+        volatility: 0,
+        diversification: "N/A",
       }
     }
 
     const portfolioValue = holdings.reduce((sum, h) => sum + h.marketValue, 0)
     const totalCost = holdings.reduce((sum, h) => sum + h.totalCost, 0)
-    const totalGain = portfolioValue - totalCost
-    const totalGainPercent = totalCost > 0 ? (totalGain / totalCost) * 100 : 0
+    const totalReturn = totalCost > 0 ? ((portfolioValue - totalCost) / totalCost) * 100 : 0
+    const totalReturnAmount = portfolioValue - totalCost
 
-    const todayChangePercent = holdings.reduce((sum, h) => {
-      const weight = h.allocation / 100
-      const change = h.returns?.["1D"] || 0
-      return sum + weight * change
-    }, 0)
-    const todayChange = (portfolioValue * todayChangePercent) / 100
+    const winningPositions = holdings.filter((h) => h.totalGain > 0).length
+    const losingPositions = holdings.filter((h) => h.totalGain < 0).length
+    const winRate = holdings.length > 0 ? (winningPositions / holdings.length) * 100 : 0
+
+    const sortedByGain = [...holdings].sort((a, b) => b.totalGainPercent - a.totalGainPercent)
+    const topPerformer = sortedByGain[0]
+    const worstPerformer = sortedByGain[sortedByGain.length - 1]
+
+    const sortedByAllocation = [...holdings].sort((a, b) => b.allocation - a.allocation)
+    const largestPosition = sortedByAllocation[0]
+    const top3Concentration = sortedByAllocation.slice(0, 3).reduce((sum, h) => sum + h.allocation, 0)
+
+    const avgPositionSize = portfolioValue / holdings.length
+
+    // Period returns
+    const periods = ["1D", "1W", "1M", "3M", "6M", "1Y"]
+    const periodReturns = periods.map((p) => ({
+      period: p,
+      value: holdings.reduce((sum, h) => {
+        const weight = h.allocation / 100
+        const ret = h.returns?.[p] || 0
+        return sum + weight * ret
+      }, 0),
+    }))
+    const bestPeriod = periodReturns.sort((a, b) => b.value - a.value)[0]
+    const worstPeriod = periodReturns.sort((a, b) => a.value - b.value)[0]
+
+    // Sector analysis
+    const sectorMap = holdings.reduce((acc, h) => {
+      const sector = h.sector || "Unknown"
+      acc[sector] = (acc[sector] || 0) + h.allocation
+      return acc
+    }, {} as Record<string, number>)
+    const dominantSector = Object.entries(sectorMap).sort((a, b) => b[1] - a[1])[0]
+
+    // Volatility (standard deviation of returns)
+    const returns = holdings.map((h) => h.totalGainPercent)
+    const avgReturn = returns.reduce((sum, r) => sum + r, 0) / returns.length
+    const variance = returns.reduce((sum, r) => sum + Math.pow(r - avgReturn, 2), 0) / returns.length
+    const volatility = Math.sqrt(variance)
+
+    // Diversification score
+    const uniqueSectors = Object.keys(sectorMap).length
+    const diversification =
+      uniqueSectors >= 5 ? "Well diversified" : uniqueSectors >= 3 ? "Concentrated" : "Highly concentrated"
 
     return {
+      totalReturn,
+      totalReturnAmount,
+      winningPositions,
+      losingPositions,
+      winRate,
+      totalHoldings: holdings.length,
       portfolioValue,
-      totalCost,
-      totalGain,
-      totalGainPercent,
-      todayChange,
-      todayChangePercent,
+      topPerformer,
+      worstPerformer,
+      largestPosition,
+      top3Holdings: sortedByAllocation.slice(0, 3),
+      top3Concentration,
+      avgPositionSize,
+      bestPeriod,
+      worstPeriod,
+      dominantSector: { name: dominantSector?.[0] || "Unknown", percentage: dominantSector?.[1] || 0 },
+      volatility,
+      diversification,
+      uniqueSectors,
     }
   }, [holdings])
 
-  const historicalData = useMemo(() => {
-    const months = []
-    const today = new Date()
+  const recommendations = useMemo(() => {
+    const recs = []
 
-    for (let i = 11; i >= 0; i--) {
-      const month = new Date(today.getFullYear(), today.getMonth() - i, 1)
-      const monthKey = month.toLocaleDateString("en-US", { month: "short" })
-
-      const txnsUpTo = transactions.filter((t) => new Date(t.date) <= month)
-      const costBasis = txnsUpTo.filter((t) => t.type === "BUY").reduce((sum, t) => sum + t.total, 0)
-      const estimatedValue = costBasis * (1 + metrics.totalGainPercent / 100)
-
-      months.push({
-        month: monthKey,
-        portfolio: estimatedValue,
-        benchmark: costBasis * 1.15,
+    if (insights.top3Concentration > 60) {
+      recs.push({
+        type: "warning",
+        title: "High Concentration Risk",
+        message: `Your top 3 positions make up ${insights.top3Concentration.toFixed(1)}% of your portfolio. Consider diversifying.`,
       })
     }
 
-    return months
-  }, [transactions, metrics])
+    if (insights.uniqueSectors < 3) {
+      recs.push({
+        type: "warning",
+        title: "Limited Sector Diversification",
+        message: `You're only invested in ${insights.uniqueSectors} sector(s). Consider adding exposure to other sectors.`,
+      })
+    }
+
+    if (insights.winRate < 40) {
+      recs.push({
+        type: "alert",
+        title: "Low Win Rate",
+        message: `Only ${insights.winRate.toFixed(0)}% of your positions are profitable. Review underperforming holdings.`,
+      })
+    }
+
+    if (insights.volatility > 20) {
+      recs.push({
+        type: "info",
+        title: "High Volatility Portfolio",
+        message: `Portfolio volatility is ${insights.volatility.toFixed(1)}%. Consider adding stable, dividend-paying stocks.`,
+      })
+    }
+
+    if (insights.bestPeriod.value > 15) {
+      recs.push({
+        type: "success",
+        title: "Strong Performance",
+        message: `Your ${insights.bestPeriod.period} return of ${formatPercent(insights.bestPeriod.value)} is excellent!`,
+      })
+    }
+
+    if (recs.length === 0) {
+      recs.push({
+        type: "success",
+        title: "Portfolio Looks Healthy",
+        message: "Your portfolio is well-balanced with good diversification and performance.",
+      })
+    }
+
+    return recs
+  }, [insights])
 
   if (isLoading) {
     return (
@@ -714,377 +225,283 @@ export default function InsightsPage() {
     )
   }
 
+  if (holdings.length === 0) {
+    return (
+      <div className="p-6">
+        <Card>
+          <CardContent className="pt-6 text-center">
+            <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p className="text-muted-foreground">No portfolio data available. Upload transactions to get started.</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
-    <div className="p-4 lg:p-6 space-y-6">
+    <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Portfolio Insights</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Comprehensive analysis of your portfolio performance and trading activity
+            Detailed analysis of your portfolio performance and composition
           </p>
         </div>
         <Button onClick={handleRefresh} disabled={isRefreshing} variant="outline" size="sm" className="gap-2">
           <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-          Refresh Data
+          Refresh
         </Button>
       </div>
 
-      {/* Main Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="insights">Key Insights</TabsTrigger>
-          <TabsTrigger value="trades">Trade Analysis</TabsTrigger>
-          <TabsTrigger value="performance">Performance</TabsTrigger>
-        </TabsList>
+      {/* Key Metrics - Row 1 */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Return</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${insights.totalReturn >= 0 ? "text-green-600" : "text-red-600"}`}>
+              {formatPercent(insights.totalReturn)}
+              {insights.totalReturn >= 0 ? (
+                <TrendingUp className="inline-block ml-2 h-5 w-5" />
+              ) : (
+                <TrendingDown className="inline-block ml-2 h-5 w-5" />
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">{formatCurrency(insights.totalReturnAmount)}</p>
+          </CardContent>
+        </Card>
 
-        {/* ==================== KEY INSIGHTS TAB ==================== */}
-        <TabsContent value="insights" className="space-y-6">
-          {holdings.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6 text-center text-muted-foreground">
-                No insights available. Upload transactions to get started.
-              </CardContent>
-            </Card>
-          ) : (
-            <KeyInsightsSection holdings={holdings} />
-          )}
-        </TabsContent>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Win Rate</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{insights.winRate.toFixed(0)}%</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {insights.winningPositions} winning / {insights.losingPositions} losing
+            </p>
+          </CardContent>
+        </Card>
 
-        {/* ==================== TRADE ANALYSIS TAB ==================== */}
-        <TabsContent value="trades" className="space-y-6">
-          {trades.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6 text-center text-muted-foreground">
-                No trades found. Upload transactions to get started.
-              </CardContent>
-            </Card>
-          ) : (
-            <>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Total Trades</CardTitle>
-                    <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{filteredTrades.length}</div>
-                    <p className="text-xs text-muted-foreground">
-                      {buyTrades.length} buys, {sellTrades.length} sells
-                    </p>
-                  </CardContent>
-                </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Diversification</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{insights.diversification}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {insights.uniqueSectors} sector{insights.uniqueSectors !== 1 ? "s" : ""}
+            </p>
+          </CardContent>
+        </Card>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Buy Volume</CardTitle>
-                    <ArrowUpRight className="h-4 w-4 text-green-600" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-green-600">{formatCurrency(totalBuyVolume)}</div>
-                    <p className="text-xs text-muted-foreground">Total invested</p>
-                  </CardContent>
-                </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Volatility</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{insights.volatility.toFixed(2)}%</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {insights.volatility < 10 ? "Low" : insights.volatility < 20 ? "Moderate" : "High"} volatility
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Sell Volume</CardTitle>
-                    <ArrowDownRight className="h-4 w-4 text-red-600" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-red-600">{formatCurrency(totalSellVolume)}</div>
-                    <p className="text-xs text-muted-foreground">Total proceeds</p>
-                  </CardContent>
-                </Card>
+      {/* Key Metrics - Row 2 */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Avg Position Size</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(insights.avgPositionSize)}</div>
+            <p className="text-xs text-muted-foreground mt-1">Per holding</p>
+          </CardContent>
+        </Card>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Total Fees</CardTitle>
-                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{formatCurrency(totalFees)}</div>
-                    <p className="text-xs text-muted-foreground">Transaction costs</p>
-                  </CardContent>
-                </Card>
+        <Card className="border-green-500/30 bg-green-500/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Best Period</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{insights.bestPeriod.period}</div>
+            <p className="text-sm font-semibold text-green-600 mt-1">{formatPercent(insights.bestPeriod.value)}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-red-500/30 bg-red-500/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Worst Period</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{insights.worstPeriod.period}</div>
+            <p className="text-sm font-semibold text-red-600 mt-1">{formatPercent(insights.worstPeriod.value)}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Dominant Sector</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl font-bold">{insights.dominantSector.name}</div>
+            <p className="text-sm font-semibold text-primary mt-1">{insights.dominantSector.percentage.toFixed(1)}%</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Top & Bottom Performers + Position Concentration */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Top & Bottom Performers */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Target className="h-5 w-5" />
+              <CardTitle>Top & Bottom Performers</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <p className="text-sm font-medium text-green-600 mb-2">Top Performer</p>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-green-500/10 border border-green-500/30">
+                <div>
+                  <p className="font-bold text-lg">{insights.topPerformer?.symbol}</p>
+                  <p className="text-xs text-muted-foreground">{insights.topPerformer?.name}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-bold text-green-600">{formatPercent(insights.topPerformer?.totalGainPercent)}</p>
+                  <p className="text-xs text-muted-foreground">{formatCurrency(insights.topPerformer?.totalGain || 0)}</p>
+                </div>
               </div>
+            </div>
 
-              <div className="grid gap-6 lg:grid-cols-2">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="text-lg">Monthly Trading Volume</CardTitle>
-                    <div className="flex gap-1">
-                      {(["1m", "3m", "6m", "1y", "all"] as const).map((range) => (
-                        <Button
-                          key={range}
-                          variant={timeRange === range ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setTimeRange(range)}
-                        >
-                          {range.toUpperCase()}
-                        </Button>
-                      ))}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-[300px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={chartData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                          <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                          <YAxis
-                            tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
-                            stroke="hsl(var(--muted-foreground))"
-                            fontSize={12}
-                          />
-                          <Tooltip
-                            contentStyle={{
-                              backgroundColor: "hsl(var(--card))",
-                              border: "1px solid hsl(var(--border))",
-                              borderRadius: "8px",
-                            }}
-                            formatter={(value: number) => [formatCurrency(value), ""]}
-                          />
-                          <Legend />
-                          <Bar dataKey="buys" name="Buys" fill="#22c55e" radius={[4, 4, 0, 0]} />
-                          <Bar dataKey="sells" name="Sells" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <InteractiveTradeDonut trades={filteredTrades} />
+            <div>
+              <p className="text-sm font-medium text-red-600 mb-2">Worst Performer</p>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-red-500/10 border border-red-500/30">
+                <div>
+                  <p className="font-bold text-lg">{insights.worstPerformer?.symbol}</p>
+                  <p className="text-xs text-muted-foreground">{insights.worstPerformer?.name}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-bold text-red-600">
+                    {formatPercent(insights.worstPerformer?.totalGainPercent)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{formatCurrency(insights.worstPerformer?.totalGain || 0)}</p>
+                </div>
               </div>
+            </div>
+          </CardContent>
+        </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-lg">Trade History</CardTitle>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Rows:</span>
-                    <Select value={String(rowsPerPage)} onValueChange={handleRowsPerPageChange}>
-                      <SelectTrigger className="w-[70px] h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="10">10</SelectItem>
-                        <SelectItem value="25">25</SelectItem>
-                        <SelectItem value="50">50</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Symbol</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead className="text-right">Shares</TableHead>
-                        <TableHead className="text-right">Price</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginatedTrades.map((trade, index) => (
-                        <TableRow key={`${trade.date}-${trade.symbol}-${startIndex + index}`}>
-                          <TableCell className="text-muted-foreground">{trade.date}</TableCell>
-                          <TableCell className="font-medium">{trade.symbol}</TableCell>
-                          <TableCell>
-                            <Badge variant={trade.type === "BUY" ? "default" : "destructive"}>{trade.type}</Badge>
-                          </TableCell>
-                          <TableCell className="text-right">{trade.shares}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(trade.price)}</TableCell>
-                          <TableCell className="text-right font-medium">{formatCurrency(trade.total)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-
-                  <div className="flex items-center justify-between border-t pt-4 mt-4">
-                    <p className="text-sm text-muted-foreground">
-                      Showing {startIndex + 1}–{Math.min(endIndex, filteredTrades.length)} of {filteredTrades.length}
-                    </p>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                        disabled={currentPage === 1}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      <span className="text-sm px-2 py-1">
-                        {currentPage} / {totalPages}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                        disabled={currentPage === totalPages}
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </>
-          )}
-        </TabsContent>
-
-        {/* ==================== PERFORMANCE TAB ==================== */}
-        <TabsContent value="performance" className="space-y-6">
-          {holdings.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6 text-center">
-                <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p className="text-muted-foreground">No performance data yet. Upload transactions to get started.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-                      <Activity className="h-4 w-4" />
-                      Portfolio Value
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{formatCurrency(metrics.portfolioValue)}</div>
-                    <p className={`text-sm mt-1 ${metrics.todayChange >= 0 ? "text-green-600" : "text-red-600"}`}>
-                      {metrics.todayChange >= 0 ? "+" : ""}
-                      {formatCurrency(metrics.todayChange)} ({formatPercent(metrics.todayChangePercent)}) today
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-                      <TrendingUp className="h-4 w-4" />
-                      Total Return
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className={`text-2xl font-bold ${metrics.totalGain >= 0 ? "text-green-600" : "text-red-600"}`}>
-                      {formatPercent(metrics.totalGainPercent)}
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">{formatCurrency(metrics.totalGain)} gain</p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-                      <Target className="h-4 w-4" />
-                      Holdings
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{holdings.length}</div>
-                    <p className="text-sm text-muted-foreground mt-1">{transactions.length} transactions</p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-                      <Shield className="h-4 w-4" />
-                      Cost Basis
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{formatCurrency(metrics.totalCost)}</div>
-                    <p className="text-sm text-muted-foreground mt-1">Total invested</p>
-                  </CardContent>
-                </Card>
+        {/* Position Concentration */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <PieChart className="h-5 w-5" />
+              <CardTitle>Position Concentration</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-medium">Largest Position</p>
+                <Badge variant={insights.largestPosition && insights.largestPosition.allocation > 30 ? "destructive" : "secondary"}>
+                  {insights.largestPosition?.allocation.toFixed(1)}%
+                </Badge>
               </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-semibold">{insights.largestPosition?.symbol}</span>
+                  <span className="text-muted-foreground">{formatCurrency(insights.largestPosition?.marketValue || 0)}</span>
+                </div>
+                <Progress value={insights.largestPosition?.allocation || 0} className="h-2" />
+                <p className="text-xs text-muted-foreground">of balanced portfolio</p>
+              </div>
+            </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Portfolio Performance (12 Months)</CardTitle>
-                  <CardDescription>Track your portfolio growth over time</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[400px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={historicalData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                        <YAxis
-                          tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
-                          stroke="hsl(var(--muted-foreground))"
-                          fontSize={12}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "hsl(var(--card))",
-                            border: "1px solid hsl(var(--border))",
-                            borderRadius: "8px",
-                          }}
-                          formatter={(value: number) => formatCurrency(value)}
-                        />
-                        <Legend />
-                        <Area
-                          type="monotone"
-                          dataKey="portfolio"
-                          name="Your Portfolio"
-                          stroke="#22c55e"
-                          fill="#22c55e"
-                          fillOpacity={0.2}
-                          strokeWidth={2}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="benchmark"
-                          name="Benchmark"
-                          stroke="#3b82f6"
-                          fill="#3b82f6"
-                          fillOpacity={0.1}
-                          strokeWidth={2}
-                          strokeDasharray="5 5"
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
+            <div className="border-t pt-4">
+              <p className="text-sm font-medium mb-3">Holdings Breakdown</p>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Total Holdings</span>
+                  <span className="text-xl font-bold">{insights.totalHoldings}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Winning Positions</span>
+                  <span className="text-xl font-bold text-green-600">{insights.winningPositions}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Losing Positions</span>
+                  <span className="text-xl font-bold text-red-600">{insights.losingPositions}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t pt-4">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-medium">Top 3 Concentration</p>
+                <Badge variant={insights.top3Concentration > 60 ? "destructive" : "secondary"}>
+                  {insights.top3Concentration.toFixed(1)}%
+                </Badge>
+              </div>
+              <div className="space-y-2">
+                {insights.top3Holdings?.map((holding, index) => (
+                  <div key={holding.symbol} className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-4">{index + 1}.</span>
+                    <span className="text-sm font-medium flex-1">{holding.symbol}</span>
+                    <span className="text-sm text-muted-foreground">{holding.allocation.toFixed(1)}%</span>
                   </div>
-                </CardContent>
-              </Card>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Period Returns</CardTitle>
-                  <CardDescription>Performance across different time periods</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
-                    {["1D", "1W", "1M", "3M", "6M", "1Y"].map((period) => {
-                      const returnValue =
-                        holdings.reduce((sum, h) => {
-                          const weight = h.allocation / 100
-                          const ret = h.returns?.[period] || 0
-                          return sum + weight * ret
-                        }, 0) || 0
-
-                      return (
-                        <div key={period} className="p-4 rounded-lg bg-secondary/30">
-                          <p className="text-sm text-muted-foreground mb-1">{period}</p>
-                          <p className={`text-xl font-bold ${returnValue >= 0 ? "text-green-600" : "text-red-600"}`}>
-                            {formatPercent(returnValue)}
-                          </p>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            </>
-          )}
-        </TabsContent>
-      </Tabs>
+      {/* Recommendations */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Lightbulb className="h-5 w-5" />
+            <CardTitle>Recommendations</CardTitle>
+          </div>
+          <CardDescription>AI-powered insights based on your portfolio analysis</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {recommendations.map((rec, index) => (
+              <div
+                key={index}
+                className={`flex gap-3 p-4 rounded-lg border ${rec.type === "warning"
+                    ? "bg-yellow-500/10 border-yellow-500/30"
+                    : rec.type === "alert"
+                      ? "bg-red-500/10 border-red-500/30"
+                      : rec.type === "success"
+                        ? "bg-green-500/10 border-green-500/30"
+                        : "bg-blue-500/10 border-blue-500/30"
+                  }`}
+              >
+                {rec.type === "warning" ? (
+                  <AlertTriangle className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
+                ) : rec.type === "alert" ? (
+                  <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                ) : rec.type === "success" ? (
+                  <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+                ) : (
+                  <Activity className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+                )}
+                <div className="flex-1">
+                  <p className="font-semibold text-sm">{rec.title}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{rec.message}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

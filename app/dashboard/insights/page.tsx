@@ -1,347 +1,370 @@
-"use client"
+'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import {
-  TrendingUp,
-  TrendingDown,
-  AlertCircle,
-  CheckCircle,
-  Target,
-  PieChart,
-  BarChart3,
-  Zap,
-} from "lucide-react"
-import { usePortfolio } from "@/lib/portfolio-context"
+import { TrendingUp, TrendingDown, Zap, Target, PieChart } from "lucide-react"
+import { getTransactionsFromStorage } from "@/lib/transaction-storage"
+import { calculateAndFetchHoldings } from "@/lib/holdings-calculator"
 import { useState, useEffect } from "react"
 
-export default function InsightsPage() {
-  const {
-    holdings,
-    portfolioValue,
-    totalCost,
-    totalGain,
-    totalGainPercent,
-    transactions,
-    performance,
-  } = usePortfolio()
+interface Holding {
+  symbol: string
+  shares: number
+  averageCost: number
+  value: number
+  gain: number
+  gainPercent: number
+}
 
-  const [isMounted, setIsMounted] = useState(false)
+interface PortfolioMetrics {
+  totalReturn: number
+  totalReturnPercent: number
+  winRate: number
+  totalHoldings: number
+  winningPositions: number
+  losingPositions: number
+  largestHolding: Holding | null
+  topPerformers: Holding[]
+  worstPerformers: Holding[]
+  concentration: number
+  recommendations: string[]
+}
+
+function calculateMetrics(holdings: Holding[]): PortfolioMetrics {
+  if (holdings.length === 0) {
+    return {
+      totalReturn: 0,
+      totalReturnPercent: 0,
+      winRate: 0,
+      totalHoldings: 0,
+      winningPositions: 0,
+      losingPositions: 0,
+      largestHolding: null,
+      topPerformers: [],
+      worstPerformers: [],
+      concentration: 0,
+      recommendations: ["Add transactions to start tracking your portfolio performance"],
+    }
+  }
+
+  const totalValue = holdings.reduce((sum, h) => sum + h.value, 0)
+  const totalCost = holdings.reduce((sum, h) => sum + h.averageCost * h.shares, 0)
+  const totalReturn = totalValue - totalCost
+  const totalReturnPercent = totalCost > 0 ? (totalReturn / totalCost) * 100 : 0
+
+  const winningPositions = holdings.filter(h => h.gainPercent > 0).length
+  const losingPositions = holdings.filter(h => h.gainPercent < 0).length
+  const winRate = holdings.length > 0 ? (winningPositions / holdings.length) * 100 : 0
+
+  const largestHolding = holdings.reduce((prev, current) =>
+    prev.value > current.value ? prev : current
+  )
+
+  const sortedByGain = [...holdings].sort((a, b) => (b.gainPercent ?? 0) - (a.gainPercent ?? 0))
+  const topPerformers = sortedByGain.slice(0, 3)
+  const worstPerformers = sortedByGain.slice(-3).reverse()
+
+  const concentration = totalValue > 0 ? (largestHolding.value / totalValue) * 100 : 0
+
+  // Generate recommendations
+  const recommendations: string[] = []
+  
+  if (concentration > 30) {
+    recommendations.push(`Your largest position (${largestHolding.symbol}) represents ${concentration.toFixed(1)}% of your portfolio. Consider diversifying to reduce risk.`)
+  }
+  
+  if (winRate < 50 && holdings.length > 5) {
+    recommendations.push(`Only ${winRate.toFixed(0)}% of your positions are profitable. Review your losing positions for potential exit opportunities.`)
+  }
+  
+  if (totalReturnPercent > 20) {
+    recommendations.push(`Your portfolio is up ${totalReturnPercent.toFixed(1)}%! Consider taking some profits or rebalancing.`)
+  }
+  
+  if (totalReturnPercent < -10) {
+    recommendations.push(`Your portfolio is down ${Math.abs(totalReturnPercent).toFixed(1)}%. Review your strategy and consider if changes are needed.`)
+  }
+
+  if (holdings.length < 5) {
+    recommendations.push(`You have ${holdings.length} holding(s). Diversifying across more positions can help reduce portfolio volatility.`)
+  }
+
+  if (recommendations.length === 0) {
+    recommendations.push("Your portfolio is well-balanced. Keep monitoring your positions regularly.")
+  }
+
+  return {
+    totalReturn,
+    totalReturnPercent,
+    winRate,
+    totalHoldings: holdings.length,
+    winningPositions,
+    losingPositions,
+    largestHolding,
+    topPerformers,
+    worstPerformers,
+    concentration,
+    recommendations,
+  }
+}
+
+export default function InsightsPage() {
+  const [metrics, setMetrics] = useState<PortfolioMetrics | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    setIsMounted(true)
+    const loadMetrics = async () => {
+      try {
+        setIsLoading(true)
+        const transactions = getTransactionsFromStorage()
+        const holdings = await calculateAndFetchHoldings(transactions)
+        
+        // Filter out invalid holdings (0 shares or negative values)
+        const validHoldings = holdings.filter(h => h.shares > 0 && h.value > 0)
+        
+        const calculatedMetrics = calculateMetrics(validHoldings)
+        setMetrics(calculatedMetrics)
+      } catch (error) {
+        console.error('Failed to load insights:', error)
+        setMetrics(calculateMetrics([]))
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadMetrics()
   }, [])
 
-  if (!isMounted) {
+  if (isLoading) {
+    return (
+      <div className="p-4 lg:p-6 space-y-6">
+        <div className="h-10 bg-secondary rounded animate-pulse" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="h-32 bg-secondary rounded-lg animate-pulse" />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (!metrics) {
     return null
   }
 
-  // Calculate insights
-  const topPerformer = holdings.length > 0
-    ? holdings.reduce((prev, current) => {
-        const prevGain = prev.gainPercent ?? 0
-        const currentGain = current.gainPercent ?? 0
-        return prevGain > currentGain ? prev : current
-      })
-    : null
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value)
+  }
 
-  const worstPerformer = holdings.length > 0
-    ? holdings.reduce((prev, current) => {
-        const prevGain = prev.gainPercent ?? 0
-        const currentGain = current.gainPercent ?? 0
-        return prevGain < currentGain ? prev : current
-      })
-    : null
+  const formatPercent = (value: number) => {
+    return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
+  }
 
-  const concentration =
-    holdings.length > 0
-      ? Math.max(...holdings.map((h) => (h.value / portfolioValue) * 100))
-      : 0
-
-  const winningPositions = holdings.filter((h) => (h.gainPercent ?? 0) > 0).length
-  const losingPositions = holdings.filter((h) => (h.gainPercent ?? 0) < 0).length
-
-  const volatility = holdings.length > 0
-    ? Math.sqrt(
-        holdings.reduce((sum, h) => sum + Math.pow((h.gainPercent ?? 0) - totalGainPercent, 2), 0) /
-          holdings.length
-      )
-    : 0
-
-  const diversificationScore = Math.min(
-    100,
-    Math.round((holdings.length / 10) * 100 + (100 - concentration))
-  )
+  const isPositive = metrics.totalReturnPercent >= 0
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 lg:p-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Portfolio Insights</h1>
-        <p className="text-muted-foreground mt-1">
-          Detailed analysis of your portfolio performance and composition
-        </p>
+        <h1 className="text-3xl font-bold text-foreground">Portfolio Insights</h1>
+        <p className="text-muted-foreground mt-1">Real-time analysis of your investment performance</p>
       </div>
 
-      {/* Performance Metrics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card className="border-border bg-card">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
               Total Return
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-end space-x-2">
-              <div className="text-2xl font-bold">
-                {totalGainPercent >= 0 ? "+" : ""}
-                {totalGainPercent.toFixed(2)}%
-              </div>
-              <div
-                className={`text-sm font-medium ${
-                  totalGainPercent >= 0 ? "text-green-600" : "text-red-600"
-                }`}
-              >
-                {totalGainPercent >= 0 ? (
-                  <TrendingUp className="h-4 w-4" />
-                ) : (
-                  <TrendingDown className="h-4 w-4" />
-                )}
-              </div>
+            <div className="space-y-1">
+              <p className={`text-2xl font-bold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                {formatCurrency(metrics.totalReturn)}
+              </p>
+              <p className={`text-sm font-semibold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                {formatPercent(metrics.totalReturnPercent)}
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              ${totalGain >= 0 ? "+" : ""}
-              {totalGain.toLocaleString("en-US", {
-                style: "currency",
-                currency: "USD",
-              })}
-            </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border bg-card">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Target className="h-4 w-4" />
               Win Rate
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {holdings.length > 0
-                ? Math.round((winningPositions / holdings.length) * 100)
-                : 0}
-              %
+            <div className="space-y-1">
+              <p className="text-2xl font-bold text-foreground">{metrics.winRate.toFixed(0)}%</p>
+              <p className="text-xs text-muted-foreground">
+                {metrics.winningPositions} winning / {metrics.losingPositions} losing
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              {winningPositions} winning / {losingPositions} losing
-            </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border bg-card">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Diversification
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <PieChart className="h-4 w-4" />
+              Holdings
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{diversificationScore}%</div>
-            <p className="text-xs text-muted-foreground mt-2">
-              {diversificationScore > 75
-                ? "Well diversified"
-                : diversificationScore > 50
-                ? "Moderately diversified"
-                : "Concentrated"}
-            </p>
+            <div className="space-y-1">
+              <p className="text-2xl font-bold text-foreground">{metrics.totalHoldings}</p>
+              <p className="text-xs text-muted-foreground">Active positions</p>
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border bg-card">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Volatility
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Winning
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{volatility.toFixed(2)}%</div>
-            <p className="text-xs text-muted-foreground mt-2">
-              {volatility > 20
-                ? "High volatility"
-                : volatility > 10
-                ? "Moderate volatility"
-                : "Low volatility"}
-            </p>
+            <div className="space-y-1">
+              <p className="text-2xl font-bold text-green-600">{metrics.winningPositions}</p>
+              <p className="text-xs text-muted-foreground">Profitable positions</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <TrendingDown className="h-4 w-4" />
+              Losing
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1">
+              <p className="text-2xl font-bold text-red-600">{metrics.losingPositions}</p>
+              <p className="text-xs text-muted-foreground">Underwater positions</p>
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Detailed Analysis */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Top & Bottom Performers */}
-        <Card>
+      {/* Top and Worst Performers */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Top Performers */}
+        <Card className="border-border bg-card">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Top & Bottom Performers
+            <CardTitle className="flex items-center gap-2 text-base">
+              <TrendingUp className="h-5 w-5 text-green-600" />
+              Top Performers
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {topPerformer && (
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-green-600">Top Performer</p>
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{topPerformer.symbol}</span>
-                  <span className="text-sm font-semibold text-green-600">
-                    +{(topPerformer.gainPercent ?? 0).toFixed(2)}%
-                  </span>
+          <CardContent className="space-y-3">
+            {metrics.topPerformers.length > 0 ? (
+              metrics.topPerformers.map((holding) => (
+                <div key={holding.symbol} className="flex items-center justify-between pb-3 border-b last:border-b-0">
+                  <div>
+                    <p className="font-semibold text-foreground">{holding.symbol}</p>
+                    <p className="text-sm text-muted-foreground">{holding.shares.toFixed(2)} shares</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-green-600">
+                      +{holding.gainPercent.toFixed(2)}%
+                    </p>
+                    <p className="text-sm text-muted-foreground">{formatCurrency(holding.gain)}</p>
+                  </div>
                 </div>
-              </div>
-            )}
-
-            {worstPerformer && (
-              <div className="space-y-2 pt-4 border-t">
-                <p className="text-sm font-medium text-red-600">Worst Performer</p>
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{worstPerformer.symbol}</span>
-                  <span className="text-sm font-semibold text-red-600">
-                    {(worstPerformer.gainPercent ?? 0).toFixed(2)}%
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {holdings.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No holdings to compare
-              </p>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground">No winning positions yet</p>
             )}
           </CardContent>
         </Card>
 
-        {/* Position Concentration */}
-        <Card>
+        {/* Worst Performers */}
+        <Card className="border-border bg-card">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <PieChart className="h-4 w-4" />
+            <CardTitle className="flex items-center gap-2 text-base">
+              <TrendingDown className="h-5 w-5 text-red-600" />
+              Worst Performers
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {metrics.worstPerformers.length > 0 ? (
+              metrics.worstPerformers.map((holding) => (
+                <div key={holding.symbol} className="flex items-center justify-between pb-3 border-b last:border-b-0">
+                  <div>
+                    <p className="font-semibold text-foreground">{holding.symbol}</p>
+                    <p className="text-sm text-muted-foreground">{holding.shares.toFixed(2)} shares</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-red-600">
+                      {holding.gainPercent.toFixed(2)}%
+                    </p>
+                    <p className="text-sm text-muted-foreground">{formatCurrency(holding.gain)}</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground">No losing positions</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Position Concentration */}
+      {metrics.largestHolding && (
+        <Card className="border-border bg-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <PieChart className="h-5 w-5" />
               Position Concentration
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
+            <div className="bg-secondary rounded-lg p-4">
+              <p className="text-sm text-muted-foreground mb-2">Largest Holding</p>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Largest Position</span>
-                <span className="font-semibold">{concentration.toFixed(1)}%</span>
-              </div>
-              <div className="w-full bg-secondary rounded-full h-2">
-                <div
-                  className={`bg-primary rounded-full h-2 transition-all ${
-                    concentration > 50 ? "bg-yellow-600" : "bg-primary"
-                  }`}
-                  style={{ width: `${concentration}%` }}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {concentration > 50
-                  ? "High concentration risk"
-                  : "Well balanced portfolio"}
-              </p>
-            </div>
-
-            <div className="pt-4 border-t">
-              <p className="text-sm font-medium mb-3">Holdings Breakdown</p>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Total Holdings</span>
-                  <span className="font-semibold">{holdings.length}</span>
+                <div>
+                  <p className="text-lg font-bold text-foreground">{metrics.largestHolding.symbol}</p>
+                  <p className="text-sm text-muted-foreground">{metrics.largestHolding.shares.toFixed(2)} shares</p>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Winning Positions</span>
-                  <span className="font-semibold text-green-600">
-                    {winningPositions}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Losing Positions</span>
-                  <span className="font-semibold text-red-600">
-                    {losingPositions}
-                  </span>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-foreground">{metrics.concentration.toFixed(1)}%</p>
+                  <p className="text-sm text-muted-foreground">of portfolio</p>
                 </div>
               </div>
             </div>
           </CardContent>
         </Card>
-      </div>
+      )}
 
       {/* Recommendations */}
-      <Card>
+      <Card className="border-border bg-card">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="h-4 w-4" />
-            Recommendations
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Zap className="h-5 w-5 text-yellow-500" />
+            Portfolio Recommendations
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {diversificationScore < 60 && (
-            <div className="flex gap-3 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-800">
-              <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-medium text-sm text-yellow-900 dark:text-yellow-200">
-                  Improve Diversification
-                </p>
-                <p className="text-xs text-yellow-800 dark:text-yellow-300 mt-1">
-                  Consider expanding into new sectors or positions to reduce concentration risk
-                </p>
-              </div>
-            </div>
-          )}
-
-          {concentration > 50 && (
-            <div className="flex gap-3 p-3 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-800">
-              <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-medium text-sm text-red-900 dark:text-red-200">
-                  High Concentration Risk
-                </p>
-                <p className="text-xs text-red-800 dark:text-red-300 mt-1">
-                  Your largest position represents {concentration.toFixed(1)}% of your portfolio. Consider rebalancing.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {totalGainPercent > 20 && (
-            <div className="flex gap-3 p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
-              <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-medium text-sm text-green-900 dark:text-green-200">
-                  Strong Performance
-                </p>
-                <p className="text-xs text-green-800 dark:text-green-300 mt-1">
-                  Your portfolio is performing well with a {totalGainPercent.toFixed(2)}% return
-                </p>
-              </div>
-            </div>
-          )}
-
-          {winningPositions / holdings.length > 0.7 && (
-            <div className="flex gap-3 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
-              <CheckCircle className="h-5 w-5 text-blue-600 dark:text-blue-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-medium text-sm text-blue-900 dark:text-blue-200">
-                  High Win Rate
-                </p>
-                <p className="text-xs text-blue-800 dark:text-blue-300 mt-1">
-                  {((winningPositions / holdings.length) * 100).toFixed(0)}% of your positions are in profit
-                </p>
-              </div>
-            </div>
-          )}
-
-          {holdings.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              Add transactions to get personalized recommendations
-            </p>
-          )}
+        <CardContent>
+          <ul className="space-y-3">
+            {metrics.recommendations.map((rec, idx) => (
+              <li key={idx} className="flex gap-3 text-sm">
+                <span className="text-yellow-500 flex-shrink-0 mt-1">•</span>
+                <p className="text-foreground">{rec}</p>
+              </li>
+            ))}
+          </ul>
         </CardContent>
       </Card>
     </div>

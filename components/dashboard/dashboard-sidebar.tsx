@@ -13,6 +13,7 @@ import {
   TrendingUp,
   GitCompare,
   Database,
+  Brain, // NEW: For Insights
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -44,6 +45,7 @@ const mainNav = [
 ]
 
 const analysisNav = [
+  { title: "Insights", url: "/dashboard/insights", icon: Brain }, // ✅ NEW: Added Insights
   { title: "Trade Analysis", url: "/dashboard/trades", icon: BarChart3 },
   { title: "Goal Tracker", url: "/dashboard/goals", icon: Target },
 ]

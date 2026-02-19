@@ -118,10 +118,26 @@ export default function InsightsPage() {
         const transactions = getTransactionsFromStorage()
         const holdings = await calculateAndFetchHoldings(transactions)
         
+        console.log("[v0] Holdings loaded:", holdings)
+        console.log("[v0] Holdings count:", holdings.length)
+        if (holdings.length > 0) {
+          console.log("[v0] Sample holding:", holdings[0])
+          console.log("[v0] Holding gainPercent values:", holdings.map(h => ({ symbol: h.symbol, gainPercent: h.gainPercent })))
+        }
+        
         // Filter out invalid holdings (0 shares or negative values)
         const validHoldings = holdings.filter(h => h.shares > 0 && h.value > 0)
         
+        console.log("[v0] Valid holdings after filter:", validHoldings.length)
+        
         const calculatedMetrics = calculateMetrics(validHoldings)
+        console.log("[v0] Insights calculated:", {
+          totalReturn: calculatedMetrics.totalReturn,
+          winRate: calculatedMetrics.winRate,
+          winningPositions: calculatedMetrics.winningPositions,
+          losingPositions: calculatedMetrics.losingPositions,
+          totalHoldings: calculatedMetrics.totalHoldings
+        })
         setMetrics(calculatedMetrics)
       } catch (error) {
         console.error('Failed to load insights:', error)
@@ -269,7 +285,9 @@ export default function InsightsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {metrics.topPerformers.length > 0 ? (
+            {isLoading ? (
+              <div className="h-20 bg-secondary rounded animate-pulse" />
+            ) : metrics.topPerformers.length > 0 ? (
               metrics.topPerformers.map((holding) => (
                 <div key={holding.symbol} className="flex items-center justify-between pb-3 border-b last:border-b-0">
                   <div>
@@ -299,7 +317,9 @@ export default function InsightsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {metrics.worstPerformers.length > 0 ? (
+            {isLoading ? (
+              <div className="h-20 bg-secondary rounded animate-pulse" />
+            ) : metrics.worstPerformers.length > 0 ? (
               metrics.worstPerformers.map((holding) => (
                 <div key={holding.symbol} className="flex items-center justify-between pb-3 border-b last:border-b-0">
                   <div>
@@ -331,19 +351,23 @@ export default function InsightsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-secondary rounded-lg p-4">
-              <p className="text-sm text-muted-foreground mb-2">Largest Holding</p>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-lg font-bold text-foreground">{metrics.largestHolding.symbol}</p>
-                  <p className="text-sm text-muted-foreground">{metrics.largestHolding.shares.toFixed(2)} shares</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-foreground">{metrics.concentration.toFixed(1)}%</p>
-                  <p className="text-sm text-muted-foreground">of portfolio</p>
+            {isLoading ? (
+              <div className="h-24 bg-secondary rounded animate-pulse" />
+            ) : (
+              <div className="bg-secondary rounded-lg p-4">
+                <p className="text-sm text-muted-foreground mb-2">Largest Holding</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-lg font-bold text-foreground">{metrics.largestHolding.symbol}</p>
+                    <p className="text-sm text-muted-foreground">{metrics.largestHolding.shares.toFixed(2)} shares</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-foreground">{metrics.concentration.toFixed(1)}%</p>
+                    <p className="text-sm text-muted-foreground">of portfolio</p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       )}

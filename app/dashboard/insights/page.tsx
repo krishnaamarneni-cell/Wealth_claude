@@ -38,15 +38,19 @@ export default function InsightsPage() {
 
   // Calculate insights
   const topPerformer = holdings.length > 0
-    ? holdings.reduce((prev, current) =>
-        prev.gainPercent > current.gainPercent ? prev : current
-      )
+    ? holdings.reduce((prev, current) => {
+        const prevGain = prev.gainPercent ?? 0
+        const currentGain = current.gainPercent ?? 0
+        return prevGain > currentGain ? prev : current
+      })
     : null
 
   const worstPerformer = holdings.length > 0
-    ? holdings.reduce((prev, current) =>
-        prev.gainPercent < current.gainPercent ? prev : current
-      )
+    ? holdings.reduce((prev, current) => {
+        const prevGain = prev.gainPercent ?? 0
+        const currentGain = current.gainPercent ?? 0
+        return prevGain < currentGain ? prev : current
+      })
     : null
 
   const concentration =
@@ -54,12 +58,12 @@ export default function InsightsPage() {
       ? Math.max(...holdings.map((h) => (h.value / portfolioValue) * 100))
       : 0
 
-  const winningPositions = holdings.filter((h) => h.gainPercent > 0).length
-  const losingPositions = holdings.filter((h) => h.gainPercent < 0).length
+  const winningPositions = holdings.filter((h) => (h.gainPercent ?? 0) > 0).length
+  const losingPositions = holdings.filter((h) => (h.gainPercent ?? 0) < 0).length
 
   const volatility = holdings.length > 0
     ? Math.sqrt(
-        holdings.reduce((sum, h) => sum + Math.pow(h.gainPercent - totalGainPercent, 2), 0) /
+        holdings.reduce((sum, h) => sum + Math.pow((h.gainPercent ?? 0) - totalGainPercent, 2), 0) /
           holdings.length
       )
     : 0
@@ -188,7 +192,7 @@ export default function InsightsPage() {
                 <div className="flex items-center justify-between">
                   <span className="font-medium">{topPerformer.symbol}</span>
                   <span className="text-sm font-semibold text-green-600">
-                    +{topPerformer.gainPercent.toFixed(2)}%
+                    +{(topPerformer.gainPercent ?? 0).toFixed(2)}%
                   </span>
                 </div>
               </div>
@@ -200,7 +204,7 @@ export default function InsightsPage() {
                 <div className="flex items-center justify-between">
                   <span className="font-medium">{worstPerformer.symbol}</span>
                   <span className="text-sm font-semibold text-red-600">
-                    {worstPerformer.gainPercent.toFixed(2)}%
+                    {(worstPerformer.gainPercent ?? 0).toFixed(2)}%
                   </span>
                 </div>
               </div>

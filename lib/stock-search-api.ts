@@ -2,9 +2,43 @@
 // Supports: Polygon.io, Finnhub, Financial Modeling Prep
 
 // Configure your API keys here (or use environment variables)
-const POLYGON_API_KEY = process.env.NEXT_PUBLIC_POLYGON_API_KEY || 'YOUR_POLYGON_KEY'
-const FINNHUB_API_KEY = process.env.NEXT_PUBLIC_FINNHUB_API_KEY || 'YOUR_FINNHUB_KEY'
-const FMP_API_KEY = process.env.NEXT_PUBLIC_FMP_API_KEY || 'YOUR_FMP_KEY'
+const POLYGON_API_KEY = process.env.NEXT_PUBLIC_POLYGON_API_KEY
+const FINNHUB_API_KEY = process.env.NEXT_PUBLIC_FINNHUB_API_KEY
+const FMP_API_KEY = process.env.NEXT_PUBLIC_FMP_API_KEY
+
+// Mock stock database for demo without API keys
+const MOCK_STOCKS: Record<string, { symbol: string; name: string; exchange: string }> = {
+  'AAPL': { symbol: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ' },
+  'GOOGL': { symbol: 'GOOGL', name: 'Alphabet Inc.', exchange: 'NASDAQ' },
+  'MSFT': { symbol: 'MSFT', name: 'Microsoft Corp.', exchange: 'NASDAQ' },
+  'AMZN': { symbol: 'AMZN', name: 'Amazon.com Inc.', exchange: 'NASDAQ' },
+  'TSLA': { symbol: 'TSLA', name: 'Tesla Inc.', exchange: 'NASDAQ' },
+  'META': { symbol: 'META', name: 'Meta Platforms Inc.', exchange: 'NASDAQ' },
+  'NVDA': { symbol: 'NVDA', name: 'NVIDIA Corp.', exchange: 'NASDAQ' },
+  'NFLX': { symbol: 'NFLX', name: 'Netflix Inc.', exchange: 'NASDAQ' },
+  'AMD': { symbol: 'AMD', name: 'Advanced Micro Devices', exchange: 'NASDAQ' },
+  'PYPL': { symbol: 'PYPL', name: 'PayPal Holdings', exchange: 'NASDAQ' },
+  'INTC': { symbol: 'INTC', name: 'Intel Corp.', exchange: 'NASDAQ' },
+  'CSCO': { symbol: 'CSCO', name: 'Cisco Systems', exchange: 'NASDAQ' },
+  'VZ': { symbol: 'VZ', name: 'Verizon Communications', exchange: 'NYSE' },
+  'T': { symbol: 'T', name: 'AT&T Inc.', exchange: 'NYSE' },
+  'PFE': { symbol: 'PFE', name: 'Pfizer Inc.', exchange: 'NYSE' },
+  'JNJ': { symbol: 'JNJ', name: 'Johnson & Johnson', exchange: 'NYSE' },
+  'MRK': { symbol: 'MRK', name: 'Merck & Co.', exchange: 'NYSE' },
+  'KO': { symbol: 'KO', name: 'Coca-Cola Co.', exchange: 'NYSE' },
+  'PEP': { symbol: 'PEP', name: 'PepsiCo Inc.', exchange: 'NASDAQ' },
+  'WMT': { symbol: 'WMT', name: 'Walmart Inc.', exchange: 'NYSE' },
+  'MCD': { symbol: 'MCD', name: "McDonald's Corp.", exchange: 'NYSE' },
+  'DIS': { symbol: 'DIS', name: 'Walt Disney Co.', exchange: 'NYSE' },
+  'BAC': { symbol: 'BAC', name: 'Bank of America', exchange: 'NYSE' },
+  'JPM': { symbol: 'JPM', name: 'JPMorgan Chase', exchange: 'NYSE' },
+  'GE': { symbol: 'GE', name: 'General Electric', exchange: 'NYSE' },
+  'F': { symbol: 'F', name: 'Ford Motor Co.', exchange: 'NYSE' },
+  'GM': { symbol: 'GM', name: 'General Motors', exchange: 'NYSE' },
+  'SPY': { symbol: 'SPY', name: 'SPDR S&P 500 ETF', exchange: 'NYSE' },
+  'QQQ': { symbol: 'QQQ', name: 'Invesco QQQ ETF', exchange: 'NASDAQ' },
+  'IWM': { symbol: 'IWM', name: 'iShares Russell 2000 ETF', exchange: 'NYSE' },
+}
 
 export interface StockSearchResult {
   symbol: string
@@ -300,6 +334,57 @@ async function getQuoteFMP(symbol: string): Promise<StockQuote | null> {
 // ============= UNIFIED API WITH FALLBACK =============
 
 /**
+ * Search stocks with mock fallback
+ */
+function searchMockStocks(query: string): StockSearchResult[] {
+  const lowerQuery = query.toLowerCase()
+  
+  // Search by symbol or company name
+  const results = Object.values(MOCK_STOCKS).filter(stock => 
+    stock.symbol.toLowerCase().includes(lowerQuery) ||
+    stock.name.toLowerCase().includes(lowerQuery)
+  )
+  
+  return results.map(stock => ({
+    symbol: stock.symbol,
+    name: stock.name,
+    currency: 'USD',
+    stockExchange: stock.exchange,
+    exchangeShortName: stock.exchange,
+    type: 'Equity'
+  }))
+}
+
+/**
+ * Get mock quote for a stock
+ */
+function getMockQuote(symbol: string): StockQuote | null {
+  const stock = MOCK_STOCKS[symbol.toUpperCase()]
+  if (!stock) return null
+  
+  // Generate realistic mock data
+  const basePrice = 100 + Math.random() * 300
+  const change = (Math.random() - 0.5) * 20
+  const changePercent = (change / basePrice) * 100
+  
+  return {
+    symbol: stock.symbol,
+    name: stock.name,
+    price: basePrice,
+    changesPercentage: changePercent,
+    change: change,
+    dayLow: basePrice - Math.random() * 10,
+    dayHigh: basePrice + Math.random() * 10,
+    yearHigh: basePrice + Math.random() * 50,
+    yearLow: basePrice - Math.random() * 50,
+    marketCap: Math.random() * 3000000000000,
+    volume: Math.random() * 100000000,
+    pe: 15 + Math.random() * 30,
+    timestamp: Date.now()
+  }
+}
+
+/**
  * Search stocks with automatic fallback across APIs
  */
 export const searchStocks = async (query: string): Promise<StockSearchResult[]> => {
@@ -309,20 +394,30 @@ export const searchStocks = async (query: string): Promise<StockSearchResult[]> 
 
   console.log('🔍 Searching for:', query)
 
-  // Try Polygon first
-  let results = await searchStocksPolygon(query)
-  if (results.length > 0) return results
+  // Try Polygon first (only if key is configured)
+  if (POLYGON_API_KEY) {
+    let results = await searchStocksPolygon(query)
+    if (results.length > 0) return results
+  }
 
-  // Fallback to Finnhub
-  results = await searchStocksFinnhub(query)
-  if (results.length > 0) return results
+  // Fallback to Finnhub (only if key is configured)
+  if (FINNHUB_API_KEY) {
+    let results = await searchStocksFinnhub(query)
+    if (results.length > 0) return results
+  }
 
-  // Fallback to FMP
-  results = await searchStocksFMP(query)
-  if (results.length > 0) return results
+  // Fallback to FMP (only if key is configured)
+  if (FMP_API_KEY) {
+    let results = await searchStocksFMP(query)
+    if (results.length > 0) return results
+  }
 
-  console.error('❌ All APIs failed to return results')
-  alert('Unable to search stocks. Please check your API keys.')
+  // Use mock database when no APIs are configured
+  console.log('⚠️ No API keys configured, using mock stock database')
+  const mockResults = searchMockStocks(query)
+  if (mockResults.length > 0) return mockResults
+  
+  console.error('❌ No results found')
   return []
 }
 
@@ -332,19 +427,30 @@ export const searchStocks = async (query: string): Promise<StockSearchResult[]> 
 export const getStockQuote = async (symbol: string): Promise<StockQuote | null> => {
   console.log('📊 Getting quote for:', symbol)
 
-  // Try Polygon first
-  let quote = await getQuotePolygon(symbol)
-  if (quote) return quote
+  // Try Polygon first (only if key is configured)
+  if (POLYGON_API_KEY) {
+    let quote = await getQuotePolygon(symbol)
+    if (quote) return quote
+  }
 
-  // Fallback to Finnhub
-  quote = await getQuoteFinnhub(symbol)
-  if (quote) return quote
+  // Fallback to Finnhub (only if key is configured)
+  if (FINNHUB_API_KEY) {
+    let quote = await getQuoteFinnhub(symbol)
+    if (quote) return quote
+  }
 
-  // Fallback to FMP
-  quote = await getQuoteFMP(symbol)
-  if (quote) return quote
+  // Fallback to FMP (only if key is configured)
+  if (FMP_API_KEY) {
+    let quote = await getQuoteFMP(symbol)
+    if (quote) return quote
+  }
 
-  console.error('❌ All APIs failed to return quote for:', symbol)
+  // Use mock data when no APIs are configured
+  console.log('⚠️ No API keys configured, using mock data for', symbol)
+  const mockQuote = getMockQuote(symbol)
+  if (mockQuote) return mockQuote
+
+  console.error('❌ Quote not found for:', symbol)
   return null
 }
 

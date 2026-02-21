@@ -62,12 +62,12 @@ function DashboardSkeleton() {
   )
 }
 
-// ==================== DASHBOARD CONTENT ====================
+// ==================== MAIN CONTENT ====================
 
 function DashboardContent() {
   const {
     holdings,
-    portfolioValue: totalPortfolioValue,
+    portfolioValue,
     totalCost,
     totalGain,
     totalGainPercent,
@@ -80,37 +80,33 @@ function DashboardContent() {
     setIsMounted(true)
   }, [])
 
-  // Safe defaults — never return null, show skeleton until mounted
-  const todayGain = isMounted ? (performance?.todayReturn?.value ?? 0) : 0
-  const todayGainPercent = isMounted ? (performance?.todayReturn?.percent ?? 0) : 0
-  const unrealizedGains = isMounted ? totalGain : 0
-  const safeHoldings = isMounted ? holdings : []
-  const safeTotal = isMounted ? totalPortfolioValue : 0
-  const safeCost = isMounted ? totalCost : 0
-  const safeTotalGain = isMounted ? totalGain : 0
-  const safeTotalPct = isMounted ? totalGainPercent : 0
+  if (!isMounted) {
+    return <DashboardSkeleton />
+  }
 
-  const todayGainers = isMounted
-    ? [...safeHoldings]
-      .filter(h => (h.todayGainPercent ?? 0) > 0)
-      .sort((a, b) => b.todayGainPercent - a.todayGainPercent)
-      .slice(0, 3)
-    : []
+  // Safe values after mount
+  const safeHoldings = holdings ?? []
+  const safeTotal = portfolioValue ?? 0
+  const safeCost = totalCost ?? 0
+  const safeTotalGain = totalGain ?? 0
+  const safeTotalPct = totalGainPercent ?? 0
+  const todayGain = performance?.todayReturn?.value ?? 0
+  const todayGainPct = performance?.todayReturn?.percent ?? 0
 
-  const todayLosers = isMounted
-    ? [...safeHoldings]
-      .filter(h => (h.todayGainPercent ?? 0) < 0)
-      .sort((a, b) => a.todayGainPercent - b.todayGainPercent)
-      .slice(0, 3)
-    : []
+  const todayGainers = [...safeHoldings]
+    .filter(h => (h.todayGainPercent ?? 0) > 0)
+    .sort((a, b) => (b.todayGainPercent ?? 0) - (a.todayGainPercent ?? 0))
+    .slice(0, 3)
 
-  if (!isMounted) return <DashboardSkeleton />
+  const todayLosers = [...safeHoldings]
+    .filter(h => (h.todayGainPercent ?? 0) < 0)
+    .sort((a, b) => (a.todayGainPercent ?? 0) - (b.todayGainPercent ?? 0))
+    .slice(0, 3)
 
   return (
     <div className="p-4 lg:p-6">
       <Tabs defaultValue="portfolio" className="space-y-6">
 
-        {/* Tab switcher */}
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="portfolio" className="flex items-center gap-2">
             <Briefcase className="h-4 w-4" />
@@ -122,10 +118,10 @@ function DashboardContent() {
           </TabsTrigger>
         </TabsList>
 
-        {/* ==================== TAB 1: MY PORTFOLIO ==================== */}
+        {/* ========== TAB 1: MY PORTFOLIO ========== */}
         <TabsContent value="portfolio" className="space-y-6">
 
-          {/* Hero Section */}
+          {/* Hero */}
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
             <div>
               <p className="text-muted-foreground mb-1">Total Portfolio Value</p>
@@ -154,10 +150,8 @@ function DashboardContent() {
             </div>
           </div>
 
-          {/* Quick Stats Row */}
+          {/* Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-
-            {/* Today */}
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -166,7 +160,7 @@ function DashboardContent() {
                     <p className={`text-xl font-bold ${todayGain >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                       {formatCurrency(todayGain)}
                     </p>
-                    <p className="text-xs text-muted-foreground">{formatPercent(todayGainPercent)}</p>
+                    <p className="text-xs text-muted-foreground">{formatPercent(todayGainPct)}</p>
                   </div>
                   <div className={`p-2 rounded-full ${todayGain >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
                     {todayGain >= 0
@@ -178,24 +172,22 @@ function DashboardContent() {
               </CardContent>
             </Card>
 
-            {/* Unrealized Gains */}
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs text-muted-foreground">Unrealized Gains</p>
-                    <p className={`text-xl font-bold ${unrealizedGains >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                      {formatCurrency(unrealizedGains)}
+                    <p className={`text-xl font-bold ${safeTotalGain >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      {formatCurrency(safeTotalGain)}
                     </p>
                   </div>
-                  <div className={`p-2 rounded-full ${unrealizedGains >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
+                  <div className={`p-2 rounded-full ${safeTotalGain >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
                     <TrendingUp className="h-5 w-5 text-green-500" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Holdings */}
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -210,7 +202,6 @@ function DashboardContent() {
               </CardContent>
             </Card>
 
-            {/* Total Cost */}
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -226,16 +217,14 @@ function DashboardContent() {
             </Card>
           </div>
 
-          {/* Portfolio Chart */}
+          {/* Chart */}
           <PortfolioChart />
 
-          {/* AI Portfolio Summary */}
+          {/* AI Summary */}
           <AIPortfolioSummary />
 
-          {/* Today's Top Gainers & Losers */}
+          {/* Today's Gainers & Losers */}
           <div className="grid lg:grid-cols-2 gap-6">
-
-            {/* Gainers */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -246,29 +235,25 @@ function DashboardContent() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {todayGainers.length > 0 ? (
-                  todayGainers.map((holding) => (
-                    <div
-                      key={holding.symbol}
-                      className="flex items-center justify-between p-3 rounded-lg bg-green-500/5 border border-green-500/20"
-                    >
+                  todayGainers.map(h => (
+                    <div key={h.symbol} className="flex items-center justify-between p-3 rounded-lg bg-green-500/5 border border-green-500/20">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center overflow-hidden">
-                          {holding.logo ? (
-                            <Image src={holding.logo} alt={holding.symbol} width={32} height={32} unoptimized />
-                          ) : (
-                            <span className="text-xs font-bold">{holding.symbol.slice(0, 2)}</span>
-                          )}
+                          {h.logo
+                            ? <Image src={h.logo} alt={h.symbol} width={32} height={32} unoptimized />
+                            : <span className="text-xs font-bold">{h.symbol.slice(0, 2)}</span>
+                          }
                         </div>
                         <div>
-                          <p className="font-bold">{holding.symbol}</p>
+                          <p className="font-bold">{h.symbol}</p>
                           <p className="text-xs text-muted-foreground">
-                            {formatCurrency(holding.currentPrice)} · {holding.shares} shares
+                            {formatCurrency(h.currentPrice)} · {h.shares} shares
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-green-500">{formatPercent(holding.todayGainPercent)}</p>
-                        <p className="text-xs text-green-500">{formatCurrency(holding.todayGain)} today</p>
+                        <p className="font-bold text-green-500">{formatPercent(h.todayGainPercent)}</p>
+                        <p className="text-xs text-green-500">{formatCurrency(h.todayGain ?? 0)} today</p>
                       </div>
                     </div>
                   ))
@@ -281,7 +266,6 @@ function DashboardContent() {
               </CardContent>
             </Card>
 
-            {/* Losers */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -292,29 +276,25 @@ function DashboardContent() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {todayLosers.length > 0 ? (
-                  todayLosers.map((holding) => (
-                    <div
-                      key={holding.symbol}
-                      className="flex items-center justify-between p-3 rounded-lg bg-red-500/5 border border-red-500/20"
-                    >
+                  todayLosers.map(h => (
+                    <div key={h.symbol} className="flex items-center justify-between p-3 rounded-lg bg-red-500/5 border border-red-500/20">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center overflow-hidden">
-                          {holding.logo ? (
-                            <Image src={holding.logo} alt={holding.symbol} width={32} height={32} unoptimized />
-                          ) : (
-                            <span className="text-xs font-bold">{holding.symbol.slice(0, 2)}</span>
-                          )}
+                          {h.logo
+                            ? <Image src={h.logo} alt={h.symbol} width={32} height={32} unoptimized />
+                            : <span className="text-xs font-bold">{h.symbol.slice(0, 2)}</span>
+                          }
                         </div>
                         <div>
-                          <p className="font-bold">{holding.symbol}</p>
+                          <p className="font-bold">{h.symbol}</p>
                           <p className="text-xs text-muted-foreground">
-                            {formatCurrency(holding.currentPrice)} · {holding.shares} shares
+                            {formatCurrency(h.currentPrice)} · {h.shares} shares
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-red-500">{formatPercent(holding.todayGainPercent)}</p>
-                        <p className="text-xs text-red-500">{formatCurrency(holding.todayGain)} today</p>
+                        <p className="font-bold text-red-500">{formatPercent(h.todayGainPercent)}</p>
+                        <p className="text-xs text-red-500">{formatCurrency(h.todayGain ?? 0)} today</p>
                       </div>
                     </div>
                   ))
@@ -350,32 +330,31 @@ function DashboardContent() {
             </CardHeader>
             <CardContent>
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {safeHoldings.slice(0, 8).map((holding) => (
+                {safeHoldings.slice(0, 8).map(h => (
                   <div
-                    key={holding.symbol}
+                    key={h.symbol}
                     className="p-3 rounded-lg border border-border hover:bg-secondary/50 transition-colors cursor-pointer"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center overflow-hidden">
-                          {holding.logo ? (
-                            <Image src={holding.logo} alt={holding.symbol} width={24} height={24} unoptimized />
-                          ) : (
-                            <span className="text-[10px] font-bold">{holding.symbol.slice(0, 2)}</span>
-                          )}
+                          {h.logo
+                            ? <Image src={h.logo} alt={h.symbol} width={24} height={24} unoptimized />
+                            : <span className="text-[10px] font-bold">{h.symbol.slice(0, 2)}</span>
+                          }
                         </div>
-                        <span className="font-semibold text-sm">{holding.symbol}</span>
+                        <span className="font-semibold text-sm">{h.symbol}</span>
                       </div>
-                      <span className={`text-xs font-bold ${(holding.todayGainPercent ?? 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                        {formatPercent(holding.todayGainPercent)}
+                      <span className={`text-xs font-bold ${(h.todayGainPercent ?? 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        {formatPercent(h.todayGainPercent)}
                       </span>
                     </div>
                     <div className="flex items-end justify-between">
                       <div>
-                        <p className="text-lg font-bold">{formatCurrency(holding.currentPrice)}</p>
-                        <p className="text-xs text-muted-foreground">{holding.shares} shares</p>
+                        <p className="text-lg font-bold">{formatCurrency(h.currentPrice ?? 0)}</p>
+                        <p className="text-xs text-muted-foreground">{h.shares} shares</p>
                       </div>
-                      <p className="text-sm text-muted-foreground">{formatCurrency(holding.marketValue)}</p>
+                      <p className="text-sm text-muted-foreground">{formatCurrency(h.marketValue ?? 0)}</p>
                     </div>
                   </div>
                 ))}
@@ -385,7 +364,7 @@ function DashboardContent() {
 
         </TabsContent>
 
-        {/* ==================== TAB 2: MARKET OVERVIEW ==================== */}
+        {/* ========== TAB 2: MARKET OVERVIEW ========== */}
         <TabsContent value="market" className="space-y-6">
           <MarketTicker />
           <MoneyFlowDashboard />
@@ -405,7 +384,7 @@ function DashboardContent() {
   )
 }
 
-// ==================== PAGE EXPORT ====================
+// ==================== EXPORT ====================
 
 export default function DashboardPage() {
   return (

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ChevronDown, ChevronUp, TrendingUp, TrendingDown } from "lucide-react"
@@ -8,132 +8,76 @@ import { ChevronDown, ChevronUp, TrendingUp, TrendingDown } from "lucide-react"
 interface Sector {
   name: string
   symbol: string
-  price: string
+  price: number
   change: number
   changePercent: number
-  note?: string
 }
 
-// Mock data - represents which sectors led the market move
-// This would sync with the Money Flow Dashboard's stock performance
-const MOCK_SECTORS: Sector[] = [
-  {
-    name: 'Technology',
-    symbol: 'XLK',
-    price: '$185.20',
-    change: -14.82,
-    changePercent: -8.0,
-    note: 'Biggest drag on market'
-  },
-  {
-    name: 'Energy',
-    symbol: 'XLE',
-    price: '$82.40',
-    change: -5.28,
-    changePercent: -6.4
-  },
-  {
-    name: 'Communication Services',
-    symbol: 'XLC',
-    price: '$68.50',
-    change: -3.77,
-    changePercent: -5.5
-  },
-  {
-    name: 'Consumer Discretionary',
-    symbol: 'XLY',
-    price: '$172.80',
-    change: -6.91,
-    changePercent: -4.0
-  },
-  {
-    name: 'Financials',
-    symbol: 'XLF',
-    price: '$38.50',
-    change: -1.35,
-    changePercent: -3.5
-  },
-  {
-    name: 'Industrials',
-    symbol: 'XLI',
-    price: '$115.30',
-    change: -2.88,
-    changePercent: -2.5
-  },
-  {
-    name: 'Materials',
-    symbol: 'XLB',
-    price: '$82.90',
-    change: -1.24,
-    changePercent: -1.5
-  },
-  {
-    name: 'Real Estate',
-    symbol: 'XLRE',
-    price: '$38.20',
-    change: 0.19,
-    changePercent: 0.5
-  },
-  {
-    name: 'Healthcare',
-    symbol: 'XLV',
-    price: '$142.80',
-    change: 1.43,
-    changePercent: 1.0,
-    note: 'Defensive strength'
-  },
-  {
-    name: 'Consumer Staples',
-    symbol: 'XLP',
-    price: '$75.60',
-    change: 1.51,
-    changePercent: 2.0,
-    note: 'Flight to safety'
-  },
-  {
-    name: 'Utilities',
-    symbol: 'XLU',
-    price: '$64.20',
-    change: 1.60,
-    changePercent: 2.5,
-    note: 'Safe haven'
-  },
-]
-
-function formatCurrency(value: string): string {
-  return value
-}
-
-function formatChange(value: number): string {
-  const sign = value >= 0 ? '+' : ''
-  return `${sign}${value.toFixed(2)}%`
+function LoadingSkeleton() {
+  return (
+    <Card className="border-border bg-card">
+      <CardHeader>
+        <div className="h-6 w-48 bg-secondary rounded animate-pulse" />
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="h-14 bg-secondary rounded-lg animate-pulse" />
+        ))}
+      </CardContent>
+    </Card>
+  )
 }
 
 export default function SectorBreakdown() {
-  const [isExpanded, setIsExpanded] = useState(false)
+  const [sectors, setSectors] = useState<Sector[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+  const [isExpanded, setExpanded] = useState(false)
 
-  // Split into winners and losers
-  const losers = MOCK_SECTORS.filter(s => s.changePercent < 0).sort((a, b) => a.changePercent - b.changePercent)
-  const winners = MOCK_SECTORS.filter(s => s.changePercent >= 0).sort((a, b) => b.changePercent - a.changePercent)
+  useEffect(() => {
+    fetch('/api/market-overview')
+      .then(r => r.json())
+      .then(data => {
+        setSectors(data.sectors ?? [])
+        setLoading(false)
+      })
+      .catch(() => { setError(true); setLoading(false) })
+  }, [])
 
-  // Show top 3 losers and top 3 winners by default
-  const displayedSectors = isExpanded
-    ? MOCK_SECTORS
-    : [...losers.slice(0, 3), ...winners.slice(0, 3)]
+  if (loading) return <LoadingSkeleton />
+  if (error || sectors.length === 0) return (
+    <Card className="border-border bg-card">
+      <CardContent className="p-8 text-center text-muted-foreground">
+        Unable to load sector data
+      </CardContent>
+    </Card>
+  )
 
-  // Calculate offensive vs defensive
-  const offensiveSectors = ['Technology', 'Consumer Discretionary', 'Financials', 'Energy', 'Communication Services']
-  const defensiveSectors = ['Healthcare', 'Utilities', 'Consumer Staples', 'Real Estate']
+  // Sort worst → best
+  const sorted = [...sectors].sort((a, b) => a.changePercent - b.changePercent)
+  const losers = sorted.filter(s => s.changePercent < 0)
+  const winners = sorted.filter(s => s.changePercent >= 0).reverse()
 
-  const offensiveAvg = MOCK_SECTORS
-    .filter(s => offensiveSectors.includes(s.name))
-    .reduce((sum, s) => sum + s.changePercent, 0) / offensiveSectors.length
+  const displayed = isExpanded
+    ? sorted
+    : [...losers.slice(0, 3), ...winners.slice(0, 3)].sort((a, b) => a.changePercent - b.changePercent)
 
-  const defensiveAvg = MOCK_SECTORS
-    .filter(s => defensiveSectors.includes(s.name))
-    .reduce((sum, s) => sum + s.changePercent, 0) / defensiveSectors.length
+  // Offensive vs Defensive sentiment
+  const offensive = ['Technology', 'Consumer Discretionary', 'Financials', 'Energy', 'Communication Services']
+  const defensive = ['Healthcare', 'Utilities', 'Consumer Staples', 'Real Estate']
 
-  const marketSentiment = offensiveAvg > defensiveAvg ? 'risk-on' : 'risk-off'
+  const avg = (names: string[]) => {
+    const matches = sectors.filter(s => names.includes(s.name))
+    if (!matches.length) return 0
+    return matches.reduce((sum, s) => sum + s.changePercent, 0) / matches.length
+  }
+
+  const offAvg = avg(offensive)
+  const defAvg = avg(defensive)
+  const isRiskOn = offAvg > defAvg
+
+  // Get S&P 500 proxy from SPY
+  const spyInSectors = sectors.find(s => s.symbol === 'SPY')
 
   return (
     <Card className="border-border bg-card">
@@ -144,120 +88,85 @@ export default function SectorBreakdown() {
               📊 Stock Sector Breakdown
             </CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              Within S&P 500 (<span className="text-red-500 font-semibold">-5.2%</span> today)
+              S&P 500 sector ETF performance today
             </p>
           </div>
 
-          {/* Offensive vs Defensive Summary */}
+          {/* Offensive vs Defensive */}
           <div className="flex gap-3 text-sm">
-            <div className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30">
+            <div className={`px-3 py-2 rounded-lg border ${offAvg >= 0 ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
               <p className="text-xs text-muted-foreground">Offensive Sectors</p>
-              <p className={`font-bold ${offensiveAvg >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                {formatChange(offensiveAvg)}
+              <p className={`font-bold ${offAvg >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                {offAvg >= 0 ? '+' : ''}{offAvg.toFixed(2)}%
               </p>
             </div>
-            <div className="px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/30">
+            <div className={`px-3 py-2 rounded-lg border ${defAvg >= 0 ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
               <p className="text-xs text-muted-foreground">Defensive Sectors</p>
-              <p className={`font-bold ${defensiveAvg >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                {formatChange(defensiveAvg)}
+              <p className={`font-bold ${defAvg >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                {defAvg >= 0 ? '+' : ''}{defAvg.toFixed(2)}%
               </p>
             </div>
           </div>
         </div>
 
-        {/* Market Sentiment Indicator */}
+        {/* Sentiment indicator */}
         <div className="mt-3 p-3 rounded-lg bg-secondary/50 border border-border">
           <p className="text-xs text-muted-foreground mb-1">Market Sentiment:</p>
           <p className="text-sm font-semibold">
-            {marketSentiment === 'risk-off' ? (
-              <>
-                <span className="text-red-500">⚠️ Risk-Off</span> — Investors rotating to defensive sectors (utilities, staples, healthcare)
-              </>
-            ) : (
-              <>
-                <span className="text-green-500">✅ Risk-On</span> — Strong appetite for growth sectors (tech, discretionary, financials)
-              </>
-            )}
+            {isRiskOn
+              ? <><span className="text-green-500">✅ Risk-On</span> — Investors rotating into growth sectors (tech, discretionary, financials)</>
+              : <><span className="text-red-500">⚠️ Risk-Off</span> — Investors rotating into defensive sectors (utilities, staples, healthcare)</>
+            }
           </p>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Sector List */}
         <div className="space-y-2">
-          {displayedSectors
-            .sort((a, b) => a.changePercent - b.changePercent)
-            .map((sector) => {
-              const isPositive = sector.changePercent >= 0
-              const isTop = sector.note !== undefined
-
-              return (
-                <div
-                  key={sector.symbol}
-                  className={`p-4 rounded-lg border transition-all ${isTop
-                      ? isPositive
-                        ? 'bg-green-500/10 border-green-500/30'
-                        : 'bg-red-500/10 border-red-500/30'
-                      : 'bg-secondary/30 border-border hover:bg-secondary/60'
-                    }`}
-                >
-                  <div className="flex items-center justify-between">
-                    {/* Left: Sector Info */}
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold">{sector.name}</span>
-                        <span className="text-xs text-muted-foreground">({sector.symbol})</span>
-                        {sector.note && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-background border border-border">
-                            {sector.note}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-0.5">{sector.price}</p>
+          {displayed.map(sector => {
+            const isPos = sector.changePercent >= 0
+            return (
+              <div
+                key={sector.symbol}
+                className="p-4 rounded-lg border bg-secondary/30 border-border hover:bg-secondary/60 transition-all"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold">{sector.name}</span>
+                      <span className="text-xs text-muted-foreground">({sector.symbol})</span>
                     </div>
-
-                    {/* Right: Performance */}
-                    <div className="text-right">
-                      <div className="flex items-center gap-2 justify-end">
-                        {isPositive ? (
-                          <TrendingUp className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <TrendingDown className="h-4 w-4 text-red-500" />
-                        )}
-                        <span className={`font-bold text-lg ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                          {formatChange(sector.changePercent)}
-                        </span>
-                      </div>
-                      <p className={`text-xs ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                        {sector.change >= 0 ? '+' : ''}{sector.change.toFixed(2)}
-                      </p>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      ${sector.price.toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="flex items-center gap-2 justify-end">
+                      {isPos
+                        ? <TrendingUp className="h-4 w-4 text-green-500" />
+                        : <TrendingDown className="h-4 w-4 text-red-500" />
+                      }
+                      <span className={`font-bold text-lg ${isPos ? 'text-green-500' : 'text-red-500'}`}>
+                        {isPos ? '+' : ''}{sector.changePercent.toFixed(2)}%
+                      </span>
                     </div>
+                    <p className={`text-xs ${isPos ? 'text-green-500' : 'text-red-500'}`}>
+                      {sector.change >= 0 ? '+' : ''}{sector.change.toFixed(2)}
+                    </p>
                   </div>
                 </div>
-              )
-            })}
+              </div>
+            )
+          })}
         </div>
 
-        {/* Expand/Collapse Button */}
-        <Button
-          variant="outline"
-          className="w-full"
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          {isExpanded ? (
-            <>
-              <ChevronUp className="h-4 w-4 mr-2" />
-              Show Less
-            </>
-          ) : (
-            <>
-              <ChevronDown className="h-4 w-4 mr-2" />
-              Show All 11 Sectors
-            </>
-          )}
+        <Button variant="outline" className="w-full" onClick={() => setExpanded(!isExpanded)}>
+          {isExpanded
+            ? <><ChevronUp className="h-4 w-4 mr-2" />Show Less</>
+            : <><ChevronDown className="h-4 w-4 mr-2" />Show All {sectors.length} Sectors</>
+          }
         </Button>
 
-        {/* Legend */}
         {isExpanded && (
           <div className="pt-4 border-t border-border">
             <p className="text-xs text-muted-foreground mb-2 font-semibold">Sector Categories:</p>

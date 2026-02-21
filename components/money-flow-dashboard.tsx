@@ -1,128 +1,152 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
-  Coins,
-  Gem,
-  Droplet,
-  Landmark,
-  Bitcoin,
-  Lightbulb
-} from "lucide-react"
+import { TrendingUp, TrendingDown, DollarSign, Coins, Gem, Droplet, Landmark, Bitcoin, Lightbulb } from "lucide-react"
 
 interface AssetClass {
   name: string
   symbol: string
   price: string
-  change: number
   changePercent: number
   flow: 'bought' | 'sold' | 'neutral'
+  color: 'green' | 'red' | 'yellow' | 'neutral'
   icon: React.ReactNode
-  color: string
 }
 
-// Mock data - represents TODAY's "risk-off" day where money flowed out of stocks into safety
-const MOCK_ASSET_DATA: AssetClass[] = [
-  {
-    name: 'Stocks',
-    symbol: 'SPY',
-    price: '$498.20',
-    change: -25.80,
-    changePercent: -5.2,
-    flow: 'sold',
-    icon: <TrendingUp className="h-5 w-5" />,
-    color: 'red'
-  },
-  {
-    name: 'Bonds',
-    symbol: 'AGG',
-    price: '$102.40',
-    change: 3.10,
-    changePercent: 3.1,
-    flow: 'bought',
-    icon: <Landmark className="h-5 w-5" />,
-    color: 'green'
-  },
-  {
-    name: 'Gold',
-    symbol: 'GLD',
-    price: '$204.50',
-    change: 4.00,
-    changePercent: 2.0,
-    flow: 'bought',
-    icon: <Gem className="h-5 w-5" />,
-    color: 'green'
-  },
-  {
-    name: 'Crypto',
-    symbol: 'BTC',
-    price: '$51,240',
-    change: 510,
-    changePercent: 1.0,
-    flow: 'bought',
-    icon: <Bitcoin className="h-5 w-5" />,
-    color: 'yellow'
-  },
-  {
-    name: 'Oil',
-    symbol: 'USO',
-    price: '$72.50',
-    change: 0.58,
-    changePercent: 0.8,
-    flow: 'bought',
-    icon: <Droplet className="h-5 w-5" />,
-    color: 'green'
-  },
-  {
-    name: 'US Dollar',
-    symbol: 'DXY',
-    price: '103.45',
-    change: -0.52,
-    changePercent: -0.5,
-    flow: 'sold',
-    icon: <DollarSign className="h-5 w-5" />,
-    color: 'red'
-  },
-]
+function fmtPrice(price: number, isCrypto = false): string {
+  if (isCrypto && price >= 1000) return `$${price.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+  return `$${price.toFixed(2)}`
+}
 
-// Rules-based narrative generation for TODAY
+function fmtPct(v: number): string {
+  return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`
+}
+
 function generateNarrative(assets: AssetClass[]): string {
   const stocks = assets.find(a => a.symbol === 'SPY')
   const bonds = assets.find(a => a.symbol === 'AGG')
   const gold = assets.find(a => a.symbol === 'GLD')
   const crypto = assets.find(a => a.symbol === 'BTC')
+  if (!stocks) return 'Loading market interpretation...'
 
-  if (!stocks || !bonds || !gold || !crypto) return ''
-
-  // Risk-off scenario: Stocks down, bonds/gold up
-  if (stocks.changePercent < -3 && bonds.changePercent > 1 && gold.changePercent > 1) {
-    return `Risk-off rotation today: Investors sold growth stocks (${stocks.changePercent.toFixed(1)}%) and moved capital into safe-haven assets like bonds (+${bonds.changePercent.toFixed(1)}%) and gold (+${gold.changePercent.toFixed(1)}%). This flight to safety suggests increased market uncertainty.`
+  if (stocks.changePercent < -3 && (bonds?.changePercent ?? 0) > 1 && (gold?.changePercent ?? 0) > 0) {
+    return `Risk-off rotation today: Investors fled growth stocks (${fmtPct(stocks.changePercent)}) into safe-haven assets like bonds and gold. This flight to safety signals elevated market uncertainty.`
   }
-
-  // Risk-on scenario: Stocks up, bonds/gold down
-  if (stocks.changePercent > 2 && bonds.changePercent < -1) {
-    return `Risk-on rally today: Strong buying in equities (+${stocks.changePercent.toFixed(1)}%) as investors rotated out of defensive assets. This suggests growing confidence in economic growth and corporate earnings.`
+  if (stocks.changePercent > 2 && (bonds?.changePercent ?? 0) < 0) {
+    return `Risk-on rally today: Strong buying in equities (${fmtPct(stocks.changePercent)}) as investors rotated out of defensive assets. This signals growing confidence in economic growth.`
   }
-
-  // Crypto surge scenario
-  if (crypto.changePercent > 5 && stocks.changePercent > 0) {
-    return `Broad risk appetite today: Both traditional markets (+${stocks.changePercent.toFixed(1)}%) and crypto (+${crypto.changePercent.toFixed(1)}%) rallied, indicating strong investor confidence and liquidity flowing into risk assets across the board.`
+  if ((crypto?.changePercent ?? 0) > 5 && stocks.changePercent > 0) {
+    return `Broad risk appetite today: Both equities (${fmtPct(stocks.changePercent)}) and crypto (${fmtPct(crypto!.changePercent)}) rallied, indicating strong investor confidence and liquidity flowing into risk assets.`
   }
-
-  // Mixed/choppy market
-  return `Mixed signals today: Markets showed no clear directional bias with stocks ${stocks.changePercent > 0 ? 'up' : 'down'} ${Math.abs(stocks.changePercent).toFixed(1)}%. Investors appear cautious, waiting for clearer catalysts before making large allocation shifts.`
+  if (stocks.changePercent > 0.5) {
+    return `Positive session today: Equities moved higher by ${fmtPct(stocks.changePercent)}. Investor sentiment remains constructive with modest buying across asset classes.`
+  }
+  if (stocks.changePercent < -0.5) {
+    return `Cautious session today: Stocks pulled back ${fmtPct(stocks.changePercent)}. Investors appear to be reassessing risk positions ahead of upcoming catalysts.`
+  }
+  return `Mixed signals today: Markets showed no clear directional bias with stocks ${fmtPct(stocks.changePercent)}. Investors appear cautious, waiting for clearer catalysts before making large allocation shifts.`
 }
 
-function formatChange(value: number): string {
-  const sign = value >= 0 ? '+' : ''
-  return `${sign}${value.toFixed(2)}%`
+function LoadingSkeleton() {
+  return (
+    <Card className="border-border bg-card">
+      <CardHeader>
+        <div className="h-6 w-48 bg-secondary rounded animate-pulse" />
+        <div className="h-4 w-64 bg-secondary rounded animate-pulse mt-1" />
+      </CardHeader>
+      <CardContent>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="h-28 bg-secondary rounded-lg animate-pulse" />
+          ))}
+        </div>
+        <div className="h-20 bg-secondary rounded-lg animate-pulse mt-6" />
+      </CardContent>
+    </Card>
+  )
 }
 
 export default function MoneyFlowDashboard() {
-  const assets = MOCK_ASSET_DATA
+  const [assets, setAssets] = useState<AssetClass[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/market-overview')
+      .then(r => r.json())
+      .then(({ ticker }) => {
+        const flow = (pct: number): 'bought' | 'sold' | 'neutral' =>
+          pct > 0.1 ? 'bought' : pct < -0.1 ? 'sold' : 'neutral'
+        const color = (pct: number): 'green' | 'red' =>
+          pct >= 0 ? 'green' : 'red'
+
+        const built: AssetClass[] = []
+
+        if (ticker.sp500) built.push({
+          name: 'Stocks', symbol: 'SPY',
+          price: `$${ticker.sp500.price.toFixed(2)}`,
+          changePercent: ticker.sp500.changePercent,
+          flow: flow(ticker.sp500.changePercent),
+          color: color(ticker.sp500.changePercent),
+          icon: <TrendingUp className="h-5 w-5" />,
+        })
+        if (ticker.bonds) built.push({
+          name: 'Bonds', symbol: 'AGG',
+          price: `$${ticker.bonds.price.toFixed(2)}`,
+          changePercent: ticker.bonds.changePercent,
+          flow: flow(ticker.bonds.changePercent),
+          color: color(ticker.bonds.changePercent),
+          icon: <Landmark className="h-5 w-5" />,
+        })
+        if (ticker.gold) built.push({
+          name: 'Gold', symbol: 'GLD',
+          price: `$${ticker.gold.price.toFixed(2)}`,
+          changePercent: ticker.gold.changePercent,
+          flow: flow(ticker.gold.changePercent),
+          color: color(ticker.gold.changePercent),
+          icon: <Gem className="h-5 w-5" />,
+        })
+        if (ticker.bitcoin) built.push({
+          name: 'Crypto', symbol: 'BTC',
+          price: fmtPrice(ticker.bitcoin.price, true),
+          changePercent: ticker.bitcoin.changePercent,
+          flow: flow(ticker.bitcoin.changePercent),
+          color: 'yellow',
+          icon: <Bitcoin className="h-5 w-5" />,
+        })
+        if (ticker.oil) built.push({
+          name: 'Oil', symbol: 'USO',
+          price: `$${ticker.oil.price.toFixed(2)}`,
+          changePercent: ticker.oil.changePercent,
+          flow: flow(ticker.oil.changePercent),
+          color: color(ticker.oil.changePercent),
+          icon: <Droplet className="h-5 w-5" />,
+        })
+        if (ticker.usdDollar) built.push({
+          name: 'US Dollar', symbol: 'UUP',
+          price: `$${ticker.usdDollar.price.toFixed(2)}`,
+          changePercent: ticker.usdDollar.changePercent,
+          flow: flow(ticker.usdDollar.changePercent),
+          color: color(ticker.usdDollar.changePercent),
+          icon: <DollarSign className="h-5 w-5" />,
+        })
+
+        setAssets(built)
+        setLoading(false)
+      })
+      .catch(() => { setError(true); setLoading(false) })
+  }, [])
+
+  if (loading) return <LoadingSkeleton />
+  if (error || assets.length === 0) return (
+    <Card className="border-border bg-card">
+      <CardContent className="p-8 text-center text-muted-foreground">
+        Unable to load money flow data
+      </CardContent>
+    </Card>
+  )
+
   const narrative = generateNarrative(assets)
 
   return (
@@ -138,28 +162,21 @@ export default function MoneyFlowDashboard() {
       </CardHeader>
 
       <CardContent className="space-y-6">
-        {/* Asset Class Performance Grid */}
+        {/* Asset Grid */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {assets.map((asset) => {
-            const isPositive = asset.changePercent >= 0
-            const bgColor = asset.color === 'green'
-              ? 'bg-green-500/10 border-green-500/30'
-              : asset.color === 'red'
-                ? 'bg-red-500/10 border-red-500/30'
-                : 'bg-yellow-500/10 border-yellow-500/30'
-
-            const iconColor = asset.color === 'green'
-              ? 'text-green-500'
-              : asset.color === 'red'
-                ? 'text-red-500'
-                : 'text-yellow-500'
+          {assets.map(asset => {
+            const isPos = asset.changePercent >= 0
+            const bgBorder =
+              asset.color === 'green' ? 'bg-green-500/10 border-green-500/30' :
+                asset.color === 'red' ? 'bg-red-500/10 border-red-500/30' :
+                  'bg-yellow-500/10 border-yellow-500/30'
+            const iconColor =
+              asset.color === 'green' ? 'text-green-500' :
+                asset.color === 'red' ? 'text-red-500' :
+                  'text-yellow-500'
 
             return (
-              <div
-                key={asset.symbol}
-                className={`p-4 rounded-lg border-2 transition-all hover:scale-105 ${bgColor}`}
-              >
-                {/* Header */}
+              <div key={asset.symbol} className={`p-4 rounded-lg border-2 transition-all hover:scale-105 ${bgBorder}`}>
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <div className={`p-2 rounded-full bg-background ${iconColor}`}>
@@ -170,55 +187,35 @@ export default function MoneyFlowDashboard() {
                       <p className="text-xs text-muted-foreground">{asset.symbol}</p>
                     </div>
                   </div>
-                  {/* Flow Indicator */}
                   <div className="flex flex-col items-end">
-                    {asset.flow === 'bought' && (
-                      <TrendingUp className="h-4 w-4 text-green-500" />
-                    )}
-                    {asset.flow === 'sold' && (
-                      <TrendingDown className="h-4 w-4 text-red-500" />
-                    )}
-                    <span className="text-[10px] text-muted-foreground uppercase mt-1">
-                      {asset.flow}
-                    </span>
+                    {asset.flow === 'bought' && <TrendingUp className="h-4 w-4 text-green-500" />}
+                    {asset.flow === 'sold' && <TrendingDown className="h-4 w-4 text-red-500" />}
+                    <span className="text-[10px] text-muted-foreground uppercase mt-1">{asset.flow}</span>
                   </div>
                 </div>
-
-                {/* Price */}
                 <p className="text-2xl font-bold mb-1">{asset.price}</p>
-
-                {/* Change */}
-                <div className="flex items-center gap-2">
-                  <span className={`font-semibold text-sm ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                    {formatChange(asset.changePercent)}
-                  </span>
-                  <span className={`text-xs ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                    ({isPositive ? '+' : ''}{asset.change.toFixed(2)})
-                  </span>
-                </div>
+                <span className={`font-semibold text-sm ${isPos ? 'text-green-500' : 'text-red-500'}`}>
+                  {fmtPct(asset.changePercent)}
+                </span>
               </div>
             )
           })}
         </div>
 
-        {/* AI-Style Narrative */}
+        {/* Narrative */}
         <div className="p-4 rounded-lg bg-blue-500/10 border-2 border-blue-500/30">
           <div className="flex items-start gap-3">
             <div className="p-2 rounded-full bg-blue-500/20 mt-0.5">
               <Lightbulb className="h-5 w-5 text-blue-500" />
             </div>
-            <div className="flex-1">
-              <h4 className="font-semibold text-sm mb-1 flex items-center gap-2">
-                Market Interpretation
-              </h4>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {narrative}
-              </p>
+            <div>
+              <h4 className="font-semibold text-sm mb-1">Market Interpretation</h4>
+              <p className="text-sm text-muted-foreground leading-relaxed">{narrative}</p>
             </div>
           </div>
         </div>
 
-        {/* Quick Legend */}
+        {/* Legend */}
         <div className="flex items-center justify-center gap-6 pt-2 text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
             <TrendingUp className="h-3 w-3 text-green-500" />

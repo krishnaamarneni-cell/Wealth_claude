@@ -1,56 +1,55 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import {
-  TrendingUp,
-  TrendingDown,
-  ArrowUpRight,
-  ArrowDownRight,
-  Wallet,
-  PiggyBank,
-  Clock,
-  Briefcase,
-  LineChart
+  TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight,
+  Wallet, PiggyBank, Clock, Briefcase, LineChart
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import { Suspense } from "react"
+
+// ── Portfolio Tab Components ──────────────────────────────────────────────
 import PortfolioChart from "@/components/portfolio-chart"
-import MarketMovers from "@/components/market-movers"
-import SectorPerformance from "@/components/sector-performance"
+import PortfolioVsMarket from "@/components/portfolio-vs-market"
+import AIPortfolioSummary from "@/components/ai-portfolio-summary"
+import NewsFeed from "@/components/news-feed"
+
+// ── Market Overview Tab Components ───────────────────────────────────────
 import MarketTicker from "@/components/market-ticker"
 import MoneyFlowDashboard from "@/components/money-flow-dashboard"
-import SectorBreakdown from "@/components/sector-breakdown"
-import PortfolioVsMarket from "@/components/portfolio-vs-market"
+import AIMarketInsight from "@/components/ai-market-insight"
+import GlobalMarkets from "@/components/global-markets"
+import MarketBreadth from "@/components/market-breadth"
+import SectorOverview from "@/components/sector-overview"
 import FearGreed from "@/components/fear-greed"
-import NewsFeed from "@/components/news-feed"
-import AIPortfolioSummary from "@/components/ai-portfolio-summary"
+import EconomicCalendar from "@/components/economic-calendar"
+import MarketMovers from "@/components/market-movers"
+
+// ── Context ───────────────────────────────────────────────────────────────
 import { usePortfolio } from "@/lib/portfolio-context"
-import { Suspense, useState, useEffect } from "react"
 
-// ==================== FORMATTERS ====================
-
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+// ── Formatters ────────────────────────────────────────────────────────────
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('en-US', {
+    style: 'currency', currency: 'USD',
+    minimumFractionDigits: 0, maximumFractionDigits: 0,
   }).format(value)
-}
 
 const formatPercent = (value: number | undefined | null) => {
   if (value === undefined || value === null || isNaN(value)) return '0.00%'
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
 }
 
-// ==================== SKELETON ====================
-
+// ── Skeleton ──────────────────────────────────────────────────────────────
 function DashboardSkeleton() {
   return (
     <div className="p-4 lg:p-6 space-y-6">
-      <div className="h-20 bg-secondary rounded-lg animate-pulse" />
+      <div className="h-8 w-64 bg-secondary rounded animate-pulse" />
+      <div className="h-6 w-40 bg-secondary rounded animate-pulse" />
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[...Array(4)].map((_, i) => (
           <div key={i} className="h-24 bg-secondary rounded-lg animate-pulse" />
@@ -62,8 +61,7 @@ function DashboardSkeleton() {
   )
 }
 
-// ==================== MAIN CONTENT ====================
-
+// ── Main Dashboard ────────────────────────────────────────────────────────
 function DashboardContent() {
   const {
     holdings,
@@ -80,11 +78,9 @@ function DashboardContent() {
     setIsMounted(true)
   }, [])
 
-  if (!isMounted) {
-    return <DashboardSkeleton />
-  }
+  if (!isMounted) return <DashboardSkeleton />
 
-  // Safe values after mount
+  // ── Safe values after mount ─────────────────────────────────────────────
   const safeHoldings = holdings ?? []
   const safeTotal = portfolioValue ?? 0
   const safeCost = totalCost ?? 0
@@ -107,6 +103,7 @@ function DashboardContent() {
     <div className="p-4 lg:p-6">
       <Tabs defaultValue="portfolio" className="space-y-6">
 
+        {/* ── Tab Switcher ─────────────────────────────────────────────── */}
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="portfolio" className="flex items-center gap-2">
             <Briefcase className="h-4 w-4" />
@@ -118,21 +115,23 @@ function DashboardContent() {
           </TabsTrigger>
         </TabsList>
 
-        {/* ========== TAB 1: MY PORTFOLIO ========== */}
+        {/* ================================================================
+            TAB 1 — MY PORTFOLIO
+        ================================================================ */}
         <TabsContent value="portfolio" className="space-y-6">
 
-          {/* Hero */}
+          {/* ── Hero ───────────────────────────────────────────────────── */}
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
             <div>
-              <p className="text-muted-foreground mb-1">Total Portfolio Value</p>
+              <p className="text-muted-foreground mb-1 text-sm">Total Portfolio Value</p>
               <h1 className="text-4xl font-bold">{formatCurrency(safeTotal)}</h1>
-              <div className="flex items-center gap-4 mt-2">
-                <span className={`flex items-center gap-1 ${safeTotalGain >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              <div className="flex items-center gap-4 mt-2 flex-wrap">
+                <span className={`flex items-center gap-1 font-semibold ${safeTotalGain >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                   {safeTotalGain >= 0
                     ? <TrendingUp className="h-4 w-4" />
                     : <TrendingDown className="h-4 w-4" />
                   }
-                  {formatCurrency(safeTotalGain)} ({formatPercent(safeTotalPct)})
+                  {formatCurrency(safeTotalGain)} ({formatPercent(safeTotalPct)}) all time
                 </span>
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
                   <Clock className="h-3 w-3" />
@@ -150,13 +149,15 @@ function DashboardContent() {
             </div>
           </div>
 
-          {/* Stats */}
+          {/* ── Quick Stats ────────────────────────────────────────────── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+
+            {/* Today's P&L */}
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-muted-foreground">Today</p>
+                    <p className="text-xs text-muted-foreground mb-1">Today</p>
                     <p className={`text-xl font-bold ${todayGain >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                       {formatCurrency(todayGain)}
                     </p>
@@ -172,14 +173,16 @@ function DashboardContent() {
               </CardContent>
             </Card>
 
+            {/* Unrealized Gains */}
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-muted-foreground">Unrealized Gains</p>
+                    <p className="text-xs text-muted-foreground mb-1">Unrealized Gains</p>
                     <p className={`text-xl font-bold ${safeTotalGain >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                       {formatCurrency(safeTotalGain)}
                     </p>
+                    <p className="text-xs text-muted-foreground">{formatPercent(safeTotalPct)}</p>
                   </div>
                   <div className={`p-2 rounded-full ${safeTotalGain >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
                     <TrendingUp className="h-5 w-5 text-green-500" />
@@ -188,12 +191,14 @@ function DashboardContent() {
               </CardContent>
             </Card>
 
+            {/* Holdings Count */}
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-muted-foreground">Holdings</p>
+                    <p className="text-xs text-muted-foreground mb-1">Holdings</p>
                     <p className="text-xl font-bold text-blue-500">{safeHoldings.length}</p>
+                    <p className="text-xs text-muted-foreground">active positions</p>
                   </div>
                   <div className="p-2 rounded-full bg-blue-500/10">
                     <PiggyBank className="h-5 w-5 text-blue-500" />
@@ -202,12 +207,14 @@ function DashboardContent() {
               </CardContent>
             </Card>
 
+            {/* Total Cost Basis */}
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-muted-foreground">Total Cost</p>
+                    <p className="text-xs text-muted-foreground mb-1">Cost Basis</p>
                     <p className="text-xl font-bold">{formatCurrency(safeCost)}</p>
+                    <p className="text-xs text-muted-foreground">total invested</p>
                   </div>
                   <div className="p-2 rounded-full bg-secondary">
                     <Wallet className="h-5 w-5 text-muted-foreground" />
@@ -217,28 +224,33 @@ function DashboardContent() {
             </Card>
           </div>
 
-          {/* Chart */}
+          {/* ── Portfolio Chart ─────────────────────────────────────────── */}
           <PortfolioChart />
 
-          {/* AI Summary */}
+          {/* ── AI Portfolio Summary ────────────────────────────────────── */}
           <AIPortfolioSummary />
 
-          {/* Today's Gainers & Losers */}
+          {/* ── Today's Gainers & Losers ────────────────────────────────── */}
           <div className="grid lg:grid-cols-2 gap-6">
+
+            {/* Gainers */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <TrendingUp className="h-5 w-5 text-green-500" />
                   Today's Top Gainers
                 </CardTitle>
-                <p className="text-xs text-muted-foreground">Stocks that gained the most today</p>
+                <p className="text-xs text-muted-foreground">Your best performing stocks today</p>
               </CardHeader>
               <CardContent className="space-y-3">
                 {todayGainers.length > 0 ? (
                   todayGainers.map(h => (
-                    <div key={h.symbol} className="flex items-center justify-between p-3 rounded-lg bg-green-500/5 border border-green-500/20">
+                    <div
+                      key={h.symbol}
+                      className="flex items-center justify-between p-3 rounded-lg bg-green-500/5 border border-green-500/20"
+                    >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center overflow-hidden">
+                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
                           {h.logo
                             ? <Image src={h.logo} alt={h.symbol} width={32} height={32} unoptimized />
                             : <span className="text-xs font-bold">{h.symbol.slice(0, 2)}</span>
@@ -247,7 +259,7 @@ function DashboardContent() {
                         <div>
                           <p className="font-bold">{h.symbol}</p>
                           <p className="text-xs text-muted-foreground">
-                            {formatCurrency(h.currentPrice)} · {h.shares} shares
+                            {formatCurrency(h.currentPrice ?? 0)} · {h.shares} shares
                           </p>
                         </div>
                       </div>
@@ -258,28 +270,32 @@ function DashboardContent() {
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-6">
-                    <TrendingUp className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-50" />
+                  <div className="text-center py-8">
+                    <TrendingUp className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-30" />
                     <p className="text-sm text-muted-foreground">No gainers today</p>
                   </div>
                 )}
               </CardContent>
             </Card>
 
+            {/* Losers */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <TrendingDown className="h-5 w-5 text-red-500" />
                   Today's Underperformers
                 </CardTitle>
-                <p className="text-xs text-muted-foreground">Stocks that lost the most today</p>
+                <p className="text-xs text-muted-foreground">Your weakest stocks today</p>
               </CardHeader>
               <CardContent className="space-y-3">
                 {todayLosers.length > 0 ? (
                   todayLosers.map(h => (
-                    <div key={h.symbol} className="flex items-center justify-between p-3 rounded-lg bg-red-500/5 border border-red-500/20">
+                    <div
+                      key={h.symbol}
+                      className="flex items-center justify-between p-3 rounded-lg bg-red-500/5 border border-red-500/20"
+                    >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center overflow-hidden">
+                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
                           {h.logo
                             ? <Image src={h.logo} alt={h.symbol} width={32} height={32} unoptimized />
                             : <span className="text-xs font-bold">{h.symbol.slice(0, 2)}</span>
@@ -288,7 +304,7 @@ function DashboardContent() {
                         <div>
                           <p className="font-bold">{h.symbol}</p>
                           <p className="text-xs text-muted-foreground">
-                            {formatCurrency(h.currentPrice)} · {h.shares} shares
+                            {formatCurrency(h.currentPrice ?? 0)} · {h.shares} shares
                           </p>
                         </div>
                       </div>
@@ -299,8 +315,8 @@ function DashboardContent() {
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-6">
-                    <TrendingDown className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-50" />
+                  <div className="text-center py-8">
+                    <TrendingDown className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-30" />
                     <p className="text-sm text-muted-foreground">No losers today 🎉</p>
                   </div>
                 )}
@@ -308,75 +324,118 @@ function DashboardContent() {
             </Card>
           </div>
 
-          {/* Portfolio vs Market */}
+          {/* ── Portfolio vs Market ─────────────────────────────────────── */}
           <PortfolioVsMarket />
 
-          {/* Portfolio News */}
+          {/* ── Portfolio News ──────────────────────────────────────────── */}
           <NewsFeed
             type="portfolio"
             title="Your Portfolio News"
             description="Latest news for stocks you own"
           />
 
-          {/* Holdings Overview */}
+          {/* ── Holdings Overview Grid ──────────────────────────────────── */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">Holdings Overview</CardTitle>
                 <Button variant="ghost" size="sm" asChild>
-                  <Link href="/dashboard/holdings">View All</Link>
+                  <Link href="/dashboard/holdings">View All →</Link>
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {safeHoldings.slice(0, 8).map(h => (
-                  <div
-                    key={h.symbol}
-                    className="p-3 rounded-lg border border-border hover:bg-secondary/50 transition-colors cursor-pointer"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center overflow-hidden">
-                          {h.logo
-                            ? <Image src={h.logo} alt={h.symbol} width={24} height={24} unoptimized />
-                            : <span className="text-[10px] font-bold">{h.symbol.slice(0, 2)}</span>
-                          }
+              {safeHoldings.length === 0 ? (
+                <div className="text-center py-12">
+                  <PiggyBank className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-30" />
+                  <p className="text-muted-foreground">No holdings yet</p>
+                  <Button className="mt-4" asChild>
+                    <Link href="/dashboard/transactions">Add your first stock</Link>
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {safeHoldings.slice(0, 8).map(h => (
+                    <div
+                      key={h.symbol}
+                      className="p-3 rounded-lg border border-border hover:bg-secondary/50 transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
+                            {h.logo
+                              ? <Image src={h.logo} alt={h.symbol} width={24} height={24} unoptimized />
+                              : <span className="text-[10px] font-bold">{h.symbol.slice(0, 2)}</span>
+                            }
+                          </div>
+                          <span className="font-semibold text-sm">{h.symbol}</span>
                         </div>
-                        <span className="font-semibold text-sm">{h.symbol}</span>
+                        <span className={`text-xs font-bold ${(h.todayGainPercent ?? 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                          {formatPercent(h.todayGainPercent)}
+                        </span>
                       </div>
-                      <span className={`text-xs font-bold ${(h.todayGainPercent ?? 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                        {formatPercent(h.todayGainPercent)}
-                      </span>
-                    </div>
-                    <div className="flex items-end justify-between">
-                      <div>
-                        <p className="text-lg font-bold">{formatCurrency(h.currentPrice ?? 0)}</p>
-                        <p className="text-xs text-muted-foreground">{h.shares} shares</p>
+                      <div className="flex items-end justify-between">
+                        <div>
+                          <p className="text-lg font-bold">{formatCurrency(h.currentPrice ?? 0)}</p>
+                          <p className="text-xs text-muted-foreground">{h.shares} shares</p>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{formatCurrency(h.marketValue ?? 0)}</p>
                       </div>
-                      <p className="text-sm text-muted-foreground">{formatCurrency(h.marketValue ?? 0)}</p>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
+              {safeHoldings.length > 8 && (
+                <div className="text-center mt-4">
+                  <Button variant="outline" asChild>
+                    <Link href="/dashboard/holdings">View all {safeHoldings.length} holdings</Link>
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
         </TabsContent>
 
-        {/* ========== TAB 2: MARKET OVERVIEW ========== */}
+        {/* ================================================================
+            TAB 2 — MARKET OVERVIEW
+        ================================================================ */}
         <TabsContent value="market" className="space-y-6">
+
+          {/* 1. Scrolling ticker strip */}
           <MarketTicker />
+
+          {/* 2. Money flow first — user sees context before AI insight */}
           <MoneyFlowDashboard />
-          <SectorBreakdown />
+
+          {/* 3. AI Market Daily Brief — makes sense after seeing money flow */}
+          <AIMarketInsight />
+
+          {/* 4. Global markets */}
+          <GlobalMarkets />
+
+          {/* 5. Market breadth gauge */}
+          <MarketBreadth />
+
+          {/* 6. Sector overview — merged (Market Today + Your Portfolio tabs) */}
+          <SectorOverview />
+
+          {/* 7. Fear & Greed gauges */}
           <FearGreed />
+
+          {/* 8. Economic calendar — upcoming US events */}
+          <EconomicCalendar />
+
+          {/* 9. Top movers — S&P 500 / Nasdaq / Dow tabs */}
+          <MarketMovers />
+
+          {/* 10. Market news feed */}
           <NewsFeed
             type="market"
             title="Market News"
             description="Trending stories and market updates"
           />
-          <MarketMovers />
-          <SectorPerformance />
+
         </TabsContent>
 
       </Tabs>
@@ -384,8 +443,7 @@ function DashboardContent() {
   )
 }
 
-// ==================== EXPORT ====================
-
+// ── Page Export ───────────────────────────────────────────────────────────
 export default function DashboardPage() {
   return (
     <Suspense fallback={<DashboardSkeleton />}>

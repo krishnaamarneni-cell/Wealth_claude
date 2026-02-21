@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { TrendingUp, TrendingDown, Target, Info } from "lucide-react"
+import { TrendingUp, TrendingDown, Target, Info, RefreshCw } from "lucide-react"
 import { usePortfolio } from "@/lib/portfolio-context"
 
 // Static reference S&P 500 sector weights (approximate)
@@ -35,9 +35,6 @@ const MOCK_SECTOR_PERFORMANCE: Record<string, number> = {
   'Utilities': 2.5,
 }
 
-const SPY_CACHE_KEY = 'spyTodayCache'
-const SPY_CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
-
 function formatPercent(value: number): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
 }
@@ -45,50 +42,63 @@ function formatPercent(value: number): string {
 export default function PortfolioVsMarket() {
   const { holdings, performance } = usePortfolio()
 
-  // Fresh SPY data fetched independently (bypasses 3-hour portfolio cache)
   const [spyPercent, setSpyPercent] = useState<number | null>(null)
+  const [spyPrice, setSpyPrice] = useState<number | null>(null)
   const [spyLoading, setSpyLoading] = useState(true)
+  const [lastFetched, setLastFetched] = useState<string>('')
+
+  // Clear old sessionStorage cache keys from previous version
+  useEffect(() => {
+    sessionStorage.removeItem('spyTodayCache')
+  }, [])
+
+  const fetchSpy = async () => {
+    setSpyLoading(true)
+    try {
+      // Append timestamp to bust server-side in-memory cache
+      const res = await fetch(`/api/stock-info?symbol=SPY&t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' }
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+
+        console.log('[PortfolioVsMarket] SPY raw data:', {
+          price: data.price,
+          change: data.change,
+          changePercent: data.changePercent,
+          returns1D: data.returns?.['1D'],
+        })
+
+        // changePercent from Finnhub quote.dp = daily % change from previous close
+        const pct =
+          (typeof data.changePercent === 'number' && data.changePercent !== 0)
+            ? data.changePercent
+            : (typeof data.returns?.['1D'] === 'number' ? data.returns['1D'] : 0)
+
+        setSpyPercent(pct)
+        setSpyPrice(data.price || null)
+        setLastFetched(new Date().toLocaleTimeString())
+      }
+    } catch (e) {
+      console.error('[PortfolioVsMarket] Failed to fetch SPY:', e)
+    } finally {
+      setSpyLoading(false)
+    }
+  }
 
   useEffect(() => {
-    async function fetchSpy() {
-      try {
-        // Check short-lived session cache first (5 minutes)
-        const cached = sessionStorage.getItem(SPY_CACHE_KEY)
-        if (cached) {
-          const { value, timestamp } = JSON.parse(cached)
-          if (Date.now() - timestamp < SPY_CACHE_DURATION) {
-            setSpyPercent(value)
-            setSpyLoading(false)
-            return
-          }
-        }
-
-        const res = await fetch('/api/stock-info?symbol=SPY')
-        if (res.ok) {
-          const data = await res.json()
-          // Try changePercent first, then returns['1D']
-          const pct =
-            (typeof data.changePercent === 'number' && data.changePercent !== 0)
-              ? data.changePercent
-              : (data.returns?.['1D'] ?? 0)
-
-          setSpyPercent(pct)
-          sessionStorage.setItem(SPY_CACHE_KEY, JSON.stringify({ value: pct, timestamp: Date.now() }))
-        }
-      } catch (e) {
-        console.error('[PortfolioVsMarket] Failed to fetch SPY:', e)
-      } finally {
-        setSpyLoading(false)
-      }
-    }
-
     fetchSpy()
+    // Refresh SPY every 2 minutes while component is visible
+    const interval = setInterval(fetchSpy, 2 * 60 * 1000)
+    return () => clearInterval(interval)
   }, [])
 
   // Your portfolio's today performance (real, from holdings)
   const yourPerformance = performance.todayReturn.percent || 0
 
-  // Market performance — fresh SPY fetch, fallback to 0 while loading
+  // Market performance — fresh SPY, fallback to 0 while loading
   const marketPerformance = spyPercent ?? 0
 
   // Outperformance
@@ -128,13 +138,30 @@ export default function PortfolioVsMarket() {
   return (
     <Card className="border-border bg-card">
       <CardHeader>
-        <CardTitle className="text-xl font-bold flex items-center gap-2">
-          <Target className="h-5 w-5 text-blue-500" />
-          Your Portfolio vs Market Today
-        </CardTitle>
-        <p className="text-sm text-muted-foreground">
-          How your allocation affected performance vs S&P 500
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-xl font-bold flex items-center gap-2">
+              <Target className="h-5 w-5 text-blue-500" />
+              Your Portfolio vs Market Today
+            </CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              How your allocation affected performance vs S&P 500
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {lastFetched && (
+              <span className="text-xs text-muted-foreground">Updated {lastFetched}</span>
+            )}
+            <button
+              onClick={fetchSpy}
+              disabled={spyLoading}
+              className="p-2 rounded-lg hover:bg-secondary transition-colors"
+              title="Refresh SPY data"
+            >
+              <RefreshCw className={`h-4 w-4 text-muted-foreground ${spyLoading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+        </div>
       </CardHeader>
 
       <CardContent className="space-y-6">
@@ -144,9 +171,16 @@ export default function PortfolioVsMarket() {
 
           {/* Market (SPY) */}
           <div className="p-4 rounded-lg bg-secondary/30 border border-border">
-            <p className="text-sm text-muted-foreground mb-1">Market (S&P 500 / SPY)</p>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm text-muted-foreground">Market (S&P 500 / SPY)</p>
+              {spyPrice && (
+                <p className="text-xs text-muted-foreground font-mono">
+                  ${spyPrice.toFixed(2)}
+                </p>
+              )}
+            </div>
             {spyLoading ? (
-              <div className="h-9 w-24 bg-secondary animate-pulse rounded" />
+              <div className="h-9 w-28 bg-secondary animate-pulse rounded mt-1" />
             ) : (
               <div className="flex items-center gap-2">
                 {marketPerformance >= 0 ? (
@@ -233,9 +267,9 @@ export default function PortfolioVsMarket() {
                 key={reason.sector}
                 className="p-4 rounded-lg bg-secondary/30 border border-border"
               >
-                {/* Top row: sector name + badge + sector perf */}
+                {/* Top row */}
                 <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-base">{reason.sector}</span>
                     <span className={`text-xs px-2 py-1 rounded-full font-semibold ${isOverweight
                       ? 'bg-blue-500/20 text-blue-400'
@@ -249,8 +283,8 @@ export default function PortfolioVsMarket() {
                   </span>
                 </div>
 
-                {/* Bottom row: allocation details + helped/hurt */}
-                <div className="flex items-center justify-between">
+                {/* Bottom row */}
+                <div className="flex items-center justify-between gap-2">
                   <span className="text-sm text-muted-foreground">
                     You:{' '}
                     <span className="font-semibold text-foreground">
@@ -264,7 +298,7 @@ export default function PortfolioVsMarket() {
                       ({reason.diff > 0 ? '+' : ''}{reason.diff.toFixed(1)}% diff)
                     </span>
                   </span>
-                  <span className={`text-sm font-bold ${helpedOrHurt ? 'text-green-500' : 'text-red-500'}`}>
+                  <span className={`text-sm font-bold whitespace-nowrap ${helpedOrHurt ? 'text-green-500' : 'text-red-500'}`}>
                     {helpedOrHurt ? '✓ Helped' : '✗ Hurt'}
                   </span>
                 </div>

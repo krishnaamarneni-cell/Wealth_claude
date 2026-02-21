@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import DividendsAIInsight from "@/components/dividends-ai-insight"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
@@ -1292,6 +1293,21 @@ export default function DividendsTab() {
               </CardContent>
             </Card>
           </div>
+          <DividendsAIInsight
+            ytdDividends={ytdDividends}
+            annualProjection={annualProjection}
+            avgMonthlyIncome={avgMonthlyIncome}
+            avgDailyIncome={avgDailyIncome}
+            yoyGrowthRate={yoyGrowthRate}
+            fiveYearProjection={fiveYearProjection}
+            portfolioYield={portfolioYield}
+            yieldOnCost={yieldOnCost}
+            upcomingDividends={upcomingDividends.map((f) => ({ date: f.date, totalAmount: f.totalAmount, symbol: f.symbol }))}
+            topPayers={topPayers}
+            monthlyChartData={monthlyChartData}
+            totalReceived={totalReceived}
+          />
+
 
           {/* Calendar Section */}
           <CalendarSection />

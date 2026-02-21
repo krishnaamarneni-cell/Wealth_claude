@@ -89,8 +89,8 @@ export default function EconomicCalendar() {
               <div
                 key={i}
                 className={`p-3 rounded-lg border transition-all ${isHigh
-                    ? 'bg-red-500/5 border-red-500/20'
-                    : 'bg-secondary/30 border-border hover:bg-secondary/60'
+                  ? 'bg-red-500/5 border-red-500/20'
+                  : 'bg-secondary/30 border-border hover:bg-secondary/60'
                   }`}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -112,7 +112,7 @@ export default function EconomicCalendar() {
                       <div>
                         <p className="text-[10px] text-muted-foreground">Actual</p>
                         <p className={`font-bold ${ev.estimate && parseFloat(ev.actual) > parseFloat(ev.estimate)
-                            ? 'text-green-500' : 'text-red-500'
+                          ? 'text-green-500' : 'text-red-500'
                           }`}>{formatValue(ev.actual, ev.unit)}</p>
                       </div>
                     ) : (

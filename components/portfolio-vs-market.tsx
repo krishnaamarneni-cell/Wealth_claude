@@ -148,7 +148,7 @@ export default function PortfolioVsMarket() {
             <div>
               <p className="text-base font-bold mb-1">📊 Your Sectors Today</p>
               <p className="text-xs text-muted-foreground mb-3">
-                Which sectors in your portfolio went up or down
+                Which sectors went up or down · <span className="text-blue-400 font-medium">You</span> = your allocation · No bar = you don't own this sector
               </p>
               <div className="space-y-2">
                 {sortedSectors.map(sector => {
@@ -161,18 +161,14 @@ export default function PortfolioVsMarket() {
                   return (
                     <div
                       key={sector}
-                      className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${!owned
-                          ? 'opacity-30 bg-secondary/10 border-border'
-                          : isUp
-                            ? 'bg-green-500/5 border-green-500/20'
-                            : 'bg-red-500/5 border-red-500/20'
+                      className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${isUp
+                          ? 'bg-green-500/5 border-green-500/20'
+                          : 'bg-red-500/5 border-red-500/20'
                         }`}
                     >
                       {/* Sector name */}
                       <div className="w-40 shrink-0">
-                        <p className={`text-sm font-semibold leading-tight ${!owned ? 'text-muted-foreground' : ''}`}>
-                          {sector}
-                        </p>
+                        <p className="text-sm font-semibold leading-tight">{sector}</p>
                         <p className="text-xs text-muted-foreground">{etf?.etf ?? ''}</p>
                       </div>
 
@@ -186,12 +182,15 @@ export default function PortfolioVsMarket() {
                                 style={{ width: `${Math.min(yourPct * 2.5, 100)}%` }}
                               />
                             </div>
-                            <span className="text-xs font-bold w-14 text-right">
-                              {yourPct.toFixed(1)}% of you
+                            <span className="text-xs font-bold text-blue-400 w-20 text-right">
+                              You: {yourPct.toFixed(1)}%
                             </span>
                           </div>
                         ) : (
-                          <div className="h-2.5 bg-secondary/20 rounded-full" />
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-2.5 bg-secondary/20 rounded-full" />
+                            <span className="text-xs text-muted-foreground w-20 text-right">You: —</span>
+                          </div>
                         )}
                       </div>
 
@@ -201,15 +200,12 @@ export default function PortfolioVsMarket() {
                           <div className="h-5 w-14 bg-secondary animate-pulse rounded ml-auto" />
                         ) : (
                           <>
-                            <span className={`text-sm font-bold ${!owned ? 'text-muted-foreground' : isUp ? 'text-green-500' : 'text-red-500'
-                              }`}>
+                            <span className={`text-sm font-bold ${isUp ? 'text-green-500' : 'text-red-500'}`}>
                               {etf ? `${isUp ? '↑' : '↓'} ${Math.abs(pct).toFixed(2)}%` : '—'}
                             </span>
-                            {owned && (
-                              <p className="text-xs text-muted-foreground">
-                                {isUp ? 'Gained today' : 'Lost today'}
-                              </p>
-                            )}
+                            <p className="text-xs text-muted-foreground">
+                              {isUp ? 'Gained today' : 'Lost today'}
+                            </p>
                           </>
                         )}
                       </div>
@@ -217,9 +213,6 @@ export default function PortfolioVsMarket() {
                   )
                 })}
               </div>
-              <p className="text-xs text-muted-foreground text-center mt-3">
-                Faded = sectors you don't own · Bar size = your allocation
-              </p>
             </div>
           )}
 
@@ -228,7 +221,7 @@ export default function PortfolioVsMarket() {
             <div>
               <p className="text-base font-bold mb-1">⚖️ You vs S&P 500 Mix</p>
               <p className="text-xs text-muted-foreground mb-3">
-                Do you own more or less of each sector vs the average market investor?
+                Do you own more or less of each sector vs the average market investor? · <span className="text-blue-400 font-medium">Blue</span> = You · <span className="text-muted-foreground font-medium">Gray</span> = S&P 500
               </p>
               <div className="space-y-2">
                 {sortedSectors.map(sector => {
@@ -244,18 +237,13 @@ export default function PortfolioVsMarket() {
                   return (
                     <div
                       key={sector}
-                      className={`p-3 rounded-lg border ${!owned ? 'opacity-30 border-border bg-secondary/10' : 'border-border bg-secondary/20'
-                        }`}
+                      className="p-3 rounded-lg border border-border bg-secondary/20"
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <span className={`text-sm font-bold ${!owned ? 'text-muted-foreground' : ''}`}>
-                          {sector}
+                        <span className="text-sm font-bold">{sector}</span>
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${labelBg} ${labelColor}`}>
+                          {owned ? label : 'You don\'t own this'}
                         </span>
-                        {owned && (
-                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${labelBg} ${labelColor}`}>
-                            {label}
-                          </span>
-                        )}
                       </div>
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-2">

@@ -139,7 +139,7 @@ interface DividendTransaction {
 
 const getDividendTransactions = (transactions: any[], holdings: any[] = []): DividendTransaction[] => {
   if (!transactions || transactions.length === 0) {
-    console.error('❌ No transactions provided!')
+    // Silently return empty array - this is expected during initial load
     return []
   }
 

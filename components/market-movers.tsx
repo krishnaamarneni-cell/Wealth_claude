@@ -79,8 +79,8 @@ export default function MarketMovers() {
     const isGain = side === 'gain'
     return (
       <div className={`p-4 rounded-lg transition-all border ${youOwn
-          ? isGain ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'
-          : 'bg-secondary/50 hover:bg-secondary border-transparent'
+        ? isGain ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'
+        : 'bg-secondary/50 hover:bg-secondary border-transparent'
         }`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">

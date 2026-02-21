@@ -7,52 +7,21 @@ import { Badge } from "@/components/ui/badge"
 import { TrendingUp, TrendingDown, PieChart, ArrowUpDown } from "lucide-react"
 import { usePortfolio } from "@/lib/portfolio-context"
 import { useRouter } from "next/navigation"
+import {
+  fetchSectorEtfData,
+  mapSectorName,
+  type SectorEtfData,
+} from "@/lib/sector-etf-data"
 
-interface SectorData {
+interface SectorRow {
   name: string
-  displayName: string
+  etf: string
   price: number
   change: number
   changePercent: number
   yourExposure: number
   holdingsCount: number
-}
-
-// Mock sector ETF data (will update daily at market close in Phase 2)
-const MOCK_SECTOR_PRICES: Record<string, { price: number; change: number; changePercent: number }> = {
-  'Technology': { price: 185.20, change: 2.31, changePercent: 1.26 },
-  'Healthcare': { price: 142.80, change: 0.95, changePercent: 0.67 },
-  'Financials': { price: 38.50, change: -0.22, changePercent: -0.57 },
-  'Consumer Discretionary': { price: 172.40, change: 1.80, changePercent: 1.05 },
-  'Communication Services': { price: 68.30, change: -0.40, changePercent: -0.58 },
-  'Industrials': { price: 115.60, change: 0.75, changePercent: 0.65 },
-  'Energy': { price: 88.90, change: 1.20, changePercent: 1.37 },
-  'Materials': { price: 82.40, change: 0.50, changePercent: 0.61 },
-  'Real Estate': { price: 38.70, change: -0.15, changePercent: -0.39 },
-  'Utilities': { price: 68.50, change: 0.30, changePercent: 0.44 },
-  'Consumer Staples': { price: 75.20, change: 0.20, changePercent: 0.27 },
-}
-
-// Map Finnhub sector names to standard sector names
-function mapSectorName(apiSectorName: string): string {
-  const mapping: Record<string, string> = {
-    'Financial Services': 'Financials',
-    'Consumer Cyclical': 'Consumer Discretionary',
-    'Consumer Defensive': 'Consumer Staples',
-    'Basic Materials': 'Materials',
-    'Technology': 'Technology',
-    'Healthcare': 'Healthcare',
-    'Communication Services': 'Communication Services',
-    'Energy': 'Energy',
-    'Real Estate': 'Real Estate',
-    'Industrials': 'Industrials',
-    'Utilities': 'Utilities',
-    'Others': 'Other',
-    'Unknown': 'Other',
-    '': 'Other',
-  }
-  
-  return mapping[apiSectorName] || 'Other'
+  dataSource: string
 }
 
 type SortColumn = 'sector' | 'price' | 'changeDollar' | 'changePercent' | 'exposure' | 'holdings'
@@ -60,10 +29,8 @@ type SortDirection = 'asc' | 'desc'
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    style: 'currency', currency: 'USD',
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
   }).format(value)
 }
 
@@ -71,118 +38,116 @@ function formatPercent(value: number): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
 }
 
+const ALL_SECTORS_ORDER = [
+  'Technology', 'Communication Services', 'Financials', 'Healthcare',
+  'Consumer Discretionary', 'Consumer Staples', 'Energy', 'Industrials',
+  'Utilities', 'Real Estate', 'Materials',
+]
+
+const SECTOR_ETFS: Record<string, string> = {
+  'Technology': 'XLK', 'Communication Services': 'XLC', 'Financials': 'XLF',
+  'Healthcare': 'XLV', 'Consumer Discretionary': 'XLY', 'Consumer Staples': 'XLP',
+  'Energy': 'XLE', 'Industrials': 'XLI', 'Utilities': 'XLU',
+  'Real Estate': 'XLRE', 'Materials': 'XLB',
+}
+
 export default function SectorPerformance() {
   const { holdings, portfolioValue } = usePortfolio()
   const router = useRouter()
-  const [sectorData, setSectorData] = useState<SectorData[]>([])
+
+  const [sectorRows, setSectorRows] = useState<SectorRow[]>([])
+  const [loading, setLoading] = useState(true)
   const [sortColumn, setSortColumn] = useState<SortColumn>('exposure')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [tradingDay, setTradingDay] = useState('')
 
   useEffect(() => {
-    console.log('[Sector Performance] Total holdings:', holdings.length)
-    
-    // Calculate user's exposure per sector
-    const sectorExposure: Record<string, { value: number; count: number; symbols: string[] }> = {}
-    
-    holdings.forEach(holding => {
-      // Map API sector name to standard sector name
-      const apiSector = holding.sector || 'Unknown'
-      const standardSector = mapSectorName(apiSector)
-      
-      // Skip "Other" sector (don't show in table)
-      if (standardSector === 'Other') {
-        console.log(`[Sector] ${holding.symbol}: ${apiSector} → ${standardSector} (SKIPPED)`)
-        return
+    async function load() {
+      setLoading(true)
+      try {
+        const etfData = await fetchSectorEtfData()
+
+        // Map to quick-lookup
+        const etfMap: Record<string, SectorEtfData> = {}
+        etfData.forEach(d => { etfMap[d.sector] = d })
+
+        // Calculate your sector exposure from holdings
+        const sectorExposure: Record<string, { value: number; count: number }> = {}
+        holdings.forEach(holding => {
+          const mapped = mapSectorName(holding.sector || '')
+          if (mapped === 'Other') return
+          if (!sectorExposure[mapped]) sectorExposure[mapped] = { value: 0, count: 0 }
+          sectorExposure[mapped].value += holding.marketValue
+          sectorExposure[mapped].count += 1
+        })
+
+        // Build rows for all 11 sectors
+        const rows: SectorRow[] = ALL_SECTORS_ORDER.map(sector => {
+          const exposure = sectorExposure[sector] || { value: 0, count: 0 }
+          const exposurePct = portfolioValue > 0 ? (exposure.value / portfolioValue) * 100 : 0
+          const etf = etfMap[sector]
+
+          return {
+            name: sector,
+            etf: SECTOR_ETFS[sector] || '',
+            price: etf?.price || 0,
+            change: etf?.change || 0,
+            changePercent: etf?.changePercent || 0,
+            yourExposure: exposurePct,
+            holdingsCount: exposure.count,
+            dataSource: etf?.dataSource || 'none',
+          }
+        })
+
+        // Determine trading day label
+        const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }))
+        const day = now.getDay()
+        setTradingDay(
+          day === 0 || day === 6
+            ? "Friday's Close"
+            : now.getHours() < 16 ? 'Previous Close' : "Today's Close"
+        )
+
+        setSectorRows(rows)
+      } finally {
+        setLoading(false)
       }
-      
-      console.log(`[Sector] ${holding.symbol}: ${apiSector} → ${standardSector}`)
-      
-      if (!sectorExposure[standardSector]) {
-        sectorExposure[standardSector] = { value: 0, count: 0, symbols: [] }
-      }
-      sectorExposure[standardSector].value += holding.marketValue
-      sectorExposure[standardSector].count += 1
-      sectorExposure[standardSector].symbols.push(holding.symbol)
-    })
+    }
+    load()
+  }, [holdings, portfolioValue])
 
-    console.log('[Sector Performance] Sector exposure:', sectorExposure)
+  // ==================== SORT ====================
+  const sorted = [...sectorRows].sort((a, b) => {
+    const m = sortDirection === 'asc' ? 1 : -1
+    switch (sortColumn) {
+      case 'sector': return m * a.name.localeCompare(b.name)
+      case 'price': return m * (a.price - b.price)
+      case 'changeDollar': return m * (a.change - b.change)
+      case 'changePercent': return m * (a.changePercent - b.changePercent)
+      case 'exposure': return m * (a.yourExposure - b.yourExposure)
+      case 'holdings': return m * (a.holdingsCount - b.holdingsCount)
+      default: return 0
+    }
+  })
 
-    // Build sector data with all 11 sectors (excluding "Other")
-    const allSectors = Object.keys(MOCK_SECTOR_PRICES)
-    const enrichedData: SectorData[] = allSectors.map(sectorName => {
-      const exposure = sectorExposure[sectorName] || { value: 0, count: 0 }
-      const exposurePercent = portfolioValue > 0 ? (exposure.value / portfolioValue) * 100 : 0
-      const mockPrices = MOCK_SECTOR_PRICES[sectorName]
-      
-      return {
-        name: sectorName,
-        displayName: sectorName,
-        price: mockPrices.price,
-        change: mockPrices.change,
-        changePercent: mockPrices.changePercent,
-        yourExposure: exposurePercent,
-        holdingsCount: exposure.count
-      }
-    })
-
-    // Apply sorting
-    sortSectorData(enrichedData, sortColumn, sortDirection)
-    
-    setSectorData(enrichedData)
-  }, [holdings, portfolioValue, sortColumn, sortDirection])
-
-  const sortSectorData = (data: SectorData[], column: SortColumn, direction: SortDirection) => {
-    const multiplier = direction === 'asc' ? 1 : -1
-    
-    data.sort((a, b) => {
-      switch (column) {
-        case 'sector':
-          return multiplier * a.name.localeCompare(b.name)
-        case 'price':
-          return multiplier * (a.price - b.price)
-        case 'changeDollar':
-          return multiplier * (a.change - b.change)
-        case 'changePercent':
-          return multiplier * (a.changePercent - b.changePercent)
-        case 'exposure':
-          return multiplier * (a.yourExposure - b.yourExposure)
-        case 'holdings':
-          return multiplier * (a.holdingsCount - b.holdingsCount)
-        default:
-          return 0
-      }
-    })
-  }
-
-  const handleSort = (column: SortColumn) => {
-    if (sortColumn === column) {
-      // Toggle direction
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+  const handleSort = (col: SortColumn) => {
+    if (sortColumn === col) {
+      setSortDirection(d => d === 'asc' ? 'desc' : 'asc')
     } else {
-      // New column, default to desc
-      setSortColumn(column)
+      setSortColumn(col)
       setSortDirection('desc')
     }
   }
 
-  const handleSectorClick = (sectorName: string) => {
-    // Navigate to portfolio (allocation) page
-    router.push('/dashboard/portfolio')
+  const SortIcon = ({ col }: { col: SortColumn }) => {
+    if (sortColumn !== col) return <ArrowUpDown className="h-3 w-3 text-muted-foreground ml-1" />
+    return sortDirection === 'asc'
+      ? <TrendingUp className="h-3 w-3 text-primary ml-1" />
+      : <TrendingDown className="h-3 w-3 text-primary ml-1" />
   }
 
-  // Calculate total holdings shown (excluding "Other")
-  const totalHoldingsShown = sectorData.reduce((sum, s) => sum + s.holdingsCount, 0)
-
-  const SortIcon = ({ column }: { column: SortColumn }) => {
-    if (sortColumn !== column) {
-      return <ArrowUpDown className="h-3 w-3 text-muted-foreground ml-1" />
-    }
-    return sortDirection === 'asc' ? (
-      <TrendingUp className="h-3 w-3 text-primary ml-1" />
-    ) : (
-      <TrendingDown className="h-3 w-3 text-primary ml-1" />
-    )
-  }
+  const totalShown = sectorRows.reduce((s, r) => s + r.holdingsCount, 0)
+  const sectorsOwned = sectorRows.filter(r => r.holdingsCount > 0).length
 
   return (
     <Card className="border-border bg-card">
@@ -194,7 +159,10 @@ export default function SectorPerformance() {
               Sector Performance
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-1">
-              Showing {totalHoldingsShown} of {holdings.length} holdings across {sectorData.filter(s => s.holdingsCount > 0).length} sectors
+              {loading
+                ? 'Loading sector data...'
+                : `Showing ${totalShown} of ${holdings.length} holdings across ${sectorsOwned} sectors · ${tradingDay}`
+              }
             </p>
           </div>
         </div>
@@ -205,144 +173,139 @@ export default function SectorPerformance() {
           <Table>
             <TableHeader>
               <TableRow className="bg-secondary/50">
-                <TableHead 
+                <TableHead
                   className="font-semibold cursor-pointer hover:bg-secondary/70 transition-colors"
                   onClick={() => handleSort('sector')}
                 >
-                  <div className="flex items-center">
-                    Sector
-                    <SortIcon column="sector" />
-                  </div>
+                  <div className="flex items-center">Sector <SortIcon col="sector" /></div>
                 </TableHead>
-                <TableHead 
+                <TableHead
                   className="font-semibold text-right cursor-pointer hover:bg-secondary/70 transition-colors"
                   onClick={() => handleSort('price')}
                 >
-                  <div className="flex items-center justify-end">
-                    Price
-                    <SortIcon column="price" />
-                  </div>
+                  <div className="flex items-center justify-end">Price <SortIcon col="price" /></div>
                 </TableHead>
-                <TableHead 
+                <TableHead
                   className="font-semibold text-right cursor-pointer hover:bg-secondary/70 transition-colors"
                   onClick={() => handleSort('changeDollar')}
                 >
-                  <div className="flex items-center justify-end">
-                    Change ($)
-                    <SortIcon column="changeDollar" />
-                  </div>
+                  <div className="flex items-center justify-end">Change ($) <SortIcon col="changeDollar" /></div>
                 </TableHead>
-                <TableHead 
+                <TableHead
                   className="font-semibold text-right cursor-pointer hover:bg-secondary/70 transition-colors"
                   onClick={() => handleSort('changePercent')}
                 >
-                  <div className="flex items-center justify-end">
-                    Change (%)
-                    <SortIcon column="changePercent" />
-                  </div>
+                  <div className="flex items-center justify-end">Change (%) <SortIcon col="changePercent" /></div>
                 </TableHead>
-                <TableHead 
+                <TableHead
                   className="font-semibold text-right cursor-pointer hover:bg-secondary/70 transition-colors"
                   onClick={() => handleSort('exposure')}
                 >
-                  <div className="flex items-center justify-end">
-                    Your Exposure
-                    <SortIcon column="exposure" />
-                  </div>
+                  <div className="flex items-center justify-end">Your Exposure <SortIcon col="exposure" /></div>
                 </TableHead>
-                <TableHead 
+                <TableHead
                   className="font-semibold text-right cursor-pointer hover:bg-secondary/70 transition-colors"
                   onClick={() => handleSort('holdings')}
                 >
-                  <div className="flex items-center justify-end">
-                    Holdings
-                    <SortIcon column="holdings" />
-                  </div>
+                  <div className="flex items-center justify-end">Holdings <SortIcon col="holdings" /></div>
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sectorData.map((sector) => (
-                <TableRow
-                  key={sector.name}
-                  className="cursor-pointer hover:bg-secondary/50 transition-colors"
-                  onClick={() => handleSectorClick(sector.name)}
-                >
-                  {/* Sector Name */}
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${
-                        sector.yourExposure > 0 ? 'bg-blue-500' : 'bg-muted'
-                      }`} />
-                      <span className="font-semibold">{sector.displayName}</span>
-                    </div>
-                  </TableCell>
+              {loading
+                ? Array.from({ length: 11 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {Array.from({ length: 6 }).map((_, j) => (
+                      <TableCell key={j}>
+                        <div className="h-4 bg-secondary animate-pulse rounded w-3/4" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+                : sorted.map(row => (
+                  <TableRow
+                    key={row.name}
+                    className="cursor-pointer hover:bg-secondary/50 transition-colors"
+                    onClick={() => router.push('/dashboard/portfolio')}
+                  >
+                    {/* Sector name */}
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${row.yourExposure > 0 ? 'bg-blue-500' : 'bg-muted'}`} />
+                        <div>
+                          <span className="font-semibold">{row.name}</span>
+                          <span className="text-xs text-muted-foreground ml-2">{row.etf}</span>
+                        </div>
+                      </div>
+                    </TableCell>
 
-                  {/* Price */}
-                  <TableCell className="text-right font-medium">
-                    {formatCurrency(sector.price)}
-                  </TableCell>
+                    {/* Price */}
+                    <TableCell className="text-right font-medium">
+                      {row.price > 0 ? formatCurrency(row.price) : '—'}
+                    </TableCell>
 
-                  {/* Change ($) */}
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      {sector.change >= 0 ? (
-                        <TrendingUp className="h-3 w-3 text-green-500" />
-                      ) : (
-                        <TrendingDown className="h-3 w-3 text-red-500" />
-                      )}
-                      <span className={sector.change >= 0 ? 'text-green-500 font-medium' : 'text-red-500 font-medium'}>
-                        {formatCurrency(Math.abs(sector.change))}
-                      </span>
-                    </div>
-                  </TableCell>
+                    {/* Change $ */}
+                    <TableCell className="text-right">
+                      {row.change !== 0 ? (
+                        <div className="flex items-center justify-end gap-1">
+                          {row.change >= 0
+                            ? <TrendingUp className="h-3 w-3 text-green-500" />
+                            : <TrendingDown className="h-3 w-3 text-red-500" />
+                          }
+                          <span className={`font-medium ${row.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                            {formatCurrency(Math.abs(row.change))}
+                          </span>
+                        </div>
+                      ) : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
 
-                  {/* Change (%) */}
-                  <TableCell className="text-right">
-                    <span className={`font-medium ${sector.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                      {formatPercent(sector.changePercent)}
-                    </span>
-                  </TableCell>
+                    {/* Change % */}
+                    <TableCell className="text-right">
+                      {row.changePercent !== 0 ? (
+                        <span className={`font-bold ${row.changePercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                          {formatPercent(row.changePercent)}
+                        </span>
+                      ) : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
 
-                  {/* Your Exposure */}
-                  <TableCell className="text-right">
-                    {sector.yourExposure > 0 ? (
-                      <>
+                    {/* Your exposure */}
+                    <TableCell className="text-right">
+                      {row.yourExposure > 0 ? (
                         <div className="flex items-center justify-end gap-2">
                           <div className="w-16 h-2 bg-secondary rounded-full overflow-hidden">
-                            <div 
+                            <div
                               className="h-full bg-blue-500"
-                              style={{ width: `${Math.min(sector.yourExposure, 100)}%` }}
+                              style={{ width: `${Math.min(row.yourExposure, 100)}%` }}
                             />
                           </div>
                           <span className="font-semibold text-blue-500 min-w-[45px]">
-                            {sector.yourExposure.toFixed(1)}%
+                            {row.yourExposure.toFixed(1)}%
                           </span>
                         </div>
-                      </>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">—</span>
-                    )}
-                  </TableCell>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
+                    </TableCell>
 
-                  {/* Holdings Count */}
-                  <TableCell className="text-right">
-                    {sector.holdingsCount > 0 ? (
-                      <Badge variant="secondary" className="text-xs">
-                        {sector.holdingsCount} {sector.holdingsCount === 1 ? 'stock' : 'stocks'}
-                      </Badge>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">—</span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                    {/* Holdings count */}
+                    <TableCell className="text-right">
+                      {row.holdingsCount > 0 ? (
+                        <Badge variant="secondary" className="text-xs">
+                          {row.holdingsCount} {row.holdingsCount === 1 ? 'stock' : 'stocks'}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              }
             </TableBody>
           </Table>
         </div>
 
         {/* Legend */}
-        <div className="flex items-center justify-center gap-6 mt-4 text-xs text-muted-foreground">
+        <div className="flex items-center justify-center gap-6 mt-4 text-xs text-muted-foreground flex-wrap">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-blue-500" />
             <span>You own stocks in this sector</span>
@@ -351,9 +314,7 @@ export default function SectorPerformance() {
             <div className="w-2 h-2 rounded-full bg-muted" />
             <span>No holdings</span>
           </div>
-          <div className="text-xs">
-            Click any column header to sort • Click sector to view detailed allocation
-          </div>
+          <span>Click any column header to sort · Click sector to view allocation</span>
         </div>
       </CardContent>
     </Card>

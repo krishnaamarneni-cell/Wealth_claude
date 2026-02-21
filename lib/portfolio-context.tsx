@@ -9,16 +9,14 @@ import { fetchStocksBatch } from './batch-fetcher'
 // ==================== RATE LIMITING ====================
 
 let lastApiCallTime = 0
-const MIN_API_INTERVAL = 150 // 150ms between calls = max 6-7 requests/second (safer for Polygon free tier)
+const MIN_API_INTERVAL = 150
 
 async function rateLimitedFetch(url: string, options?: RequestInit): Promise<Response> {
   const now = Date.now()
   const timeSinceLastCall = now - lastApiCallTime
-  
   if (timeSinceLastCall < MIN_API_INTERVAL) {
     await new Promise(resolve => setTimeout(resolve, MIN_API_INTERVAL - timeSinceLastCall))
   }
-  
   lastApiCallTime = Date.now()
   return fetch(url, options)
 }
@@ -103,13 +101,13 @@ interface PortfolioContextData {
     vsTotalMarket: { yourReturn: number; vtiReturn: number; difference: number }
     vsInternational: { yourReturn: number; intlReturn: number; difference: number }
     allBenchmarks?: {
-      spy: { name: string; return: number; difference: number; price: number }
-      qqq: { name: string; return: number; difference: number; price: number }
-      dia: { name: string; return: number; difference: number; price: number }
-      iwm: { name: string; return: number; difference: number; price: number }
-      vti: { name: string; return: number; difference: number; price: number }
-      voo: { name: string; return: number; difference: number; price: number }
-      vxus: { name: string; return: number; difference: number; price: number }
+      spy: { name: string; return: number; difference: number; price: number; changePercent: number }
+      qqq: { name: string; return: number; difference: number; price: number; changePercent: number }
+      dia: { name: string; return: number; difference: number; price: number; changePercent: number }
+      iwm: { name: string; return: number; difference: number; price: number; changePercent: number }
+      vti: { name: string; return: number; difference: number; price: number; changePercent: number }
+      voo: { name: string; return: number; difference: number; price: number; changePercent: number }
+      vxus: { name: string; return: number; difference: number; price: number; changePercent: number }
     }
     vsSectorAvg: Record<string, { your: number; avg: number; diff: number }>
     riskProfile: string
@@ -169,14 +167,11 @@ interface CachedData {
 
 function getCachedData(): PortfolioContextData | null {
   if (typeof window === 'undefined') return null
-  
   try {
     const cached = localStorage.getItem(CACHE_KEY)
     if (!cached) return null
-
     const { data, timestamp }: CachedData = JSON.parse(cached)
     const age = Date.now() - timestamp
-
     if (age < CACHE_DURATION) {
       console.log(`[Portfolio] ⚡ Using cached data (${Math.floor(age / 1000 / 60)} minutes old)`)
       return {
@@ -195,12 +190,8 @@ function getCachedData(): PortfolioContextData | null {
 
 function setCachedData(data: PortfolioContextData): void {
   if (typeof window === 'undefined') return
-  
   try {
-    const cached: CachedData = {
-      data,
-      timestamp: Date.now(),
-    }
+    const cached: CachedData = { data, timestamp: Date.now() }
     localStorage.setItem(CACHE_KEY, JSON.stringify(cached))
     console.log('[Portfolio] ✓ Data cached')
   } catch (error) {
@@ -288,13 +279,13 @@ const INITIAL_STATE: PortfolioContextData = {
     vsTotalMarket: { yourReturn: 0, vtiReturn: 0, difference: 0 },
     vsInternational: { yourReturn: 0, intlReturn: 0, difference: 0 },
     allBenchmarks: {
-      spy: { name: 'S&P 500 (SPY)', return: 0, difference: 0, price: 0 },
-      qqq: { name: 'NASDAQ (QQQ)', return: 0, difference: 0, price: 0 },
-      dia: { name: 'Dow Jones (DIA)', return: 0, difference: 0, price: 0 },
-      iwm: { name: 'Russell 2000 (IWM)', return: 0, difference: 0, price: 0 },
-      vti: { name: 'Total Market (VTI)', return: 0, difference: 0, price: 0 },
-      voo: { name: 'S&P 500 (VOO)', return: 0, difference: 0, price: 0 },
-      vxus: { name: 'International (VXUS)', return: 0, difference: 0, price: 0 }
+      spy: { name: 'S&P 500 (SPY)', return: 0, difference: 0, price: 0, changePercent: 0 },
+      qqq: { name: 'NASDAQ (QQQ)', return: 0, difference: 0, price: 0, changePercent: 0 },
+      dia: { name: 'Dow Jones (DIA)', return: 0, difference: 0, price: 0, changePercent: 0 },
+      iwm: { name: 'Russell 2000 (IWM)', return: 0, difference: 0, price: 0, changePercent: 0 },
+      vti: { name: 'Total Market (VTI)', return: 0, difference: 0, price: 0, changePercent: 0 },
+      voo: { name: 'S&P 500 (VOO)', return: 0, difference: 0, price: 0, changePercent: 0 },
+      vxus: { name: 'International (VXUS)', return: 0, difference: 0, price: 0, changePercent: 0 },
     },
     vsSectorAvg: {},
     riskProfile: 'Moderate',
@@ -311,8 +302,8 @@ const INITIAL_STATE: PortfolioContextData = {
   isRefreshing: false,
   isFetchingBatch: false,
   lastUpdate: null,
-  refresh: async () => {},
-  smartRefresh: async () => {},
+  refresh: async () => { },
+  smartRefresh: async () => { },
 }
 
 // ==================== PROVIDER ====================
@@ -334,9 +325,9 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
     if (!silent) {
       console.log('[Portfolio] Starting calculation using shared calculator...')
     }
-    
+
     const txns = getTransactionsFromStorage() as Transaction[]
-    
+
     if (!silent) {
       console.log(`[Portfolio] Loaded ${txns.length} transactions`)
     }
@@ -354,7 +345,7 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
     }
 
     // ==================== USE SHARED CALCULATOR ====================
-    
+
     const holdingsWithPriceData = await calculateAndFetchHoldings(txns)
 
     if (!silent) {
@@ -375,10 +366,12 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
     const totalGain = portfolioValue - totalCost
     const totalGainPercent = totalCost > 0 ? (totalGain / totalCost) * 100 : 0
     const todayGainTotal = holdingsWithPriceData.reduce((sum, h) => sum + h.todayGain, 0)
-    const todayGainPercent = (portfolioValue - todayGainTotal) > 0 ? (todayGainTotal / (portfolioValue - todayGainTotal)) * 100 : 0
+    const todayGainPercent = (portfolioValue - todayGainTotal) > 0
+      ? (todayGainTotal / (portfolioValue - todayGainTotal)) * 100
+      : 0
 
     // ==================== INCOME CALCULATIONS ====================
-    
+
     let totalDividends = 0
     let totalInterest = 0
     const dividendsBySymbol: Record<string, number> = {}
@@ -386,12 +379,10 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
 
     txns.forEach((tx) => {
       if (tx.type === 'DIVIDEND') {
-        // ✅ Only count dividends with shares > 0
         const shares = parseFloat(tx.shares as any || '0')
         if (shares > 0) {
           totalDividends += Math.abs(tx.total)
           dividendsBySymbol[tx.symbol] = (dividendsBySymbol[tx.symbol] || 0) + Math.abs(tx.total)
-          
           const month = tx.date.substring(0, 7)
           dividendsByMonth[month] = (dividendsByMonth[month] || 0) + Math.abs(tx.total)
         }
@@ -404,7 +395,7 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
     const dividendYield = portfolioValue > 0 ? (totalDividends / portfolioValue) * 100 : 0
 
     // ==================== TRADE ANALYTICS ====================
-    
+
     const sellTransactions = txns.filter((tx) => tx.type === 'SELL')
     let winningTrades = 0
     let bestTrade: { symbol: string; gain: number; percent: number } | null = null
@@ -415,20 +406,15 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
       const buys = txns.filter(
         (tx) => tx.type === 'BUY' && tx.symbol === sell.symbol && new Date(tx.date) < new Date(sell.date)
       )
-      
       if (buys.length > 0) {
         const avgBuyPrice = buys.reduce((sum, tx) => sum + tx.price, 0) / buys.length
         const gain = (sell.price - avgBuyPrice) * sell.shares
         const gainPercent = ((sell.price - avgBuyPrice) / avgBuyPrice) * 100
-
         realizedGains += gain
-
         if (gain > 0) winningTrades++
-        
         if (!bestTrade || gain > bestTrade.gain) {
           bestTrade = { symbol: sell.symbol, gain, percent: gainPercent }
         }
-        
         if (!worstTrade || gain < worstTrade.loss) {
           worstTrade = { symbol: sell.symbol, loss: gain, percent: gainPercent }
         }
@@ -439,12 +425,11 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
 
     let totalHoldDays = 0
     let holdCount = 0
-    
+
     sellTransactions.forEach((sell) => {
       const buys = txns.filter(
         (tx) => tx.type === 'BUY' && tx.symbol === sell.symbol && new Date(tx.date) < new Date(sell.date)
       )
-      
       if (buys.length > 0) {
         const avgBuyDate = new Date(buys[buys.length - 1].date)
         const sellDate = new Date(sell.date)
@@ -457,7 +442,7 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
     const avgHoldTime = holdCount > 0 ? totalHoldDays / holdCount : 0
 
     // ==================== ALLOCATION ANALYSIS ====================
-    
+
     const bySector: Record<string, number> = {}
     const byIndustry: Record<string, number> = {}
     const byCountry: Record<string, number> = {}
@@ -478,12 +463,12 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
       .map((h) => ({ symbol: h.symbol, allocation: h.allocation }))
 
     // ==================== RISK METRICS ====================
-    
+
     const concentration = holdingsWithPriceData.reduce((sum, h) => sum + Math.pow(h.allocation / 100, 2), 0)
     const diversificationScore = holdingsWithPriceData.length > 0 ? Math.min((1 / concentration) * 20, 100) : 0
 
     // ==================== TAX CALCULATIONS ====================
-    
+
     let shortTermGains = 0
     let longTermGains = 0
 
@@ -491,15 +476,12 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
       const buys = txns.filter(
         (tx) => tx.type === 'BUY' && tx.symbol === sell.symbol && new Date(tx.date) < new Date(sell.date)
       )
-      
       if (buys.length > 0) {
         const avgBuyDate = new Date(buys[buys.length - 1].date)
         const sellDate = new Date(sell.date)
         const holdDays = Math.floor((sellDate.getTime() - avgBuyDate.getTime()) / (1000 * 60 * 60 * 24))
-        
         const avgBuyPrice = buys.reduce((sum, tx) => sum + tx.price, 0) / buys.length
         const gain = (sell.price - avgBuyPrice) * sell.shares
-        
         if (holdDays <= 365) {
           shortTermGains += gain
         } else {
@@ -511,30 +493,33 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
     const estimatedTaxLiability = (shortTermGains * 0.24) + (longTermGains * 0.15)
 
     // ==================== FETCH BENCHMARK DATA (WITH RATE LIMITING) ====================
-    
+
     const BENCHMARK_SYMBOLS = ['SPY', 'QQQ', 'DIA', 'IWM', 'VTI', 'VOO', 'VXUS']
-    
+
     if (!silent) {
       console.log('[Portfolio] Fetching benchmark data with rate limiting...')
     }
-    
+
     const benchmarkData: Record<string, any> = {}
-    
-    // Fetch benchmarks ONE AT A TIME with rate limiting
+
     for (const symbol of BENCHMARK_SYMBOLS) {
       try {
         const response = await rateLimitedFetch(`/api/stock-info?symbol=${symbol}`)
-        
         if (response.ok) {
           const symbolData = await response.json()
           benchmarkData[symbol] = symbolData
           if (!silent) {
-            console.log(`[Portfolio] ✓ Fetched ${symbol}`)
+            // Debug: log what Finnhub returns for each benchmark
+            console.log(`[Portfolio] ✓ Fetched ${symbol}:`, {
+              price: symbolData.price,
+              change: symbolData.change,
+              changePercent: symbolData.changePercent,
+              returns1D: symbolData.returns?.['1D'],
+            })
           }
         } else if (response.status === 429) {
           console.warn(`[Portfolio] ⚠️ Rate limited on ${symbol}, waiting 2 seconds...`)
           await new Promise(resolve => setTimeout(resolve, 2000))
-          // Retry once
           const retryResponse = await rateLimitedFetch(`/api/stock-info?symbol=${symbol}`)
           if (retryResponse.ok) {
             benchmarkData[symbol] = await retryResponse.json()
@@ -544,61 +529,84 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
         console.error(`[Portfolio] Failed to fetch ${symbol}:`, error)
       }
     }
-    
+
     if (!silent) {
       console.log('[Portfolio] Fetched', Object.keys(benchmarkData).length, 'benchmarks')
     }
-    
-    // Calculate benchmark comparison
+
+    // ==================== HELPER: resolve "today %" for a benchmark symbol ====================
+    // Finnhub quote returns:
+    //   changePercent = dp (% change from previous close)
+    //   returns['1D'] = same value stored by stock-info route
+    // We try both fields and fall back to 0.
+    function resolveTodayPercent(d: any): number {
+      if (!d) return 0
+      const cp = d.changePercent
+      const r1d = d.returns?.['1D']
+      // Prefer changePercent if it's a real non-zero number, else try returns['1D']
+      if (typeof cp === 'number' && cp !== 0) return cp
+      if (typeof r1d === 'number' && r1d !== 0) return r1d
+      return 0
+    }
+
+    // ==================== BUILD BENCHMARK COMPARISON ====================
+
     const yourReturn = totalGainPercent
-    
+
     const benchmarkComparison = {
       spy: {
         name: 'S&P 500 (SPY)',
         return: benchmarkData.SPY?.returns?.['1Y'] || 0,
         difference: yourReturn - (benchmarkData.SPY?.returns?.['1Y'] || 0),
-        price: benchmarkData.SPY?.price || 0
+        price: benchmarkData.SPY?.price || 0,
+        changePercent: resolveTodayPercent(benchmarkData.SPY),
       },
       qqq: {
         name: 'NASDAQ (QQQ)',
         return: benchmarkData.QQQ?.returns?.['1Y'] || 0,
         difference: yourReturn - (benchmarkData.QQQ?.returns?.['1Y'] || 0),
-        price: benchmarkData.QQQ?.price || 0
+        price: benchmarkData.QQQ?.price || 0,
+        changePercent: resolveTodayPercent(benchmarkData.QQQ),
       },
       dia: {
         name: 'Dow Jones (DIA)',
         return: benchmarkData.DIA?.returns?.['1Y'] || 0,
         difference: yourReturn - (benchmarkData.DIA?.returns?.['1Y'] || 0),
-        price: benchmarkData.DIA?.price || 0
+        price: benchmarkData.DIA?.price || 0,
+        changePercent: resolveTodayPercent(benchmarkData.DIA),
       },
       iwm: {
         name: 'Russell 2000 (IWM)',
         return: benchmarkData.IWM?.returns?.['1Y'] || 0,
         difference: yourReturn - (benchmarkData.IWM?.returns?.['1Y'] || 0),
-        price: benchmarkData.IWM?.price || 0
+        price: benchmarkData.IWM?.price || 0,
+        changePercent: resolveTodayPercent(benchmarkData.IWM),
       },
       vti: {
         name: 'Total Market (VTI)',
         return: benchmarkData.VTI?.returns?.['1Y'] || 0,
         difference: yourReturn - (benchmarkData.VTI?.returns?.['1Y'] || 0),
-        price: benchmarkData.VTI?.price || 0
+        price: benchmarkData.VTI?.price || 0,
+        changePercent: resolveTodayPercent(benchmarkData.VTI),
       },
       voo: {
         name: 'S&P 500 (VOO)',
         return: benchmarkData.VOO?.returns?.['1Y'] || 0,
         difference: yourReturn - (benchmarkData.VOO?.returns?.['1Y'] || 0),
-        price: benchmarkData.VOO?.price || 0
+        price: benchmarkData.VOO?.price || 0,
+        changePercent: resolveTodayPercent(benchmarkData.VOO),
       },
       vxus: {
         name: 'International (VXUS)',
         return: benchmarkData.VXUS?.returns?.['1Y'] || 0,
         difference: yourReturn - (benchmarkData.VXUS?.returns?.['1Y'] || 0),
-        price: benchmarkData.VXUS?.price || 0
-      }
+        price: benchmarkData.VXUS?.price || 0,
+        changePercent: resolveTodayPercent(benchmarkData.VXUS),
+      },
     }
 
     // ==================== BUILD NEW STATE ====================
-    
+
     const newState: PortfolioContextData = {
       transactions: txns,
       holdings: holdingsWithPriceData,
@@ -610,7 +618,7 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
 
       performance: {
         todayReturn: { value: todayGainTotal, percent: todayGainPercent },
-        returns: { 
+        returns: {
           '1D': todayGainPercent,
           '1W': todayGainPercent * 5,
           '1M': totalGainPercent * 0.15,
@@ -618,7 +626,7 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
           '6M': totalGainPercent * 0.55,
           'YTD': totalGainPercent * 0.12,
           '1Y': totalGainPercent * 0.80,
-          'All': totalGainPercent
+          'All': totalGainPercent,
         },
         sharpeRatio: 0,
         maxDrawdown: 0,
@@ -679,35 +687,35 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
       },
 
       benchmarks: {
-        vsSP500: { 
-          yourReturn: totalGainPercent, 
-          sp500Return: benchmarkComparison.spy.return, 
-          difference: benchmarkComparison.spy.difference 
+        vsSP500: {
+          yourReturn: totalGainPercent,
+          sp500Return: benchmarkComparison.spy.return,
+          difference: benchmarkComparison.spy.difference,
         },
         vsNASDAQ: {
           yourReturn: totalGainPercent,
           nasdaqReturn: benchmarkComparison.qqq.return,
-          difference: benchmarkComparison.qqq.difference
+          difference: benchmarkComparison.qqq.difference,
         },
         vsDowJones: {
           yourReturn: totalGainPercent,
           dowReturn: benchmarkComparison.dia.return,
-          difference: benchmarkComparison.dia.difference
+          difference: benchmarkComparison.dia.difference,
         },
         vsRussell2000: {
           yourReturn: totalGainPercent,
           russellReturn: benchmarkComparison.iwm.return,
-          difference: benchmarkComparison.iwm.difference
+          difference: benchmarkComparison.iwm.difference,
         },
         vsTotalMarket: {
           yourReturn: totalGainPercent,
           vtiReturn: benchmarkComparison.vti.return,
-          difference: benchmarkComparison.vti.difference
+          difference: benchmarkComparison.vti.difference,
         },
         vsInternational: {
           yourReturn: totalGainPercent,
           intlReturn: benchmarkComparison.vxus.return,
-          difference: benchmarkComparison.vxus.difference
+          difference: benchmarkComparison.vxus.difference,
         },
         allBenchmarks: benchmarkComparison,
         vsSectorAvg: {},
@@ -717,11 +725,7 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
       behavior: {
         buyingPattern: txns.filter(t => t.type === 'BUY').length > 50 ? 'Regular Investor' : 'Opportunistic',
         averagePositionSize: portfolioValue / Math.max(holdingsWithPriceData.length, 1),
-        holdingPeriod: { 
-          avg: avgHoldTime, 
-          longest: '-', 
-          shortest: '-' 
-        },
+        holdingPeriod: { avg: avgHoldTime, longest: '-', shortest: '-' },
         tradingStyle: avgHoldTime > 365 ? 'Long-term Investor' : avgHoldTime > 90 ? 'Swing Trader' : 'Active Trader',
       },
 
@@ -731,8 +735,8 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
       isRefreshing: false,
       isFetchingBatch: false,
       lastUpdate: new Date(),
-      refresh: async () => {},
-      smartRefresh: async () => {},
+      refresh: async () => { },
+      smartRefresh: async () => { },
     }
 
     setData(newState)
@@ -744,10 +748,9 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
   }, [])
 
   // ==================== SMART REFRESH ====================
-  
+
   const smartRefresh = useCallback(async () => {
     console.log('[Portfolio] 🎯 Smart refresh started...')
-    
     setData(prev => ({ ...prev, isFetchingBatch: true }))
 
     try {
@@ -761,7 +764,6 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
       console.log(`[Portfolio] Found ${symbols.length} unique symbols`)
 
       const toFetch = getStocksToFetch(symbols)
-      
       console.log(`[Portfolio] ${toFetch.length} stocks need updating`)
 
       if (toFetch.length === 0) {
@@ -771,32 +773,24 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
       }
 
       await fetchStocksBatch(toFetch, (progress) => {
-        setData(prev => ({ 
-          ...prev, 
-          fetchProgress: progress 
-        }))
+        setData(prev => ({ ...prev, fetchProgress: progress }))
       })
 
       console.log('[Portfolio] ✅ Smart refresh complete, recalculating...')
-
       await calculateCoreData(false)
 
     } catch (error) {
       console.error('[Portfolio] Smart refresh failed:', error)
     } finally {
-      setData(prev => ({ 
-        ...prev, 
-        isFetchingBatch: false,
-        fetchProgress: undefined 
-      }))
+      setData(prev => ({ ...prev, isFetchingBatch: false, fetchProgress: undefined }))
     }
   }, [calculateCoreData])
 
   // ==================== INITIAL LOAD ====================
-  
+
   useEffect(() => {
     const cached = getCachedData()
-    
+
     if (cached) {
       console.log('[Portfolio] ⚡ Showing cached data, refreshing in background...')
       setData({ ...cached, isLoading: false, isFetchingBatch: false })
@@ -804,27 +798,27 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
     } else {
       calculateCoreData(false)
     }
-    
+
     const refreshInterval = setInterval(() => {
       console.log('[Portfolio] 🔄 Auto-refresh (3 hours)...')
       calculateCoreData(true)
     }, CACHE_DURATION)
-    
+
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'transactions' || e.key === 'uploadedFiles') {
         console.log('[Portfolio] 🔄 Storage changed, recalculating...')
         calculateCoreData(false)
       }
     }
-    
+
     const handleLocalUpdate = () => {
       console.log('[Portfolio] 🔄 Local update, recalculating...')
       calculateCoreData(false)
     }
-    
+
     window.addEventListener('storage', handleStorageChange)
     window.addEventListener('transactionsUpdated', handleLocalUpdate)
-    
+
     return () => {
       clearInterval(refreshInterval)
       window.removeEventListener('storage', handleStorageChange)

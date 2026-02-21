@@ -1242,8 +1242,6 @@ export default function DividendsTab() {
                     <Legend />
                     <Bar dataKey="received" fill={PRIMARY_GREEN} name="Received" stackId="a" radius={[0, 0, 3, 3]} />
                     <Bar dataKey="upcoming" fill="#3b82f6" name="Upcoming" stackId="a" radius={[4, 4, 0, 0]} />
-
-                    />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>

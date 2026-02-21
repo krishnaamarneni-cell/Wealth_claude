@@ -7,11 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { TrendingUp, TrendingDown, PieChart, ArrowUpDown } from "lucide-react"
 import { usePortfolio } from "@/lib/portfolio-context"
 import { useRouter } from "next/navigation"
-import {
-  fetchSectorEtfData,
-  mapSectorName,
-  type SectorEtfData,
-} from "@/lib/sector-etf-data"
 
 interface SectorRow {
   name: string
@@ -48,6 +43,13 @@ const SECTOR_ETFS: Record<string, string> = {
   'Technology': 'XLK', 'Communication Services': 'XLC', 'Financials': 'XLF',
   'Healthcare': 'XLV', 'Consumer Discretionary': 'XLY', 'Consumer Staples': 'XLP',
   'Energy': 'XLE', 'Industrials': 'XLI', 'Utilities': 'XLU',
+  'Real Estate': 'XLRE', 'Materials': 'XLB',
+}
+
+// Map sector names to their ETF names
+function mapSectorName(sector: string): string {
+  return SECTOR_ETFS[sector] || sector
+}
   'Real Estate': 'XLRE', 'Materials': 'XLB',
 }
 

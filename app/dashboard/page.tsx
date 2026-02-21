@@ -62,7 +62,7 @@ function DashboardSkeleton() {
   )
 }
 
-// ==================== MAIN CONTENT ====================
+// ==================== DASHBOARD CONTENT ====================
 
 function DashboardContent() {
   const {
@@ -80,22 +80,31 @@ function DashboardContent() {
     setIsMounted(true)
   }, [])
 
-  if (!isMounted) return null
+  // Safe defaults — never return null, show skeleton until mounted
+  const todayGain = isMounted ? (performance?.todayReturn?.value ?? 0) : 0
+  const todayGainPercent = isMounted ? (performance?.todayReturn?.percent ?? 0) : 0
+  const unrealizedGains = isMounted ? totalGain : 0
+  const safeHoldings = isMounted ? holdings : []
+  const safeTotal = isMounted ? totalPortfolioValue : 0
+  const safeCost = isMounted ? totalCost : 0
+  const safeTotalGain = isMounted ? totalGain : 0
+  const safeTotalPct = isMounted ? totalGainPercent : 0
 
-  const todayGain = performance.todayReturn.value
-  const todayGainPercent = performance.todayReturn.percent
-  const unrealizedGains = totalGain
+  const todayGainers = isMounted
+    ? [...safeHoldings]
+      .filter(h => (h.todayGainPercent ?? 0) > 0)
+      .sort((a, b) => b.todayGainPercent - a.todayGainPercent)
+      .slice(0, 3)
+    : []
 
-  // Sort by TODAY's % — only show actual gainers/losers
-  const todayGainers = [...holdings]
-    .filter(h => h.todayGainPercent > 0)
-    .sort((a, b) => b.todayGainPercent - a.todayGainPercent)
-    .slice(0, 3)
+  const todayLosers = isMounted
+    ? [...safeHoldings]
+      .filter(h => (h.todayGainPercent ?? 0) < 0)
+      .sort((a, b) => a.todayGainPercent - b.todayGainPercent)
+      .slice(0, 3)
+    : []
 
-  const todayLosers = [...holdings]
-    .filter(h => h.todayGainPercent < 0)
-    .sort((a, b) => a.todayGainPercent - b.todayGainPercent)
-    .slice(0, 3)
+  if (!isMounted) return <DashboardSkeleton />
 
   return (
     <div className="p-4 lg:p-6">
@@ -120,15 +129,14 @@ function DashboardContent() {
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
             <div>
               <p className="text-muted-foreground mb-1">Total Portfolio Value</p>
-              <h1 className="text-4xl font-bold">{formatCurrency(totalPortfolioValue)}</h1>
+              <h1 className="text-4xl font-bold">{formatCurrency(safeTotal)}</h1>
               <div className="flex items-center gap-4 mt-2">
-                <span className={`flex items-center gap-1 ${totalGain >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                  {totalGain >= 0 ? (
-                    <TrendingUp className="h-4 w-4" />
-                  ) : (
-                    <TrendingDown className="h-4 w-4" />
-                  )}
-                  {formatCurrency(totalGain)} ({formatPercent(totalGainPercent)})
+                <span className={`flex items-center gap-1 ${safeTotalGain >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {safeTotalGain >= 0
+                    ? <TrendingUp className="h-4 w-4" />
+                    : <TrendingDown className="h-4 w-4" />
+                  }
+                  {formatCurrency(safeTotalGain)} ({formatPercent(safeTotalPct)})
                 </span>
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
                   <Clock className="h-3 w-3" />
@@ -149,7 +157,7 @@ function DashboardContent() {
           {/* Quick Stats Row */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
 
-            {/* Today's gain */}
+            {/* Today */}
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -161,17 +169,16 @@ function DashboardContent() {
                     <p className="text-xs text-muted-foreground">{formatPercent(todayGainPercent)}</p>
                   </div>
                   <div className={`p-2 rounded-full ${todayGain >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
-                    {todayGain >= 0 ? (
-                      <ArrowUpRight className="h-5 w-5 text-green-500" />
-                    ) : (
-                      <ArrowDownRight className="h-5 w-5 text-red-500" />
-                    )}
+                    {todayGain >= 0
+                      ? <ArrowUpRight className="h-5 w-5 text-green-500" />
+                      : <ArrowDownRight className="h-5 w-5 text-red-500" />
+                    }
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Unrealized gains */}
+            {/* Unrealized Gains */}
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -188,13 +195,13 @@ function DashboardContent() {
               </CardContent>
             </Card>
 
-            {/* Holdings count */}
+            {/* Holdings */}
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs text-muted-foreground">Holdings</p>
-                    <p className="text-xl font-bold text-blue-500">{holdings.length}</p>
+                    <p className="text-xl font-bold text-blue-500">{safeHoldings.length}</p>
                   </div>
                   <div className="p-2 rounded-full bg-blue-500/10">
                     <PiggyBank className="h-5 w-5 text-blue-500" />
@@ -203,13 +210,13 @@ function DashboardContent() {
               </CardContent>
             </Card>
 
-            {/* Total cost */}
+            {/* Total Cost */}
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs text-muted-foreground">Total Cost</p>
-                    <p className="text-xl font-bold">{formatCurrency(totalCost)}</p>
+                    <p className="text-xl font-bold">{formatCurrency(safeCost)}</p>
                   </div>
                   <div className="p-2 rounded-full bg-secondary">
                     <Wallet className="h-5 w-5 text-muted-foreground" />
@@ -222,13 +229,13 @@ function DashboardContent() {
           {/* Portfolio Chart */}
           <PortfolioChart />
 
-          {/* ✨ AI Portfolio Summary — sits right under chart */}
+          {/* AI Portfolio Summary */}
           <AIPortfolioSummary />
 
           {/* Today's Top Gainers & Losers */}
           <div className="grid lg:grid-cols-2 gap-6">
 
-            {/* Today's Gainers */}
+            {/* Gainers */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -247,13 +254,7 @@ function DashboardContent() {
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center overflow-hidden">
                           {holding.logo ? (
-                            <Image
-                              src={holding.logo}
-                              alt={holding.symbol}
-                              width={32}
-                              height={32}
-                              unoptimized
-                            />
+                            <Image src={holding.logo} alt={holding.symbol} width={32} height={32} unoptimized />
                           ) : (
                             <span className="text-xs font-bold">{holding.symbol.slice(0, 2)}</span>
                           )}
@@ -266,12 +267,8 @@ function DashboardContent() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-green-500">
-                          {formatPercent(holding.todayGainPercent)}
-                        </p>
-                        <p className="text-xs text-green-500">
-                          {formatCurrency(holding.todayGain)} today
-                        </p>
+                        <p className="font-bold text-green-500">{formatPercent(holding.todayGainPercent)}</p>
+                        <p className="text-xs text-green-500">{formatCurrency(holding.todayGain)} today</p>
                       </div>
                     </div>
                   ))
@@ -284,7 +281,7 @@ function DashboardContent() {
               </CardContent>
             </Card>
 
-            {/* Today's Losers */}
+            {/* Losers */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -303,13 +300,7 @@ function DashboardContent() {
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center overflow-hidden">
                           {holding.logo ? (
-                            <Image
-                              src={holding.logo}
-                              alt={holding.symbol}
-                              width={32}
-                              height={32}
-                              unoptimized
-                            />
+                            <Image src={holding.logo} alt={holding.symbol} width={32} height={32} unoptimized />
                           ) : (
                             <span className="text-xs font-bold">{holding.symbol.slice(0, 2)}</span>
                           )}
@@ -322,12 +313,8 @@ function DashboardContent() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-red-500">
-                          {formatPercent(holding.todayGainPercent)}
-                        </p>
-                        <p className="text-xs text-red-500">
-                          {formatCurrency(holding.todayGain)} today
-                        </p>
+                        <p className="font-bold text-red-500">{formatPercent(holding.todayGainPercent)}</p>
+                        <p className="text-xs text-red-500">{formatCurrency(holding.todayGain)} today</p>
                       </div>
                     </div>
                   ))
@@ -363,7 +350,7 @@ function DashboardContent() {
             </CardHeader>
             <CardContent>
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {holdings.slice(0, 8).map((holding) => (
+                {safeHoldings.slice(0, 8).map((holding) => (
                   <div
                     key={holding.symbol}
                     className="p-3 rounded-lg border border-border hover:bg-secondary/50 transition-colors cursor-pointer"
@@ -372,22 +359,14 @@ function DashboardContent() {
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center overflow-hidden">
                           {holding.logo ? (
-                            <Image
-                              src={holding.logo}
-                              alt={holding.symbol}
-                              width={24}
-                              height={24}
-                              unoptimized
-                            />
+                            <Image src={holding.logo} alt={holding.symbol} width={24} height={24} unoptimized />
                           ) : (
-                            <span className="text-[10px] font-bold">
-                              {holding.symbol.slice(0, 2)}
-                            </span>
+                            <span className="text-[10px] font-bold">{holding.symbol.slice(0, 2)}</span>
                           )}
                         </div>
                         <span className="font-semibold text-sm">{holding.symbol}</span>
                       </div>
-                      <span className={`text-xs font-bold ${holding.todayGainPercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      <span className={`text-xs font-bold ${(holding.todayGainPercent ?? 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                         {formatPercent(holding.todayGainPercent)}
                       </span>
                     </div>

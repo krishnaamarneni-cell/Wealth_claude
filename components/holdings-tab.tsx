@@ -1210,6 +1210,14 @@ export default function HoldingsTab() {
           </CardContent>
         </Card>
       </div>
+      <HoldingsAIInsight
+        holdings={holdings}
+        totalPortfolioValue={totalPortfolioValue}
+        totalGain={totalGain}
+        totalGainPercent={totalGainPercent}
+        todayGain={todayGain}
+        todayGainPercent={todayGainPercent}
+      />
 
       {/* Performance Analysis */}
       <Card>

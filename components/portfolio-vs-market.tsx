@@ -7,7 +7,6 @@ import { usePortfolio } from "@/lib/portfolio-context"
 import {
   fetchSectorEtfData,
   SP500_SECTOR_WEIGHTS,
-  ALL_SECTORS,
   mapSectorName,
   type SectorEtfData,
 } from "@/lib/sector-etf-data"

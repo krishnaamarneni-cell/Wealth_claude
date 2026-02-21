@@ -349,17 +349,15 @@ export default function PortfolioChart() {
                   />
 
                   {/* Benchmark Line - ORANGE */}
-                      {showBenchmark && (
-                        <ReferenceDot
-                          x={safeChartData[hoveredIndex].displayDate}
-                          y={safeChartData[hoveredIndex].benchmarkValue}
-                          r={6}
-                          fill="#f97316"
-                          stroke="#ffffff"
-                          strokeWidth={2}
-                        />
-                      )}
-                    </>
+                  {showBenchmark && hoveredIndex !== null && safeChartData[hoveredIndex]?.benchmarkValue && (
+                    <ReferenceDot
+                      x={safeChartData[hoveredIndex].displayDate}
+                      y={safeChartData[hoveredIndex].benchmarkValue}
+                      r={6}
+                      fill="#f97316"
+                      stroke="#ffffff"
+                      strokeWidth={2}
+                    />
                   )}
                 </LineChart>
               </ResponsiveContainer>

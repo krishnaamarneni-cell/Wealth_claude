@@ -3,14 +3,7 @@ import { getMsUntilNextMarketClose } from '@/lib/market-cache-utils'
 
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY
 
-interface Quote {
-  c: number  // current price
-  d: number  // change
-  dp: number  // change percent
-  h: number  // high
-  l: number  // low
-  pc: number  // previous close
-}
+interface Quote { c: number; d: number; dp: number; h: number; l: number; pc: number }
 
 const serverCache = new Map<string, { data: unknown; expiresAt: number }>()
 
@@ -23,23 +16,26 @@ async function fetchQuote(symbol: string): Promise<Quote | null> {
     if (!res.ok) return null
     const data: Quote = await res.json()
     return data.c > 0 ? data : null
-  } catch {
-    return null
-  }
+  } catch { return null }
 }
 
 const SECTOR_META: Record<string, string> = {
-  XLK: 'Technology',
-  XLE: 'Energy',
-  XLC: 'Communication Services',
-  XLY: 'Consumer Discretionary',
-  XLF: 'Financials',
-  XLI: 'Industrials',
-  XLB: 'Materials',
-  XLRE: 'Real Estate',
-  XLV: 'Healthcare',
-  XLP: 'Consumer Staples',
+  XLK: 'Technology', XLE: 'Energy',
+  XLC: 'Communication Services', XLY: 'Consumer Discretionary',
+  XLF: 'Financials', XLI: 'Industrials',
+  XLB: 'Materials', XLRE: 'Real Estate',
+  XLV: 'Healthcare', XLP: 'Consumer Staples',
   XLU: 'Utilities',
+}
+
+const GLOBAL_META: Record<string, { label: string; region: string; flag: string }> = {
+  SPY: { label: 'S&P 500', region: 'United States', flag: '🇺🇸' },
+  EWG: { label: 'DAX', region: 'Germany', flag: '🇩🇪' },
+  EWU: { label: 'FTSE 100', region: 'UK', flag: '🇬🇧' },
+  EWJ: { label: 'Nikkei', region: 'Japan', flag: '🇯🇵' },
+  MCHI: { label: 'CSI 300', region: 'China', flag: '🇨🇳' },
+  EWZ: { label: 'Bovespa', region: 'Brazil', flag: '🇧🇷' },
+  INDA: { label: 'Nifty 50', region: 'India', flag: '🇮🇳' },
 }
 
 export async function GET() {
@@ -55,9 +51,10 @@ export async function GET() {
 
   const TICKER_SYMS = ['SPY', 'QQQ', 'DIA', 'IWM', 'GLD', 'USO', 'AGG', 'UUP']
   const SECTOR_SYMS = Object.keys(SECTOR_META)
+  const GLOBAL_SYMS = Object.keys(GLOBAL_META)
   const BTC_SYM = 'BINANCE:BTCUSDT'
 
-  const allSymbols = [...new Set([...TICKER_SYMS, ...SECTOR_SYMS])]
+  const allSymbols = [...new Set([...TICKER_SYMS, ...SECTOR_SYMS, ...GLOBAL_SYMS])]
 
   const [stockResults, btcQuote] = await Promise.all([
     Promise.all(allSymbols.map(sym => fetchQuote(sym).then(data => ({ sym, data })))),
@@ -86,15 +83,22 @@ export async function GET() {
 
   const sectors = SECTOR_SYMS
     .map(sym => ({
-      name: SECTOR_META[sym],
+      name: SECTOR_META[sym], symbol: sym,
+      price: q[sym]?.c ?? 0, change: q[sym]?.d ?? 0, changePercent: q[sym]?.dp ?? 0,
+    }))
+    .filter(s => s.price > 0)
+
+  const globalMarkets = GLOBAL_SYMS
+    .map(sym => ({
+      ...GLOBAL_META[sym],
       symbol: sym,
       price: q[sym]?.c ?? 0,
       change: q[sym]?.d ?? 0,
       changePercent: q[sym]?.dp ?? 0,
     }))
-    .filter(s => s.price > 0)
+    .filter(g => g.price > 0)
 
-  const result = { ticker, sectors, timestamp: Date.now() }
+  const result = { ticker, sectors, globalMarkets, timestamp: Date.now() }
   serverCache.set(CACHE_KEY, { data: result, expiresAt: Date.now() + getMsUntilNextMarketClose() })
   return NextResponse.json(result)
 }

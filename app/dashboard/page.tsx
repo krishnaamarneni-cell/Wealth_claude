@@ -16,7 +16,6 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
-import dynamic from "next/dynamic"
 import PortfolioChart from "@/components/portfolio-chart"
 import MarketMovers from "@/components/market-movers"
 import SectorPerformance from "@/components/sector-performance"
@@ -39,13 +38,10 @@ const formatCurrency = (value: number) => {
 }
 
 const formatPercent = (value: number | undefined | null) => {
-  if (value === undefined || value === null || isNaN(value)) {
-    return '0.00%'
-  }
+  if (value === undefined || value === null || isNaN(value)) return '0.00%'
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
 }
 
-// Loading skeleton
 function DashboardSkeleton() {
   return (
     <div className="p-4 lg:p-6 space-y-6">
@@ -60,7 +56,6 @@ function DashboardSkeleton() {
   )
 }
 
-// Main dashboard content
 function DashboardContent() {
   const {
     holdings,
@@ -70,33 +65,32 @@ function DashboardContent() {
     totalGainPercent,
     performance,
   } = usePortfolio()
-  
+
   const [isMounted, setIsMounted] = useState(false)
-  
+
   useEffect(() => {
     setIsMounted(true)
   }, [])
-  
-  // Prevent hydration mismatch by not rendering on first pass
-  if (!isMounted) {
-    return null
-  }
+
+  if (!isMounted) return null
 
   const todayGain = performance.todayReturn.value
   const todayGainPercent = performance.todayReturn.percent
   const unrealizedGains = totalGain
 
-  const topGainers = [...holdings]
-    .sort((a, b) => b.totalGainPercent - a.totalGainPercent)
+  // ✅ Sort by TODAY's % gain/loss, not all-time
+  const todayGainers = [...holdings]
+    .filter(h => h.todayGainPercent > 0)
+    .sort((a, b) => b.todayGainPercent - a.todayGainPercent)
     .slice(0, 3)
 
-  const topLosers = [...holdings]
-    .sort((a, b) => a.totalGainPercent - b.totalGainPercent)
+  const todayLosers = [...holdings]
+    .filter(h => h.todayGainPercent < 0)
+    .sort((a, b) => a.todayGainPercent - b.todayGainPercent)
     .slice(0, 3)
 
   return (
     <div className="p-4 lg:p-6">
-      {/* ==================== TAB NAVIGATION ==================== */}
       <Tabs defaultValue="portfolio" className="space-y-6">
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="portfolio" className="flex items-center gap-2">
@@ -170,11 +164,11 @@ function DashboardContent() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs text-muted-foreground">Unrealized Gains</p>
-                    <p className="text-xl font-bold text-green-500">
+                    <p className={`text-xl font-bold ${unrealizedGains >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                       {formatCurrency(unrealizedGains)}
                     </p>
                   </div>
-                  <div className="p-2 rounded-full bg-green-500/10">
+                  <div className={`p-2 rounded-full ${unrealizedGains >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
                     <TrendingUp className="h-5 w-5 text-green-500" />
                   </div>
                 </div>
@@ -210,25 +204,27 @@ function DashboardContent() {
             </Card>
           </div>
 
-          {/* Interactive Portfolio Chart */}
+          {/* Portfolio Chart */}
           <PortfolioChart />
 
-          {/* Your Top Gainers & Losers */}
+          {/* ===== TODAY'S Top Gainers & Losers ===== */}
           <div className="grid lg:grid-cols-2 gap-6">
-            {/* Top Gainers */}
+
+            {/* Today's Gainers */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <TrendingUp className="h-5 w-5 text-green-500" />
-                  Your Top Gainers
+                  Today's Top Gainers
                 </CardTitle>
+                <p className="text-xs text-muted-foreground">Stocks that gained the most today</p>
               </CardHeader>
               <CardContent className="space-y-3">
-                {topGainers.length > 0 ? (
-                  topGainers.map((holding) => (
+                {todayGainers.length > 0 ? (
+                  todayGainers.map((holding) => (
                     <div
                       key={holding.symbol}
-                      className="flex items-center justify-between p-2 rounded-lg bg-secondary/50"
+                      className="flex items-center justify-between p-3 rounded-lg bg-green-500/5 border border-green-500/20"
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center overflow-hidden">
@@ -241,50 +237,50 @@ function DashboardContent() {
                               unoptimized
                             />
                           ) : (
-                            <span className="text-xs font-bold">
-                              {holding.symbol.slice(0, 2)}
-                            </span>
+                            <span className="text-xs font-bold">{holding.symbol.slice(0, 2)}</span>
                           )}
                         </div>
                         <div>
-                          <p className="font-semibold">{holding.symbol}</p>
+                          <p className="font-bold">{holding.symbol}</p>
                           <p className="text-xs text-muted-foreground">
-                            {formatCurrency(holding.marketValue)}
+                            {formatCurrency(holding.currentPrice)} · {holding.shares} shares
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold text-green-500">
-                          +{formatPercent(holding.totalGainPercent)}
+                        <p className="font-bold text-green-500">
+                          {formatPercent(holding.todayGainPercent)}
                         </p>
                         <p className="text-xs text-green-500">
-                          {formatCurrency(holding.totalGain)}
+                          {formatCurrency(holding.todayGain)} today
                         </p>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No gainers yet
-                  </p>
+                  <div className="text-center py-6">
+                    <TrendingUp className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-50" />
+                    <p className="text-sm text-muted-foreground">No gainers today</p>
+                  </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Top Losers */}
+            {/* Today's Losers */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <TrendingDown className="h-5 w-5 text-red-500" />
-                  Your Underperformers
+                  Today's Underperformers
                 </CardTitle>
+                <p className="text-xs text-muted-foreground">Stocks that lost the most today</p>
               </CardHeader>
               <CardContent className="space-y-3">
-                {topLosers.length > 0 ? (
-                  topLosers.map((holding) => (
+                {todayLosers.length > 0 ? (
+                  todayLosers.map((holding) => (
                     <div
                       key={holding.symbol}
-                      className="flex items-center justify-between p-2 rounded-lg bg-secondary/50"
+                      className="flex items-center justify-between p-3 rounded-lg bg-red-500/5 border border-red-500/20"
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center overflow-hidden">
@@ -297,32 +293,31 @@ function DashboardContent() {
                               unoptimized
                             />
                           ) : (
-                            <span className="text-xs font-bold">
-                              {holding.symbol.slice(0, 2)}
-                            </span>
+                            <span className="text-xs font-bold">{holding.symbol.slice(0, 2)}</span>
                           )}
                         </div>
                         <div>
-                          <p className="font-semibold">{holding.symbol}</p>
+                          <p className="font-bold">{holding.symbol}</p>
                           <p className="text-xs text-muted-foreground">
-                            {formatCurrency(holding.marketValue)}
+                            {formatCurrency(holding.currentPrice)} · {holding.shares} shares
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className={`font-semibold ${holding.totalGainPercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                          {formatPercent(holding.totalGainPercent)}
+                        <p className="font-bold text-red-500">
+                          {formatPercent(holding.todayGainPercent)}
                         </p>
-                        <p className={`text-xs ${holding.totalGain >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                          {formatCurrency(holding.totalGain)}
+                        <p className="text-xs text-red-500">
+                          {formatCurrency(holding.todayGain)} today
                         </p>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No underperformers
-                  </p>
+                  <div className="text-center py-6">
+                    <TrendingDown className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-50" />
+                    <p className="text-sm text-muted-foreground">No losers today 🎉</p>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -367,9 +362,7 @@ function DashboardContent() {
                               unoptimized
                             />
                           ) : (
-                            <span className="text-[10px] font-bold">
-                              {holding.symbol.slice(0, 2)}
-                            </span>
+                            <span className="text-[10px] font-bold">{holding.symbol.slice(0, 2)}</span>
                           )}
                         </div>
                         <span className="font-semibold text-sm">{holding.symbol}</span>
@@ -380,16 +373,10 @@ function DashboardContent() {
                     </div>
                     <div className="flex items-end justify-between">
                       <div>
-                        <p className="text-lg font-bold">
-                          {formatCurrency(holding.currentPrice)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {holding.shares} shares
-                        </p>
+                        <p className="text-lg font-bold">{formatCurrency(holding.currentPrice)}</p>
+                        <p className="text-xs text-muted-foreground">{holding.shares} shares</p>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {formatCurrency(holding.marketValue)}
-                      </p>
+                      <p className="text-sm text-muted-foreground">{formatCurrency(holding.marketValue)}</p>
                     </div>
                   </div>
                 ))}
@@ -401,39 +388,24 @@ function DashboardContent() {
 
         {/* ==================== TAB 2: MARKET OVERVIEW ==================== */}
         <TabsContent value="market" className="space-y-6">
-
-          {/* Market Summary Ticker */}
           <MarketTicker />
-
-          {/* Money Flow Dashboard */}
           <MoneyFlowDashboard />
-
-          {/* Sector Breakdown */}
           <SectorBreakdown />
-
-          {/* Fear & Greed Index */}
           <FearGreed />
-
-          {/* Market News */}
           <NewsFeed
             type="market"
             title="Market News"
             description="Trending stories and market updates"
           />
-
-          {/* Market Movers */}
           <MarketMovers />
-
-          {/* Sector Performance */}
           <SectorPerformance />
-
         </TabsContent>
+
       </Tabs>
     </div>
   )
 }
 
-// Main page with Suspense boundary
 export default function DashboardPage() {
   return (
     <Suspense fallback={<DashboardSkeleton />}>

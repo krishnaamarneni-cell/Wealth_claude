@@ -4,30 +4,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { TrendingUp, TrendingDown, Target, Info } from "lucide-react"
 import { usePortfolio } from "@/lib/portfolio-context"
 
-// Mock market data for today - will replace with real API
-const MOCK_MARKET_DATA = {
-  spy: {
-    symbol: 'SPY',
-    name: 'S&P 500',
-    changePercent: -5.2,
-  },
-  sectorWeights: {
-    // S&P 500 sector weights (approximate)
-    'Technology': 28.5,
-    'Healthcare': 13.2,
-    'Financials': 12.8,
-    'Consumer Discretionary': 10.5,
-    'Communication Services': 8.9,
-    'Industrials': 8.4,
-    'Consumer Staples': 6.8,
-    'Energy': 4.2,
-    'Utilities': 2.8,
-    'Real Estate': 2.5,
-    'Materials': 2.4,
-  }
+// Static reference S&P 500 sector weights (approximate, doesn't change daily)
+const MARKET_SECTOR_WEIGHTS: Record<string, number> = {
+  'Technology': 28.5,
+  'Healthcare': 13.2,
+  'Financials': 12.8,
+  'Consumer Discretionary': 10.5,
+  'Communication Services': 8.9,
+  'Industrials': 8.4,
+  'Consumer Staples': 6.8,
+  'Energy': 4.2,
+  'Utilities': 2.8,
+  'Real Estate': 2.5,
+  'Materials': 2.4,
 }
 
-// Mock sector performance today
+// Mock sector performance today (will wire to real sector ETFs later)
 const MOCK_SECTOR_PERFORMANCE: Record<string, number> = {
   'Technology': -8.0,
   'Energy': -6.4,
@@ -47,19 +39,24 @@ function formatPercent(value: number): string {
 }
 
 export default function PortfolioVsMarket() {
-  const { holdings, performance } = usePortfolio()
+  const { holdings, performance, benchmarks } = usePortfolio()
 
-  // Your portfolio's today performance
+  // Your portfolio's today performance (real)
   const yourPerformance = performance.todayReturn.percent || 0
 
-  // Market performance (S&P 500)
-  const marketPerformance = MOCK_MARKET_DATA.spy.changePercent
+  // Market performance (S&P 500) – real from Finnhub via PortfolioContext
+  const marketTodayPercent =
+    benchmarks?.allBenchmarks?.spy?.changePercent ??
+    benchmarks?.allBenchmarks?.spy?.returns?.['1D'] ??
+    0
+
+  const marketPerformance = marketTodayPercent
 
   // Calculate outperformance
   const outperformance = yourPerformance - marketPerformance
   const didOutperform = outperformance > 0
 
-  // Calculate your sector allocation
+  // Calculate your sector allocation (real)
   const yourSectorAllocation: Record<string, number> = {}
   const totalValue = holdings.reduce((sum, h) => sum + h.marketValue, 0)
 
@@ -72,10 +69,10 @@ export default function PortfolioVsMarket() {
   })
 
   // Find key differences in allocation
-  const allocationDifferences = Object.keys(MOCK_MARKET_DATA.sectorWeights)
+  const allocationDifferences = Object.keys(MARKET_SECTOR_WEIGHTS)
     .map(sector => {
       const yourWeight = yourSectorAllocation[sector] || 0
-      const marketWeight = MOCK_MARKET_DATA.sectorWeights[sector] || 0
+      const marketWeight = MARKET_SECTOR_WEIGHTS[sector] || 0
       const diff = yourWeight - marketWeight
       const sectorPerf = MOCK_SECTOR_PERFORMANCE[sector] || 0
 
@@ -121,8 +118,8 @@ export default function PortfolioVsMarket() {
 
           {/* Your Portfolio Performance */}
           <div className={`p-4 rounded-lg border-2 ${yourPerformance >= 0
-              ? 'bg-green-500/10 border-green-500/30'
-              : 'bg-red-500/10 border-red-500/30'
+            ? 'bg-green-500/10 border-green-500/30'
+            : 'bg-red-500/10 border-red-500/30'
             }`}>
             <p className="text-xs text-muted-foreground mb-1">Your Portfolio</p>
             <div className="flex items-center gap-2">
@@ -141,8 +138,8 @@ export default function PortfolioVsMarket() {
 
         {/* Outperformance Banner */}
         <div className={`p-4 rounded-lg border-2 ${didOutperform
-            ? 'bg-green-500/10 border-green-500/30'
-            : 'bg-orange-500/10 border-orange-500/30'
+          ? 'bg-green-500/10 border-green-500/30'
+          : 'bg-orange-500/10 border-orange-500/30'
           }`}>
           <div className="flex items-start gap-3">
             <div className={`p-2 rounded-full ${didOutperform ? 'bg-green-500/20' : 'bg-orange-500/20'
@@ -194,8 +191,8 @@ export default function PortfolioVsMarket() {
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-sm">{reason.sector}</span>
                     <span className={`text-xs px-2 py-0.5 rounded-full ${isOverweight
-                        ? 'bg-blue-500/20 text-blue-500'
-                        : 'bg-purple-500/20 text-purple-500'
+                      ? 'bg-blue-500/20 text-blue-500'
+                      : 'bg-purple-500/20 text-purple-500'
                       }`}>
                       {isOverweight ? 'Overweight' : 'Underweight'}
                     </span>
@@ -229,9 +226,8 @@ export default function PortfolioVsMarket() {
             <strong>Bottom line:</strong>{' '}
             {didOutperform ? (
               <>
-                Your overweight positions in defensive sectors like Healthcare and Staples
-                shielded you from today's tech-led sell-off. Your underweight in Technology
-                (which fell -8.0%) was the main factor in outperformance.
+                Your overweight positions in more defensive sectors and underweight in
+                more volatile growth sectors helped your portfolio relative to the market today.
               </>
             ) : (
               <>

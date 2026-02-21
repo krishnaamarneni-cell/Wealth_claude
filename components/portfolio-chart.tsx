@@ -349,14 +349,17 @@ export default function PortfolioChart() {
                   />
 
                   {/* Benchmark Line - ORANGE */}
-                  {showBenchmark && hoveredIndex !== null && safeChartData[hoveredIndex]?.benchmarkValue && (
-                    <ReferenceDot
-                      x={safeChartData[hoveredIndex].displayDate}
-                      y={safeChartData[hoveredIndex].benchmarkValue}
-                      r={6}
-                      fill="#f97316"
-                      stroke="#ffffff"
+                  {showBenchmark && (
+                    <Line
+                      type="monotone"
+                      dataKey="benchmarkValue"
+                      stroke="#f97316"
                       strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 6, fill: "#f97316", stroke: "#ffffff", strokeWidth: 2 }}
+                      isAnimationActive={true}
+                      animationDuration={1000}
+                      animationEasing="ease-in-out"
                     />
                   )}
                 </LineChart>

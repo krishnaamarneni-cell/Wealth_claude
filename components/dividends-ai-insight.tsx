@@ -141,52 +141,52 @@ export default function DividendsAIInsight({
         {/* Header */}
         <div className="flex items-center gap-2 mb-4">
           <Lightbulb className="h-5 w-5 text-yellow-500" />
-          <h3 className="text-sm font-semibold">AI Dividend Insights</h3>
-          <span className="text-xs text-muted-foreground ml-auto">Based on your dividend history & projections</span>
+          <h3 className="text-base font-semibold">AI Dividend Insights</h3>
+          <span className="text-sm text-muted-foreground ml-auto">Based on your dividend history & projections</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Income Snapshot */}
-          <div className="rounded-lg bg-muted/40 p-3 space-y-1.5">
-            <div className="flex items-center gap-2 mb-1">
+          <div className="rounded-lg bg-muted/40 p-3 space-y-2">
+            <div className="flex items-center gap-2 mb-2">
               <DollarSign className="h-4 w-4 text-green-500" />
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Income Snapshot</span>
             </div>
             {insights.incomeLines.map((line, i) => (
-              <p key={i} className="text-xs text-foreground leading-relaxed">{line}</p>
+              <p key={i} className="text-sm text-foreground leading-relaxed">{line}</p>
             ))}
           </div>
 
           {/* Upcoming Income */}
-          <div className="rounded-lg bg-muted/40 p-3 space-y-1.5">
-            <div className="flex items-center gap-2 mb-1">
+          <div className="rounded-lg bg-muted/40 p-3 space-y-2">
+            <div className="flex items-center gap-2 mb-2">
               <Calendar className="h-4 w-4 text-blue-500" />
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Upcoming Income</span>
             </div>
             {insights.upcomingLines.map((line, i) => (
-              <p key={i} className="text-xs text-foreground leading-relaxed">{line}</p>
+              <p key={i} className="text-sm text-foreground leading-relaxed">{line}</p>
             ))}
           </div>
 
           {/* Growth Trend */}
-          <div className="rounded-lg bg-muted/40 p-3 space-y-1.5">
-            <div className="flex items-center gap-2 mb-1">
+          <div className="rounded-lg bg-muted/40 p-3 space-y-2">
+            <div className="flex items-center gap-2 mb-2">
               <TrendingUp className="h-4 w-4 text-purple-500" />
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Growth Trend</span>
             </div>
             {insights.growthLines.map((line, i) => (
-              <p key={i} className="text-xs text-foreground leading-relaxed">{line}</p>
+              <p key={i} className="text-sm text-foreground leading-relaxed">{line}</p>
             ))}
           </div>
 
           {/* Yield Quality */}
-          <div className="rounded-lg bg-muted/40 p-3 space-y-1.5">
-            <div className="flex items-center gap-2 mb-1">
+          <div className="rounded-lg bg-muted/40 p-3 space-y-2">
+            <div className="flex items-center gap-2 mb-2">
               <AlertTriangle className="h-4 w-4 text-orange-500" />
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Yield Quality</span>
             </div>
             {insights.yieldLines.map((line, i) => (
-              <p key={i} className="text-xs text-foreground leading-relaxed">{line}</p>
+              <p key={i} className="text-sm text-foreground leading-relaxed">{line}</p>
             ))}
           </div>
         </div>

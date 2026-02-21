@@ -141,12 +141,18 @@ export default function PortfolioChart() {
 
   // Load chart data
   useEffect(() => {
-    if (portfolioLoading || portfolioValue === 0) return
-
     const loadData = async () => {
       setIsLoading(true)
 
       try {
+        // If portfolio is empty, use mock data
+        if (portfolioValue === 0 || portfolioLoading) {
+          console.log('⚠️ No portfolio data, using mock data')
+          const mockData = generateMockData(timeRange, totalCost, totalCost)
+          setChartData(mockData)
+          return
+        }
+
         // Try to get real chart data
         let data = getChartData(timeRange, portfolioValue, totalCost, transactions)
 
@@ -180,9 +186,10 @@ export default function PortfolioChart() {
     loadData()
   }, [timeRange, showBenchmark, selectedBenchmark, portfolioValue, totalCost, transactions, portfolioLoading])
 
-  // Calculate period-specific values
-  const startValue = chartData.length > 0 ? chartData[0].portfolioValue : totalCost
-  const endValue = chartData.length > 0 ? chartData[chartData.length - 1].portfolioValue : portfolioValue
+  // Calculate period-specific values with safe fallback
+  const safeChartData = chartData && chartData.length > 0 ? chartData : generateMockData(timeRange, portfolioValue, totalCost)
+  const startValue = safeChartData.length > 0 ? safeChartData[0].portfolioValue : totalCost
+  const endValue = safeChartData.length > 0 ? safeChartData[safeChartData.length - 1].portfolioValue : portfolioValue
   const periodGain = endValue - startValue
   const periodGainPercent = startValue > 0 ? ((endValue - startValue) / startValue) * 100 : 0
 
@@ -190,9 +197,9 @@ export default function PortfolioChart() {
     portfolioValue: endValue,
     portfolioChange: periodGain,
     portfolioChangePercent: periodGainPercent,
-    benchmarkValue: chartData.length > 0 ? chartData[chartData.length - 1]?.benchmarkValue : undefined,
-    benchmarkChange: chartData.length > 0 ? chartData[chartData.length - 1]?.benchmarkChange : undefined,
-    benchmarkChangePercent: chartData.length > 0 ? chartData[chartData.length - 1]?.benchmarkChangePercent : undefined,
+    benchmarkValue: safeChartData.length > 0 ? safeChartData[safeChartData.length - 1]?.benchmarkValue : undefined,
+    benchmarkChange: safeChartData.length > 0 ? safeChartData[safeChartData.length - 1]?.benchmarkChange : undefined,
+    benchmarkChangePercent: safeChartData.length > 0 ? safeChartData[safeChartData.length - 1]?.benchmarkChangePercent : undefined,
   }
 
   const displayData = hoveredData || currentData
@@ -280,18 +287,18 @@ export default function PortfolioChart() {
             <div className="w-full h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
-                  data={chartData}
+                  data={safeChartData}
                   onMouseMove={(e: any) => {
                     if (e.activePayload && e.activePayload[0]) {
                       const payload = e.activePayload[0].payload
-                      const periodStart = chartData[0]
+                      const periodStart = safeChartData[0]
                       setHoveredData({
                         ...payload,
                         portfolioChange: payload.portfolioValue - periodStart.portfolioValue,
                         portfolioChangePercent: ((payload.portfolioValue - periodStart.portfolioValue) / periodStart.portfolioValue) * 100,
-                        benchmarkChange: payload.benchmarkValue ? payload.benchmarkValue - (chartData[0].benchmarkValue || 0) : undefined,
-                        benchmarkChangePercent: payload.benchmarkValue && chartData[0].benchmarkValue
-                          ? ((payload.benchmarkValue - chartData[0].benchmarkValue) / chartData[0].benchmarkValue) * 100
+                        benchmarkChange: payload.benchmarkValue ? payload.benchmarkValue - (safeChartData[0].benchmarkValue || 0) : undefined,
+                        benchmarkChangePercent: payload.benchmarkValue && safeChartData[0].benchmarkValue
+                          ? ((payload.benchmarkValue - safeChartData[0].benchmarkValue) / safeChartData[0].benchmarkValue) * 100
                           : undefined
                       })
                       setHoveredIndex(e.activeTooltipIndex)
@@ -342,35 +349,10 @@ export default function PortfolioChart() {
                   />
 
                   {/* Benchmark Line - ORANGE */}
-                  {showBenchmark && (
-                    <Line
-                      type="monotone"
-                      dataKey="benchmarkValue"
-                      stroke="#f97316"
-                      strokeWidth={3}
-                      dot={false}
-                      activeDot={{ r: 6, fill: "#f97316", stroke: "#ffffff", strokeWidth: 2 }}
-                      isAnimationActive={true}
-                      animationDuration={1000}
-                      animationEasing="ease-in-out"
-                    />
-                  )}
-
-                  {/* Hover Dots */}
-                  {hoveredIndex !== null && chartData[hoveredIndex] && (
-                    <>
-                      <ReferenceDot
-                        x={chartData[hoveredIndex].displayDate}
-                        y={chartData[hoveredIndex].portfolioValue}
-                        r={6}
-                        fill="#22c55e"
-                        stroke="#ffffff"
-                        strokeWidth={2}
-                      />
-                      {showBenchmark && chartData[hoveredIndex].benchmarkValue && (
+                      {showBenchmark && (
                         <ReferenceDot
-                          x={chartData[hoveredIndex].displayDate}
-                          y={chartData[hoveredIndex].benchmarkValue}
+                          x={safeChartData[hoveredIndex].displayDate}
+                          y={safeChartData[hoveredIndex].benchmarkValue}
                           r={6}
                           fill="#f97316"
                           stroke="#ffffff"

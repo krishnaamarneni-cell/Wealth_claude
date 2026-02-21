@@ -110,40 +110,6 @@ const CHART_COLORS = [
   "#14b8a6",
 ]
 
-// ============ CYLINDER BAR SHAPE ============
-
-const CylinderBar: React.FC<any> = ({ x, y, width, height, fill, stroke, strokeWidth = 0 }) => {
-  const radius = width / 2
-  const centerX = x + width / 2
-  const topY = y
-
-  if (height <= 0) return null
-
-  return (
-    <g>
-      <rect
-        x={x}
-        y={topY}
-        width={width}
-        height={height}
-        fill={fill}
-        stroke={stroke}
-        strokeWidth={strokeWidth}
-        rx={radius}
-        ry={radius}
-      />
-      <ellipse
-        cx={centerX}
-        cy={topY}
-        rx={radius}
-        ry={radius / 2}
-        fill={fill}
-        stroke={stroke}
-        strokeWidth={strokeWidth}
-      />
-    </g>
-  )
-}
 
 // ============ INTERACTIVE DONUT ============
 
@@ -1269,12 +1235,10 @@ export default function DividendsTab() {
                     />
                     <Tooltip
                       formatter={(value: number) => formatCurrency(value)}
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                      }}
+                      contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }}
+                      cursor={false}
                     />
+
                     <Legend />
                     <Bar
                       dataKey="received"

@@ -25,8 +25,11 @@ import SectorBreakdown from "@/components/sector-breakdown"
 import PortfolioVsMarket from "@/components/portfolio-vs-market"
 import FearGreed from "@/components/fear-greed"
 import NewsFeed from "@/components/news-feed"
+import AIPortfolioSummary from "@/components/ai-portfolio-summary"
 import { usePortfolio } from "@/lib/portfolio-context"
 import { Suspense, useState, useEffect } from "react"
+
+// ==================== FORMATTERS ====================
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -42,6 +45,8 @@ const formatPercent = (value: number | undefined | null) => {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
 }
 
+// ==================== SKELETON ====================
+
 function DashboardSkeleton() {
   return (
     <div className="p-4 lg:p-6 space-y-6">
@@ -52,9 +57,12 @@ function DashboardSkeleton() {
         ))}
       </div>
       <div className="h-96 bg-secondary rounded-lg animate-pulse" />
+      <div className="h-32 bg-secondary rounded-lg animate-pulse" />
     </div>
   )
 }
+
+// ==================== MAIN CONTENT ====================
 
 function DashboardContent() {
   const {
@@ -78,7 +86,7 @@ function DashboardContent() {
   const todayGainPercent = performance.todayReturn.percent
   const unrealizedGains = totalGain
 
-  // ✅ Sort by TODAY's % gain/loss, not all-time
+  // Sort by TODAY's % — only show actual gainers/losers
   const todayGainers = [...holdings]
     .filter(h => h.todayGainPercent > 0)
     .sort((a, b) => b.todayGainPercent - a.todayGainPercent)
@@ -92,6 +100,8 @@ function DashboardContent() {
   return (
     <div className="p-4 lg:p-6">
       <Tabs defaultValue="portfolio" className="space-y-6">
+
+        {/* Tab switcher */}
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="portfolio" className="flex items-center gap-2">
             <Briefcase className="h-4 w-4" />
@@ -138,6 +148,8 @@ function DashboardContent() {
 
           {/* Quick Stats Row */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+
+            {/* Today's gain */}
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -159,6 +171,7 @@ function DashboardContent() {
               </CardContent>
             </Card>
 
+            {/* Unrealized gains */}
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -175,6 +188,7 @@ function DashboardContent() {
               </CardContent>
             </Card>
 
+            {/* Holdings count */}
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -189,6 +203,7 @@ function DashboardContent() {
               </CardContent>
             </Card>
 
+            {/* Total cost */}
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -207,7 +222,10 @@ function DashboardContent() {
           {/* Portfolio Chart */}
           <PortfolioChart />
 
-          {/* ===== TODAY'S Top Gainers & Losers ===== */}
+          {/* ✨ AI Portfolio Summary — sits right under chart */}
+          <AIPortfolioSummary />
+
+          {/* Today's Top Gainers & Losers */}
           <div className="grid lg:grid-cols-2 gap-6">
 
             {/* Today's Gainers */}
@@ -333,7 +351,7 @@ function DashboardContent() {
             description="Latest news for stocks you own"
           />
 
-          {/* Quick Holdings Overview */}
+          {/* Holdings Overview */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -362,12 +380,14 @@ function DashboardContent() {
                               unoptimized
                             />
                           ) : (
-                            <span className="text-[10px] font-bold">{holding.symbol.slice(0, 2)}</span>
+                            <span className="text-[10px] font-bold">
+                              {holding.symbol.slice(0, 2)}
+                            </span>
                           )}
                         </div>
                         <span className="font-semibold text-sm">{holding.symbol}</span>
                       </div>
-                      <span className={`text-xs ${holding.todayGainPercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      <span className={`text-xs font-bold ${holding.todayGainPercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                         {formatPercent(holding.todayGainPercent)}
                       </span>
                     </div>
@@ -405,6 +425,8 @@ function DashboardContent() {
     </div>
   )
 }
+
+// ==================== PAGE EXPORT ====================
 
 export default function DashboardPage() {
   return (

@@ -2,330 +2,434 @@
 
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { TrendingUp, TrendingDown, Target, Info, RefreshCw } from "lucide-react"
+import { Target, Info, X } from "lucide-react"
 import { usePortfolio } from "@/lib/portfolio-context"
+import {
+  fetchSectorEtfData,
+  SP500_SECTOR_WEIGHTS,
+  ALL_SECTORS,
+  mapSectorName,
+  type SectorEtfData,
+} from "@/lib/sector-etf-data"
 
-// Static reference S&P 500 sector weights (approximate)
-const MARKET_SECTOR_WEIGHTS: Record<string, number> = {
-  'Technology': 28.5,
-  'Healthcare': 13.2,
-  'Financials': 12.8,
-  'Consumer Discretionary': 10.5,
-  'Communication Services': 8.9,
-  'Industrials': 8.4,
-  'Consumer Staples': 6.8,
-  'Energy': 4.2,
-  'Utilities': 2.8,
-  'Real Estate': 2.5,
-  'Materials': 2.4,
-}
-
-// Sector performance (will wire to real sector ETFs later)
-const MOCK_SECTOR_PERFORMANCE: Record<string, number> = {
-  'Technology': -8.0,
-  'Energy': -6.4,
-  'Communication Services': -5.5,
-  'Consumer Discretionary': -4.0,
-  'Financials': -3.5,
-  'Industrials': -2.5,
-  'Materials': -1.5,
-  'Real Estate': 0.5,
-  'Healthcare': 1.0,
-  'Consumer Staples': 2.0,
-  'Utilities': 2.5,
-}
-
-function formatPercent(value: number): string {
-  return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
+function formatPercent(value: number, decimals = 2): string {
+  return `${value >= 0 ? '+' : ''}${value.toFixed(decimals)}%`
 }
 
 export default function PortfolioVsMarket() {
   const { holdings, performance } = usePortfolio()
 
-  const [spyPercent, setSpyPercent] = useState<number | null>(null)
-  const [spyPrice, setSpyPrice] = useState<number | null>(null)
-  const [spyLoading, setSpyLoading] = useState(true)
-  const [lastFetched, setLastFetched] = useState<string>('')
+  const [sectorData, setSectorData] = useState<SectorEtfData[]>([])
+  const [spyPercent, setSpyPercent] = useState<number>(0)
+  const [loading, setLoading] = useState(true)
+  const [activeCard, setActiveCard] = useState(0)
+  const [showInfo, setShowInfo] = useState(false)
+  const [tradingDay, setTradingDay] = useState('')
 
-  // Clear old sessionStorage cache keys from previous version
+  // ==================== FETCH DATA ====================
   useEffect(() => {
-    sessionStorage.removeItem('spyTodayCache')
+    async function load() {
+      setLoading(true)
+      try {
+        const [etfData, spyRes] = await Promise.all([
+          fetchSectorEtfData(),
+          fetch(`/api/stock-info?symbol=SPY&t=${Date.now()}`, { cache: 'no-store' }),
+        ])
+        setSectorData(etfData)
+
+        if (spyRes.ok) {
+          const spyJson = await spyRes.json()
+          const pct =
+            typeof spyJson.changePercent === 'number' && spyJson.changePercent !== 0
+              ? spyJson.changePercent
+              : (spyJson.returns?.['1D'] ?? 0)
+          setSpyPercent(pct)
+        }
+
+        // Determine label for trading day
+        const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }))
+        const day = now.getDay()
+        setTradingDay(
+          day === 0 || day === 6
+            ? "Friday's Closing Data"
+            : now.getHours() < 16
+              ? 'Previous Close'
+              : "Today's Closing Data"
+        )
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
   }, [])
 
-  const fetchSpy = async () => {
-    setSpyLoading(true)
-    try {
-      // Append timestamp to bust server-side in-memory cache
-      const res = await fetch(`/api/stock-info?symbol=SPY&t=${Date.now()}`, {
-        cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache' }
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-
-        console.log('[PortfolioVsMarket] SPY raw data:', {
-          price: data.price,
-          change: data.change,
-          changePercent: data.changePercent,
-          returns1D: data.returns?.['1D'],
-        })
-
-        // changePercent from Finnhub quote.dp = daily % change from previous close
-        const pct =
-          (typeof data.changePercent === 'number' && data.changePercent !== 0)
-            ? data.changePercent
-            : (typeof data.returns?.['1D'] === 'number' ? data.returns['1D'] : 0)
-
-        setSpyPercent(pct)
-        setSpyPrice(data.price || null)
-        setLastFetched(new Date().toLocaleTimeString())
-      }
-    } catch (e) {
-      console.error('[PortfolioVsMarket] Failed to fetch SPY:', e)
-    } finally {
-      setSpyLoading(false)
-    }
-  }
-
+  // Auto-advance carousel every 35 seconds
   useEffect(() => {
-    fetchSpy()
-    // Refresh SPY every 2 minutes while component is visible
-    const interval = setInterval(fetchSpy, 2 * 60 * 1000)
+    const interval = setInterval(() => setActiveCard(p => (p + 1) % 2), 35000)
     return () => clearInterval(interval)
   }, [])
 
-  // Your portfolio's today performance (real, from holdings)
-  const yourPerformance = performance.todayReturn.percent || 0
-
-  // Market performance — fresh SPY, fallback to 0 while loading
-  const marketPerformance = spyPercent ?? 0
-
-  // Outperformance
-  const outperformance = yourPerformance - marketPerformance
-  const didOutperform = outperformance > 0
-
-  // Your real sector allocation
-  const yourSectorAllocation: Record<string, number> = {}
+  // ==================== COMPUTE ALLOCATION ====================
   const totalValue = holdings.reduce((sum, h) => sum + h.marketValue, 0)
-
-  holdings.forEach(holding => {
-    const sector = holding.sector || 'Other'
-    yourSectorAllocation[sector] = (yourSectorAllocation[sector] || 0) +
-      (holding.marketValue / totalValue) * 100
+  const yourSectorAllocation: Record<string, number> = {}
+  holdings.forEach(h => {
+    const mapped = mapSectorName(h.sector || '')
+    if (mapped !== 'Other' && totalValue > 0) {
+      yourSectorAllocation[mapped] = (yourSectorAllocation[mapped] || 0) +
+        (h.marketValue / totalValue) * 100
+    }
   })
 
-  // Allocation differences vs S&P 500 reference weights
-  const allocationDifferences = Object.keys(MARKET_SECTOR_WEIGHTS)
-    .map(sector => {
-      const yourWeight = yourSectorAllocation[sector] || 0
-      const marketWeight = MARKET_SECTOR_WEIGHTS[sector] || 0
-      const diff = yourWeight - marketWeight
-      const sectorPerf = MOCK_SECTOR_PERFORMANCE[sector] || 0
-      return {
-        sector,
-        yourWeight,
-        marketWeight,
-        diff,
-        sectorPerf,
-        impact: diff * sectorPerf / 100,
-      }
-    })
-    .sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact))
+  const sectorMap: Record<string, SectorEtfData> = {}
+  sectorData.forEach(d => { sectorMap[d.sector] = d })
 
-  const topReasons = allocationDifferences.slice(0, 3)
+  const yourPerformance = performance.todayReturn.percent || 0
+  const outperformance = yourPerformance - spyPercent
+  const didOutperform = outperformance > 0
+
+  // Sort: owned sectors first (by your allocation desc), unowned last
+  const sortedSectors = [...ALL_SECTORS].sort((a, b) => {
+    const aOwn = yourSectorAllocation[a] || 0
+    const bOwn = yourSectorAllocation[b] || 0
+    if (aOwn > 0 && bOwn === 0) return -1
+    if (aOwn === 0 && bOwn > 0) return 1
+    return bOwn - aOwn
+  })
 
   return (
-    <Card className="border-border bg-card">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-xl font-bold flex items-center gap-2">
-              <Target className="h-5 w-5 text-blue-500" />
-              Your Portfolio vs Market Today
-            </CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              How your allocation affected performance vs S&P 500
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {lastFetched && (
-              <span className="text-xs text-muted-foreground">Updated {lastFetched}</span>
-            )}
+    <>
+      <Card className="border-border bg-card">
+        <CardHeader>
+          {/* Title row */}
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <CardTitle className="text-xl font-bold flex items-center gap-2">
+                <Target className="h-5 w-5 text-blue-500" />
+                Your Portfolio vs Market Today
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">
+                📅 Showing: <span className="font-semibold">{tradingDay}</span>
+                {' · '}Data updates once per day after market close (4PM EST)
+              </p>
+            </div>
             <button
-              onClick={fetchSpy}
-              disabled={spyLoading}
-              className="p-2 rounded-lg hover:bg-secondary transition-colors"
-              title="Refresh SPY data"
+              onClick={() => setShowInfo(true)}
+              className="p-2 rounded-full hover:bg-secondary transition-colors shrink-0"
+              title="How is this calculated?"
             >
-              <RefreshCw className={`h-4 w-4 text-muted-foreground ${spyLoading ? 'animate-spin' : ''}`} />
+              <Info className="h-5 w-5 text-blue-500" />
             </button>
           </div>
-        </div>
-      </CardHeader>
 
-      <CardContent className="space-y-6">
-
-        {/* Performance Comparison */}
-        <div className="grid sm:grid-cols-2 gap-4">
-
-          {/* Market (SPY) */}
-          <div className="p-4 rounded-lg bg-secondary/30 border border-border">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-sm text-muted-foreground">Market (S&P 500 / SPY)</p>
-              {spyPrice && (
-                <p className="text-xs text-muted-foreground font-mono">
-                  ${spyPrice.toFixed(2)}
-                </p>
-              )}
-            </div>
-            {spyLoading ? (
-              <div className="h-9 w-28 bg-secondary animate-pulse rounded mt-1" />
-            ) : (
-              <div className="flex items-center gap-2">
-                {marketPerformance >= 0 ? (
-                  <TrendingUp className="h-5 w-5 text-green-500" />
-                ) : (
-                  <TrendingDown className="h-5 w-5 text-red-500" />
-                )}
-                <span className={`text-3xl font-bold ${marketPerformance >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                  {formatPercent(marketPerformance)}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Your Portfolio */}
-          <div className={`p-4 rounded-lg border-2 ${yourPerformance >= 0
-            ? 'bg-green-500/10 border-green-500/30'
-            : 'bg-red-500/10 border-red-500/30'
-            }`}>
-            <p className="text-sm text-muted-foreground mb-1">Your Portfolio</p>
-            <div className="flex items-center gap-2">
-              {yourPerformance >= 0 ? (
-                <TrendingUp className="h-5 w-5 text-green-500" />
+          {/* 3-stat summary bar */}
+          <div className="grid grid-cols-3 gap-3 mt-4">
+            <div className="p-3 rounded-lg bg-secondary/40 border border-border text-center">
+              <p className="text-xs text-muted-foreground mb-1">S&P 500 (SPY)</p>
+              {loading ? (
+                <div className="h-7 w-16 bg-secondary animate-pulse rounded mx-auto" />
               ) : (
-                <TrendingDown className="h-5 w-5 text-red-500" />
-              )}
-              <span className={`text-3xl font-bold ${yourPerformance >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                {formatPercent(yourPerformance)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Outperformance Banner */}
-        {!spyLoading && (
-          <div className={`p-4 rounded-lg border-2 ${didOutperform
-            ? 'bg-green-500/10 border-green-500/30'
-            : 'bg-orange-500/10 border-orange-500/30'
-            }`}>
-            <div className="flex items-start gap-3">
-              <div className={`p-2 rounded-full ${didOutperform ? 'bg-green-500/20' : 'bg-orange-500/20'}`}>
-                {didOutperform ? (
-                  <TrendingUp className="h-5 w-5 text-green-500" />
-                ) : (
-                  <TrendingDown className="h-5 w-5 text-orange-500" />
-                )}
-              </div>
-              <div className="flex-1">
-                <h4 className="font-bold text-lg mb-1">
-                  {didOutperform ? (
-                    <span className="text-green-500">
-                      🎯 You Outperformed by {formatPercent(Math.abs(outperformance))}
-                    </span>
-                  ) : (
-                    <span className="text-orange-500">
-                      📉 You Underperformed by {formatPercent(Math.abs(outperformance))}
-                    </span>
-                  )}
-                </h4>
-                <p className="text-sm text-muted-foreground">
-                  {didOutperform
-                    ? "Your sector allocation helped you beat the market today."
-                    : "Market headwinds affected your holdings more than average."}
+                <p className={`text-xl font-bold ${spyPercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {formatPercent(spyPercent)}
                 </p>
+              )}
+            </div>
+
+            <div className="p-3 rounded-lg bg-secondary/40 border border-border text-center">
+              <p className="text-xs text-muted-foreground mb-1">Your Portfolio</p>
+              <p className={`text-xl font-bold ${yourPerformance >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                {formatPercent(yourPerformance)}
+              </p>
+            </div>
+
+            <div className={`p-3 rounded-lg border text-center ${didOutperform
+                ? 'bg-green-500/10 border-green-500/30'
+                : 'bg-red-500/10 border-red-500/30'
+              }`}>
+              <p className="text-xs text-muted-foreground mb-1">
+                {didOutperform ? '🎯 Beat Market by' : '📉 Behind Market by'}
+              </p>
+              <p className={`text-xl font-bold ${didOutperform ? 'text-green-500' : 'text-red-500'}`}>
+                {formatPercent(Math.abs(outperformance))}
+              </p>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          {/* ==================== CAROUSEL ==================== */}
+          <div className="relative overflow-hidden rounded-lg">
+            <div
+              className="flex transition-transform duration-500 ease-in-out"
+              style={{ transform: `translateX(-${activeCard * 100}%)` }}
+            >
+              {/* Card 1: Your Sectors Today */}
+              <div className="w-full shrink-0">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-base font-bold">📊 Your Sectors Today</span>
+                    <span className="text-xs text-muted-foreground">— which sectors went up or down</span>
+                  </div>
+
+                  {sortedSectors.map(sector => {
+                    const owned = (yourSectorAllocation[sector] || 0) > 0
+                    const etf = sectorMap[sector]
+                    const changePct = etf?.changePercent ?? 0
+                    const isUp = changePct >= 0
+                    const yourPct = yourSectorAllocation[sector] || 0
+
+                    return (
+                      <div
+                        key={sector}
+                        className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${!owned
+                            ? 'opacity-35 bg-secondary/10 border-border'
+                            : isUp
+                              ? 'bg-green-500/5 border-green-500/20'
+                              : 'bg-red-500/5 border-red-500/20'
+                          }`}
+                      >
+                        {/* Sector name */}
+                        <div className="w-44 shrink-0">
+                          <p className={`text-sm font-semibold leading-tight ${!owned ? 'text-muted-foreground' : ''}`}>
+                            {sector}
+                          </p>
+                          {!owned && (
+                            <p className="text-xs text-muted-foreground">You don't own this</p>
+                          )}
+                          {owned && (
+                            <p className="text-xs text-muted-foreground">{etf?.etf}</p>
+                          )}
+                        </div>
+
+                        {/* Allocation bar */}
+                        <div className="flex-1">
+                          {owned ? (
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-2.5 bg-secondary rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${isUp ? 'bg-green-500' : 'bg-red-500'}`}
+                                  style={{ width: `${Math.min(yourPct * 2.2, 100)}%` }}
+                                />
+                              </div>
+                              <span className="text-xs font-bold text-foreground w-12 text-right">
+                                {yourPct.toFixed(1)}% of you
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="h-2.5 bg-secondary/20 rounded-full" />
+                          )}
+                        </div>
+
+                        {/* Today % change */}
+                        <div className="w-24 text-right shrink-0">
+                          {loading ? (
+                            <div className="h-5 w-16 bg-secondary animate-pulse rounded ml-auto" />
+                          ) : (
+                            <div>
+                              <span className={`text-sm font-bold ${!owned
+                                  ? 'text-muted-foreground'
+                                  : isUp ? 'text-green-500' : 'text-red-500'
+                                }`}>
+                                {etf
+                                  ? `${isUp ? '↑' : '↓'} ${Math.abs(changePct).toFixed(2)}%`
+                                  : '—'}
+                              </span>
+                              {owned && (
+                                <p className="text-xs text-muted-foreground">
+                                  {isUp ? 'Gained' : 'Lost'} today
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  <p className="text-xs text-muted-foreground text-center pt-1">
+                    Faded rows = sectors you don't own · Bar = how much of your portfolio
+                  </p>
+                </div>
+              </div>
+
+              {/* Card 2: You vs S&P 500 */}
+              <div className="w-full shrink-0">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-base font-bold">⚖️ You vs S&P 500</span>
+                    <span className="text-xs text-muted-foreground">— is your mix different from the market?</span>
+                  </div>
+
+                  {sortedSectors.map(sector => {
+                    const yourPct = yourSectorAllocation[sector] || 0
+                    const marketPct = SP500_SECTOR_WEIGHTS[sector] || 0
+                    const owned = yourPct > 0
+                    const diff = yourPct - marketPct
+                    const ownsMore = diff > 1.5
+                    const ownsSimilar = Math.abs(diff) <= 1.5
+
+                    return (
+                      <div
+                        key={sector}
+                        className={`p-3 rounded-lg border ${!owned
+                            ? 'opacity-35 border-border bg-secondary/10'
+                            : 'border-border bg-secondary/20'
+                          }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className={`text-sm font-bold ${!owned ? 'text-muted-foreground' : ''}`}>
+                            {sector}
+                          </span>
+                          {owned && (
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ownsSimilar
+                                ? 'bg-secondary text-muted-foreground'
+                                : ownsMore
+                                  ? 'bg-blue-500/20 text-blue-400'
+                                  : 'bg-purple-500/20 text-purple-400'
+                              }`}>
+                              {ownsSimilar ? 'Similar to market' : ownsMore ? '↑ You own more' : '↓ You own less'}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="space-y-1.5">
+                          {/* Your bar */}
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground w-16 shrink-0">You</span>
+                            <div className="flex-1 h-2.5 bg-secondary rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-blue-500 rounded-full"
+                                style={{ width: `${Math.min(yourPct * 2.8, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-xs font-bold text-blue-400 w-10 text-right shrink-0">
+                              {yourPct > 0 ? `${yourPct.toFixed(1)}%` : '—'}
+                            </span>
+                          </div>
+                          {/* Market bar */}
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground w-16 shrink-0">S&P 500</span>
+                            <div className="flex-1 h-2.5 bg-secondary rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-zinc-400 rounded-full"
+                                style={{ width: `${Math.min(marketPct * 2.8, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-xs font-bold text-muted-foreground w-10 text-right shrink-0">
+                              {marketPct.toFixed(1)}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  <p className="text-xs text-muted-foreground text-center pt-1">
+                    🔵 Your allocation · ⬜ S&P 500 reference weight
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-        )}
 
-        {/* Why? Sector Allocation Breakdown */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
+          {/* Carousel dots */}
+          <div className="flex items-center justify-center gap-3 pt-1">
+            {[
+              { i: 0, label: 'Your Sectors Today' },
+              { i: 1, label: 'You vs S&P 500' },
+            ].map(({ i, label }) => (
+              <button
+                key={i}
+                onClick={() => setActiveCard(i)}
+                className="flex items-center gap-2 group"
+              >
+                <div className={`transition-all rounded-full ${activeCard === i
+                    ? 'w-6 h-2.5 bg-blue-500'
+                    : 'w-2.5 h-2.5 bg-muted-foreground/30 group-hover:bg-muted-foreground'
+                  }`} />
+                <span className={`text-xs ${activeCard === i ? 'text-foreground font-semibold' : 'text-muted-foreground'}`}>
+                  {label}
+                </span>
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Info Modal */}
+      {showInfo && <InfoModal onClose={() => setShowInfo(false)} />}
+    </>
+  )
+}
+
+// ==================== INFO MODAL ====================
+function InfoModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card border border-border rounded-xl max-w-lg w-full p-6 shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="font-bold text-lg flex items-center gap-2">
             <Info className="h-5 w-5 text-blue-500" />
-            <h4 className="font-bold text-base">Why? Key allocation differences:</h4>
+            How is this data calculated?
+          </h3>
+          <button onClick={onClose} className="p-1.5 hover:bg-secondary rounded-lg transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-3 text-sm">
+          <div className="p-3 rounded-lg bg-secondary/50 border border-border">
+            <p className="font-bold mb-1">📈 S&P 500 Today %</p>
+            <p className="text-muted-foreground leading-relaxed">
+              We use <strong className="text-foreground">SPY</strong> — the world's most popular S&P 500 fund.
+              When SPY goes up 0.72%, the S&P 500 went up roughly the same. It's the easiest way to compare your portfolio to "the market."
+            </p>
           </div>
 
-          {topReasons.map((reason) => {
-            const isOverweight = reason.diff > 0
-            const helpedOrHurt =
-              (isOverweight && reason.sectorPerf > 0) || (!isOverweight && reason.sectorPerf < 0)
+          <div className="p-3 rounded-lg bg-secondary/50 border border-border">
+            <p className="font-bold mb-1">💼 Your Portfolio %</p>
+            <p className="text-muted-foreground leading-relaxed">
+              Calculated from your actual holdings. Each stock's price change today is weighted by how much of your portfolio it represents.
+            </p>
+          </div>
 
-            return (
-              <div
-                key={reason.sector}
-                className="p-4 rounded-lg bg-secondary/30 border border-border"
-              >
-                {/* Top row */}
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-base">{reason.sector}</span>
-                    <span className={`text-xs px-2 py-1 rounded-full font-semibold ${isOverweight
-                      ? 'bg-blue-500/20 text-blue-400'
-                      : 'bg-purple-500/20 text-purple-400'
-                      }`}>
-                      {isOverweight ? 'Overweight' : 'Underweight'}
-                    </span>
-                  </div>
-                  <span className={`text-base font-bold ${reason.sectorPerf >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                    {formatPercent(reason.sectorPerf)}
-                  </span>
-                </div>
+          <div className="p-3 rounded-lg bg-secondary/50 border border-border">
+            <p className="font-bold mb-1">📊 Sector Performance % (Card 1)</p>
+            <p className="text-muted-foreground leading-relaxed">
+              Each sector uses its official <strong className="text-foreground">SPDR ETF</strong> as a proxy:
+              Tech → XLK, Communication → XLC, Financials → XLF, Healthcare → XLV, etc.
+              These ETFs hold hundreds of stocks in that sector, so their daily % = the sector's daily move.
+            </p>
+          </div>
 
-                {/* Bottom row */}
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm text-muted-foreground">
-                    You:{' '}
-                    <span className="font-semibold text-foreground">
-                      {reason.yourWeight.toFixed(1)}%
-                    </span>
-                    {' '}vs Market:{' '}
-                    <span className="font-semibold text-foreground">
-                      {reason.marketWeight.toFixed(1)}%
-                    </span>
-                    <span className={`ml-2 font-bold ${Math.abs(reason.diff) > 5 ? 'text-foreground' : 'text-muted-foreground'}`}>
-                      ({reason.diff > 0 ? '+' : ''}{reason.diff.toFixed(1)}% diff)
-                    </span>
-                  </span>
-                  <span className={`text-sm font-bold whitespace-nowrap ${helpedOrHurt ? 'text-green-500' : 'text-red-500'}`}>
-                    {helpedOrHurt ? '✓ Helped' : '✗ Hurt'}
-                  </span>
-                </div>
-              </div>
-            )
-          })}
+          <div className="p-3 rounded-lg bg-secondary/50 border border-border">
+            <p className="font-bold mb-1">⚖️ S&P 500 Sector Weights (Card 2)</p>
+            <p className="text-muted-foreground leading-relaxed">
+              These are approximate S&P 500 weights (e.g. Tech = 28.5%). If you own more Tech than 28.5% of your portfolio, you have more "Tech exposure" than the average S&P 500 investor.
+            </p>
+          </div>
+
+          <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+            <p className="font-bold mb-1">🕐 When does data update?</p>
+            <p className="text-muted-foreground leading-relaxed">
+              Data updates <strong className="text-foreground">once per day after market close (4PM EST, weekdays only)</strong>.
+              On Saturday & Sunday, it always shows Friday's closing prices — which is correct, since the market is closed on weekends.
+            </p>
+          </div>
         </div>
 
-        {/* Summary */}
-        <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30">
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            <strong className="text-foreground">Bottom line:</strong>{' '}
-            {didOutperform ? (
-              <>
-                Your overweight positions in more defensive sectors and underweight in
-                more volatile growth sectors helped your portfolio relative to the market today.
-              </>
-            ) : (
-              <>
-                Your portfolio was hit harder than the market due to higher exposure to
-                sectors that underperformed today. Consider rebalancing if this pattern continues.
-              </>
-            )}
-          </p>
-        </div>
-
-      </CardContent>
-    </Card>
+        <button
+          onClick={onClose}
+          className="w-full mt-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-bold transition-colors"
+        >
+          Got it!
+        </button>
+      </div>
+    </div>
   )
 }

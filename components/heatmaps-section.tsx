@@ -1,64 +1,82 @@
 "use client"
 
-import { useEffect, useRef } from "react"
-
 interface TradingViewHeatmapProps {
   dataSource: string
   height?: number
 }
 
-export function TradingViewHeatmap({ dataSource, height = 600 }: TradingViewHeatmapProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
+export function TradingViewHeatmap({
+  dataSource,
+  height = 620,
+}: TradingViewHeatmapProps) {
+  const config = JSON.stringify({
+    exchanges: [],
+    dataSource,
+    grouping: "sector",
+    blockSize: "market_cap_basic",
+    blockColor: "change",
+    locale: "en",
+    symbolUrl: "",
+    colorTheme: "dark",
+    hasTopBar: false,
+    isDataSetEnabled: false,
+    isZoomEnabled: true,
+    hasSymbolTooltip: true,
+    isMonoSize: false,
+    width: "100%",
+    height,
+  })
 
-  useEffect(() => {
-    if (!containerRef.current) return
-
-    // Clear previous widget
-    containerRef.current.innerHTML = ""
-
-    const widgetDiv = document.createElement("div")
-    widgetDiv.className = "tradingview-widget-container__widget"
-    widgetDiv.style.height = `${height - 32}px`
-    widgetDiv.style.width = "100%"
-
-    const script = document.createElement("script")
-    script.type = "text/javascript"
-    script.src =
-      "https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js"
-    script.async = true
-    script.innerHTML = JSON.stringify({
-      exchanges: [],
-      dataSource,
-      grouping: "sector",
-      blockSize: "market_cap_basic",
-      blockColor: "change",
-      locale: "en",
-      symbolUrl: "",
-      colorTheme: "dark",
-      hasTopBar: false,
-      isDataSetEnabled: false,
-      isZoomEnabled: true,
-      hasSymbolTooltip: true,
-      isMonoSize: false,
-      width: "100%",
-      height: "100%",
-    })
-
-    containerRef.current.appendChild(widgetDiv)
-    containerRef.current.appendChild(script)
-
-    return () => {
-      if (containerRef.current) {
-        containerRef.current.innerHTML = ""
-      }
-    }
-  }, [dataSource, height])
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          html, body {
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            overflow: hidden;
+          }
+          .tradingview-widget-container,
+          .tradingview-widget-container__widget,
+          iframe {
+            width: 100% !important;
+            height: 100% !important;
+          }
+        </style>
+      </head>
+      <body>
+        <div
+          class="tradingview-widget-container"
+          style="width:100%;height:${height}px"
+        >
+          <div
+            class="tradingview-widget-container__widget"
+            style="width:100%;height:${height}px"
+          ></div>
+          <script
+            type="text/javascript"
+            src="https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js"
+            async
+          >${config}</script>
+        </div>
+      </body>
+    </html>
+  `
 
   return (
-    <div
-      ref={containerRef}
-      className="tradingview-widget-container"
-      style={{ height: `${height}px`, width: "100%" }}
+    <iframe
+      key={dataSource}
+      srcDoc={html}
+      width="100%"
+      height={height}
+      frameBorder="0"
+      scrolling="no"
+      title={`${dataSource} Heatmap`}
+      style={{ display: "block", border: "none" }}
     />
   )
 }

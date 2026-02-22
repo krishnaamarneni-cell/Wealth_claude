@@ -3,18 +3,18 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react"
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer, ReferenceLine
+  Tooltip, Legend, ResponsiveContainer, ReferenceLine,
 } from "recharts"
 import {
   X, Plus, Search, RefreshCw,
-  BarChart3, ArrowUpRight, ArrowDownRight
+  BarChart3, ArrowUpRight, ArrowDownRight,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   Table, TableBody, TableCell,
-  TableHead, TableHeader, TableRow
+  TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import ProjectionTab from "@/components/projection/projection-tab"
 
@@ -63,11 +63,12 @@ interface StockEntry {
 // ── Constants ─────────────────────────────────────────────────────────
 const COLORS = [
   '#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
-  '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#a855f7'
+  '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#a855f7',
 ]
 const CHART_PERIODS = ['1M', '3M', '6M', '1Y', '5Y'] as const
 type ChartPeriod = typeof CHART_PERIODS[number]
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const LS_SYMBOLS_KEY = 'compare_saved_symbols'
 
 // ── Formatters ────────────────────────────────────────────────────────
 const fmtPrice = (v: any) => {
@@ -113,7 +114,6 @@ function cellCls(val: number | null, best: number | null, worst: number | null) 
   return ''
 }
 
-// ── Metrics ───────────────────────────────────────────────────────────
 const METRICS = [
   { label: 'Current Price', key: 'price', fmt: fmtPrice, hb: null },
   { label: 'Market Cap', key: 'marketCap', fmt: fmtCap, hb: null },
@@ -122,31 +122,54 @@ const METRICS = [
   { label: 'Price to Book', key: 'pb', fmt: fmtNum, hb: false },
   { label: 'Revenue Growth YoY', key: 'revenueGrowth', fmt: fmtPct, hb: true },
   { label: 'EPS Growth YoY', key: 'epsGrowth', fmt: fmtPct, hb: true },
-  {
-    label: 'Net Profit Margin', key: 'netMargin',
-    fmt: (v: any) => fmtNum(v) === '—' ? '—' : `${fmtNum(v)}%`, hb: true,
-  },
-  {
-    label: 'Gross Margin', key: 'grossMargin',
-    fmt: (v: any) => fmtNum(v) === '—' ? '—' : `${fmtNum(v)}%`, hb: true,
-  },
-  {
-    label: 'ROE', key: 'roe',
-    fmt: (v: any) => fmtNum(v) === '—' ? '—' : `${fmtNum(v)}%`, hb: true,
-  },
+  { label: 'Net Profit Margin', key: 'netMargin', fmt: (v: any) => fmtNum(v) === '—' ? '—' : `${fmtNum(v)}%`, hb: true },
+  { label: 'Gross Margin', key: 'grossMargin', fmt: (v: any) => fmtNum(v) === '—' ? '—' : `${fmtNum(v)}%`, hb: true },
+  { label: 'ROE', key: 'roe', fmt: (v: any) => fmtNum(v) === '—' ? '—' : `${fmtNum(v)}%`, hb: true },
   { label: 'Beta', key: 'beta', fmt: fmtNum, hb: false },
   { label: 'Debt to Equity', key: 'debtToEquity', fmt: fmtNum, hb: false },
-  {
-    label: 'Dividend Yield', key: 'divYield',
-    fmt: (v: any) => fmtNum(v) === '—' ? '—' : `${fmtNum(v)}%`, hb: true,
-  },
+  { label: 'Dividend Yield', key: 'divYield', fmt: (v: any) => fmtNum(v) === '—' ? '—' : `${fmtNum(v)}%`, hb: true },
   { label: 'Dividend Amount', key: 'divAmt', fmt: fmtDolr, hb: true },
   { label: '52-Wk Range', key: '__52wk__', fmt: null, hb: null },
 ] as const
 
+// ── Skeleton ──────────────────────────────────────────────────────────
+function CompareSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      <Card>
+        <CardContent className="pt-4 pb-4 space-y-3">
+          <div className="flex gap-2 flex-wrap">
+            {[120, 100, 110].map((w, i) => (
+              <div key={i} className="h-8 rounded-lg bg-muted" style={{ width: w }} />
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <div className="h-9 flex-1 max-w-sm bg-muted rounded-md" />
+            <div className="h-9 w-16 bg-muted rounded-md" />
+          </div>
+          <div className="h-3 w-40 bg-muted rounded" />
+        </CardContent>
+      </Card>
+      <div className="flex gap-1">
+        {CHART_PERIODS.map(p => (
+          <div key={p} className="h-6 w-10 bg-muted rounded-md" />
+        ))}
+      </div>
+      <Card>
+        <CardContent className="pt-5 pb-5">
+          <div className="h-5 w-44 bg-muted rounded mb-1.5" />
+          <div className="h-3 w-64 bg-muted rounded mb-6" />
+          <div className="h-[380px] bg-muted rounded-lg" />
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 // ── Compare Tab ───────────────────────────────────────────────────────
 function CompareTab() {
   const [stocks, setStocks] = useState<StockEntry[]>([])
+  const [restoring, setRestoring] = useState(true)
   const [period, setPeriod] = useState<ChartPeriod>('1Y')
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState<string | null>(null)
@@ -154,11 +177,59 @@ function CompareTab() {
   const [suggests, setSuggests] = useState<SearchResult[]>([])
   const [searching, setSearching] = useState(false)
   const [showDrop, setShowDrop] = useState(false)
+
   const colorIdx = useRef(0)
+  const isRestoringRef = useRef(true)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const dropRef = useRef<HTMLDivElement>(null)
 
-  // Close dropdown on outside click
+  // ── Restore saved symbols on mount ────────────────────────────────
+  useEffect(() => {
+    let cancelled = false
+    const raw = localStorage.getItem(LS_SYMBOLS_KEY)
+    const saved: string[] = raw ? JSON.parse(raw) : []
+    const symbols = saved.length > 0 ? saved : ['AAPL']
+
+    Promise.all(
+      symbols.map(async (symbol, i) => {
+        const color = COLORS[i % COLORS.length]
+        const willBeFund = i < 3
+        try {
+          const [chartRes, fundRes] = await Promise.all([
+            fetch(`/api/stock/compare?symbols=${symbol}&mode=chart`).then(r => r.json()),
+            willBeFund
+              ? fetch(`/api/stock/compare?symbols=${symbol}&mode=fundamentals`).then(r => r.json())
+              : Promise.resolve(null),
+          ])
+          if (!Array.isArray(chartRes) || !chartRes[0]?.history?.length) return null
+          const history = chartRes[0].history as HistoryPoint[]
+          const fund: FundData | null =
+            Array.isArray(fundRes) && fundRes[0] ? (fundRes[0] as FundData) : null
+          return { symbol, color, history, fund } as StockEntry
+        } catch { return null }
+      })
+    ).then(results => {
+      if (cancelled) return
+      const valid = results.filter(Boolean) as StockEntry[]
+      colorIdx.current = valid.length
+      setStocks(valid)
+    }).finally(() => {
+      if (cancelled) return
+      isRestoringRef.current = false
+      setRestoring(false)
+    })
+
+    return () => { cancelled = true }
+  }, [])
+
+  // ── Save symbols whenever stocks change (skip during restoration) ──
+  useEffect(() => {
+    if (isRestoringRef.current) return
+    const symbols = stocks.map(s => s.symbol)
+    localStorage.setItem(LS_SYMBOLS_KEY, JSON.stringify(symbols))
+  }, [stocks])
+
+  // ── Close dropdown on outside click ───────────────────────────────
   useEffect(() => {
     const fn = (e: MouseEvent) => {
       if (dropRef.current && !dropRef.current.contains(e.target as Node))
@@ -168,7 +239,7 @@ function CompareTab() {
     return () => document.removeEventListener('mousedown', fn)
   }, [])
 
-  // Debounced search
+  // ── Debounced search ──────────────────────────────────────────────
   const handleInput = useCallback((val: string) => {
     setInput(val)
     setError(null)
@@ -186,7 +257,7 @@ function CompareTab() {
     }, 300)
   }, [])
 
-  // Add stock
+  // ── Add stock ─────────────────────────────────────────────────────
   const addStock = useCallback(async (symOverride?: string) => {
     const symbol = (symOverride ?? input).trim().toUpperCase()
     if (!symbol) return
@@ -210,17 +281,14 @@ function CompareTab() {
           ? fetch(`/api/stock/compare?symbols=${symbol}&mode=fundamentals`).then(r => r.json())
           : Promise.resolve(null),
       ])
-
       if (!Array.isArray(chartRes) || !chartRes[0]?.history?.length) {
         setError(`No data found for ${symbol}`)
         colorIdx.current--
         return
       }
-
       const history = chartRes[0].history as HistoryPoint[]
       const fund: FundData | null =
         Array.isArray(fundRes) && fundRes[0] ? (fundRes[0] as FundData) : null
-
       setStocks(prev => [...prev, { symbol, color, history, fund }])
     } catch {
       setError(`Failed to fetch ${symbol}`)
@@ -228,7 +296,7 @@ function CompareTab() {
     } finally { setLoading(null) }
   }, [input, stocks])
 
-  // Remove + auto-promote into fundamentals
+  // ── Remove + auto-promote ─────────────────────────────────────────
   const removeStock = useCallback((symbol: string) => {
     setStocks(prev => {
       const next = prev.filter(s => s.symbol !== symbol)
@@ -255,7 +323,7 @@ function CompareTab() {
     })
   }, [])
 
-  // Normalized % return chart data
+  // ── Normalized % return chart data ────────────────────────────────
   const chartData = useMemo(() => {
     if (!stocks.length) return []
     const cutoff = getPeriodCutoff(period)
@@ -282,7 +350,6 @@ function CompareTab() {
     })
   }, [stocks, period])
 
-  // Deduplicated X ticks
   const xTicks = useMemo(() => {
     const seen = new Set<string>()
     return chartData.reduce<string[]>((acc, p) => {
@@ -304,13 +371,15 @@ function CompareTab() {
     .slice(0, 3)
     .filter(s => s.fund !== null) as (StockEntry & { fund: FundData })[]
 
+  // ── Show skeleton while restoring ─────────────────────────────────
+  if (restoring) return <CompareSkeleton />
+
   return (
     <div className="space-y-6">
 
-      {/* ── Stock Selector ──────────────────────────────────────── */}
+      {/* ── Stock Selector ─────────────────────────────────────── */}
       <Card>
         <CardContent className="pt-4 space-y-3">
-          {/* Pills */}
           {stocks.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {stocks.map((stock, i) => (
@@ -327,9 +396,7 @@ function CompareTab() {
                   <span
                     className="text-xs px-1.5 py-0.5 rounded font-medium"
                     style={{
-                      backgroundColor: i < 3
-                        ? 'rgba(34,197,94,0.15)'
-                        : 'rgba(148,163,184,0.12)',
+                      backgroundColor: i < 3 ? 'rgba(34,197,94,0.15)' : 'rgba(148,163,184,0.12)',
                       color: i < 3 ? '#22c55e' : '#94a3b8',
                     }}
                   >
@@ -346,7 +413,6 @@ function CompareTab() {
             </div>
           )}
 
-          {/* Search input + dropdown */}
           <div className="flex gap-2 items-start">
             <div className="relative flex-1 max-w-sm" ref={dropRef}>
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
@@ -400,9 +466,8 @@ function CompareTab() {
           </div>
 
           {error && <p className="text-xs text-red-500">{error}</p>}
-          {loading && (
-            <p className="text-xs text-muted-foreground">Fetching {loading}...</p>
-          )}
+          {loading && <p className="text-xs text-muted-foreground">Fetching {loading}...</p>}
+
           <p className="text-xs text-muted-foreground">
             {stocks.length}/10 stocks ·{' '}
             <span className="text-green-500">Chart + Fund</span> = first 3 ·{' '}
@@ -411,17 +476,12 @@ function CompareTab() {
         </CardContent>
       </Card>
 
-      {/* ── Empty State ─────────────────────────────────────────── */}
+      {/* ── Empty state ─────────────────────────────────────────── */}
       {stocks.length === 0 ? (
         <Card>
           <CardContent className="py-24 text-center">
-            <BarChart3
-              className="h-10 w-10 mx-auto mb-3 opacity-30"
-              style={{ color: '#94a3b8' }}
-            />
-            <p className="text-sm text-muted-foreground">
-              Search for stocks above to start comparing
-            </p>
+            <BarChart3 className="h-10 w-10 mx-auto mb-3 opacity-30" style={{ color: '#94a3b8' }} />
+            <p className="text-sm text-muted-foreground">Search for stocks above to start comparing</p>
             <p className="text-xs text-muted-foreground mt-1 opacity-60">
               Try "Apple", "Tesla", or type a ticker like NVDA
             </p>
@@ -430,7 +490,7 @@ function CompareTab() {
       ) : (
         <div className="space-y-6">
 
-          {/* ── Period Selector ────────────────────────────────── */}
+          {/* ── Period Selector ──────────────────────────────────── */}
           <div className="flex gap-1">
             {CHART_PERIODS.map(p => (
               <button
@@ -446,31 +506,18 @@ function CompareTab() {
             ))}
           </div>
 
-          {/* ── % Return Chart ─────────────────────────────────── */}
+          {/* ── % Return Chart ────────────────────────────────────── */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">% Return — {period}</CardTitle>
-              <CardDescription>
-                All stocks normalized to 0% at period start
-              </CardDescription>
+              <CardDescription>All stocks normalized to 0% at period start</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-[380px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={chartData}
-                    margin={{ top: 8, right: 16, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="hsl(var(--border))"
-                    />
-                    <ReferenceLine
-                      y={0}
-                      stroke="#94a3b8"
-                      strokeDasharray="4 4"
-                      strokeWidth={1}
-                    />
+                  <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="4 4" strokeWidth={1} />
                     <XAxis
                       dataKey="date"
                       ticks={xTicks}
@@ -480,9 +527,7 @@ function CompareTab() {
                       axisLine={false}
                     />
                     <YAxis
-                      tickFormatter={v =>
-                        `${v > 0 ? '+' : ''}${Number(v).toFixed(0)}%`
-                      }
+                      tickFormatter={v => `${v > 0 ? '+' : ''}${Number(v).toFixed(0)}%`}
                       tick={{ fill: '#94a3b8', fontSize: 10 }}
                       tickLine={false}
                       axisLine={false}
@@ -519,7 +564,7 @@ function CompareTab() {
             </CardContent>
           </Card>
 
-          {/* ── Fundamentals Section ───────────────────────────── */}
+          {/* ── Fundamentals ─────────────────────────────────────── */}
           {fundStocks.length > 0 && (
             <div className="space-y-4">
               <div>
@@ -530,14 +575,9 @@ function CompareTab() {
               </div>
 
               {/* Price cards */}
-              <div
-                className={`grid gap-4 ${fundStocks.length === 1
-                    ? 'grid-cols-1 max-w-sm'
-                    : fundStocks.length === 2
-                      ? 'grid-cols-2'
-                      : 'grid-cols-3'
-                  }`}
-              >
+              <div className={`grid gap-4 ${fundStocks.length === 1 ? 'grid-cols-1 max-w-sm' :
+                  fundStocks.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
+                }`}>
                 {fundStocks.map(stock => (
                   <Card
                     key={stock.symbol}
@@ -557,13 +597,9 @@ function CompareTab() {
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {stock.fund.name}
-                          </p>
+                          <p className="text-xs text-muted-foreground truncate">{stock.fund.name}</p>
                           {stock.fund.sector && (
-                            <p className="text-xs text-muted-foreground opacity-60">
-                              {stock.fund.sector}
-                            </p>
+                            <p className="text-xs text-muted-foreground opacity-60">{stock.fund.sector}</p>
                           )}
                         </div>
                         {stock.fund.logo && (
@@ -571,22 +607,14 @@ function CompareTab() {
                             src={stock.fund.logo}
                             alt={stock.symbol}
                             className="h-9 w-9 rounded object-contain flex-shrink-0 ml-2"
-                            onError={e =>
-                              ((e.target as HTMLImageElement).style.display = 'none')
-                            }
+                            onError={e => ((e.target as HTMLImageElement).style.display = 'none')}
                           />
                         )}
                       </div>
-                      <p className="text-2xl font-bold">
-                        {fmtPrice(stock.fund.price)}
-                      </p>
+                      <p className="text-2xl font-bold">{fmtPrice(stock.fund.price)}</p>
                       {stock.fund.changePercent != null && (
-                        <div
-                          className={`flex items-center gap-1 text-sm mt-1 ${stock.fund.changePercent >= 0
-                              ? 'text-green-500'
-                              : 'text-red-500'
-                            }`}
-                        >
+                        <div className={`flex items-center gap-1 text-sm mt-1 ${stock.fund.changePercent >= 0 ? 'text-green-500' : 'text-red-500'
+                          }`}>
                           {stock.fund.changePercent >= 0
                             ? <ArrowUpRight className="h-4 w-4" />
                             : <ArrowDownRight className="h-4 w-4" />}
@@ -635,14 +663,9 @@ function CompareTab() {
                           if (metric.key === '__52wk__') {
                             return (
                               <TableRow key="52wk">
-                                <TableCell className="text-sm font-medium">
-                                  52-Wk Range
-                                </TableCell>
+                                <TableCell className="text-sm font-medium">52-Wk Range</TableCell>
                                 {fundStocks.map(stock => (
-                                  <TableCell
-                                    key={stock.symbol}
-                                    className="text-center text-sm"
-                                  >
+                                  <TableCell key={stock.symbol} className="text-center text-sm">
                                     {stock.fund.low52 && stock.fund.high52
                                       ? `${fmtPrice(stock.fund.low52)} – ${fmtPrice(stock.fund.high52)}`
                                       : '—'}
@@ -651,20 +674,13 @@ function CompareTab() {
                               </TableRow>
                             )
                           }
-
-                          const vals = fundStocks.map(
-                            s => (s.fund as any)[metric.key] as number | null
-                          )
-                          const { best, worst } =
-                            metric.hb != null
-                              ? getBestWorst(vals, metric.hb as boolean)
-                              : { best: null, worst: null }
-
+                          const vals = fundStocks.map(s => (s.fund as any)[metric.key] as number | null)
+                          const { best, worst } = metric.hb != null
+                            ? getBestWorst(vals, metric.hb as boolean)
+                            : { best: null, worst: null }
                           return (
                             <TableRow key={metric.label}>
-                              <TableCell className="text-sm font-medium">
-                                {metric.label}
-                              </TableCell>
+                              <TableCell className="text-sm font-medium">{metric.label}</TableCell>
                               {fundStocks.map(stock => {
                                 const val = (stock.fund as any)[metric.key]
                                 return (
@@ -707,7 +723,7 @@ export default function ComparePage() {
         </p>
       </div>
 
-      {/* ── Top-level tab bar ─────────────────────────────────── */}
+      {/* ── Top-level tab bar ──────────────────────────────────── */}
       <div className="flex gap-0 border-b border-border">
         {([
           { key: 'compare', label: 'Compare' },
@@ -726,7 +742,6 @@ export default function ComparePage() {
         ))}
       </div>
 
-      {/* ── Tab content ───────────────────────────────────────── */}
       {pageTab === 'compare' && <CompareTab />}
       {pageTab === 'projection' && <ProjectionTab />}
     </div>

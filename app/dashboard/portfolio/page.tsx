@@ -1514,7 +1514,6 @@ export default function PortfolioPage() {
           riskScore={riskScore}
         />
       )}
-
       {/* Rebalance Mode */}
       {mode === 'rebalance' && (
         <>
@@ -1657,7 +1656,19 @@ export default function PortfolioPage() {
               </CardContent>
             </Card>
           </div>
-
+          {mode === "rebalance" && (
+            <PortfolioAIInsight
+              mode="rebalance"
+              holdings={holdings}
+              totalPortfolioValue={totalPortfolioValue}
+              allocationHistory={allocationHistory}
+              rebalanceRecommendations={rebalanceRecommendations}
+              whatIfScenario={whatIfScenario}
+              whatIfAmount={whatIfAmount}
+              driftScore={driftScore}
+              riskScore={riskScore}
+            />
+          )}
           {/* Insights Row */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Stock Concentration Card */}

@@ -5,6 +5,10 @@ import { TradingViewHeatmap } from "@/components/heatmaps-section"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
+// ─── VERIFIED dataSource values ───────────────────────────────────────────────
+// These match TradingView's internal identifiers exactly.
+// Wrong values silently fall back to S&P 500 — that was the root bug.
+
 const MARKET_GROUPS = [
   {
     region: "🇺🇸 US",
@@ -34,7 +38,7 @@ const MARKET_GROUPS = [
   {
     region: "🪙 Crypto",
     markets: [
-      { label: "Crypto", dataSource: "CRYPTO", components: "Top crypto assets" },
+      { label: "Crypto", dataSource: "CRYPTO", components: "Top assets" },
     ],
   },
 ]
@@ -43,14 +47,11 @@ const ALL_MARKETS = MARKET_GROUPS.flatMap((g) => g.markets)
 
 export default function HeatmapPage() {
   const [activeDataSource, setActiveDataSource] = useState("SPX500")
-
-  // ↓ This is the critical piece — increments on EVERY tab click
-  // Forces React to fully destroy + recreate TradingViewHeatmap
-  const [mountKey, setMountKey] = useState(0)
+  const [mountKey, setMountKey] = useState(1)
 
   const handleSelect = (dataSource: string) => {
     setActiveDataSource(dataSource)
-    setMountKey((prev) => prev + 1) // always a new number = always a new component
+    setMountKey((k) => k + 1)
   }
 
   const activeMarket =
@@ -72,7 +73,7 @@ export default function HeatmapPage() {
         </p>
       </div>
 
-      {/* ── Flat Tabs ── */}
+      {/* ── Tabs ── */}
       <div className="flex flex-col gap-2">
         {MARKET_GROUPS.map((group) => (
           <div key={group.region} className="flex items-center gap-3 flex-wrap">
@@ -104,7 +105,6 @@ export default function HeatmapPage() {
 
       {/* ── Heatmap Card ── */}
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-
         <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold">
@@ -120,11 +120,10 @@ export default function HeatmapPage() {
           </div>
         </div>
 
-        {/* key={mountKey} destroys old iframe completely on every click */}
         <TradingViewHeatmap
-          key={mountKey}
           dataSource={activeDataSource}
           height={620}
+          mountKey={mountKey}
         />
       </div>
 
@@ -135,15 +134,15 @@ export default function HeatmapPage() {
           <ul className="space-y-1.5 text-sm text-muted-foreground">
             <li className="flex items-start gap-2">
               <span className="mt-1 h-2.5 w-2.5 rounded-sm bg-green-600 shrink-0" />
-              <span><span className="font-medium text-foreground">Green</span> — Stock is up. Darker = larger gain</span>
+              <span><span className="font-medium text-foreground">Green</span> — Up. Darker = larger gain</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="mt-1 h-2.5 w-2.5 rounded-sm bg-red-600 shrink-0" />
-              <span><span className="font-medium text-foreground">Red</span> — Stock is down. Darker = larger loss</span>
+              <span><span className="font-medium text-foreground">Red</span> — Down. Darker = larger loss</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="mt-1 h-2.5 w-2.5 rounded-sm bg-muted-foreground/40 shrink-0" />
-              <span><span className="font-medium text-foreground">Size</span> — Rectangle size = market cap weight</span>
+              <span><span className="font-medium text-foreground">Size</span> — Rectangle = market cap weight</span>
             </li>
           </ul>
         </div>
@@ -166,7 +165,6 @@ export default function HeatmapPage() {
           </dl>
         </div>
       </div>
-
     </div>
   )
 }

@@ -22,12 +22,12 @@ function safeNum(v: any): number | null {
   return isFinite(n) && n !== 0 ? n : null
 }
 
-// ── Yahoo daily history (chart only) ─────────────────────────────────
+// ── Yahoo daily history — 5Y ──────────────────────────────────────────
 async function fetchHistory(symbol: string): Promise<{ date: string; price: number }[]> {
   try {
     const ys = symbol.replace(/\./g, '-')
     const r = await tFetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${ys}?interval=1d&range=1y`
+      `https://query1.finance.yahoo.com/v8/finance/chart/${ys}?interval=1d&range=5y`
     )
     if (!r.ok) return []
     const j = await r.json()
@@ -49,7 +49,7 @@ async function fetchHistory(symbol: string): Promise<{ date: string; price: numb
   } catch { return [] }
 }
 
-// ── Yahoo price (fundamentals) ────────────────────────────────────────
+// ── Yahoo price ───────────────────────────────────────────────────────
 async function fetchYahooPrice(symbol: string) {
   try {
     const ys = symbol.replace(/\./g, '-')
@@ -122,21 +122,18 @@ export async function GET(req: NextRequest) {
   const raw = p.get('symbols') ?? ''
   const mode = p.get('mode') ?? 'chart'
   const symbols = raw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
-
   if (!symbols.length) return NextResponse.json({ error: 'symbols required' }, { status: 400 })
 
   const fhKey = process.env.FINNHUB_API_KEY ?? process.env.NEXT_PUBLIC_FINNHUB_API_KEY ?? ''
 
-  // ── CHART mode — Yahoo history only, up to 10 ──────────────────────
   if (mode === 'chart') {
     const limited = symbols.slice(0, 10)
     const results = await Promise.all(
       limited.map(async (sym, i) => {
         const cKey = `chart_${sym}`
         const hit = MEM_CHART.get(cKey)
-        if (hit && Date.now() - hit.t < TTL) {
+        if (hit && Date.now() - hit.t < TTL)
           return { symbol: sym, color: COLORS[i % COLORS.length], history: hit.d, cached: true }
-        }
         const history = await fetchHistory(sym)
         if (history.length) MEM_CHART.set(cKey, { d: history, t: Date.now() })
         console.log(`[compare/chart] ${sym} bars:${history.length}`)
@@ -146,15 +143,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(results)
   }
 
-  // ── FUNDAMENTALS mode — Yahoo price + Finnhub, up to 3 ────────────
   const limited = symbols.slice(0, 3)
   const results = await Promise.all(
     limited.map(async (sym, i) => {
       const cKey = `fund_${sym}`
       const hit = MEM_FUND.get(cKey)
-      if (hit && Date.now() - hit.t < TTL) {
+      if (hit && Date.now() - hit.t < TTL)
         return { ...(hit.d as object), symbol: sym, color: COLORS[i % COLORS.length], cached: true }
-      }
 
       const [yq, fh] = await Promise.all([
         fetchYahooPrice(sym),
@@ -162,8 +157,7 @@ export async function GET(req: NextRequest) {
       ])
 
       const out = {
-        symbol: sym,
-        color: COLORS[i % COLORS.length],
+        symbol: sym, color: COLORS[i % COLORS.length],
         name: fh?.name ?? sym,
         logo: fh?.logo ?? null,
         sector: fh?.sector ?? null,

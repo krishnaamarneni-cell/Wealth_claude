@@ -121,8 +121,9 @@ export default function HeatmapPage() {
         </div>
 
         {/* Widget */}
+        {/* force remount on switch */}
         <TradingViewHeatmap
-          key={activeDataSource}      {/* force remount on switch */}
+          key={activeDataSource}
           dataSource={activeDataSource}
           height={620}
         />

@@ -13,16 +13,16 @@ interface StockDetail {
   price: number
   change: number
   changePercent: number
-  open: number
-  high: number
-  low: number
-  previousClose: number
-  marketCap: number
+  open: number | null
+  high: number | null
+  low: number | null
+  previousClose: number | null
+  marketCap: number | null
   pe: number | null
-  yearHigh: number
-  yearLow: number
-  volume: number
-  avgVolume: number
+  yearHigh: number | null
+  yearLow: number | null
+  volume: number | null
+  avgVolume: number | null
   dividendYield: number | null
   lastDiv: number | null
   exchange: string
@@ -50,7 +50,7 @@ function setCached<T>(key: string, data: T): void {
 }
 
 function fmtPrice(v: number | null | undefined) {
-  if (v == null || !isFinite(v) || v === 0) return "—"
+  if (v == null || !isFinite(v)) return "—"
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(v)
 }
 function fmtCap(v: number | null | undefined) {
@@ -72,7 +72,7 @@ function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
     <div className="bg-card border border-border rounded-lg px-3 py-2 shadow-lg text-sm">
-      <p className="text-muted-foreground text-xs">{label}</p>
+      <p className="text-xs mb-1" style={{ color: "#94a3b8" }}>{label}</p>
       <p className="font-bold text-foreground">{fmtPrice(payload[0].value)}</p>
     </div>
   )
@@ -90,7 +90,18 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
   const [period, setPeriod] = useState<Period>("1Y")
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [loadingHistory, setLoadingHistory] = useState(false)
+  const [chartNote, setChartNote] = useState<string | null>(null)
 
+  // Reset when symbol changes
+  useEffect(() => {
+    if (!open) return
+    setDetail(null)
+    setHistory([])
+    setPeriod("1Y")
+    setChartNote(null)
+  }, [symbol, open])
+
+  // Fetch detail
   useEffect(() => {
     if (!symbol || !open) return
     const key = `stockDetail_${symbol}`
@@ -99,8 +110,8 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
     setDetail(null)
     setLoadingDetail(true)
     fetch(`/api/stock/detail?symbol=${symbol}`)
-      .then((r) => r.json())
-      .then((d) => {
+      .then(r => r.json())
+      .then(d => {
         if (typeof d?.price === "number") setCached(key, d)
         setDetail(d)
       })
@@ -108,19 +119,27 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
       .finally(() => setLoadingDetail(false))
   }, [symbol, open])
 
+  // Fetch history
   useEffect(() => {
     if (!symbol || !open) return
     const key = `stockHistory_${symbol}_${period}`
     const cached = getCached<PricePoint[]>(key)
-    if (cached) { setHistory(cached); return }
+    if (cached) { setHistory(cached); setChartNote(null); return }
     setHistory([])
+    setChartNote(null)
     setLoadingHistory(true)
     fetch(`/api/stock/history?symbol=${symbol}&period=${period}`)
-      .then((r) => r.json())
-      .then((d) => {
+      .then(r => r.json())
+      .then(d => {
         const pts = Array.isArray(d) ? d : []
-        if (pts.length > 0) setCached(key, pts)
-        setHistory(pts)
+        if (pts.length > 0) {
+          setCached(key, pts)
+          setHistory(pts)
+        } else if (period === "1D") {
+          // Auto-fallback to 1W when 1D has no data (weekend/holiday)
+          setChartNote("1D unavailable — showing 1W")
+          setPeriod("1W")
+        }
       })
       .catch(console.error)
       .finally(() => setLoadingHistory(false))
@@ -133,27 +152,27 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
   const firstPrice = history[0]?.price ?? 0
   const lastPrice = history[history.length - 1]?.price ?? 0
   const chartUp = lastPrice >= firstPrice
+  const lineColor = chartUp ? "#22c55e" : "#ef4444"
 
-  // ── Stats always render — show "—" when data missing ──
   const stats = [
-    { label: "Open", value: isValid ? fmtPrice(detail!.open) : loadingDetail ? "..." : "—" },
-    { label: "High", value: isValid ? fmtPrice(detail!.high) : loadingDetail ? "..." : "—" },
-    { label: "Low", value: isValid ? fmtPrice(detail!.low) : loadingDetail ? "..." : "—" },
-    { label: "Prev Close", value: isValid ? fmtPrice(detail!.previousClose) : loadingDetail ? "..." : "—" },
-    { label: "Mkt Cap", value: isValid ? fmtCap(detail!.marketCap) : loadingDetail ? "..." : "—" },
-    { label: "P/E Ratio", value: isValid ? (detail!.pe != null ? detail!.pe.toFixed(2) : "—") : loadingDetail ? "..." : "—" },
-    { label: "52-Wk High", value: isValid ? fmtPrice(detail!.yearHigh) : loadingDetail ? "..." : "—" },
-    { label: "52-Wk Low", value: isValid ? fmtPrice(detail!.yearLow) : loadingDetail ? "..." : "—" },
-    { label: "Volume", value: isValid ? fmtVol(detail!.volume) : loadingDetail ? "..." : "—" },
-    { label: "Avg Volume", value: isValid ? fmtVol(detail!.avgVolume) : loadingDetail ? "..." : "—" },
-    { label: "Dividend", value: isValid ? (detail!.dividendYield != null ? `${detail!.dividendYield.toFixed(2)}%` : "—") : loadingDetail ? "..." : "—" },
-    { label: "Qtrly Div Amt", value: isValid ? (detail!.lastDiv != null ? `$${detail!.lastDiv.toFixed(2)}` : "—") : loadingDetail ? "..." : "—" },
+    { label: "Open", value: fmtPrice(detail?.open) },
+    { label: "High", value: fmtPrice(detail?.high) },
+    { label: "Low", value: fmtPrice(detail?.low) },
+    { label: "Prev Close", value: fmtPrice(detail?.previousClose) },
+    { label: "Mkt Cap", value: fmtCap(detail?.marketCap) },
+    { label: "P/E Ratio", value: detail?.pe != null ? detail.pe.toFixed(2) : "—" },
+    { label: "52-Wk High", value: fmtPrice(detail?.yearHigh) },
+    { label: "52-Wk Low", value: fmtPrice(detail?.yearLow) },
+    { label: "Volume", value: fmtVol(detail?.volume) },
+    { label: "Avg Volume", value: fmtVol(detail?.avgVolume) },
+    { label: "Dividend", value: detail?.dividendYield != null ? `${detail.dividendYield.toFixed(2)}%` : "—" },
+    { label: "Qtrly Div Amt", value: detail?.lastDiv != null ? `$${detail.lastDiv.toFixed(2)}` : "—" },
   ]
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div className="relative w-full max-w-3xl bg-card border border-border rounded-xl shadow-2xl overflow-hidden">
 
@@ -163,12 +182,12 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
             <div className="flex items-center gap-2 mb-1">
               <h2 className="text-2xl font-bold text-foreground">{symbol}</h2>
               {detail?.exchange && (
-                <span className="text-xs text-muted-foreground border border-border rounded px-2 py-0.5">
+                <span className="text-xs border border-border rounded px-2 py-0.5" style={{ color: "#94a3b8" }}>
                   {detail.exchange}
                 </span>
               )}
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm" style={{ color: "#94a3b8" }}>
               {loadingDetail ? "Loading..." : (detail?.name || symbol)}
             </p>
           </div>
@@ -193,51 +212,58 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
         <div className="px-6 py-4 space-y-5 max-h-[75vh] overflow-y-auto">
 
           {/* Period Selector */}
-          <div className="flex gap-1">
-            {PERIODS.map((p) => (
-              <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${period === p
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-              >
-                {p}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1">
+              {PERIODS.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => { setPeriod(p); setChartNote(null) }}
+                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${period === p
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-muted"
+                    }`}
+                  style={{ color: period === p ? undefined : "#94a3b8" }}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+            {chartNote && (
+              <span className="text-xs" style={{ color: "#f59e0b" }}>{chartNote}</span>
+            )}
           </div>
 
           {/* Chart */}
-          <div className="w-full" style={{ height: 256, minHeight: 256 }}>
+          <div className="h-64 w-full min-h-[256px]">
             {loadingHistory ? (
               <div className="h-full flex items-center justify-center">
-                <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+                <RefreshCw className="h-5 w-5 animate-spin" style={{ color: "#94a3b8" }} />
               </div>
             ) : history.length > 0 ? (
-              <ResponsiveContainer width="100%" height={256}>
+              <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={history} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={chartUp ? "#22c55e" : "#ef4444"} stopOpacity={0.25} />
-                      <stop offset="95%" stopColor={chartUp ? "#22c55e" : "#ef4444"} stopOpacity={0} />
+                      <stop offset="5%" stopColor={lineColor} stopOpacity={0.25} />
+                      <stop offset="95%" stopColor={lineColor} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
                   <XAxis
                     dataKey="date"
-                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                    tick={{ fill: "#94a3b8", fontSize: 10 }}
                     tickLine={false}
                     axisLine={false}
                     interval="preserveStartEnd"
                     tickFormatter={(v) => {
-                      if (period === "1D") return String(v).substring(0, 5)
-                      if (period === "5Y") return String(v).substring(0, 4)
-                      return String(v).substring(5)
+                      const s = String(v)
+                      if (period === "1D") return s.substring(0, 5)
+                      if (period === "5Y") return s.substring(0, 4)
+                      return s.substring(5)
                     }}
                   />
                   <YAxis
-                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                    tick={{ fill: "#94a3b8", fontSize: 10 }}
                     tickLine={false}
                     axisLine={false}
                     width={65}
@@ -248,7 +274,7 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
                   <Area
                     type="monotone"
                     dataKey="price"
-                    stroke={chartUp ? "#22c55e" : "#ef4444"}
+                    stroke={lineColor}
                     strokeWidth={2}
                     fill="url(#priceGrad)"
                     dot={false}
@@ -257,20 +283,19 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
-                <span>No chart data available for {period}</span>
-                {period === "1D" && <span className="text-xs">Market may be closed — try 1W</span>}
+              <div className="h-full flex items-center justify-center text-sm" style={{ color: "#94a3b8" }}>
+                No chart data available
               </div>
             )}
           </div>
 
-          {/* Stats Grid — always renders all 12 tiles */}
+          {/* Stats Grid — always 12 tiles */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
             {stats.map((s) => (
               <div key={s.label} className="bg-muted/40 rounded-lg p-3">
-                <p className="text-xs text-muted-foreground mb-1">{s.label}</p>
-                <p className={`text-sm font-semibold ${s.value === "..." ? "text-muted-foreground animate-pulse" : "text-foreground"}`}>
-                  {s.value}
+                <p className="text-xs mb-1" style={{ color: "#94a3b8" }}>{s.label}</p>
+                <p className={`text-sm font-semibold ${loadingDetail && s.value === "—" ? "animate-pulse" : ""} text-foreground`}>
+                  {loadingDetail ? "..." : s.value}
                 </p>
               </div>
             ))}

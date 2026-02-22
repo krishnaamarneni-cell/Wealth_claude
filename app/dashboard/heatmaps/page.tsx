@@ -5,62 +5,17 @@ import { TradingViewHeatmap } from "@/components/heatmaps-section"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
-// ─── VERIFIED dataSource values ───────────────────────────────────────────────
-// These match TradingView's internal identifiers exactly.
-// Wrong values silently fall back to S&P 500 — that was the root bug.
-
-const MARKET_GROUPS = [
-  {
-    region: "🇺🇸 US",
-    markets: [
-      { label: "S&P 500", dataSource: "SPX500", components: "500 stocks" },
-      { label: "NASDAQ 100", dataSource: "NASDAQ100", components: "100 stocks" },
-      { label: "Dow Jones", dataSource: "DJ30", components: "30 stocks" },
-    ],
-  },
-  {
-    region: "🌍 Europe",
-    markets: [
-      { label: "FTSE 100", dataSource: "FTSE", components: "100 stocks" },
-      { label: "DAX", dataSource: "DAX", components: "40 stocks" },
-      { label: "CAC 40", dataSource: "CAC40", components: "40 stocks" },
-    ],
-  },
-  {
-    region: "🌏 Asia",
-    markets: [
-      { label: "Nikkei 225", dataSource: "NIKKEI225", components: "225 stocks" },
-      { label: "ASX 200", dataSource: "ASX200", components: "200 stocks" },
-      { label: "Hang Seng", dataSource: "HSI", components: "82 stocks" },
-      { label: "Nifty 500", dataSource: "NIFTY500", components: "500 stocks" },
-    ],
-  },
-  {
-    region: "🪙 Crypto",
-    markets: [
-      { label: "Crypto", dataSource: "CRYPTO", components: "Top assets" },
-    ],
-  },
+const MARKETS = [
+  { label: "S&P 500", dataSource: "SPX500", components: "500 stocks", region: "🇺🇸 US" },
+  { label: "NASDAQ 100", dataSource: "NASDAQ100", components: "100 stocks", region: "🇺🇸 US" },
+  { label: "Dow Jones", dataSource: "DJ30", components: "30 stocks", region: "🇺🇸 US" },
+  { label: "Crypto", dataSource: "CRYPTO", components: "Top assets", region: "🪙 Crypto" },
 ]
 
-const ALL_MARKETS = MARKET_GROUPS.flatMap((g) => g.markets)
-
 export default function HeatmapPage() {
-  const [activeDataSource, setActiveDataSource] = useState("SPX500")
-  const [mountKey, setMountKey] = useState(1)
+  const [active, setActive] = useState("SPX500")
 
-  const handleSelect = (dataSource: string) => {
-    setActiveDataSource(dataSource)
-    setMountKey((k) => k + 1)
-  }
-
-  const activeMarket =
-    ALL_MARKETS.find((m) => m.dataSource === activeDataSource) ?? ALL_MARKETS[0]
-
-  const activeRegion =
-    MARKET_GROUPS.find((g) =>
-      g.markets.some((m) => m.dataSource === activeDataSource)
-    )?.region ?? ""
+  const activeMarket = MARKETS.find((m) => m.dataSource === active) ?? MARKETS[0]
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -69,49 +24,42 @@ export default function HeatmapPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Market Heat Maps</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Real-time market visualization of global indices
+          Real-time market visualization of major indices
         </p>
       </div>
 
       {/* ── Tabs ── */}
-      <div className="flex flex-col gap-2">
-        {MARKET_GROUPS.map((group) => (
-          <div key={group.region} className="flex items-center gap-3 flex-wrap">
-            <span className="text-xs font-semibold text-muted-foreground min-w-[72px] shrink-0">
-              {group.region}
-            </span>
-            <div className="flex gap-2 flex-wrap">
-              {group.markets.map((market) => {
-                const isActive = activeDataSource === market.dataSource
-                return (
-                  <button
-                    key={market.dataSource}
-                    onClick={() => handleSelect(market.dataSource)}
-                    className={cn(
-                      "px-4 py-1.5 rounded-md text-sm font-medium transition-all border cursor-pointer",
-                      isActive
-                        ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                        : "bg-transparent text-muted-foreground border-border hover:bg-muted hover:text-foreground"
-                    )}
-                  >
-                    {market.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        ))}
+      <div className="flex gap-2 flex-wrap">
+        {MARKETS.map((market) => {
+          const isActive = active === market.dataSource
+          return (
+            <button
+              key={market.dataSource}
+              onClick={() => setActive(market.dataSource)}
+              className={cn(
+                "px-4 py-1.5 rounded-md text-sm font-medium transition-all border cursor-pointer",
+                isActive
+                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                  : "bg-transparent text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+              )}
+            >
+              {market.label}
+            </button>
+          )
+        })}
       </div>
 
       {/* ── Heatmap Card ── */}
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+
+        {/* Card Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold">
               {activeMarket.label} Heat Map
             </span>
             <Badge variant="outline" className="text-xs">
-              {activeRegion}
+              {activeMarket.region}
             </Badge>
           </div>
           <div className="flex items-center gap-1.5">
@@ -120,15 +68,31 @@ export default function HeatmapPage() {
           </div>
         </div>
 
-        <TradingViewHeatmap
-          dataSource={activeDataSource}
-          height={620}
-          mountKey={mountKey}
-        />
+        {/* 
+          ALL 4 widgets mount at page load.
+          Switching is pure CSS show/hide — no re-render, no caching, guaranteed correct data. 
+        */}
+        <div style={{ width: "100%" }}>
+          {MARKETS.map((market) => (
+            <div
+              key={market.dataSource}
+              style={{
+                display: active === market.dataSource ? "block" : "none",
+                width: "100%",
+              }}
+            >
+              <TradingViewHeatmap
+                dataSource={market.dataSource}
+                height={620}
+              />
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ── Bottom Info Row ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
         <div className="rounded-xl border bg-card p-4 space-y-2">
           <h3 className="text-sm font-semibold">How to Read the Heat Map</h3>
           <ul className="space-y-1.5 text-sm text-muted-foreground">
@@ -152,7 +116,7 @@ export default function HeatmapPage() {
           <dl className="space-y-1.5 text-sm">
             {[
               { label: "Index", value: activeMarket.label },
-              { label: "Region", value: activeRegion },
+              { label: "Region", value: activeMarket.region },
               { label: "Components", value: activeMarket.components },
               { label: "Data", value: "Real-time" },
               { label: "Grouping", value: "By Sector" },
@@ -164,6 +128,7 @@ export default function HeatmapPage() {
             ))}
           </dl>
         </div>
+
       </div>
     </div>
   )

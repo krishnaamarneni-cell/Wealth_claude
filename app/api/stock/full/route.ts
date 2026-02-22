@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
-const FMP_KEY = process.env.NEXT_PUBLIC_FMP_API_KEY || process.env.FMP_API_KEY || ""
-const FINNHUB_KEY = process.env.NEXT_PUBLIC_FINNHUB_API_KEY || process.env.FINNHUB_API_KEY || ""
-const FMP_BASE = "https://financialmodelingprep.com/api/v3"
-const FH_BASE = "https://finnhub.io/api/v1"
-
-// ── In-memory cache (survives within same serverless instance) ────────
 const MEM = new Map<string, { data: StockFull; ts: number }>()
-const CACHE_TTL = 4 * 60 * 60 * 1000 // 4 hours
+const CACHE_TTL = 12 * 60 * 60 * 1000
 
 type Point = { date: string; price: number }
 
@@ -34,41 +28,31 @@ export interface StockFull {
   dividend: string | null
   exDivDate: string | null
   targetPrice: number | null
+  sector: string | null
+  logo: string | null
   intraday: Point[]
   daily: Point[]
 }
 
 // ── Timeout fetch ─────────────────────────────────────────────────────
-async function tFetch(url: string, opts: RequestInit = {}, ms = 8000): Promise<Response> {
+async function tFetch(url: string, ms = 8000): Promise<Response> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), ms)
   try {
-    return await fetch(url, { ...opts, signal: ctrl.signal, cache: "no-store" })
+    return await fetch(url, { signal: ctrl.signal, cache: "no-store" })
   } finally {
     clearTimeout(timer)
   }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────
-function toYahooSymbol(symbol: string): string { return symbol.replace(/\./g, "-") }
-
 function safeNum(v: any): number | null {
   if (v == null) return null
-  const n = typeof v === "object" && "raw" in v ? Number(v.raw) : Number(v)
+  const n = Number(v)
   return isFinite(n) && n !== 0 ? n : null
 }
-function safeNumZero(v: any): number | null {
-  if (v == null) return null
-  const n = typeof v === "object" && "raw" in v ? Number(v.raw) : Number(v)
-  return isFinite(n) ? n : null
-}
-function fmtDate(ts: any): string | null {
-  const n = safeNumZero(ts)
-  if (!n || n <= 0) return null
-  return new Date(n * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-}
 
-function parseYahooChart(json: any): Point[] {
+// ── Parse daily chart bars ────────────────────────────────────────────
+function parseYahooDaily(json: any): Point[] {
   try {
     const result = json?.chart?.result?.[0]
     if (!result) return []
@@ -88,6 +72,7 @@ function parseYahooChart(json: any): Point[] {
   } catch { return [] }
 }
 
+// ── Parse intraday bars ───────────────────────────────────────────────
 function parseYahooIntraday(json: any): Point[] {
   try {
     const result = json?.chart?.result?.[0]
@@ -111,234 +96,257 @@ function parseYahooIntraday(json: any): Point[] {
   } catch { return [] }
 }
 
-// ── Yahoo (primary) — uses v8 ONLY, extracts quote from chart meta ────
-async function fetchYahoo(symbol: string): Promise<StockFull> {
-  const ys = toYahooSymbol(symbol)
-  const headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-    "Accept": "application/json",
-    "Referer": "https://finance.yahoo.com/",
-  }
-
-  // Fetch daily + intraday in parallel — NO v7 quote call
-  const [dailyRes, intradayRes] = await Promise.all([
-    tFetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ys}?interval=1d&range=5y&events=div,splits`, { headers }),
-    tFetch(`https://query2.finance.yahoo.com/v8/finance/chart/${ys}?interval=5m&range=1d`, { headers }),
-  ])
-
-  if (!dailyRes.ok) throw new Error(`Yahoo daily ${dailyRes.status}`)
-
-  const [dailyJson, intradayJson] = await Promise.all([
-    dailyRes.json(),
-    intradayRes.ok ? intradayRes.json() : Promise.resolve(null),
-  ])
-
-  // Extract quote data from chart meta (same data, no extra call needed)
-  const meta = dailyJson?.chart?.result?.[0]?.meta
-  if (!meta?.regularMarketPrice) {
-    throw new Error(`Yahoo no price: ${JSON.stringify(dailyJson).substring(0, 150)}`)
-  }
-
-  const daily = parseYahooChart(dailyJson)
-  const intraday = intradayJson ? parseYahooIntraday(intradayJson) : []
-
-  console.log(`[Yahoo] ${symbol} ✅ price:${meta.regularMarketPrice} daily:${daily.length} intraday:${intraday.length}`)
-
-  const price = meta.regularMarketPrice
-  const prevClose = meta.previousClose ?? meta.chartPreviousClose ?? 0
-  const high52 = meta.fiftyTwoWeekHigh ?? null
-  const low52 = meta.fiftyTwoWeekLow ?? null
-  const dayHigh = meta.regularMarketDayHigh ?? null
-  const dayLow = meta.regularMarketDayLow ?? null
-
-  // Dividend from chart events
-  const divEvents = dailyJson?.chart?.result?.[0]?.events?.dividends
-  let dividend: string | null = null
-  let exDivDate: string | null = null
-  if (divEvents) {
-    const divArr = Object.values(divEvents) as any[]
-    if (divArr.length) {
-      const latest = divArr.sort((a, b) => b.date - a.date)[0]
-      const annual = latest.amount * 4
-      const yld = price > 0 ? (annual / price) * 100 : 0
-      dividend = `$${annual.toFixed(2)} (${yld.toFixed(2)}%)`
-      exDivDate = new Date(latest.date * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+// ── SOURCE 1: Yahoo — price, chart, dividend only ─────────────────────
+async function fetchYahoo(symbol: string) {
+  try {
+    const ys = symbol.replace(/\./g, "-")
+    const headers = {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "Accept": "application/json",
+      "Referer": "https://finance.yahoo.com/",
     }
-  }
 
-  return {
-    symbol,
-    name: meta.longName ?? meta.shortName ?? symbol,
-    exchange: meta.fullExchangeName ?? meta.exchangeName ?? "",
-    price,
-    change: price - prevClose,
-    changePercent: prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0,
-    open: meta.regularMarketOpen ?? null,
-    previousClose: prevClose,
-    bid: null,
-    ask: null,
-    dayRange: dayLow && dayHigh ? `${dayLow.toFixed(2)} – ${dayHigh.toFixed(2)}` : null,
-    weekRange52: low52 && high52 ? `${low52.toFixed(2)} – ${high52.toFixed(2)}` : null,
-    volume: meta.regularMarketVolume ?? null,
-    avgVolume: null,
-    marketCap: meta.marketCap ?? null,
-    beta: null,
-    pe: null,
-    eps: null,
-    earningsDate: null,
-    dividend,
-    exDivDate,
-    targetPrice: null,
-    intraday,
-    daily,
-  }
+    const [dailyRes, intradayRes] = await Promise.allSettled([
+      tFetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ys}?interval=1d&range=5y&events=div,splits`),
+      tFetch(`https://query2.finance.yahoo.com/v8/finance/chart/${ys}?interval=5m&range=1d`),
+    ])
+
+    const dailyJson = dailyRes.status === "fulfilled" && dailyRes.value.ok
+      ? await dailyRes.value.json() : null
+    const intradayJson = intradayRes.status === "fulfilled" && intradayRes.value.ok
+      ? await intradayRes.value.json() : null
+
+    const meta = dailyJson?.chart?.result?.[0]?.meta
+    if (!meta?.regularMarketPrice) {
+      console.log(`[Yahoo] no price for ${symbol}`)
+      return null
+    }
+
+    const price = meta.regularMarketPrice
+    const prev = meta.previousClose ?? meta.chartPreviousClose ?? 0
+    const dayHigh = meta.regularMarketDayHigh ?? null
+    const dayLow = meta.regularMarketDayLow ?? null
+    const high52 = meta.fiftyTwoWeekHigh ?? null
+    const low52 = meta.fiftyTwoWeekLow ?? null
+
+    // Dividend from chart events
+    let dividend: string | null = null
+    let exDivDate: string | null = null
+    const divEvents = dailyJson?.chart?.result?.[0]?.events?.dividends
+    if (divEvents) {
+      const divArr = Object.values(divEvents) as any[]
+      if (divArr.length) {
+        const latest = divArr.sort((a: any, b: any) => b.date - a.date)[0]
+        const annual = latest.amount * 4
+        const yld = price > 0 ? (annual / price) * 100 : 0
+        dividend = `$${annual.toFixed(2)} (${yld.toFixed(2)}%)`
+        exDivDate = new Date(latest.date * 1000).toLocaleDateString("en-US", {
+          month: "short", day: "numeric", year: "numeric",
+        })
+      }
+    }
+
+    const daily = dailyJson ? parseYahooDaily(dailyJson) : []
+    const intraday = intradayJson ? parseYahooIntraday(intradayJson) : []
+
+    console.log(`[Yahoo] ${symbol} ✅ price:${price} daily:${daily.length} intraday:${intraday.length}`)
+
+    return {
+      name: meta.longName ?? meta.shortName ?? null,
+      exchange: meta.fullExchangeName ?? meta.exchangeName ?? null,
+      price,
+      change: price - prev,
+      changePercent: prev > 0 ? ((price - prev) / prev) * 100 : 0,
+      open: meta.regularMarketOpen ?? null,
+      previousClose: prev,
+      dayRange: dayLow && dayHigh ? `${dayLow.toFixed(2)} – ${dayHigh.toFixed(2)}` : null,
+      weekRange52: low52 && high52 ? `${low52.toFixed(2)} – ${high52.toFixed(2)}` : null,
+      volume: meta.regularMarketVolume ?? null,
+      marketCap: meta.marketCap ?? null,
+      dividend,
+      exDivDate,
+      daily,
+      intraday,
+    }
+  } catch (e: any) { console.error("[Yahoo]", e.message); return null }
 }
 
-// ── FMP fallback ──────────────────────────────────────────────────────
-async function fetchFMP(symbol: string): Promise<StockFull> {
-  const [qRes, pRes, hRes, iRes] = await Promise.all([
-    tFetch(`${FMP_BASE}/quote/${symbol}?apikey=${FMP_KEY}`),
-    tFetch(`${FMP_BASE}/profile/${symbol}?apikey=${FMP_KEY}`),
-    tFetch(`${FMP_BASE}/historical-price-full/${symbol}?timeseries=1825&apikey=${FMP_KEY}`),
-    tFetch(`${FMP_BASE}/historical-chart/5min/${symbol}?apikey=${FMP_KEY}`),
-  ])
-  const [qData, pData, hData, iData] = await Promise.all([
-    qRes.json(), pRes.json(), hRes.json(), iRes.json(),
-  ])
-  const q = Array.isArray(qData) ? qData[0] : null
-  const p = Array.isArray(pData) ? pData[0] : null
-  if (!q?.price) throw new Error(`FMP no price`)
+// ── SOURCE 2: Finnhub — fundamentals primary ──────────────────────────
+async function fetchFinnhubFundamentals(symbol: string, key: string) {
+  if (!key) { console.log("[Finnhub] key missing"); return null }
+  try {
+    const [mR, pR, tR, dR] = await Promise.allSettled([
+      tFetch(`https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${key}`),
+      tFetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${key}`),
+      tFetch(`https://finnhub.io/api/v1/stock/price-target?symbol=${symbol}&token=${key}`),
+      tFetch(`https://finnhub.io/api/v1/stock/dividend2?symbol=${symbol}&token=${key}`),
+    ])
 
-  const seen = new Set<string>()
-  const daily: Point[] = ((hData as any)?.historical || [])
-    .map((d: any) => ({ date: d.date as string, price: d.close as number }))
-    .filter((pt: Point) => pt.price != null && isFinite(pt.price))
-    .reverse()
-    .filter((pt: Point) => { if (seen.has(pt.date)) return false; seen.add(pt.date); return true })
+    const metrics = mR.status === "fulfilled" && mR.value.ok ? await mR.value.json() : null
+    const profile = pR.status === "fulfilled" && pR.value.ok ? await pR.value.json() : null
+    const target = tR.status === "fulfilled" && tR.value.ok ? await tR.value.json() : null
+    const dividend = dR.status === "fulfilled" && dR.value.ok ? await dR.value.json() : null
 
-  const recentDate = Array.isArray(iData) && iData[0]?.date?.split(" ")[0]
-  const intraday: Point[] = recentDate
-    ? (iData as any[])
-      .filter((d: any) => d.date?.startsWith(recentDate))
-      .map((d: any) => ({ date: d.date.split(" ")[1], price: d.close }))
-      .filter((pt: Point) => pt.price != null && isFinite(pt.price))
-      .reverse()
-    : []
+    const m = metrics?.metric ?? {}
 
-  const divYield = p?.lastDiv ? ((p.lastDiv * 4) / q.price) * 100 : null
-  console.log(`[FMP] ${symbol} ✅ price:${q.price} daily:${daily.length}`)
+    // Most recent dividend
+    let divAmt: number | null = null
+    let exDate: string | null = null
+    if (Array.isArray(dividend) && dividend.length > 0) {
+      const sorted = [...dividend].sort((a: any, b: any) =>
+        new Date(b.exDate).getTime() - new Date(a.exDate).getTime())
+      divAmt = sorted[0]?.amount ?? null
+      exDate = sorted[0]?.exDate ?? null
+    }
 
-  return {
-    symbol: q.symbol, name: p?.companyName || symbol,
-    exchange: p?.exchangeShortName || "", price: q.price,
-    change: q.change ?? 0, changePercent: q.changesPercentage ?? 0,
-    open: safeNum(q.open), previousClose: safeNum(q.previousClose),
-    bid: null, ask: null,
-    dayRange: q.dayLow && q.dayHigh ? `${q.dayLow.toFixed(2)} – ${q.dayHigh.toFixed(2)}` : null,
-    weekRange52: q.yearLow && q.yearHigh ? `${q.yearLow.toFixed(2)} – ${q.yearHigh.toFixed(2)}` : null,
-    volume: safeNum(q.volume), avgVolume: safeNum(q.avgVolume),
-    marketCap: safeNum(q.marketCap), beta: null,
-    pe: safeNum(q.pe), eps: safeNum(q.eps),
-    earningsDate: null,
-    dividend: p?.lastDiv ? `$${p.lastDiv.toFixed(2)}${divYield ? ` (${divYield.toFixed(2)}%)` : ""}` : null,
-    exDivDate: null, targetPrice: null, intraday, daily,
-  }
+    const avg10 = m["10DayAverageTradingVolume"] ? Math.round(m["10DayAverageTradingVolume"] * 1e6) : null
+    const avg3m = m["3MonthAverageTradingVolume"] ? Math.round(m["3MonthAverageTradingVolume"] * 1e6) : null
+
+    const result = {
+      pe: safeNum(m["peBasicExclExtraTTM"]) ?? safeNum(m["peTTM"]),
+      eps: safeNum(m["epsBasicExclExtraItemsTTM"]) ?? safeNum(m["epsTTM"]),
+      beta: safeNum(m["beta"]),
+      high52: safeNum(m["52WeekHigh"]),
+      low52: safeNum(m["52WeekLow"]),
+      divYield: safeNum(m["currentDividendYieldTTM"]),
+      divAmt: divAmt ?? (m["dividendsPerShareAnnual"] ? m["dividendsPerShareAnnual"] / 4 : null),
+      exDate,
+      avgVolume: avg10 ?? avg3m ?? null,
+      targetPrice: safeNum(target?.targetMean),
+      marketCap: profile?.marketCapitalization ? profile.marketCapitalization * 1e6 : null,
+      name: profile?.name ?? null,
+      sector: profile?.finnhubIndustry ?? null,
+      logo: profile?.logo ?? null,
+      country: profile?.country ?? "US",
+      exchange: profile?.exchange ?? null,
+    }
+
+    console.log(`[Finnhub] ${symbol} ✅ pe:${result.pe} eps:${result.eps} marketCap:${result.marketCap} div:${result.divAmt}`)
+    return result
+  } catch (e: any) { console.error("[Finnhub]", e.message); return null }
 }
 
-// ── Finnhub fallback ──────────────────────────────────────────────────
-async function fetchFinnhub(symbol: string): Promise<StockFull> {
-  const now = Math.floor(Date.now() / 1000)
-  const from5y = now - 5 * 365 * 86400
-  const from1d = now - 86400
+// ── SOURCE 3: Polygon — fundamentals fallback ─────────────────────────
+async function fetchPolygonFundamentals(symbol: string, key: string) {
+  if (!key) { console.log("[Polygon] key missing"); return null }
+  try {
+    const [refR, divR] = await Promise.allSettled([
+      tFetch(`https://api.polygon.io/v3/reference/tickers/${symbol}?apiKey=${key}`),
+      tFetch(`https://api.polygon.io/v3/reference/dividends?ticker=${symbol}&limit=1&apiKey=${key}`),
+    ])
 
-  const [qRes, pRes, hRes, iRes, mRes] = await Promise.all([
-    tFetch(`${FH_BASE}/quote?symbol=${symbol}&token=${FINNHUB_KEY}`),
-    tFetch(`${FH_BASE}/stock/profile2?symbol=${symbol}&token=${FINNHUB_KEY}`),
-    tFetch(`${FH_BASE}/stock/candle?symbol=${symbol}&resolution=D&from=${from5y}&to=${now}&token=${FINNHUB_KEY}`),
-    tFetch(`${FH_BASE}/stock/candle?symbol=${symbol}&resolution=5&from=${from1d}&to=${now}&token=${FINNHUB_KEY}`),
-    tFetch(`${FH_BASE}/stock/metric?symbol=${symbol}&metric=all&token=${FINNHUB_KEY}`),
-  ])
-  const [q, p, h, intra, metrics] = await Promise.all([
-    qRes.json(), pRes.json(), hRes.json(), iRes.json(), mRes.json(),
-  ])
-  if (!q?.c) throw new Error(`Finnhub no price`)
+    const ref = refR.status === "fulfilled" && refR.value.ok ? await refR.value.json() : null
+    const div = divR.status === "fulfilled" && divR.value.ok ? await divR.value.json() : null
 
-  const m = metrics?.metric || {}
-  const seen = new Set<string>()
-  const daily: Point[] = h.s === "ok"
-    ? (h.t as number[]).map((t: number, i: number) => ({
-      date: new Date(t * 1000).toISOString().split("T")[0], price: h.c[i],
-    }))
-      .filter((pt: Point) => pt.price != null && isFinite(pt.price))
-      .filter((pt: Point) => { if (seen.has(pt.date)) return false; seen.add(pt.date); return true })
-    : []
+    const info = ref?.results
 
-  const byDate: Record<string, Point[]> = {}
-  if (intra.s === "ok") {
-    (intra.t as number[]).forEach((t: number, i: number) => {
-      const price = intra.c[i]
-      if (!price || !isFinite(price)) return
-      const day = new Date(t * 1000).toISOString().split("T")[0]
-      const time = new Date(t * 1000).toLocaleTimeString("en-US", {
-        hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/New_York",
-      })
-      if (!byDate[day]) byDate[day] = []
-      byDate[day].push({ date: time, price })
-    })
-  }
-  const intraday = byDate[Object.keys(byDate).sort().pop() ?? ""] ?? []
-  const wk52Low = safeNum(m["52WeekLow"])
-  const wk52High = safeNum(m["52WeekHigh"])
-  console.log(`[Finnhub] ${symbol} ✅ price:${q.c} daily:${daily.length}`)
+    let divAmt: number | null = null
+    let exDate: string | null = null
+    if (div?.results?.length) {
+      divAmt = div.results[0]?.cash_amount ?? null
+      exDate = div.results[0]?.ex_dividend_date ?? null
+    }
 
-  return {
-    symbol, name: p?.name || symbol, exchange: p?.exchange || "",
-    price: q.c, change: safeNumZero(q.d) ?? 0, changePercent: safeNumZero(q.dp) ?? 0,
-    open: safeNum(q.o), previousClose: safeNum(q.pc),
-    bid: null, ask: null,
-    dayRange: q.l && q.h ? `${q.l.toFixed(2)} – ${q.h.toFixed(2)}` : null,
-    weekRange52: wk52Low && wk52High ? `${wk52Low.toFixed(2)} – ${wk52High.toFixed(2)}` : null,
-    volume: null, avgVolume: null,
-    marketCap: p?.marketCapitalization ? p.marketCapitalization * 1e6 : null,
-    beta: safeNum(m.beta), pe: safeNum(m.peBasicExclExtraTTM) ?? safeNum(m.peTTM),
-    eps: safeNum(m.epsBasicExclExtraItemsTTM),
-    earningsDate: null, dividend: null, exDivDate: null, targetPrice: null,
-    intraday, daily,
-  }
+    const result = {
+      marketCap: info?.market_cap ?? null,
+      name: info?.name ?? null,
+      sector: info?.sic_description ?? null,
+      logo: info?.branding?.icon_url
+        ? `${info.branding.icon_url}?apiKey=${key}`
+        : null,
+      exchange: info?.primary_exchange ?? null,
+      divAmt,
+      exDate,
+    }
+
+    console.log(`[Polygon] ${symbol} ✅ marketCap:${result.marketCap} div:${result.divAmt}`)
+    return result
+  } catch (e: any) { console.error("[Polygon]", e.message); return null }
 }
 
-// ── Handler ───────────────────────────────────────────────────────────
+// ── GET ───────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   const symbol = req.nextUrl.searchParams.get("symbol")?.toUpperCase()
   if (!symbol) return NextResponse.json({ error: "No symbol" }, { status: 400 })
 
-  // Check memory cache first
   const hit = MEM.get(symbol)
   if (hit && Date.now() - hit.ts < CACHE_TTL) {
     console.log(`[stock/full] ⚡ cache hit ${symbol}`)
     return NextResponse.json(hit.data)
   }
 
-  const errors: string[] = []
-  const sources = [
-    { name: "Yahoo", fn: () => fetchYahoo(symbol) },
-    { name: "FMP", fn: () => fetchFMP(symbol), skip: !FMP_KEY },
-    { name: "Finnhub", fn: () => fetchFinnhub(symbol), skip: !FINNHUB_KEY },
-  ]
+  const fhKey = process.env.FINNHUB_API_KEY ?? process.env.NEXT_PUBLIC_FINNHUB_API_KEY ?? ""
+  const polyKey = process.env.POLYGON_API_KEY ?? process.env.NEXT_PUBLIC_POLYGON_API_KEY ?? ""
 
-  for (const src of sources) {
-    if ((src as any).skip) { console.log(`[stock/full] skipping ${src.name} — no key`); continue }
-    try {
-      const data = await src.fn()
-      console.log(`[stock/full] ${symbol} ← ${src.name} | daily:${data.daily.length} intraday:${data.intraday.length}`)
-      MEM.set(symbol, { data, ts: Date.now() })
-      return NextResponse.json(data)
-    } catch (err) {
-      const msg = (err as Error).message
-      errors.push(`${src.name}: ${msg}`)
-      console.warn(`[stock/full] ${src.name} failed for ${symbol}:`, msg)
-    }
+  console.log(`\n===== full ${symbol} fh:${fhKey ? "OK" : "MISSING"} poly:${polyKey ? "OK" : "MISSING"} =====`)
+
+  // All 3 fire in parallel — never wait for one to fail before trying next
+  const [yq, fh, poly] = await Promise.all([
+    fetchYahoo(symbol),
+    fetchFinnhubFundamentals(symbol, fhKey),
+    fetchPolygonFundamentals(symbol, polyKey),
+  ])
+
+  // Yahoo MUST succeed for price + chart — without it we have nothing
+  if (!yq) {
+    return NextResponse.json({ error: "Price data unavailable" }, { status: 500 })
   }
 
-  return NextResponse.json({ error: "All sources failed", details: errors }, { status: 500 })
+  // Build dividend string from Finnhub/Polygon if Yahoo didn't get it
+  let dividend = yq.dividend
+  let exDivDate = yq.exDivDate
+  if (!dividend && (fh?.divAmt || poly?.divAmt)) {
+    const amt = fh?.divAmt ?? poly?.divAmt ?? 0
+    const annual = amt * 4
+    const yld = yq.price > 0 ? (annual / yq.price) * 100 : 0
+    dividend = `$${annual.toFixed(2)} (${yld.toFixed(2)}%)`
+  }
+  if (!exDivDate) {
+    exDivDate = fh?.exDate ?? poly?.exDate ?? null
+  }
+
+  const data: StockFull = {
+    symbol,
+
+    // Identity — Finnhub primary → Polygon → Yahoo fallback
+    name: fh?.name ?? poly?.name ?? yq.name ?? symbol,
+    sector: fh?.sector ?? poly?.sector ?? null,
+    logo: fh?.logo ?? poly?.logo ?? null,
+    exchange: yq.exchange ?? fh?.exchange ?? poly?.exchange ?? "",
+
+    // Price — Yahoo only (chart endpoint is server-safe)
+    price: yq.price,
+    change: yq.change,
+    changePercent: yq.changePercent,
+    open: yq.open,
+    previousClose: yq.previousClose,
+    bid: null,
+    ask: null,
+    dayRange: yq.dayRange,
+    weekRange52: yq.weekRange52,
+    volume: yq.volume,
+
+    // Market data — Finnhub primary → Polygon → Yahoo fallback
+    avgVolume: fh?.avgVolume ?? null,
+    marketCap: fh?.marketCap ?? poly?.marketCap ?? yq.marketCap ?? null,
+
+    // Fundamentals — Finnhub primary → Polygon fallback
+    pe: fh?.pe ?? null,
+    eps: fh?.eps ?? null,
+    beta: fh?.beta ?? null,
+    targetPrice: fh?.targetPrice ?? null,
+    earningsDate: null,
+
+    // Dividend — Yahoo primary (from chart events) → Finnhub → Polygon
+    dividend,
+    exDivDate,
+
+    // Chart — Yahoo always
+    daily: yq.daily,
+    intraday: yq.intraday,
+  }
+
+  console.log(`[full] ${symbol} price:${data.price} pe:${data.pe} eps:${data.eps} marketCap:${data.marketCap} div:${data.dividend}`)
+  MEM.set(symbol, { data, ts: Date.now() })
+  return NextResponse.json(data)
 }

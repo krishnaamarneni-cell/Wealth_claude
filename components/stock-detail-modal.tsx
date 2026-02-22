@@ -209,13 +209,13 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
           </div>
 
           {/* Chart */}
-          <div className="h-64 w-full min-h-[256px]">
+          <div className="w-full" style={{ height: 256, minHeight: 256 }}>
             {loadingHistory ? (
               <div className="h-full flex items-center justify-center">
                 <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : history.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={256}>
                 <AreaChart data={history} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">

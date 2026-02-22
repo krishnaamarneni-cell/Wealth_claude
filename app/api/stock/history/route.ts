@@ -39,16 +39,17 @@ function dateRange(days: number) {
     toTs: Math.floor(to.getTime() / 1000),
   }
 }
+
 async function historyFMP(symbol: string, cfg: PeriodCfg): Promise<Point[]> {
   if (cfg.intraday) {
     const res = await fetch(`${FMP_BASE}/historical-chart/${cfg.interval}/${symbol}?apikey=${FMP_KEY}`, { next: { revalidate: CACHE_TTL } })
     const json = await res.json()
     if (!Array.isArray(json) || !json.length) throw new Error("FMP intraday empty")
     const mostRecentDate = json[0]?.date?.split(" ")[0]
-    if (!mostRecentDate) throw new Error("FMP intraday: no date")
+    if (!mostRecentDate) throw new Error("FMP: no date found")
     const pts = json
       .filter((d: any) => d.date?.startsWith(mostRecentDate))
-      .map((d: any) => ({ date: d.date.split(" ")[1] ?? d.date, price: d.close }))
+      .map((d: any) => ({ date: (d.date as string).split(" ")[1] ?? d.date, price: d.close as number }))
       .reverse()
     if (!pts.length) throw new Error("FMP intraday: no points")
     return pts
@@ -75,7 +76,7 @@ async function historyPolygon(symbol: string, cfg: PeriodCfg): Promise<Point[]> 
     date: cfg.intraday
       ? new Date(d.t).toTimeString().substring(0, 5)
       : new Date(d.t).toISOString().split("T")[0],
-    price: d.c,
+    price: d.c as number,
   }))
   if (!pts.length) throw new Error("Polygon empty")
   return pts
@@ -90,11 +91,11 @@ async function historyFinnhub(symbol: string, cfg: PeriodCfg): Promise<Point[]> 
   )
   const json = await res.json()
   if (json.s !== "ok" || !json.t?.length) throw new Error("Finnhub candle empty")
-  return json.t.map((t: number, i: number) => ({
+  return (json.t as number[]).map((t, i) => ({
     date: cfg.intraday
       ? new Date(t * 1000).toTimeString().substring(0, 5)
       : new Date(t * 1000).toISOString().split("T")[0],
-    price: json.c[i],
+    price: (json.c as number[])[i],
   }))
 }
 
@@ -117,7 +118,7 @@ export async function GET(req: NextRequest) {
       console.log(`[stock/history] ${symbol} ${period} <- ${name} (${data.length} pts)`)
       return NextResponse.json(data)
     } catch (err) {
-      console.warn(`[stock/history] ${name} failed for ${symbol} ${period}:`, (err as Error).message)
+      console.warn(`[stock/history] ${name} failed for ${symbol}:`, (err as Error).message)
     }
   }
 

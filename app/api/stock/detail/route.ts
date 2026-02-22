@@ -17,7 +17,7 @@ async function fetchFMP(symbol: string) {
   const [qData, pData] = await Promise.all([qRes.json(), pRes.json()])
   const q = Array.isArray(qData) ? qData[0] : null
   const p = Array.isArray(pData) ? pData[0] : null
-  if (!q?.price) throw new Error("FMP: no price")
+  if (!q?.price) throw new Error(`FMP: no price — raw: ${JSON.stringify(qData).substring(0, 200)}`)
   return {
     symbol: q.symbol,
     name: p?.companyName || q.name || symbol,
@@ -49,7 +49,7 @@ async function fetchPolygon(symbol: string) {
   const t = snap?.ticker
   const r = ref?.results
   const price = t?.min?.c || t?.day?.c || t?.prevDay?.c
-  if (!price) throw new Error("Polygon: no price")
+  if (!price) throw new Error(`Polygon: no price — snap: ${JSON.stringify(snap).substring(0, 200)}`)
   return {
     symbol,
     name: r?.name || symbol,
@@ -78,7 +78,7 @@ async function fetchFinnhub(symbol: string) {
     fetch(`${FINNHUB_BASE}/stock/profile2?symbol=${symbol}&token=${FINNHUB_KEY}`, { next: { revalidate: CACHE_TTL } }),
   ])
   const [q, p] = await Promise.all([qRes.json(), pRes.json()])
-  if (!q?.c) throw new Error("Finnhub: no price")
+  if (!q?.c) throw new Error(`Finnhub: no price — raw: ${JSON.stringify(q).substring(0, 200)}`)
   return {
     symbol,
     name: p?.name || symbol,
@@ -105,6 +105,7 @@ export async function GET(req: NextRequest) {
   const symbol = req.nextUrl.searchParams.get("symbol")?.toUpperCase()
   if (!symbol) return NextResponse.json({ error: "No symbol" }, { status: 400 })
 
+  const errors: string[] = []
   const sources = [
     { name: "FMP", fn: () => fetchFMP(symbol) },
     { name: "Polygon", fn: () => fetchPolygon(symbol) },
@@ -117,9 +118,12 @@ export async function GET(req: NextRequest) {
       console.log(`[stock/detail] ${symbol} <- ${name}`)
       return NextResponse.json(data)
     } catch (err) {
-      console.warn(`[stock/detail] ${name} failed for ${symbol}:`, (err as Error).message)
+      const msg = (err as Error).message
+      errors.push(`${name}: ${msg}`)
+      console.warn(`[stock/detail] ${name} failed:`, msg)
     }
   }
 
-  return NextResponse.json({ error: "All sources failed" }, { status: 500 })
+  // Returns exact error so you can debug
+  return NextResponse.json({ error: "All sources failed", details: errors }, { status: 500 })
 }

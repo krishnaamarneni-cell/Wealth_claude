@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
-import { TrendingUp, TrendingDown, X, RefreshCw } from "lucide-react"
+import { TrendingUp, TrendingDown, X, RefreshCw, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react"
 import type { StockFull } from "@/app/api/stock/full/route"
 
 type Period = "1D" | "1W" | "1M" | "3M" | "6M" | "1Y" | "5Y"
@@ -14,6 +14,18 @@ const PERIOD_LABEL: Record<Period, string> = {
 }
 
 const CACHE_TTL = 12 * 60 * 60 * 1000
+const NEWS_PER_PAGE = 3
+
+interface NewsArticle {
+  symbol: string
+  publishedDate: string
+  title: string
+  image: string
+  site: string
+  text: string
+  url: string
+  source: "polygon" | "finnhub"
+}
 
 function getCached<T>(key: string): T | null {
   if (typeof window === "undefined") return null
@@ -31,7 +43,6 @@ function setCached<T>(key: string, data: T): void {
 }
 
 // ── Formatters ────────────────────────────────────────────────────────
-
 function fmtPrice(v: number | null | undefined) {
   if (v == null || !isFinite(v)) return "—"
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(v)
@@ -43,20 +54,21 @@ function fmtCap(v: number | null | undefined) {
   if (v >= 1e6) return `$${(v / 1e6).toFixed(2)}M`
   return `$${v.toLocaleString()}`
 }
-function fmtVol(v: number | null | undefined) {
-  if (v == null || !isFinite(v) || v === 0) return "—"
-  if (v >= 1e9) return `${(v / 1e9).toFixed(2)}B`
-  if (v >= 1e6) return `${(v / 1e6).toFixed(2)}M`
-  if (v >= 1e3) return `${(v / 1e3).toFixed(1)}K`
-  return v.toLocaleString()
-}
 function fmtNum(v: number | null | undefined, dec = 2) {
   if (v == null || !isFinite(v)) return "—"
   return v.toFixed(dec)
 }
+function fmtTimeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  const hrs = Math.floor(diff / 3600000)
+  const days = Math.floor(diff / 86400000)
+  if (mins < 60) return `${mins}m ago`
+  if (hrs < 24) return `${hrs}h ago`
+  return `${days}d ago`
+}
 
 // ── Slice by period ───────────────────────────────────────────────────
-
 function sliceByPeriod(daily: { date: string; price: number }[], period: Period) {
   if (!daily.length) return daily
   const cut = new Date()
@@ -74,22 +86,21 @@ function sliceByPeriod(daily: { date: string; price: number }[], period: Period)
 }
 
 // ── X-axis: deduplicate ticks ─────────────────────────────────────────
-
 function getUniqueTicks(data: { date: string }[], period: Period): string[] {
   const seen = new Set<string>()
   const ticks: string[] = []
   for (const p of data) {
     const key =
-      period === "5Y" ? p.date.substring(0, 4)  // year
-        : ["1Y", "6M", "3M"].includes(period) ? p.date.substring(0, 7)  // year-month
-          : p.date                                                                // full
+      period === "5Y" ? p.date.substring(0, 4)
+        : ["1Y", "6M", "3M"].includes(period) ? p.date.substring(0, 7)
+          : p.date
     if (!seen.has(key)) { seen.add(key); ticks.push(p.date) }
   }
   return ticks
 }
 
 function fmtTick(v: string, period: Period): string {
-  if (period === "1D") return v.substring(0, 5)
+  if (period === "1D") return v.includes("T") ? v.substring(11, 16) : v.substring(0, 5)
   if (period === "5Y") return v.substring(0, 4)
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
   const parts = v.split("-")
@@ -98,7 +109,6 @@ function fmtTick(v: string, period: Period): string {
 }
 
 // ── Tooltip ───────────────────────────────────────────────────────────
-
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
@@ -109,8 +119,6 @@ function ChartTooltip({ active, payload, label }: any) {
   )
 }
 
-// ── Props ─────────────────────────────────────────────────────────────
-
 interface Props {
   symbol: string | null
   open: boolean
@@ -118,18 +126,27 @@ interface Props {
 }
 
 // ── Component ─────────────────────────────────────────────────────────
-
 export default function StockDetailModal({ symbol, open, onClose }: Props) {
   const [stockData, setStockData] = useState<StockFull | null>(null)
   const [loading, setLoading] = useState(false)
   const [period, setPeriod] = useState<Period>("1Y")
 
+  // News state
+  const [news, setNews] = useState<NewsArticle[]>([])
+  const [newsLoading, setNewsLoading] = useState(false)
+  const [newsPage, setNewsPage] = useState(0)
+
   // Reset on new symbol
   useEffect(() => {
-    if (open) { setStockData(null); setPeriod("1Y") }
+    if (open) {
+      setStockData(null)
+      setPeriod("1Y")
+      setNews([])
+      setNewsPage(0)
+    }
   }, [symbol, open])
 
-  // Single fetch — returns everything
+  // Fetch stock data
   useEffect(() => {
     if (!symbol || !open) return
     const key = `stockFull_${symbol}`
@@ -146,17 +163,26 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
       .finally(() => setLoading(false))
   }, [symbol, open])
 
-  // Chart data — instant client-side slice, zero extra API calls
+  // Fetch news — fires independently from stock data
+  useEffect(() => {
+    if (!symbol || !open) return
+    setNewsLoading(true)
+    fetch(`/api/news/portfolio?symbols=${symbol}`)
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setNews(d) })
+      .catch(console.error)
+      .finally(() => setNewsLoading(false))
+  }, [symbol, open])
+
+  // Chart data
   const chartData = useMemo(() => {
     if (!stockData) return []
     if (period === "1D") return stockData.intraday
     return sliceByPeriod(stockData.daily, period)
   }, [stockData, period])
 
-  // Deduplicated X-axis ticks
   const xTicks = useMemo(() => getUniqueTicks(chartData, period), [chartData, period])
 
-  // Period return %
   const periodReturn = useMemo(() => {
     if (!stockData || chartData.length < 2) return null
     const first = chartData[0].price
@@ -165,17 +191,21 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
     return { dollar, pct }
   }, [stockData, chartData])
 
+  // News pagination
+  const totalPages = Math.ceil(news.length / NEWS_PER_PAGE)
+  const visibleNews = news.slice(newsPage * NEWS_PER_PAGE, (newsPage + 1) * NEWS_PER_PAGE)
+
   if (!open || !symbol) return null
 
   const isValid = stockData != null && typeof stockData.price === "number"
   const isUp = (periodReturn?.pct ?? stockData?.changePercent ?? 0) >= 0
   const lastPrice = chartData[chartData.length - 1]?.price ?? 0
   const firstPrice = chartData[0]?.price ?? 0
-  const chartUp = lastPrice >= firstPrice
-  const lineColor = chartUp ? "#22c55e" : "#ef4444"
+  const lineColor = lastPrice >= firstPrice ? "#22c55e" : "#ef4444"
 
   const stats = [
     { label: "Prev Close", value: fmtPrice(stockData?.previousClose) },
+    { label: "Day's Range", value: stockData?.dayRange || "—" },
     { label: "52-Wk Range", value: stockData?.weekRange52 || "—" },
     { label: "Market Cap", value: fmtCap(stockData?.marketCap) },
     { label: "P/E (TTM)", value: fmtNum(stockData?.pe) },
@@ -184,7 +214,6 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
     { label: "Dividend", value: stockData?.dividend || "—" },
     { label: "Ex-Div Date", value: stockData?.exDivDate || "—" },
   ]
-
 
   return (
     <div
@@ -196,7 +225,6 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
         {/* ── Header ─────────────────────────────────────────────── */}
         <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-border">
           <div className="flex-1 min-w-0">
-            {/* Symbol + Exchange */}
             <div className="flex items-center gap-2 mb-0.5">
               <h2 className="text-xl font-bold text-foreground">{symbol}</h2>
               {stockData?.exchange && (
@@ -205,12 +233,9 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
                 </span>
               )}
             </div>
-            {/* Company name */}
             <p className="text-sm truncate" style={{ color: "#94a3b8" }}>
               {loading ? "Loading..." : (stockData?.name || symbol)}
             </p>
-
-            {/* Period return — changes with period */}
             {isValid && periodReturn && (
               <div className={`flex items-center gap-1.5 mt-1 text-sm font-medium ${isUp ? "text-green-500" : "text-red-500"}`}>
                 {isUp ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
@@ -223,7 +248,6 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
             )}
           </div>
 
-          {/* Current price */}
           {isValid && (
             <div className="text-right mx-6">
               <p className="text-3xl font-bold text-foreground">{fmtPrice(stockData!.price)}</p>
@@ -245,8 +269,7 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
               <button
                 key={p}
                 onClick={() => setPeriod(p)}
-                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${period === p ? "bg-primary text-primary-foreground" : "hover:bg-muted"
-                  }`}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${period === p ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
                 style={{ color: period === p ? undefined : "#94a3b8" }}
               >
                 {p}
@@ -254,7 +277,7 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
             ))}
           </div>
 
-          {/* Loading state for entire content */}
+          {/* Loading state */}
           {loading && (
             <div className="py-8 text-center flex-shrink-0" style={{ color: "#94a3b8" }}>
               <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2" />
@@ -305,26 +328,110 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
                 </ResponsiveContainer>
               ) : (
                 <div className="h-full flex flex-col items-center justify-center text-sm gap-2" style={{ height: 224, color: "#94a3b8" }}>
-                  <div className="text-center">
-                    <p className="font-medium mb-1">No chart data available</p>
-                    <p className="text-xs">Unable to fetch historical data for {period} period</p>
-                  </div>
+                  <p className="font-medium mb-1">No chart data available</p>
+                  <p className="text-xs">Unable to fetch historical data for {period} period</p>
                 </div>
               )}
             </div>
           )}
 
-          {/* Stats Grid — 16 tiles, always rendered */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+          {/* Stats Grid — 9 tiles, 3 columns */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
             {stats.map(s => (
               <div key={s.label} className="bg-muted/40 rounded-lg p-3">
                 <p className="text-xs mb-1" style={{ color: "#94a3b8" }}>{s.label}</p>
                 <p className="text-sm font-semibold text-foreground">
-                  {loading ? <span className="animate-pulse" style={{ color: "#94a3b8" }}>...</span> : s.value}
+                  {loading
+                    ? <span className="animate-pulse" style={{ color: "#94a3b8" }}>...</span>
+                    : s.value}
                 </p>
               </div>
             ))}
           </div>
+
+          {/* ── News Section ────────────────────────────────────── */}
+          <div className="flex-shrink-0">
+
+            {/* Section header + pagination controls */}
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-semibold text-foreground">Latest News</p>
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setNewsPage(p => Math.max(0, p - 1))}
+                    disabled={newsPage === 0}
+                    className="p-1 rounded hover:bg-muted disabled:opacity-30 transition-colors"
+                  >
+                    <ChevronLeft className="h-4 w-4" style={{ color: "#94a3b8" }} />
+                  </button>
+                  <span className="text-xs" style={{ color: "#94a3b8" }}>
+                    {newsPage + 1} / {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setNewsPage(p => Math.min(totalPages - 1, p + 1))}
+                    disabled={newsPage === totalPages - 1}
+                    className="p-1 rounded hover:bg-muted disabled:opacity-30 transition-colors"
+                  >
+                    <ChevronRight className="h-4 w-4" style={{ color: "#94a3b8" }} />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* News loading */}
+            {newsLoading && (
+              <div className="py-4 text-center" style={{ color: "#94a3b8" }}>
+                <RefreshCw className="h-4 w-4 animate-spin mx-auto mb-1" />
+                <p className="text-xs">Loading news...</p>
+              </div>
+            )}
+
+            {/* No news */}
+            {!newsLoading && news.length === 0 && (
+              <div className="py-4 text-center">
+                <p className="text-xs" style={{ color: "#94a3b8" }}>No recent news found for {symbol}</p>
+              </div>
+            )}
+
+            {/* News articles */}
+            {!newsLoading && visibleNews.length > 0 && (
+              <div className="space-y-2">
+                {visibleNews.map((article, i) => (
+                  <a
+                    key={`${article.url}-${i}`}
+                    href={article.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex gap-3 p-3 rounded-lg bg-muted/40 hover:bg-muted/70 transition-colors group"
+                  >
+                    {/* Thumbnail */}
+                    {article.image && (
+                      <img
+                        src={article.image}
+                        alt=""
+                        className="w-16 h-16 rounded-md object-cover flex-shrink-0"
+                        onError={e => { (e.target as HTMLImageElement).style.display = "none" }}
+                      />
+                    )}
+
+                    {/* Text */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+                        {article.title}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <span className="text-xs" style={{ color: "#94a3b8" }}>{article.site}</span>
+                        <span style={{ color: "#94a3b8" }}>·</span>
+                        <span className="text-xs" style={{ color: "#94a3b8" }}>{fmtTimeAgo(article.publishedDate)}</span>
+                        <ExternalLink className="h-3 w-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" style={{ color: "#94a3b8" }} />
+                      </div>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
     </div>

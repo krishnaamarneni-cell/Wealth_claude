@@ -1,36 +1,18 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer,
-} from "recharts"
+import { useState, useEffect, useMemo } from "react"
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
 import { TrendingUp, TrendingDown, X, RefreshCw } from "lucide-react"
+import type { StockFull } from "@/app/api/stock/full/route"
 
-interface StockDetail {
-  symbol: string
-  name: string
-  price: number
-  change: number
-  changePercent: number
-  open: number | null
-  high: number | null
-  low: number | null
-  previousClose: number | null
-  marketCap: number | null
-  pe: number | null
-  yearHigh: number | null
-  yearLow: number | null
-  volume: number | null
-  avgVolume: number | null
-  dividendYield: number | null
-  lastDiv: number | null
-  exchange: string
-}
-
-interface PricePoint { date: string; price: number }
 type Period = "1D" | "1W" | "1M" | "3M" | "6M" | "1Y" | "5Y"
 const PERIODS: Period[] = ["1D", "1W", "1M", "3M", "6M", "1Y", "5Y"]
+const PERIOD_LABEL: Record<Period, string> = {
+  "1D": "today", "1W": "past week", "1M": "past month",
+  "3M": "past 3 months", "6M": "past 6 months",
+  "1Y": "past year", "5Y": "past 5 years",
+}
+
 const CACHE_TTL = 12 * 60 * 60 * 1000
 
 function getCached<T>(key: string): T | null {
@@ -43,11 +25,12 @@ function getCached<T>(key: string): T | null {
     return data as T
   } catch { return null }
 }
-
 function setCached<T>(key: string, data: T): void {
   if (typeof window === "undefined") return
   try { localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() })) } catch { }
 }
+
+// ── Formatters ────────────────────────────────────────────────────────
 
 function fmtPrice(v: number | null | undefined) {
   if (v == null || !isFinite(v)) return "—"
@@ -67,6 +50,54 @@ function fmtVol(v: number | null | undefined) {
   if (v >= 1e3) return `${(v / 1e3).toFixed(1)}K`
   return v.toLocaleString()
 }
+function fmtNum(v: number | null | undefined, dec = 2) {
+  if (v == null || !isFinite(v)) return "—"
+  return v.toFixed(dec)
+}
+
+// ── Slice by period ───────────────────────────────────────────────────
+
+function sliceByPeriod(daily: { date: string; price: number }[], period: Period) {
+  if (!daily.length) return daily
+  const cut = new Date()
+  switch (period) {
+    case "1W": cut.setDate(cut.getDate() - 7); break
+    case "1M": cut.setMonth(cut.getMonth() - 1); break
+    case "3M": cut.setMonth(cut.getMonth() - 3); break
+    case "6M": cut.setMonth(cut.getMonth() - 6); break
+    case "1Y": cut.setFullYear(cut.getFullYear() - 1); break
+    case "5Y": cut.setFullYear(cut.getFullYear() - 5); break
+    default: return daily
+  }
+  const cutStr = cut.toISOString().split("T")[0]
+  return daily.filter(p => p.date >= cutStr)
+}
+
+// ── X-axis: deduplicate ticks ─────────────────────────────────────────
+
+function getUniqueTicks(data: { date: string }[], period: Period): string[] {
+  const seen = new Set<string>()
+  const ticks: string[] = []
+  for (const p of data) {
+    const key =
+      period === "5Y" ? p.date.substring(0, 4)  // year
+        : ["1Y", "6M", "3M"].includes(period) ? p.date.substring(0, 7)  // year-month
+          : p.date                                                                // full
+    if (!seen.has(key)) { seen.add(key); ticks.push(p.date) }
+  }
+  return ticks
+}
+
+function fmtTick(v: string, period: Period): string {
+  if (period === "1D") return v.substring(0, 5)
+  if (period === "5Y") return v.substring(0, 4)
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+  const parts = v.split("-")
+  if (["1Y", "6M", "3M"].includes(period)) return months[parseInt(parts[1]) - 1] ?? v
+  return `${months[parseInt(parts[1]) - 1]} ${parseInt(parts[2])}`
+}
+
+// ── Tooltip ───────────────────────────────────────────────────────────
 
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
@@ -78,95 +109,88 @@ function ChartTooltip({ active, payload, label }: any) {
   )
 }
 
+// ── Props ─────────────────────────────────────────────────────────────
+
 interface Props {
   symbol: string | null
   open: boolean
   onClose: () => void
 }
 
-export default function StockDetailModal({ symbol, open, onClose }: Props) {
-  const [detail, setDetail] = useState<StockDetail | null>(null)
-  const [history, setHistory] = useState<PricePoint[]>([])
-  const [period, setPeriod] = useState<Period>("1Y")
-  const [loadingDetail, setLoadingDetail] = useState(false)
-  const [loadingHistory, setLoadingHistory] = useState(false)
-  const [chartNote, setChartNote] = useState<string | null>(null)
+// ── Component ─────────────────────────────────────────────────────────
 
-  // Reset when symbol changes
+export default function StockDetailModal({ symbol, open, onClose }: Props) {
+  const [stockData, setStockData] = useState<StockFull | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [period, setPeriod] = useState<Period>("1Y")
+
+  // Reset on new symbol
   useEffect(() => {
-    if (!open) return
-    setDetail(null)
-    setHistory([])
-    setPeriod("1Y")
-    setChartNote(null)
+    if (open) { setStockData(null); setPeriod("1Y") }
   }, [symbol, open])
 
-  // Fetch detail
+  // Single fetch — returns everything
   useEffect(() => {
     if (!symbol || !open) return
-    const key = `stockDetail_${symbol}`
-    const cached = getCached<StockDetail>(key)
-    if (cached) { setDetail(cached); return }
-    setDetail(null)
-    setLoadingDetail(true)
-    fetch(`/api/stock/detail?symbol=${symbol}`)
+    const key = `stockFull_${symbol}`
+    const cached = getCached<StockFull>(key)
+    if (cached) { setStockData(cached); return }
+    setLoading(true)
+    fetch(`/api/stock/full?symbol=${symbol}`)
       .then(r => r.json())
       .then(d => {
         if (typeof d?.price === "number") setCached(key, d)
-        setDetail(d)
+        setStockData(d)
       })
       .catch(console.error)
-      .finally(() => setLoadingDetail(false))
+      .finally(() => setLoading(false))
   }, [symbol, open])
 
-  // Fetch history
-  useEffect(() => {
-    if (!symbol || !open) return
-    const key = `stockHistory_${symbol}_${period}`
-    const cached = getCached<PricePoint[]>(key)
-    if (cached) { setHistory(cached); setChartNote(null); return }
-    setHistory([])
-    setChartNote(null)
-    setLoadingHistory(true)
-    fetch(`/api/stock/history?symbol=${symbol}&period=${period}`)
-      .then(r => r.json())
-      .then(d => {
-        const pts = Array.isArray(d) ? d : []
-        if (pts.length > 0) {
-          setCached(key, pts)
-          setHistory(pts)
-        } else if (period === "1D") {
-          // Auto-fallback to 1W when 1D has no data (weekend/holiday)
-          setChartNote("1D unavailable — showing 1W")
-          setPeriod("1W")
-        }
-      })
-      .catch(console.error)
-      .finally(() => setLoadingHistory(false))
-  }, [symbol, open, period])
+  // Chart data — instant client-side slice, zero extra API calls
+  const chartData = useMemo(() => {
+    if (!stockData) return []
+    if (period === "1D") return stockData.intraday
+    return sliceByPeriod(stockData.daily, period)
+  }, [stockData, period])
+
+  // Deduplicated X-axis ticks
+  const xTicks = useMemo(() => getUniqueTicks(chartData, period), [chartData, period])
+
+  // Period return %
+  const periodReturn = useMemo(() => {
+    if (!stockData || chartData.length < 2) return null
+    const first = chartData[0].price
+    const dollar = stockData.price - first
+    const pct = (dollar / first) * 100
+    return { dollar, pct }
+  }, [stockData, chartData])
 
   if (!open || !symbol) return null
 
-  const isValid = detail != null && typeof detail.price === "number"
-  const isUp = (detail?.changePercent ?? 0) >= 0
-  const firstPrice = history[0]?.price ?? 0
-  const lastPrice = history[history.length - 1]?.price ?? 0
+  const isValid = stockData != null && typeof stockData.price === "number"
+  const isUp = (periodReturn?.pct ?? stockData?.changePercent ?? 0) >= 0
+  const lastPrice = chartData[chartData.length - 1]?.price ?? 0
+  const firstPrice = chartData[0]?.price ?? 0
   const chartUp = lastPrice >= firstPrice
   const lineColor = chartUp ? "#22c55e" : "#ef4444"
 
   const stats = [
-    { label: "Open", value: fmtPrice(detail?.open) },
-    { label: "High", value: fmtPrice(detail?.high) },
-    { label: "Low", value: fmtPrice(detail?.low) },
-    { label: "Prev Close", value: fmtPrice(detail?.previousClose) },
-    { label: "Mkt Cap", value: fmtCap(detail?.marketCap) },
-    { label: "P/E Ratio", value: detail?.pe != null ? detail.pe.toFixed(2) : "—" },
-    { label: "52-Wk High", value: fmtPrice(detail?.yearHigh) },
-    { label: "52-Wk Low", value: fmtPrice(detail?.yearLow) },
-    { label: "Volume", value: fmtVol(detail?.volume) },
-    { label: "Avg Volume", value: fmtVol(detail?.avgVolume) },
-    { label: "Dividend", value: detail?.dividendYield != null ? `${detail.dividendYield.toFixed(2)}%` : "—" },
-    { label: "Qtrly Div Amt", value: detail?.lastDiv != null ? `$${detail.lastDiv.toFixed(2)}` : "—" },
+    { label: "Prev Close", value: fmtPrice(stockData?.previousClose) },
+    { label: "Open", value: fmtPrice(stockData?.open) },
+    { label: "Bid", value: stockData?.bid || "—" },
+    { label: "Ask", value: stockData?.ask || "—" },
+    { label: "Day's Range", value: stockData?.dayRange || "—" },
+    { label: "52-Wk Range", value: stockData?.weekRange52 || "—" },
+    { label: "Volume", value: fmtVol(stockData?.volume) },
+    { label: "Avg Volume", value: fmtVol(stockData?.avgVolume) },
+    { label: "Market Cap", value: fmtCap(stockData?.marketCap) },
+    { label: "Beta", value: fmtNum(stockData?.beta) },
+    { label: "P/E (TTM)", value: fmtNum(stockData?.pe) },
+    { label: "EPS (TTM)", value: stockData?.eps != null ? `$${stockData.eps.toFixed(2)}` : "—" },
+    { label: "Earnings Date", value: stockData?.earningsDate || "—" },
+    { label: "Dividend", value: stockData?.dividend || "—" },
+    { label: "Ex-Div Date", value: stockData?.exDivDate || "—" },
+    { label: "1Y Target", value: fmtPrice(stockData?.targetPrice) },
   ]
 
   return (
@@ -176,97 +200,96 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
     >
       <div className="relative w-full max-w-3xl bg-card border border-border rounded-xl shadow-2xl overflow-hidden">
 
-        {/* Header */}
+        {/* ── Header ─────────────────────────────────────────────── */}
         <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-border">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-2xl font-bold text-foreground">{symbol}</h2>
-              {detail?.exchange && (
-                <span className="text-xs border border-border rounded px-2 py-0.5" style={{ color: "#94a3b8" }}>
-                  {detail.exchange}
+          <div className="flex-1 min-w-0">
+            {/* Symbol + Exchange */}
+            <div className="flex items-center gap-2 mb-0.5">
+              <h2 className="text-xl font-bold text-foreground">{symbol}</h2>
+              {stockData?.exchange && (
+                <span className="text-xs border border-border rounded px-2 py-0.5 truncate" style={{ color: "#94a3b8" }}>
+                  {stockData.exchange}
                 </span>
               )}
             </div>
-            <p className="text-sm" style={{ color: "#94a3b8" }}>
-              {loadingDetail ? "Loading..." : (detail?.name || symbol)}
+            {/* Company name */}
+            <p className="text-sm truncate" style={{ color: "#94a3b8" }}>
+              {loading ? "Loading..." : (stockData?.name || symbol)}
             </p>
+
+            {/* Period return — changes with period */}
+            {isValid && periodReturn && (
+              <div className={`flex items-center gap-1.5 mt-1 text-sm font-medium ${isUp ? "text-green-500" : "text-red-500"}`}>
+                {isUp ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                <span>
+                  {isUp ? "+" : ""}${Math.abs(periodReturn.dollar).toFixed(2)}{" "}
+                  ({isUp ? "+" : ""}{periodReturn.pct.toFixed(2)}%)
+                </span>
+                <span style={{ color: "#94a3b8", fontWeight: 400 }}>{PERIOD_LABEL[period]}</span>
+              </div>
+            )}
           </div>
 
+          {/* Current price */}
           {isValid && (
-            <div className="text-right mr-8">
-              <p className="text-3xl font-bold text-foreground">{fmtPrice(detail!.price)}</p>
-              <div className={`flex items-center justify-end gap-1 text-sm font-medium mt-0.5 ${isUp ? "text-green-500" : "text-red-500"}`}>
-                {isUp ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                <span>{isUp ? "+" : ""}{detail!.change.toFixed(2)}</span>
-                <span>({isUp ? "+" : ""}{detail!.changePercent.toFixed(2)}%)</span>
-              </div>
+            <div className="text-right mx-6">
+              <p className="text-3xl font-bold text-foreground">{fmtPrice(stockData!.price)}</p>
+              <p className="text-xs mt-0.5" style={{ color: "#94a3b8" }}>current price</p>
             </div>
           )}
 
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors mt-1">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="px-6 py-4 space-y-5 max-h-[75vh] overflow-y-auto">
+        {/* ── Body ───────────────────────────────────────────────── */}
+        <div className="px-6 py-4 space-y-5 max-h-[72vh] overflow-y-auto">
 
           {/* Period Selector */}
-          <div className="flex items-center gap-2">
-            <div className="flex gap-1">
-              {PERIODS.map((p) => (
-                <button
-                  key={p}
-                  onClick={() => { setPeriod(p); setChartNote(null) }}
-                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${period === p
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-muted"
-                    }`}
-                  style={{ color: period === p ? undefined : "#94a3b8" }}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-            {chartNote && (
-              <span className="text-xs" style={{ color: "#f59e0b" }}>{chartNote}</span>
-            )}
+          <div className="flex gap-1">
+            {PERIODS.map(p => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${period === p ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                  }`}
+                style={{ color: period === p ? undefined : "#94a3b8" }}
+              >
+                {p}
+              </button>
+            ))}
           </div>
 
           {/* Chart */}
-          <div className="h-64 w-full min-h-[256px]">
-            {loadingHistory ? (
+          <div className="h-56 w-full min-h-[224px]">
+            {loading ? (
               <div className="h-full flex items-center justify-center">
                 <RefreshCw className="h-5 w-5 animate-spin" style={{ color: "#94a3b8" }} />
               </div>
-            ) : history.length > 0 ? (
+            ) : chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={history} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                   <defs>
-                    <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor={lineColor} stopOpacity={0.25} />
                       <stop offset="95%" stopColor={lineColor} stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <XAxis
                     dataKey="date"
+                    ticks={xTicks}
                     tick={{ fill: "#94a3b8", fontSize: 10 }}
                     tickLine={false}
                     axisLine={false}
-                    interval="preserveStartEnd"
-                    tickFormatter={(v) => {
-                      const s = String(v)
-                      if (period === "1D") return s.substring(0, 5)
-                      if (period === "5Y") return s.substring(0, 4)
-                      return s.substring(5)
-                    }}
+                    tickFormatter={v => fmtTick(String(v), period)}
                   />
                   <YAxis
                     tick={{ fill: "#94a3b8", fontSize: 10 }}
                     tickLine={false}
                     axisLine={false}
                     width={65}
-                    tickFormatter={(v) => `$${Number(v).toFixed(0)}`}
+                    tickFormatter={v => `$${Number(v).toFixed(0)}`}
                     domain={["auto", "auto"]}
                   />
                   <Tooltip content={<ChartTooltip />} />
@@ -275,26 +298,27 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
                     dataKey="price"
                     stroke={lineColor}
                     strokeWidth={2}
-                    fill="url(#priceGrad)"
+                    fill="url(#grad)"
                     dot={false}
                     activeDot={{ r: 4, strokeWidth: 0 }}
+                    isAnimationActive={false}
                   />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex items-center justify-center text-sm" style={{ color: "#94a3b8" }}>
-                No chart data available
+                {loading ? "" : "No chart data available"}
               </div>
             )}
           </div>
 
-          {/* Stats Grid — always 12 tiles */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {stats.map((s) => (
+          {/* Stats Grid — 16 tiles, always rendered */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+            {stats.map(s => (
               <div key={s.label} className="bg-muted/40 rounded-lg p-3">
                 <p className="text-xs mb-1" style={{ color: "#94a3b8" }}>{s.label}</p>
-                <p className={`text-sm font-semibold ${loadingDetail && s.value === "—" ? "animate-pulse" : ""} text-foreground`}>
-                  {loadingDetail ? "..." : s.value}
+                <p className="text-sm font-semibold text-foreground">
+                  {loading ? <span className="animate-pulse" style={{ color: "#94a3b8" }}>...</span> : s.value}
                 </p>
               </div>
             ))}

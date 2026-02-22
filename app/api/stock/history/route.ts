@@ -45,16 +45,16 @@ async function historyFMP(symbol: string, cfg: PeriodCfg): Promise<Point[]> {
     const res = await fetch(`${FMP_BASE}/historical-chart/${cfg.interval}/${symbol}?apikey=${FMP_KEY}`, { next: { revalidate: CACHE_TTL } })
     const json = await res.json()
     if (!Array.isArray(json) || !json.length) throw new Error("FMP intraday empty")
-    const today = new Date().toISOString().split("T")[0]
-    let pts = json
-      .filter((d: any) => d.date?.startsWith(today))
+
+    // Always use the most recent trading day in the data (handles weekends/holidays)
+    const mostRecentDate = json[0]?.date?.split(" ")[0]
+    if (!mostRecentDate) throw new Error("FMP intraday: no date")
+
+    const pts = json
+      .filter((d: any) => d.date?.startsWith(mostRecentDate))
       .map((d: any) => ({ date: d.date.split(" ")[1] ?? d.date, price: d.close }))
       .reverse()
-    if (!pts.length) {
-      pts = json.slice(0, 80)
-        .map((d: any) => ({ date: d.date.split(" ")[1] ?? d.date, price: d.close }))
-        .reverse()
-    }
+
     if (!pts.length) throw new Error("FMP intraday: no points")
     return pts
   }
@@ -65,6 +65,15 @@ async function historyFMP(symbol: string, cfg: PeriodCfg): Promise<Point[]> {
     .reverse()
   if (!pts.length) throw new Error("FMP daily empty")
   return pts
+}
+
+const res = await fetch(`${FMP_BASE}/historical-price-full/${symbol}?timeseries=${cfg.timeseries}&apikey=${FMP_KEY}`, { next: { revalidate: CACHE_TTL } })
+const json = await res.json()
+const pts = ((json as any).historical || [])
+  .map((d: any) => ({ date: d.date as string, price: d.close as number }))
+  .reverse()
+if (!pts.length) throw new Error("FMP daily empty")
+return pts
 }
 
 async function historyPolygon(symbol: string, cfg: PeriodCfg): Promise<Point[]> {

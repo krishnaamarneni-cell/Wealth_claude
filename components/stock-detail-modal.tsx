@@ -176,7 +176,6 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
 
   const stats = [
     { label: "Prev Close", value: fmtPrice(stockData?.previousClose) },
-    { label: "Day's Range", value: stockData?.dayRange || "—" },
     { label: "52-Wk Range", value: stockData?.weekRange52 || "—" },
     { label: "Market Cap", value: fmtCap(stockData?.marketCap) },
     { label: "P/E (TTM)", value: fmtNum(stockData?.pe) },

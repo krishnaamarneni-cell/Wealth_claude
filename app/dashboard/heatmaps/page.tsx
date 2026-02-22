@@ -1,92 +1,179 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TradingViewHeatmap } from "@/components/tradingview-heatmap"
+import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 
-type HeatmapType = "sp500" | "nasdaq"
+// ─── Market Config ────────────────────────────────────────────────────────────
 
-export default function HeatmapsPage() {
-  const [activeHeatmap, setActiveHeatmap] = useState<HeatmapType>("sp500")
+const MARKET_GROUPS = [
+  {
+    region: "🇺🇸 US",
+    markets: [
+      { label: "S&P 500", dataSource: "SPX500", components: "500 stocks" },
+      { label: "NASDAQ 100", dataSource: "NASDAQ100", components: "100 stocks" },
+      { label: "Dow Jones", dataSource: "DJ30", components: "30 stocks" },
+    ],
+  },
+  {
+    region: "🌍 Europe",
+    markets: [
+      { label: "FTSE 100", dataSource: "FTSE", components: "100 stocks" },
+      { label: "DAX", dataSource: "DAX", components: "40 stocks" },
+      { label: "CAC 40", dataSource: "CAC40", components: "40 stocks" },
+    ],
+  },
+  {
+    region: "🌏 Asia",
+    markets: [
+      { label: "Nikkei 225", dataSource: "NIKKEI225", components: "225 stocks" },
+      { label: "ASX 200", dataSource: "ASX200", components: "200 stocks" },
+      { label: "Hang Seng", dataSource: "HSI", components: "82 stocks" },
+      { label: "Nifty 500", dataSource: "NIFTY500", components: "500 stocks" },
+    ],
+  },
+  {
+    region: "🪙 Crypto",
+    markets: [
+      { label: "Crypto", dataSource: "CRYPTO", components: "Top assets" },
+    ],
+  },
+]
+
+// Flatten for easy active lookup
+const ALL_MARKETS = MARKET_GROUPS.flatMap((g) => g.markets)
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function HeatmapPage() {
+  const [activeDataSource, setActiveDataSource] = useState("SPX500")
+
+  const activeMarket =
+    ALL_MARKETS.find((m) => m.dataSource === activeDataSource) ?? ALL_MARKETS[0]
+
+  const activeRegion =
+    MARKET_GROUPS.find((g) =>
+      g.markets.some((m) => m.dataSource === activeDataSource)
+    )?.region ?? ""
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6 p-6">
+
+      {/* ── Header ── */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Market Heat Maps</h1>
-        <p className="text-muted-foreground">Real-time market visualization of major indices</p>
+        <h1 className="text-2xl font-bold tracking-tight">Market Heat Maps</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Real-time market visualization of global indices
+        </p>
       </div>
 
-      <Card className="border-border bg-card">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">
-            {activeHeatmap === "sp500" ? "S&P 500" : "NASDAQ 100"} Heat Map
-          </CardTitle>
-          <Tabs value={activeHeatmap} onValueChange={(v) => setActiveHeatmap(v as HeatmapType)}>
-            <TabsList>
-              <TabsTrigger value="sp500">S&P 500</TabsTrigger>
-              <TabsTrigger value="nasdaq">NASDAQ 100</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="h-[600px] w-full">
-            <TradingViewHeatmap
-              dataSource={activeHeatmap === "sp500" ? "SPX500" : "NASDAQ100"}
-              height={600}
-            />
+      {/* ── Region + Market Tabs ── */}
+      <div className="flex flex-col gap-3">
+        {MARKET_GROUPS.map((group) => (
+          <div key={group.region} className="flex items-center gap-2 flex-wrap">
+            {/* Region Label */}
+            <span className="text-xs font-semibold text-muted-foreground w-20 shrink-0">
+              {group.region}
+            </span>
+
+            {/* Market Tabs for this region */}
+            <div className="flex gap-2 flex-wrap">
+              {group.markets.map((market) => {
+                const isActive = activeDataSource === market.dataSource
+                return (
+                  <button
+                    key={market.dataSource}
+                    onClick={() => setActiveDataSource(market.dataSource)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-150 border",
+                      isActive
+                        ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                        : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    {market.label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        ))}
+      </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="border-border bg-card">
-          <CardHeader>
-            <CardTitle className="text-base">How to Read the Heat Map</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm text-muted-foreground">
-            <div className="flex items-start gap-3">
-              <div className="h-4 w-4 rounded bg-primary" />
-              <p><span className="font-medium text-foreground">Green:</span> Stocks that are up for the day. Darker green indicates larger gains.</p>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="h-4 w-4 rounded bg-destructive" />
-              <p><span className="font-medium text-foreground">Red:</span> Stocks that are down for the day. Darker red indicates larger losses.</p>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="h-4 w-4 rounded bg-muted" />
-              <p><span className="font-medium text-foreground">Size:</span> The size of each rectangle represents the market capitalization of the stock.</p>
-            </div>
-          </CardContent>
-        </Card>
+      {/* ── Heatmap Card ── */}
+      <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
 
-        <Card className="border-border bg-card">
-          <CardHeader>
-            <CardTitle className="text-base">Market Overview</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Index</span>
-              <span className="font-medium text-foreground">
-                {activeHeatmap === "sp500" ? "S&P 500" : "NASDAQ 100"}
+        {/* Card Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold">
+              {activeMarket.label} Heat Map
+            </span>
+            <Badge variant="outline" className="text-xs">
+              {activeRegion}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-xs text-muted-foreground">Live</span>
+          </div>
+        </div>
+
+        {/* Widget */}
+        <TradingViewHeatmap
+          key={activeDataSource}      {/* force remount on switch */}
+          dataSource={activeDataSource}
+          height={620}
+        />
+      </div>
+
+      {/* ── Bottom Info Row ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+        {/* How to Read */}
+        <div className="rounded-xl border bg-card p-4 space-y-2">
+          <h3 className="text-sm font-semibold">How to Read the Heat Map</h3>
+          <ul className="space-y-1.5 text-sm text-muted-foreground">
+            <li className="flex items-start gap-2">
+              <span className="mt-1 h-2.5 w-2.5 rounded-sm bg-green-600 shrink-0" />
+              <span>
+                <span className="font-medium text-foreground">Green</span> — Stock is up. Darker = larger gain
               </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Components</span>
-              <span className="font-medium text-foreground">
-                {activeHeatmap === "sp500" ? "500 stocks" : "100 stocks"}
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1 h-2.5 w-2.5 rounded-sm bg-red-600 shrink-0" />
+              <span>
+                <span className="font-medium text-foreground">Red</span> — Stock is down. Darker = larger loss
               </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Data</span>
-              <span className="font-medium text-foreground">Real-time</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Grouping</span>
-              <span className="font-medium text-foreground">By Sector</span>
-            </div>
-          </CardContent>
-        </Card>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1 h-2.5 w-2.5 rounded-sm bg-muted-foreground/50 shrink-0" />
+              <span>
+                <span className="font-medium text-foreground">Size</span> — Rectangle size = market cap weight
+              </span>
+            </li>
+          </ul>
+        </div>
+
+        {/* Market Overview */}
+        <div className="rounded-xl border bg-card p-4 space-y-2">
+          <h3 className="text-sm font-semibold">Market Overview</h3>
+          <dl className="space-y-1.5 text-sm">
+            {[
+              { label: "Index", value: activeMarket.label },
+              { label: "Region", value: activeRegion },
+              { label: "Components", value: activeMarket.components },
+              { label: "Data", value: "Real-time" },
+              { label: "Grouping", value: "By Sector" },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex justify-between">
+                <dt className="text-muted-foreground">{label}</dt>
+                <dd className="font-medium">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
       </div>
     </div>
   )

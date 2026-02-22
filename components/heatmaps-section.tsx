@@ -6,9 +6,6 @@ interface TradingViewHeatmapProps {
 }
 
 export function TradingViewHeatmap({ dataSource, height = 620 }: TradingViewHeatmapProps) {
-  // New timestamp every mount = browser cannot serve cached script
-  const cacheBust = Date.now()
-
   const config = JSON.stringify({
     exchanges: [],
     dataSource,
@@ -54,7 +51,7 @@ export function TradingViewHeatmap({ dataSource, height = 620 }: TradingViewHeat
       <div class="tradingview-widget-container__widget"></div>
       <script
         type="text/javascript"
-        src="https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js?cache=${cacheBust}"
+        src="https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js"
         async
       >${config}</script>
     </div>
@@ -70,6 +67,7 @@ export function TradingViewHeatmap({ dataSource, height = 620 }: TradingViewHeat
       scrolling="no"
       title={`${dataSource} Heatmap`}
       style={{ display: "block", border: "none", width: "100%" }}
+      suppressHydrationWarning
     />
   )
 }

@@ -65,10 +65,6 @@ export function DashboardHeader() {
               className="cursor-pointer"
               onClick={() => router.push("/dashboard/settings?tab=connected")}
             >
-              Connected Accounts
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
               onClick={() => router.push("/")}
               className="cursor-pointer text-red-500 focus:text-red-600"
             >

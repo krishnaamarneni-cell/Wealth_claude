@@ -1,652 +1,605 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useMemo, useCallback } from "react"
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer, ReferenceLine
+} from "recharts"
+import {
+  X, Plus, Search, RefreshCw, BarChart3,
+  ArrowUpRight, ArrowDownRight
+} from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { 
-  X, 
-  Plus, 
-  Search,
-  TrendingUp,
-  TrendingDown,
-  BarChart3,
-  ArrowUpRight,
-  ArrowDownRight
-} from "lucide-react"
-import Image from "next/image"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell,
+  TableHead, TableHeader, TableRow
 } from "@/components/ui/table"
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer
-} from "recharts"
 
-interface StockData {
+// ── Types ─────────────────────────────────────────────────────────────
+interface HistoryPoint { date: string; price: number }
+
+interface ChartStock {
   symbol: string
-  name: string
-  logo: string
-  currentPrice: number
-  change: number
-  changePercent: number
-  open: number
-  high: number
-  low: number
-  marketCap: string
-  peRatio: number
-  divYield: number
-  high52: number
-  low52: number
-  qtrlyDivAmt: number
-  volume: string
-  avgVolume: string
-  eps: number
-  beta: number
-  priceToBook: number
-  debtToEquity: number
-  roe: number
-  revenueGrowth: number
-  profitMargin: number
   color: string
+  history: HistoryPoint[]
 }
 
-// Mock stock data - in production this would come from an API
-const stockDatabase: Record<string, StockData> = {
-  'AAPL': {
-    symbol: 'AAPL',
-    name: 'Apple Inc.',
-    logo: 'https://logo.clearbit.com/apple.com',
-    currentPrice: 178.50,
-    change: -2.30,
-    changePercent: -1.27,
-    open: 180.20,
-    high: 181.50,
-    low: 177.80,
-    marketCap: '2.78T',
-    peRatio: 28.45,
-    divYield: 0.53,
-    high52: 199.62,
-    low52: 142.66,
-    qtrlyDivAmt: 0.24,
-    volume: '52.3M',
-    avgVolume: '58.2M',
-    eps: 6.27,
-    beta: 1.28,
-    priceToBook: 45.12,
-    debtToEquity: 1.81,
-    roe: 147.25,
-    revenueGrowth: 2.1,
-    profitMargin: 25.31,
-    color: '#22c55e'
-  },
-  'MSFT': {
-    symbol: 'MSFT',
-    name: 'Microsoft Corporation',
-    logo: 'https://logo.clearbit.com/microsoft.com',
-    currentPrice: 378.20,
-    change: -5.60,
-    changePercent: -1.46,
-    open: 382.00,
-    high: 384.50,
-    low: 376.20,
-    marketCap: '2.81T',
-    peRatio: 35.42,
-    divYield: 0.79,
-    high52: 420.82,
-    low52: 309.98,
-    qtrlyDivAmt: 0.75,
-    volume: '18.5M',
-    avgVolume: '21.2M',
-    eps: 10.68,
-    beta: 0.91,
-    priceToBook: 12.45,
-    debtToEquity: 0.35,
-    roe: 38.52,
-    revenueGrowth: 15.2,
-    profitMargin: 35.02,
-    color: '#3b82f6'
-  },
-  'GOOGL': {
-    symbol: 'GOOGL',
-    name: 'Alphabet Inc.',
-    logo: 'https://logo.clearbit.com/google.com',
-    currentPrice: 141.80,
-    change: 1.20,
-    changePercent: 0.85,
-    open: 140.50,
-    high: 143.20,
-    low: 139.80,
-    marketCap: '1.76T',
-    peRatio: 25.18,
-    divYield: 0.00,
-    high52: 153.78,
-    low52: 115.83,
-    qtrlyDivAmt: 0.00,
-    volume: '24.1M',
-    avgVolume: '28.5M',
-    eps: 5.63,
-    beta: 1.05,
-    priceToBook: 6.28,
-    debtToEquity: 0.11,
-    roe: 25.12,
-    revenueGrowth: 11.8,
-    profitMargin: 24.01,
-    color: '#f59e0b'
-  },
-  'NVDA': {
-    symbol: 'NVDA',
-    name: 'NVIDIA Corporation',
-    logo: 'https://logo.clearbit.com/nvidia.com',
-    currentPrice: 682.50,
-    change: -18.50,
-    changePercent: -2.64,
-    open: 698.00,
-    high: 702.30,
-    low: 678.20,
-    marketCap: '1.68T',
-    peRatio: 62.85,
-    divYield: 0.02,
-    high52: 974.00,
-    low52: 342.29,
-    qtrlyDivAmt: 0.04,
-    volume: '42.8M',
-    avgVolume: '48.5M',
-    eps: 10.86,
-    beta: 1.72,
-    priceToBook: 42.15,
-    debtToEquity: 0.41,
-    roe: 91.45,
-    revenueGrowth: 122.4,
-    profitMargin: 55.04,
-    color: '#8b5cf6'
-  },
-  'AMZN': {
-    symbol: 'AMZN',
-    name: 'Amazon.com Inc.',
-    logo: 'https://logo.clearbit.com/amazon.com',
-    currentPrice: 178.90,
-    change: 2.10,
-    changePercent: 1.19,
-    open: 176.50,
-    high: 180.20,
-    low: 175.80,
-    marketCap: '1.87T',
-    peRatio: 58.92,
-    divYield: 0.00,
-    high52: 201.20,
-    low52: 118.35,
-    qtrlyDivAmt: 0.00,
-    volume: '38.2M',
-    avgVolume: '42.1M',
-    eps: 3.04,
-    beta: 1.15,
-    priceToBook: 8.92,
-    debtToEquity: 0.58,
-    roe: 17.82,
-    revenueGrowth: 12.5,
-    profitMargin: 5.52,
-    color: '#ec4899'
-  },
-  'TSLA': {
-    symbol: 'TSLA',
-    name: 'Tesla Inc.',
-    logo: 'https://logo.clearbit.com/tesla.com',
-    currentPrice: 248.60,
-    change: -8.40,
-    changePercent: -3.27,
-    open: 255.00,
-    high: 258.20,
-    low: 245.30,
-    marketCap: '790.2B',
-    peRatio: 72.45,
-    divYield: 0.00,
-    high52: 299.29,
-    low52: 138.80,
-    qtrlyDivAmt: 0.00,
-    volume: '98.5M',
-    avgVolume: '105.2M',
-    eps: 3.43,
-    beta: 2.08,
-    priceToBook: 12.85,
-    debtToEquity: 0.12,
-    roe: 21.08,
-    revenueGrowth: 19.2,
-    profitMargin: 15.45,
-    color: '#06b6d4'
-  },
+interface FundStock {
+  symbol: string
+  color: string
+  name: string
+  logo: string | null
+  sector: string | null
+  exchange: string | null
+  price: number | null
+  change: number | null
+  changePercent: number | null
+  marketCap: number | null
+  pe: number | null
+  eps: number | null
+  beta: number | null
+  pb: number | null
+  roe: number | null
+  netMargin: number | null
+  grossMargin: number | null
+  revenueGrowth: number | null
+  epsGrowth: number | null
+  debtToEquity: number | null
+  divYield: number | null
+  divAmt: number | null
+  high52: number | null
+  low52: number | null
 }
 
-// Mock price history data
-const generatePriceHistory = (stocks: string[]) => {
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  return months.map((month, i) => {
-    const data: Record<string, string | number> = { date: month }
-    stocks.forEach(symbol => {
-      const base = stockDatabase[symbol]?.currentPrice || 100
-      const variance = (Math.random() - 0.5) * 0.3
-      const monthFactor = (i - 6) / 12
-      data[symbol] = Math.round((base * (1 + variance + monthFactor * 0.2)) * 100) / 100
-    })
-    return data
-  })
+// ── Constants ─────────────────────────────────────────────────────────
+const COLORS = [
+  '#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
+  '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#a855f7'
+]
+const CHART_PERIODS = ['1M', '3M', '6M', '1Y'] as const
+type ChartPeriod = typeof CHART_PERIODS[number]
+
+// ── Formatters ────────────────────────────────────────────────────────
+function fmtPrice(v: number | null | undefined) {
+  if (v == null || !isFinite(v)) return '—'
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(v)
+}
+function fmtCap(v: number | null | undefined) {
+  if (v == null || !isFinite(v) || v === 0) return '—'
+  if (v >= 1e12) return `$${(v / 1e12).toFixed(2)}T`
+  if (v >= 1e9) return `$${(v / 1e9).toFixed(2)}B`
+  if (v >= 1e6) return `$${(v / 1e6).toFixed(2)}M`
+  return `$${v.toLocaleString()}`
+}
+function fmtPct(v: number | null | undefined) {
+  if (v == null || !isFinite(v)) return '—'
+  return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`
+}
+function fmtNum(v: number | null | undefined, dec = 2) {
+  if (v == null || !isFinite(v)) return '—'
+  return v.toFixed(dec)
 }
 
-const availableStocks = Object.keys(stockDatabase)
+// ── Period cutoff date ────────────────────────────────────────────────
+function getPeriodCutoff(period: ChartPeriod): string {
+  const d = new Date()
+  if (period === '1M') d.setMonth(d.getMonth() - 1)
+  if (period === '3M') d.setMonth(d.getMonth() - 3)
+  if (period === '6M') d.setMonth(d.getMonth() - 6)
+  if (period === '1Y') d.setFullYear(d.getFullYear() - 1)
+  return d.toISOString().split('T')[0]
+}
 
+// ── Best/worst highlighter ────────────────────────────────────────────
+function getBestWorst(values: (number | null)[], higherIsBetter: boolean) {
+  const valid = values.filter(v => v != null) as number[]
+  if (valid.length < 2) return { best: null, worst: null }
+  return {
+    best: higherIsBetter ? Math.max(...valid) : Math.min(...valid),
+    worst: higherIsBetter ? Math.min(...valid) : Math.max(...valid),
+  }
+}
+function cellClass(value: number | null, best: number | null, worst: number | null) {
+  if (value == null || best == null || worst == null) return ''
+  if (value === best) return 'text-green-500 font-semibold'
+  if (value === worst) return 'text-red-500'
+  return ''
+}
+
+// ── Fundamentals row definitions ──────────────────────────────────────
+const FUND_METRICS = [
+  { label: 'Current Price', key: 'price', fmt: fmtPrice, higherBetter: null },
+  { label: 'Market Cap', key: 'marketCap', fmt: fmtCap, higherBetter: null },
+  { label: 'P/E (TTM)', key: 'pe', fmt: (v: any) => fmtNum(v), higherBetter: false },
+  { label: 'EPS (TTM)', key: 'eps', fmt: (v: any) => v != null ? `$${Number(v).toFixed(2)}` : '—', higherBetter: true },
+  { label: 'Price to Book', key: 'pb', fmt: (v: any) => fmtNum(v), higherBetter: false },
+  { label: 'Revenue Growth YoY', key: 'revenueGrowth', fmt: (v: any) => fmtPct(v), higherBetter: true },
+  { label: 'EPS Growth YoY', key: 'epsGrowth', fmt: (v: any) => fmtPct(v), higherBetter: true },
+  { label: 'Net Profit Margin', key: 'netMargin', fmt: (v: any) => v != null ? `${Number(v).toFixed(2)}%` : '—', higherBetter: true },
+  { label: 'Gross Margin', key: 'grossMargin', fmt: (v: any) => v != null ? `${Number(v).toFixed(2)}%` : '—', higherBetter: true },
+  { label: 'ROE', key: 'roe', fmt: (v: any) => v != null ? `${Number(v).toFixed(2)}%` : '—', higherBetter: true },
+  { label: 'Beta', key: 'beta', fmt: (v: any) => fmtNum(v), higherBetter: false },
+  { label: 'Debt to Equity', key: 'debtToEquity', fmt: (v: any) => fmtNum(v), higherBetter: false },
+  { label: 'Dividend Yield', key: 'divYield', fmt: (v: any) => v != null ? `${Number(v).toFixed(2)}%` : '—', higherBetter: true },
+  { label: 'Dividend Amount', key: 'divAmt', fmt: (v: any) => v != null ? `$${Number(v).toFixed(2)}` : '—', higherBetter: true },
+  { label: '52-Wk Range', key: '__52wk__', fmt: null, higherBetter: null },
+] as const
+
+// ── Component ─────────────────────────────────────────────────────────
 export default function ComparePage() {
-  const [selectedStocks, setSelectedStocks] = useState<string[]>(['AAPL', 'MSFT', 'NVDA'])
-  const [searchQuery, setSearchQuery] = useState('')
-  const [showSearch, setShowSearch] = useState(false)
-  const chartContainerRef = useRef<HTMLDivElement>(null)
+  const [activeTab, setActiveTab] = useState<'chart' | 'fundamentals'>('chart')
+  const [chartStocks, setChartStocks] = useState<ChartStock[]>([])
+  const [fundStocks, setFundStocks] = useState<FundStock[]>([])
+  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('1Y')
+  const [searchInput, setSearchInput] = useState('')
+  const [chartLoading, setChartLoading] = useState<string | null>(null)
+  const [fundLoading, setFundLoading] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  const addStock = (symbol: string) => {
-    if (selectedStocks.length < 5 && !selectedStocks.includes(symbol)) {
-      setSelectedStocks([...selectedStocks, symbol])
-    }
-    setShowSearch(false)
-    setSearchQuery('')
-  }
+  const isLoading = chartLoading !== null || fundLoading !== null
 
-  const removeStock = (symbol: string) => {
-    setSelectedStocks(selectedStocks.filter(s => s !== symbol))
-  }
+  // ── Add stock to chart ──────────────────────────────────────────────
+  const addChartStock = useCallback(async () => {
+    const symbol = searchInput.trim().toUpperCase()
+    if (!symbol) return
+    if (chartStocks.length >= 10) { setError('Maximum 10 stocks for chart'); return }
+    if (chartStocks.find(s => s.symbol === symbol)) { setError(`${symbol} already added`); return }
 
-  const filteredStocks = availableStocks.filter(
-    s => s.toLowerCase().includes(searchQuery.toLowerCase()) && !selectedStocks.includes(s)
-  )
+    setError(null)
+    setChartLoading(symbol)
+    setSearchInput('')
 
-  const priceHistory = generatePriceHistory(selectedStocks)
-  const selectedStockData = selectedStocks.map(s => stockDatabase[s]).filter(Boolean)
+    try {
+      const r = await fetch(`/api/stock/compare?symbols=${symbol}&mode=chart`)
+      const data = await r.json()
+      if (!Array.isArray(data) || !data[0]?.history?.length) {
+        setError(`No data found for ${symbol}`)
+        return
+      }
+      const colorIdx = chartStocks.length
+      setChartStocks(prev => [...prev, { ...data[0], color: COLORS[colorIdx % COLORS.length] }])
+    } catch { setError(`Failed to fetch ${symbol}`) }
+    finally { setChartLoading(null) }
+  }, [searchInput, chartStocks])
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
-  }
+  // ── Add stock to fundamentals ───────────────────────────────────────
+  const addFundStock = useCallback(async () => {
+    const symbol = searchInput.trim().toUpperCase()
+    if (!symbol) return
+    if (fundStocks.length >= 3) { setError('Maximum 3 stocks for fundamentals'); return }
+    if (fundStocks.find(s => s.symbol === symbol)) { setError(`${symbol} already added`); return }
 
-  // TradingView Advanced Chart Widget
-  useEffect(() => {
-    if (chartContainerRef.current && selectedStocks.length > 0) {
-      chartContainerRef.current.innerHTML = ''
-      
-      const script = document.createElement('script')
-      script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js'
-      script.async = true
-      script.innerHTML = JSON.stringify({
-        symbols: selectedStocks.map(s => [`${s}|1D`]),
-        chartOnly: false,
-        width: '100%',
-        height: 400,
-        locale: 'en',
-        colorTheme: 'dark',
-        autosize: true,
-        showVolume: true,
-        showMA: true,
-        hideDateRanges: false,
-        hideMarketStatus: false,
-        hideSymbolLogo: false,
-        scalePosition: 'right',
-        scaleMode: 'Normal',
-        fontFamily: '-apple-system, BlinkMacSystemFont, Trebuchet MS, Roboto, Ubuntu, sans-serif',
-        fontSize: '10',
-        noTimeScale: false,
-        valuesTracking: '1',
-        changeMode: 'price-and-percent',
-        chartType: 'area',
-        maLineColor: '#2962FF',
-        maLineWidth: 1,
-        maLength: 9,
-        lineWidth: 2,
-        lineType: 0,
-        dateRanges: ['1d|1', '1m|30', '3m|60', '12m|1D', '60m|1W', 'all|1M']
+    setError(null)
+    setFundLoading(symbol)
+    setSearchInput('')
+
+    try {
+      const r = await fetch(`/api/stock/compare?symbols=${symbol}&mode=fundamentals`)
+      const data = await r.json()
+      if (!Array.isArray(data) || !data[0]) {
+        setError(`No data found for ${symbol}`)
+        return
+      }
+      const colorIdx = fundStocks.length
+      setFundStocks(prev => [...prev, { ...data[0], color: COLORS[colorIdx % COLORS.length] }])
+    } catch { setError(`Failed to fetch ${symbol}`) }
+    finally { setFundLoading(null) }
+  }, [searchInput, fundStocks])
+
+  // ── Remove handlers ─────────────────────────────────────────────────
+  const removeChart = (sym: string) =>
+    setChartStocks(prev => prev.filter(s => s.symbol !== sym).map((s, i) => ({ ...s, color: COLORS[i % COLORS.length] })))
+
+  const removeFund = (sym: string) =>
+    setFundStocks(prev => prev.filter(s => s.symbol !== sym).map((s, i) => ({ ...s, color: COLORS[i % COLORS.length] })))
+
+  // ── Normalized % return chart data ──────────────────────────────────
+  const normalizedData = useMemo(() => {
+    if (!chartStocks.length) return []
+    const cutoff = getPeriodCutoff(chartPeriod)
+
+    const filtered = chartStocks.map(s => ({
+      symbol: s.symbol,
+      color: s.color,
+      data: s.history.filter(p => p.date >= cutoff),
+    }))
+
+    // Base price = first price in the period
+    const baseMap: Record<string, number> = {}
+    filtered.forEach(s => { if (s.data.length) baseMap[s.symbol] = s.data[0].price })
+
+    // All unique dates sorted
+    const allDates = Array.from(
+      new Set(filtered.flatMap(s => s.data.map(p => p.date)))
+    ).sort()
+
+    return allDates.map(date => {
+      const point: Record<string, any> = { date }
+      filtered.forEach(s => {
+        const match = s.data.find(p => p.date === date)
+        if (match && baseMap[s.symbol]) {
+          point[s.symbol] = parseFloat(
+            (((match.price - baseMap[s.symbol]) / baseMap[s.symbol]) * 100).toFixed(2)
+          )
+        }
       })
-      
-      chartContainerRef.current.appendChild(script)
+      return point
+    })
+  }, [chartStocks, chartPeriod])
+
+  // Deduplicated monthly X ticks
+  const xTicks = useMemo(() => {
+    const seen = new Set<string>()
+    const ticks: string[] = []
+    for (const p of normalizedData) {
+      const key = String(p.date).substring(0, 7)
+      if (!seen.has(key)) { seen.add(key); ticks.push(p.date) }
     }
-  }, [selectedStocks])
+    return ticks
+  }, [normalizedData])
+
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const fmtXTick = (v: string) => {
+    const parts = v.split('-')
+    return MONTHS[parseInt(parts[1]) - 1] ?? v
+  }
 
   return (
     <div className="p-4 lg:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Compare Stocks</h1>
-        <p className="text-muted-foreground">Compare up to 5 stocks side by side</p>
+        <p className="text-muted-foreground">
+          {activeTab === 'chart'
+            ? 'Compare up to 10 stocks by % return'
+            : 'Compare up to 3 stocks by fundamentals'}
+        </p>
       </div>
 
-      {/* Stock Selection */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Selected Stocks</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap items-center gap-2">
-            {selectedStocks.map(symbol => {
-              const stock = stockDatabase[symbol]
-              return (
-                <div 
-                  key={symbol}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-secondary/50"
-                  style={{ borderLeftColor: stock?.color, borderLeftWidth: 3 }}
-                >
-                  {stock?.logo && (
-                    <Image src={stock.logo || "/placeholder.svg"} alt={symbol} width={20} height={20} className="rounded" unoptimized />
-                  )}
-                  <span className="font-semibold">{symbol}</span>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-5 w-5 rounded-full"
-                    onClick={() => removeStock(symbol)}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              )
-            })}
-            
-            {selectedStocks.length < 5 && (
-              <div className="relative">
-                {showSearch ? (
-                  <div className="flex items-center gap-2">
-                    <div className="relative">
-                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search ticker..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-8 w-40"
-                        autoFocus
-                      />
-                    </div>
-                    <Button variant="ghost" size="icon" onClick={() => setShowSearch(false)}>
-                      <X className="h-4 w-4" />
-                    </Button>
-                    
-                    {searchQuery && filteredStocks.length > 0 && (
-                      <div className="absolute top-full left-0 mt-1 w-60 bg-card border border-border rounded-lg shadow-lg z-10">
-                        {filteredStocks.slice(0, 5).map(symbol => {
-                          const stock = stockDatabase[symbol]
-                          return (
-                            <button
-                              key={symbol}
-                              className="flex items-center gap-2 w-full px-3 py-2 hover:bg-secondary text-left"
-                              onClick={() => addStock(symbol)}
-                            >
-                              {stock?.logo && (
-                                <Image src={stock.logo || "/placeholder.svg"} alt={symbol} width={20} height={20} className="rounded" unoptimized />
-                              )}
-                              <span className="font-semibold">{symbol}</span>
-                              <span className="text-sm text-muted-foreground truncate">{stock?.name}</span>
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <Button variant="outline" size="sm" onClick={() => setShowSearch(true)}>
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Stock
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Technical Chart */}
-      <Tabs defaultValue="chart" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="chart">Technical Chart</TabsTrigger>
-          <TabsTrigger value="performance">Price Performance</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="chart">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Technical Analysis</CardTitle>
-              <CardDescription>Interactive chart with technical indicators</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div ref={chartContainerRef} className="h-[400px] rounded-lg overflow-hidden" />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="performance">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Price Performance (12 Months)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={priceHistory}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
-                    <YAxis stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `$${v}`} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--card))', 
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px'
-                      }}
-                      formatter={(value: number) => formatCurrency(value)}
-                    />
-                    <Legend />
-                    {selectedStocks.map(symbol => (
-                      <Line
-                        key={symbol}
-                        type="monotone"
-                        dataKey={symbol}
-                        stroke={stockDatabase[symbol]?.color || '#888'}
-                        strokeWidth={2}
-                        dot={false}
-                      />
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* Quote Data Cards */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {selectedStockData.map(stock => (
-          <Card key={stock.symbol} style={{ borderTopColor: stock.color, borderTopWidth: 3 }}>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3 mb-3">
-                {stock.logo && (
-                  <Image src={stock.logo || "/placeholder.svg"} alt={stock.symbol} width={40} height={40} className="rounded" unoptimized />
-                )}
-                <div>
-                  <h3 className="font-bold text-lg">{stock.symbol}</h3>
-                  <p className="text-sm text-muted-foreground">{stock.name}</p>
-                </div>
-              </div>
-              <div className="flex items-end justify-between mb-4">
-                <div>
-                  <p className="text-3xl font-bold">{formatCurrency(stock.currentPrice)}</p>
-                  <div className={`flex items-center gap-1 ${stock.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                    {stock.change >= 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                    <span className="font-medium">{formatCurrency(Math.abs(stock.change))}</span>
-                    <span>({stock.changePercent >= 0 ? '+' : ''}{stock.changePercent.toFixed(2)}%)</span>
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Open</span>
-                  <span>{formatCurrency(stock.open)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">High</span>
-                  <span>{formatCurrency(stock.high)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Low</span>
-                  <span>{formatCurrency(stock.low)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Mkt Cap</span>
-                  <span>{stock.marketCap}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      {/* ── Tab Bar ─────────────────────────────────────────────── */}
+      <div className="flex gap-0 border-b border-border">
+        {(['chart', 'fundamentals'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => { setActiveTab(tab); setError(null) }}
+            className={`px-5 py-2.5 text-sm font-medium capitalize border-b-2 transition-colors ${activeTab === tab
+                ? 'border-primary text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+          >
+            {tab === 'chart' ? 'Chart' : 'Fundamentals'}
+          </button>
         ))}
       </div>
 
-      {/* Fundamentals Comparison Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Fundamentals Comparison</CardTitle>
-          <CardDescription>Key financial metrics side by side</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[180px]">Metric</TableHead>
-                  {selectedStockData.map(stock => (
-                    <TableHead key={stock.symbol} className="text-center">
-                      <div className="flex items-center justify-center gap-2">
+      {/* ── CHART TAB ───────────────────────────────────────────── */}
+      {activeTab === 'chart' && (
+        <div className="space-y-4">
+
+          {/* Stock selector */}
+          <Card>
+            <CardContent className="pt-4 space-y-3">
+              {/* Selected pills */}
+              {chartStocks.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {chartStocks.map(stock => (
+                    <div
+                      key={stock.symbol}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-muted/40 text-sm"
+                      style={{ borderLeftColor: stock.color, borderLeftWidth: 3 }}
+                    >
+                      <span className="font-semibold">{stock.symbol}</span>
+                      <button onClick={() => removeChart(stock.symbol)} className="text-muted-foreground hover:text-foreground ml-1">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Search input */}
+              <div className="flex gap-2">
+                <div className="relative flex-1 max-w-xs">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Enter ticker (e.g. AAPL)"
+                    value={searchInput}
+                    onChange={e => { setSearchInput(e.target.value.toUpperCase()); setError(null) }}
+                    onKeyDown={e => e.key === 'Enter' && addChartStock()}
+                    className="pl-8"
+                    disabled={isLoading}
+                  />
+                </div>
+                <Button
+                  onClick={addChartStock}
+                  disabled={isLoading || !searchInput.trim() || chartStocks.length >= 10}
+                  size="sm"
+                >
+                  {chartLoading
+                    ? <RefreshCw className="h-4 w-4 animate-spin mr-1" />
+                    : <Plus className="h-4 w-4 mr-1" />}
+                  Add
+                </Button>
+              </div>
+
+              {error && <p className="text-xs text-red-500">{error}</p>}
+              {chartLoading && <p className="text-xs text-muted-foreground">Fetching {chartLoading}...</p>}
+              <p className="text-xs text-muted-foreground">{chartStocks.length}/10 stocks</p>
+            </CardContent>
+          </Card>
+
+          {/* Empty state */}
+          {chartStocks.length === 0 ? (
+            <Card>
+              <CardContent className="py-20 text-center">
+                <BarChart3 className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-40" />
+                <p className="text-sm text-muted-foreground">Add stocks above to compare performance</p>
+                <p className="text-xs text-muted-foreground mt-1 opacity-60">Try AAPL, MSFT, NVDA, TSLA...</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* Period selector */}
+              <div className="flex gap-1">
+                {CHART_PERIODS.map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setChartPeriod(p)}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${chartPeriod === p
+                        ? 'bg-primary text-primary-foreground'
+                        : 'hover:bg-muted text-muted-foreground'
+                      }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+
+              {/* % Return chart */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">% Return — {chartPeriod}</CardTitle>
+                  <CardDescription>All stocks normalized to 0% at start of period</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[420px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={normalizedData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="4 4" strokeWidth={1} />
+                        <XAxis
+                          dataKey="date"
+                          ticks={xTicks}
+                          tickFormatter={fmtXTick}
+                          tick={{ fill: '#94a3b8', fontSize: 10 }}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <YAxis
+                          tickFormatter={v => `${v > 0 ? '+' : ''}${v.toFixed(0)}%`}
+                          tick={{ fill: '#94a3b8', fontSize: 10 }}
+                          tickLine={false}
+                          axisLine={false}
+                          width={58}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px',
+                            fontSize: 12,
+                          }}
+                          formatter={(v: number, name: string) => [
+                            `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`, name
+                          ]}
+                          labelStyle={{ color: '#94a3b8', fontSize: 11 }}
+                        />
+                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                        {chartStocks.map(stock => (
+                          <Line
+                            key={stock.symbol}
+                            type="monotone"
+                            dataKey={stock.symbol}
+                            stroke={stock.color}
+                            strokeWidth={2}
+                            dot={false}
+                            activeDot={{ r: 4, strokeWidth: 0 }}
+                            connectNulls
+                          />
+                        ))}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── FUNDAMENTALS TAB ────────────────────────────────────── */}
+      {activeTab === 'fundamentals' && (
+        <div className="space-y-4">
+
+          {/* Stock selector */}
+          <Card>
+            <CardContent className="pt-4 space-y-3">
+              {fundStocks.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {fundStocks.map(stock => (
+                    <div
+                      key={stock.symbol}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-muted/40 text-sm"
+                      style={{ borderLeftColor: stock.color, borderLeftWidth: 3 }}
+                    >
+                      <span className="font-semibold">{stock.symbol}</span>
+                      <span className="text-muted-foreground text-xs hidden sm:inline">{stock.name}</span>
+                      <button onClick={() => removeFund(stock.symbol)} className="text-muted-foreground hover:text-foreground ml-1">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <div className="relative flex-1 max-w-xs">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Enter ticker (e.g. AAPL)"
+                    value={searchInput}
+                    onChange={e => { setSearchInput(e.target.value.toUpperCase()); setError(null) }}
+                    onKeyDown={e => e.key === 'Enter' && addFundStock()}
+                    className="pl-8"
+                    disabled={isLoading}
+                  />
+                </div>
+                <Button
+                  onClick={addFundStock}
+                  disabled={isLoading || !searchInput.trim() || fundStocks.length >= 3}
+                  size="sm"
+                >
+                  {fundLoading
+                    ? <RefreshCw className="h-4 w-4 animate-spin mr-1" />
+                    : <Plus className="h-4 w-4 mr-1" />}
+                  Add
+                </Button>
+              </div>
+
+              {error && <p className="text-xs text-red-500">{error}</p>}
+              {fundLoading && <p className="text-xs text-muted-foreground">Fetching {fundLoading}...</p>}
+              <p className="text-xs text-muted-foreground">{fundStocks.length}/3 stocks</p>
+            </CardContent>
+          </Card>
+
+          {/* Empty state */}
+          {fundStocks.length === 0 ? (
+            <Card>
+              <CardContent className="py-20 text-center">
+                <BarChart3 className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-40" />
+                <p className="text-sm text-muted-foreground">Add up to 3 stocks to compare fundamentals</p>
+                <p className="text-xs text-muted-foreground mt-1 opacity-60">Data sourced from Finnhub — 12hr cache</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* Price cards */}
+              <div className={`grid gap-4 grid-cols-${fundStocks.length}`}>
+                {fundStocks.map(stock => (
+                  <Card key={stock.symbol} style={{ borderTopColor: stock.color, borderTopWidth: 3 }}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <p className="font-bold text-lg">{stock.symbol}</p>
+                            {stock.exchange && (
+                              <span className="text-xs border border-border rounded px-1.5 py-0.5" style={{ color: '#94a3b8' }}>
+                                {stock.exchange}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">{stock.name}</p>
+                          {stock.sector && <p className="text-xs text-muted-foreground opacity-70">{stock.sector}</p>}
+                        </div>
                         {stock.logo && (
-                          <Image src={stock.logo || "/placeholder.svg"} alt={stock.symbol} width={20} height={20} className="rounded" unoptimized />
+                          <img
+                            src={stock.logo}
+                            alt={stock.symbol}
+                            className="h-9 w-9 rounded object-contain flex-shrink-0"
+                            onError={e => (e.target as HTMLImageElement).style.display = 'none'}
+                          />
                         )}
-                        {stock.symbol}
                       </div>
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow>
-                  <TableCell className="font-medium">Current Price</TableCell>
-                  {selectedStockData.map(stock => (
-                    <TableCell key={stock.symbol} className="text-center font-semibold">
-                      {formatCurrency(stock.currentPrice)}
-                    </TableCell>
-                  ))}
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Market Cap</TableCell>
-                  {selectedStockData.map(stock => (
-                    <TableCell key={stock.symbol} className="text-center">{stock.marketCap}</TableCell>
-                  ))}
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">P/E Ratio</TableCell>
-                  {selectedStockData.map(stock => (
-                    <TableCell key={stock.symbol} className="text-center">{stock.peRatio.toFixed(2)}</TableCell>
-                  ))}
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">EPS</TableCell>
-                  {selectedStockData.map(stock => (
-                    <TableCell key={stock.symbol} className="text-center">{formatCurrency(stock.eps)}</TableCell>
-                  ))}
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Dividend Yield</TableCell>
-                  {selectedStockData.map(stock => (
-                    <TableCell key={stock.symbol} className="text-center">
-                      {stock.divYield > 0 ? `${stock.divYield.toFixed(2)}%` : '-'}
-                    </TableCell>
-                  ))}
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Quarterly Dividend</TableCell>
-                  {selectedStockData.map(stock => (
-                    <TableCell key={stock.symbol} className="text-center">
-                      {stock.qtrlyDivAmt > 0 ? formatCurrency(stock.qtrlyDivAmt) : '-'}
-                    </TableCell>
-                  ))}
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">52-Week High</TableCell>
-                  {selectedStockData.map(stock => (
-                    <TableCell key={stock.symbol} className="text-center">{formatCurrency(stock.high52)}</TableCell>
-                  ))}
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">52-Week Low</TableCell>
-                  {selectedStockData.map(stock => (
-                    <TableCell key={stock.symbol} className="text-center">{formatCurrency(stock.low52)}</TableCell>
-                  ))}
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Beta</TableCell>
-                  {selectedStockData.map(stock => (
-                    <TableCell key={stock.symbol} className="text-center">{stock.beta.toFixed(2)}</TableCell>
-                  ))}
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Price to Book</TableCell>
-                  {selectedStockData.map(stock => (
-                    <TableCell key={stock.symbol} className="text-center">{stock.priceToBook.toFixed(2)}</TableCell>
-                  ))}
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Debt to Equity</TableCell>
-                  {selectedStockData.map(stock => (
-                    <TableCell key={stock.symbol} className="text-center">{stock.debtToEquity.toFixed(2)}</TableCell>
-                  ))}
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">ROE</TableCell>
-                  {selectedStockData.map(stock => (
-                    <TableCell key={stock.symbol} className="text-center">{stock.roe.toFixed(2)}%</TableCell>
-                  ))}
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Revenue Growth (YoY)</TableCell>
-                  {selectedStockData.map(stock => (
-                    <TableCell key={stock.symbol} className="text-center">
-                      <span className={stock.revenueGrowth >= 0 ? 'text-green-500' : 'text-red-500'}>
-                        {stock.revenueGrowth >= 0 ? '+' : ''}{stock.revenueGrowth.toFixed(1)}%
-                      </span>
-                    </TableCell>
-                  ))}
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Profit Margin</TableCell>
-                  {selectedStockData.map(stock => (
-                    <TableCell key={stock.symbol} className="text-center">{stock.profitMargin.toFixed(2)}%</TableCell>
-                  ))}
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Volume</TableCell>
-                  {selectedStockData.map(stock => (
-                    <TableCell key={stock.symbol} className="text-center">{stock.volume}</TableCell>
-                  ))}
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Avg Volume</TableCell>
-                  {selectedStockData.map(stock => (
-                    <TableCell key={stock.symbol} className="text-center">{stock.avgVolume}</TableCell>
-                  ))}
-                </TableRow>
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                      <p className="text-2xl font-bold">{fmtPrice(stock.price)}</p>
+                      {stock.changePercent != null && (
+                        <div className={`flex items-center gap-1 text-sm mt-1 ${stock.changePercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                          {stock.changePercent >= 0
+                            ? <ArrowUpRight className="h-4 w-4" />
+                            : <ArrowDownRight className="h-4 w-4" />}
+                          <span>{stock.changePercent >= 0 ? '+' : ''}{stock.changePercent.toFixed(2)}%</span>
+                          <span className="text-muted-foreground text-xs">today</span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Fundamentals table */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Fundamentals Comparison</CardTitle>
+                  <CardDescription>
+                    <span className="text-green-500 font-medium">Green</span> = best ·{' '}
+                    <span className="text-red-500 font-medium">Red</span> = worst
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[180px]">Metric</TableHead>
+                          {fundStocks.map(stock => (
+                            <TableHead key={stock.symbol} className="text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <div className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: stock.color }} />
+                                {stock.symbol}
+                              </div>
+                            </TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {FUND_METRICS.map(metric => {
+                          // 52-wk range — special composite cell
+                          if (metric.key === '__52wk__') {
+                            return (
+                              <TableRow key="52wk">
+                                <TableCell className="text-sm font-medium">52-Wk Range</TableCell>
+                                {fundStocks.map(stock => (
+                                  <TableCell key={stock.symbol} className="text-center text-sm">
+                                    {stock.low52 && stock.high52
+                                      ? `${fmtPrice(stock.low52)} – ${fmtPrice(stock.high52)}`
+                                      : '—'}
+                                  </TableCell>
+                                ))}
+                              </TableRow>
+                            )
+                          }
+
+                          const values = fundStocks.map(s => (s as any)[metric.key] as number | null)
+                          const { best, worst } = metric.higherBetter != null
+                            ? getBestWorst(values, metric.higherBetter)
+                            : { best: null, worst: null }
+
+                          return (
+                            <TableRow key={metric.label}>
+                              <TableCell className="text-sm font-medium">{metric.label}</TableCell>
+                              {fundStocks.map(stock => {
+                                const val = (stock as any)[metric.key]
+                                return (
+                                  <TableCell
+                                    key={stock.symbol}
+                                    className={`text-center text-sm ${cellClass(val, best, worst)}`}
+                                  >
+                                    {(metric.fmt as Function)(val)}
+                                  </TableCell>
+                                )
+                              })}
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }

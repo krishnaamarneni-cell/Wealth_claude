@@ -97,141 +97,78 @@ function parseYahooIntraday(json: any): Point[] {
 }
 
 // ── Yahoo (primary — no API key) ───────────────────────────────────────────
-
 async function fetchYahoo(symbol: string): Promise<StockFull> {
-  // Use v8/chart for BOTH quote meta + historical — more reliable than v7/quote
-  const [dailyRes, intradayRes, summaryRes] = await Promise.all([
-    fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=5y`,
-      { headers: YH_HEADERS, cache: "no-store" }),
-    fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=5m&range=5d`,
-      { headers: YH_HEADERS, cache: "no-store" }),
-    fetch(`https://query2.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=summaryDetail%2CdefaultKeyStatistics%2CfinancialData%2CquoteType%2Cprice`,
-      { headers: YH_HEADERS, cache: "no-store" }),
+  const [quoteRes, dailyRes, intradayRes] = await Promise.all([
+    fetch(
+      `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketOpen,regularMarketPreviousClose,regularMarketDayHigh,regularMarketDayLow,regularMarketVolume,averageDailyVolume3Month,marketCap,trailingPE,epsTrailingTwelveMonths,beta,dividendRate,dividendYield,exDividendDate,earningsTimestamp,targetMeanPrice,fiftyTwoWeekHigh,fiftyTwoWeekLow,bid,bidSize,ask,askSize,longName,shortName,fullExchangeName,currency`,
+      { headers: YH_HEADERS, cache: "no-store" }
+    ),
+    fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=5y`,
+      { headers: YH_HEADERS, cache: "no-store" }
+    ),
+    fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=5m&range=5d`,
+      { headers: YH_HEADERS, cache: "no-store" }
+    ),
   ])
 
-  const [dailyJson, intradayJson, summaryJson] = await Promise.all([
+  const [quoteJson, dailyJson, intradayJson] = await Promise.all([
+    quoteRes.json(),
     dailyRes.json(),
     intradayRes.json(),
-    summaryRes.json(),
   ])
 
-  // Pull quote from chart meta (always present if chart works)
-  const chartMeta = dailyJson?.chart?.result?.[0]?.meta
-  if (!chartMeta?.regularMarketPrice) {
-    throw new Error(`Yahoo chart blocked or empty: ${JSON.stringify(dailyJson).substring(0, 150)}`)
+  // v7 returns flat values — no .raw needed
+  const q = quoteJson?.quoteResponse?.result?.[0]
+  if (!q?.regularMarketPrice) {
+    throw new Error(`Yahoo v7 failed: ${JSON.stringify(quoteJson).substring(0, 150)}`)
   }
-
-  // Summary modules (PE, beta, EPS, dividend, etc.)
-  const result = summaryJson?.quoteSummary?.result?.[0] || {}
-  const sd = result.summaryDetail || {}
-  const ks = result.defaultKeyStatistics || {}
-  const fd = result.financialData || {}
-  const qt = result.quoteType || {}
-  const pr = result.price || {}
 
   const daily = parseYahooChart(dailyJson)
   const intraday = parseYahooIntraday(intradayJson)
 
-  const price = safeNum(chartMeta.regularMarketPrice)!
-  const prevClose = safeNum(chartMeta.chartPreviousClose || chartMeta.previousClose)
-  const divRate = safeNum(sd.dividendRate?.raw ?? sd.dividendRate)
-  const divYield = safeNum(sd.dividendYield?.raw ?? sd.dividendYield)
+  const divRate = safeNum(q.dividendRate)
+  const divYield = safeNum(q.dividendYield)
   const divStr = divRate
     ? `$${divRate.toFixed(2)}${divYield ? ` (${(divYield * 100).toFixed(2)}%)` : ""}`
     : null
 
-  const dayLow = safeNum(chartMeta.regularMarketDayLow)
-  const dayHigh = safeNum(chartMeta.regularMarketDayHigh)
-  const wk52Low = safeNum(sd.fiftyTwoWeekLow?.raw ?? chartMeta.fiftyTwoWeekLow)
-  const wk52High = safeNum(sd.fiftyTwoWeekHigh?.raw ?? chartMeta.fiftyTwoWeekHigh)
+  const dayLow = safeNum(q.regularMarketDayLow)
+  const dayHigh = safeNum(q.regularMarketDayHigh)
+  const wk52Low = safeNum(q.fiftyTwoWeekLow)
+  const wk52High = safeNum(q.fiftyTwoWeekHigh)
 
   return {
     symbol,
-    name: qt.longName || qt.shortName || chartMeta.instrumentType || symbol,
-    exchange: chartMeta.fullExchangeName || chartMeta.exchangeName || "",
-    price,
-    change: safeNum(pr.regularMarketChange?.raw ?? chartMeta.regularMarketChange) ?? 0,
-    changePercent: safeNum(pr.regularMarketChangePercent?.raw ?? chartMeta.regularMarketChangePercent) ?? 0,
-    open: safeNum(chartMeta.regularMarketOpen),
-    previousClose: prevClose,
-    bid: null,
-    ask: null,
-    dayRange: dayLow != null && dayHigh != null ? `${dayLow.toFixed(2)} – ${dayHigh.toFixed(2)}` : null,
-    weekRange52: wk52Low != null && wk52High != null ? `${wk52Low.toFixed(2)} – ${wk52High.toFixed(2)}` : null,
-    volume: safeNum(chartMeta.regularMarketVolume),
-    avgVolume: safeNum(sd.averageVolume?.raw ?? sd.averageDailyVolume10Day?.raw),
-    marketCap: safeNum(pr.marketCap?.raw ?? chartMeta.marketCap),
-    beta: safeNum(ks.beta?.raw ?? sd.beta?.raw),
-    pe: safeNum(sd.trailingPE?.raw ?? ks.trailingPE?.raw),
-    eps: safeNum(ks.trailingEps?.raw),
-    earningsDate: fmtDate(ks.nextFiscalYearEnd?.raw ?? null),
-    dividend: divStr,
-    exDivDate: fmtDate(sd.exDividendDate?.raw ?? null),
-    targetPrice: safeNum(fd.targetMeanPrice?.raw),
-    intraday,
-    daily,
-  }
-}
-
-// ── FMP fallback ───────────────────────────────────────────────────────────
-
-async function fetchFMP(symbol: string): Promise<StockFull> {
-  const [qRes, pRes, hRes, iRes] = await Promise.all([
-    fetch(`${FMP_BASE}/quote/${symbol}?apikey=${FMP_KEY}`, { cache: "no-store" }),
-    fetch(`${FMP_BASE}/profile/${symbol}?apikey=${FMP_KEY}`, { cache: "no-store" }),
-    fetch(`${FMP_BASE}/historical-price-full/${symbol}?timeseries=1825&apikey=${FMP_KEY}`, { cache: "no-store" }),
-    fetch(`${FMP_BASE}/historical-chart/5min/${symbol}?apikey=${FMP_KEY}`, { cache: "no-store" }),
-  ])
-  const [qData, pData, hData, iData] = await Promise.all([
-    qRes.json(), pRes.json(), hRes.json(), iRes.json(),
-  ])
-  const q = Array.isArray(qData) ? qData[0] : null
-  const p = Array.isArray(pData) ? pData[0] : null
-  if (!q?.price) throw new Error(`FMP no price: ${JSON.stringify(qData).substring(0, 120)}`)
-
-  const daily: Point[] = ((hData as any)?.historical || [])
-    .map((d: any) => ({ date: d.date as string, price: d.close as number }))
-    .filter((pt: Point) => pt.price != null && isFinite(pt.price))
-    .reverse()
-
-  const mostRecentDate = Array.isArray(iData) && iData[0]?.date?.split(" ")[0]
-  const intraday: Point[] = mostRecentDate
-    ? (iData as any[])
-      .filter((d: any) => d.date?.startsWith(mostRecentDate))
-      .map((d: any) => ({ date: d.date.split(" ")[1], price: d.close }))
-      .filter((pt: Point) => pt.price != null && isFinite(pt.price))
-      .reverse()
-    : []
-
-  const divYield = p?.lastDiv ? ((p.lastDiv * 4) / q.price) * 100 : null
-
-  return {
-    symbol: q.symbol,
-    name: p?.companyName || q.name || symbol,
-    exchange: p?.exchangeShortName || q.exchange || "",
-    price: q.price,
-    change: q.change ?? 0,
-    changePercent: q.changesPercentage ?? 0,
-    open: safeNum(q.open),
-    previousClose: safeNum(q.previousClose),
-    bid: null,
-    ask: null,
-    dayRange: q.dayLow != null && q.dayHigh != null ? `${q.dayLow.toFixed(2)} – ${q.dayHigh.toFixed(2)}` : null,
-    weekRange52: q.yearLow != null && q.yearHigh != null ? `${q.yearLow.toFixed(2)} – ${q.yearHigh.toFixed(2)}` : null,
-    volume: safeNum(q.volume),
-    avgVolume: safeNum(q.avgVolume),
+    name: q.longName || q.shortName || symbol,
+    exchange: q.fullExchangeName || "",
+    price: q.regularMarketPrice,
+    change: safeNum(q.regularMarketChange) ?? 0,
+    changePercent: safeNum(q.regularMarketChangePercent) ?? 0,
+    open: safeNum(q.regularMarketOpen),
+    previousClose: safeNum(q.regularMarketPreviousClose),
+    bid: q.bid != null ? `${Number(q.bid).toFixed(2)} × ${q.bidSize ?? 0}` : null,
+    ask: q.ask != null ? `${Number(q.ask).toFixed(2)} × ${q.askSize ?? 0}` : null,
+    dayRange: dayLow != null && dayHigh != null
+      ? `${dayLow.toFixed(2)} – ${dayHigh.toFixed(2)}` : null,
+    weekRange52: wk52Low != null && wk52High != null
+      ? `${wk52Low.toFixed(2)} – ${wk52High.toFixed(2)}` : null,
+    volume: safeNum(q.regularMarketVolume),
+    avgVolume: safeNum(q.averageDailyVolume3Month),
     marketCap: safeNum(q.marketCap),
-    beta: null,
-    pe: safeNum(q.pe),
-    eps: safeNum(q.eps),
-    earningsDate: null,
-    dividend: p?.lastDiv ? `$${p.lastDiv.toFixed(2)}${divYield ? ` (${divYield.toFixed(2)}%)` : ""}` : null,
-    exDivDate: null,
-    targetPrice: null,
+    beta: safeNum(q.beta),
+    pe: safeNum(q.trailingPE),
+    eps: safeNum(q.epsTrailingTwelveMonths),
+    earningsDate: fmtDate(q.earningsTimestamp),
+    dividend: divStr,
+    exDivDate: fmtDate(q.exDividendDate),
+    targetPrice: safeNum(q.targetMeanPrice),
     intraday,
     daily,
   }
 }
+
 
 // ── Finnhub fallback ───────────────────────────────────────────────────────
 

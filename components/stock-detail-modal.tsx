@@ -1,13 +1,12 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { useState, useEffect } from "react"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
 } from "recharts"
 import { TrendingUp, TrendingDown, X, RefreshCw } from "lucide-react"
-import { Button } from "@/components/ui/button"
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -41,10 +40,12 @@ type Period = "1D" | "1W" | "1M" | "3M" | "6M" | "1Y" | "5Y"
 
 const PERIODS: Period[] = ["1D", "1W", "1M", "3M", "6M", "1Y", "5Y"]
 
-// ─── Formatters ──────────────────────────────────────────────────────────
+// ─── Formatters ───────────────────────────────────────────────────────────
 
 function fmtPrice(v: number) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(v)
+  return new Intl.NumberFormat("en-US", {
+    style: "currency", currency: "USD", minimumFractionDigits: 2,
+  }).format(v)
 }
 
 function fmtCap(v: number) {
@@ -61,7 +62,7 @@ function fmtVol(v: number) {
   return v.toLocaleString()
 }
 
-// ─── Custom Tooltip ──────────────────────────────────────────────────────
+// ─── Custom Tooltip ───────────────────────────────────────────────────────
 
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
@@ -73,13 +74,15 @@ function ChartTooltip({ active, payload, label }: any) {
   )
 }
 
-// ─── Main Component ──────────────────────────────────────────────────────
+// ─── Props ────────────────────────────────────────────────────────────────
 
 interface Props {
   symbol: string | null
   open: boolean
   onClose: () => void
 }
+
+// ─── Main Component ───────────────────────────────────────────────────────
 
 export default function StockDetailModal({ symbol, open, onClose }: Props) {
   const [detail, setDetail] = useState<StockDetail | null>(null)
@@ -115,12 +118,10 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
   if (!symbol) return null
 
   const isUp = (detail?.changePercent ?? 0) >= 0
-  const chartColor = isUp ? "#22c55e" : "#ef4444"
   const firstPrice = history[0]?.price ?? 0
   const lastPrice = history[history.length - 1]?.price ?? 0
   const chartUp = lastPrice >= firstPrice
 
-  // Stats grid items
   const stats = detail
     ? [
       { label: "Open", value: fmtPrice(detail.open) },
@@ -141,17 +142,25 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-3xl w-full p-0 gap-0 overflow-hidden bg-card border-border">
+
+        {/* Required by Radix — visually hidden */}
+        <DialogTitle className="sr-only">
+          {symbol} Stock Detail
+        </DialogTitle>
+
         {/* ── Header ── */}
         <div className="flex items-start justify-between px-6 pt-5 pb-3 border-b border-border">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <h2 className="text-2xl font-bold text-foreground">{symbol}</h2>
-              <span className="text-xs text-muted-foreground border border-border rounded px-2 py-0.5">
-                {detail?.exchange || ""}
-              </span>
+              {detail?.exchange && (
+                <span className="text-xs text-muted-foreground border border-border rounded px-2 py-0.5">
+                  {detail.exchange}
+                </span>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">
-              {loadingDetail ? "Loading..." : detail?.name || ""}
+              {loadingDetail ? "Loading..." : (detail?.name || "")}
             </p>
           </div>
 
@@ -159,8 +168,13 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
           {detail && (
             <div className="text-right mr-8">
               <p className="text-3xl font-bold text-foreground">{fmtPrice(detail.price)}</p>
-              <div className={`flex items-center justify-end gap-1 text-sm font-medium mt-0.5 ${isUp ? "text-green-500" : "text-red-500"}`}>
-                {isUp ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+              <div
+                className={`flex items-center justify-end gap-1 text-sm font-medium mt-0.5 ${isUp ? "text-green-500" : "text-red-500"
+                  }`}
+              >
+                {isUp
+                  ? <TrendingUp className="h-4 w-4" />
+                  : <TrendingDown className="h-4 w-4" />}
                 <span>{isUp ? "+" : ""}{detail.change.toFixed(2)}</span>
                 <span>({isUp ? "+" : ""}{detail.changePercent.toFixed(2)}%)</span>
               </div>
@@ -175,8 +189,10 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
           </button>
         </div>
 
+        {/* ── Body ── */}
         <div className="px-6 py-4 space-y-5 max-h-[80vh] overflow-y-auto">
-          {/* ── Period Selector ── */}
+
+          {/* Period Selector */}
           <div className="flex gap-1">
             {PERIODS.map((p) => (
               <button
@@ -192,7 +208,7 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
             ))}
           </div>
 
-          {/* ── Chart ── */}
+          {/* Chart */}
           <div className="h-64 w-full">
             {loadingHistory ? (
               <div className="h-full flex items-center justify-center">
@@ -247,7 +263,7 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
             )}
           </div>
 
-          {/* ── Stats Grid ── */}
+          {/* Stats Grid */}
           {loadingDetail ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {Array.from({ length: 12 }).map((_, i) => (
@@ -265,6 +281,7 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
             </div>
           )}
         </div>
+
       </DialogContent>
     </Dialog>
   )

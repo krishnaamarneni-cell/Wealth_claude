@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
+import PortfolioAIInsight from "@/components/portfolio-ai-insight"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
@@ -37,8 +38,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { 
-  ResponsiveContainer, 
+import {
+  ResponsiveContainer,
   BarChart,
   Bar,
   XAxis,
@@ -52,16 +53,16 @@ import {
   AreaChart,
   Legend
 } from "recharts"
-import { 
+import {
   TrendingUp,
   TrendingDown,
   DollarSign,
   BarChart3,
   PieChart as PieChartIcon,
   RefreshCw,
-  ArrowRight, 
-  AlertTriangle, 
-  CheckCircle, 
+  ArrowRight,
+  AlertTriangle,
+  CheckCircle,
   Settings,
   Calendar,
   Zap,
@@ -188,7 +189,7 @@ function formatCurrency(value: number): string {
 
 // Interactive Donut Component
 interface InteractiveDonutProps {
-  data: Array<{ 
+  data: Array<{
     name: string
     value: number
     color?: string
@@ -205,10 +206,10 @@ interface InteractiveDonutProps {
   viewType?: string
 }
 
-function InteractiveDonut({ 
-  data, 
-  title, 
-  centerLabel = "Total", 
+function InteractiveDonut({
+  data,
+  title,
+  centerLabel = "Total",
   formatValue,
   showDetails = false,
   viewType = 'marketValue'
@@ -279,13 +280,13 @@ function InteractiveDonut({
     const end = polarToCartesian(200, 200, outerRadius, startAngle)
     const innerStart = polarToCartesian(200, 200, innerRadius, endAngle)
     const innerEnd = polarToCartesian(200, 200, innerRadius, startAngle)
-    
+
     const isFullCircle = Math.abs(endAngle - startAngle - 360) < 0.01
-    
+
     if (isFullCircle) {
       const mid = polarToCartesian(200, 200, outerRadius, startAngle + 180)
       const innerMid = polarToCartesian(200, 200, innerRadius, startAngle + 180)
-      
+
       return [
         `M ${start.x} ${start.y}`,
         `A ${outerRadius} ${outerRadius} 0 0 0 ${mid.x} ${mid.y}`,
@@ -296,7 +297,7 @@ function InteractiveDonut({
         "Z",
       ].join(" ")
     }
-    
+
     const largeArcFlag = endAngle - startAngle <= 180 ? 0 : 1
 
     return [
@@ -344,7 +345,7 @@ function InteractiveDonut({
                 {hoveredItem}
               </text>
               <text x="200" y="210" textAnchor="middle" fill="#22c55e" fontSize="20" fontWeight="700">
-                {showDetails 
+                {showDetails
                   ? formatCurrencyValue(segments.find((s) => s.name === hoveredItem)?.value || 0)
                   : `${segments.find((s) => s.name === hoveredItem)?.percentage.toFixed(1)}%`
                 }
@@ -367,7 +368,7 @@ function InteractiveDonut({
       </div>
 
       <div className="flex-1 max-w-md pl-6">
-        <div 
+        <div
           ref={legendContainerRef}
           className="space-y-2 max-h-[400px] overflow-y-auto pr-2"
         >
@@ -381,11 +382,10 @@ function InteractiveDonut({
                   itemRefs.current.delete(item.name)
                 }
               }}
-              className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 border-2 ${
-                hoveredItem === item.name
+              className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 border-2 ${hoveredItem === item.name
                   ? "border-gray-400 dark:border-gray-600"
                   : "border-transparent hover:border-gray-300 dark:hover:border-gray-700"
-              }`}
+                }`}
               onMouseEnter={() => setHoveredItem(item.name)}
               onMouseLeave={() => setHoveredItem(null)}
             >
@@ -434,7 +434,7 @@ function InteractiveDonut({
 export default function PortfolioPage() {
   // Mode toggle
   const [mode, setMode] = useState<'portfolio' | 'rebalance'>('portfolio')
-  
+
   // Shared state
   const [holdings, setHoldings] = useState<Holding[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -464,7 +464,7 @@ export default function PortfolioPage() {
   useEffect(() => {
     const loadData = async () => {
       const cached = getCached()
-      
+
       if (cached) {
         setHoldings(cached.holdings)
         setIsLoading(false)
@@ -479,9 +479,9 @@ export default function PortfolioPage() {
 
   const loadHoldingsData = async (silent = false) => {
     if (!silent) setIsLoading(true)
-    
+
     const txns = getTransactionsFromStorage() as Transaction[]
-    
+
     if (txns.length === 0) {
       setHoldings([])
       setIsLoading(false)
@@ -528,7 +528,7 @@ export default function PortfolioPage() {
 
     const consolidatedHoldings = Array.from(consolidatedMap.values())
     const totalPortfolioValue = consolidatedHoldings.reduce((sum, h) => sum + h.marketValue, 0)
-    
+
     consolidatedHoldings.forEach(holding => {
       holding.allocation = totalPortfolioValue > 0 ? (holding.marketValue / totalPortfolioValue) * 100 : 0
     })
@@ -586,9 +586,9 @@ export default function PortfolioPage() {
     for (let i = 11; i >= 0; i--) {
       const monthDate = new Date(today.getFullYear(), today.getMonth() - i, 1)
       const monthKey = monthDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-      
+
       const holdingsMap = new Map<string, { shares: number, cost: number }>()
-      
+
       txns.forEach((txn) => {
         const txnDate = new Date(txn.date)
         if (txnDate <= monthDate && (txn.type === 'BUY' || txn.type === 'SELL')) {
@@ -611,7 +611,7 @@ export default function PortfolioPage() {
         .reduce((sum, h) => sum + Math.abs(h.cost), 0)
 
       const monthData: AllocationHistory = { month: monthKey }
-      
+
       holdingsMap.forEach((holding, symbol) => {
         if (holding.shares > 0) {
           const allocation = totalValue > 0 ? (Math.abs(holding.cost) / totalValue) * 100 : 0
@@ -632,7 +632,7 @@ export default function PortfolioPage() {
 
     const firstMonth = allocationHistory[0]
     const lastMonth = allocationHistory[allocationHistory.length - 1]
-    
+
     const changes: { symbol: string, change: number, from: number, to: number }[] = []
 
     holdings.forEach(holding => {
@@ -666,7 +666,7 @@ export default function PortfolioPage() {
     return holdings.map((holding, index) => {
       let value = 0
       let displayValue = 0
-      
+
       switch (viewType) {
         case 'marketValue':
           value = holding.marketValue
@@ -685,7 +685,7 @@ export default function PortfolioPage() {
           displayValue = value
           break
       }
-      
+
       return {
         name: holding.symbol,
         fullName: holding.symbol,
@@ -705,7 +705,7 @@ export default function PortfolioPage() {
 
   const sectorAllocation = useMemo(() => {
     const sectorMap = new Map<string, { marketValue: number; costBasis: number; gain: number }>()
-    
+
     holdings.forEach(h => {
       const current = sectorMap.get(h.sector) || { marketValue: 0, costBasis: 0, gain: 0 }
       sectorMap.set(h.sector, {
@@ -727,7 +727,7 @@ export default function PortfolioPage() {
 
   const industryAllocation = useMemo(() => {
     const industryMap = new Map<string, { marketValue: number; costBasis: number; gain: number }>()
-    
+
     holdings.forEach(h => {
       const current = industryMap.get(h.industry) || { marketValue: 0, costBasis: 0, gain: 0 }
       industryMap.set(h.industry, {
@@ -749,7 +749,7 @@ export default function PortfolioPage() {
 
   const countryAllocation = useMemo(() => {
     const countryMap = new Map<string, { marketValue: number }>()
-    
+
     holdings.forEach(h => {
       const current = countryMap.get(h.country) || { marketValue: 0 }
       countryMap.set(h.country, {
@@ -767,7 +767,7 @@ export default function PortfolioPage() {
 
   const assetTypeAllocation = useMemo(() => {
     const assetMap = new Map<string, { marketValue: number }>()
-    
+
     holdings.forEach(h => {
       const current = assetMap.get(h.assetType) || { marketValue: 0 }
       assetMap.set(h.assetType, {
@@ -802,10 +802,10 @@ export default function PortfolioPage() {
       }
 
       const shares = Math.abs(difference / holding.currentPrice)
-      
+
       const gainPerShare = holding.currentPrice - holding.avgCost
-      const taxImpact = action === 'SELL' && gainPerShare > 0 
-        ? shares * gainPerShare * 0.20 
+      const taxImpact = action === 'SELL' && gainPerShare > 0
+        ? shares * gainPerShare * 0.20
         : 0
 
       return {
@@ -884,7 +884,7 @@ export default function PortfolioPage() {
 
     return Array.from(assetMap.entries()).map(([assetType, allocation]) => {
       let risk: 'LOW' | 'MODERATE' | 'HIGH' = 'LOW'
-      
+
       if (assetType === 'Stock') {
         if (allocation > 85) risk = 'HIGH'
         else if (allocation > 75) risk = 'MODERATE'
@@ -898,14 +898,14 @@ export default function PortfolioPage() {
     return holdings.map(h => {
       let risk: 'LOW' | 'MODERATE' | 'HIGH' | 'VERY HIGH' = 'LOW'
       const allocation = h.allocation
-      
+
       if (allocation > BENCHMARKS.singleStockMax.max * 2) risk = 'VERY HIGH'
       else if (allocation > BENCHMARKS.singleStockMax.max * 1.5) risk = 'HIGH'
       else if (allocation > BENCHMARKS.singleStockMax.max) risk = 'MODERATE'
 
-      return { 
-        symbol: h.symbol, 
-        allocation, 
+      return {
+        symbol: h.symbol,
+        allocation,
         risk,
         multiple: allocation / BENCHMARKS.stockConcentration.max
       }
@@ -968,7 +968,7 @@ export default function PortfolioPage() {
 
   const whatIfScenario = useMemo((): InvestmentAllocation[] => {
     const newTotal = totalPortfolioValue + whatIfAmount
-    
+
     const opportunities = holdings.map(holding => {
       const target = targetAllocations.find(t => t.symbol === holding.symbol)
       const targetPercent = target?.targetPercent || 0
@@ -1029,7 +1029,7 @@ export default function PortfolioPage() {
 
   const updateTargetAllocation = (symbol: string, value: number) => {
     setTargetAllocations(prev => {
-      const updated = prev.map(t => 
+      const updated = prev.map(t =>
         t.symbol === symbol ? { ...t, targetPercent: value } : t
       )
       return updated
@@ -1039,11 +1039,11 @@ export default function PortfolioPage() {
   const autoBalanceAllocations = () => {
     const totalAllocated = targetAllocations.reduce((sum, t) => sum + t.targetPercent, 0)
     const remaining = 100 - totalAllocated
-    
+
     if (Math.abs(remaining) < 0.01) return
 
     const perStock = remaining / targetAllocations.length
-    setTargetAllocations(prev => 
+    setTargetAllocations(prev =>
       prev.map(t => ({ ...t, targetPercent: Math.max(0, t.targetPercent + perStock) }))
     )
   }
@@ -1158,12 +1158,12 @@ export default function PortfolioPage() {
             {mode === 'portfolio' ? 'Portfolio Allocation' : 'Portfolio Rebalancing'}
           </h1>
           <p className="text-muted-foreground">
-            {mode === 'portfolio' 
-              ? 'Analyze your portfolio distribution with real-time data' 
+            {mode === 'portfolio'
+              ? 'Analyze your portfolio distribution with real-time data'
               : 'AI-powered insights to optimize your investment strategy'}
           </p>
         </div>
-        
+
         <div className="flex items-center gap-3">
           {/* Mode Toggle */}
           <div className="flex items-center gap-2 p-1 bg-secondary rounded-lg">
@@ -1187,8 +1187,8 @@ export default function PortfolioPage() {
             </Button>
           </div>
 
-          <Button 
-            onClick={handleRefresh} 
+          <Button
+            onClick={handleRefresh}
             disabled={isRefreshing}
             variant="outline"
             size="sm"
@@ -1209,8 +1209,8 @@ export default function PortfolioPage() {
                 <CardTitle className="text-lg">Allocation by Stock</CardTitle>
                 <div className="flex flex-wrap gap-2">
                   <div className="flex gap-1 p-1 bg-secondary rounded-lg">
-                    <Button 
-                      variant={viewType === 'marketValue' ? 'default' : 'ghost'} 
+                    <Button
+                      variant={viewType === 'marketValue' ? 'default' : 'ghost'}
                       size="sm"
                       onClick={() => setViewType('marketValue')}
                       className="gap-1 text-xs"
@@ -1218,8 +1218,8 @@ export default function PortfolioPage() {
                       <DollarSign className="h-3 w-3" />
                       Market Value
                     </Button>
-                    <Button 
-                      variant={viewType === 'costBasis' ? 'default' : 'ghost'} 
+                    <Button
+                      variant={viewType === 'costBasis' ? 'default' : 'ghost'}
                       size="sm"
                       onClick={() => setViewType('costBasis')}
                       className="gap-1 text-xs"
@@ -1227,8 +1227,8 @@ export default function PortfolioPage() {
                       <DollarSign className="h-3 w-3" />
                       Cost
                     </Button>
-                    <Button 
-                      variant={viewType === 'gain' ? 'default' : 'ghost'} 
+                    <Button
+                      variant={viewType === 'gain' ? 'default' : 'ghost'}
                       size="sm"
                       onClick={() => setViewType('gain')}
                       className="gap-1 text-xs"
@@ -1236,8 +1236,8 @@ export default function PortfolioPage() {
                       <TrendingUp className="h-3 w-3" />
                       Gain
                     </Button>
-                    <Button 
-                      variant={viewType === 'loss' ? 'default' : 'ghost'} 
+                    <Button
+                      variant={viewType === 'loss' ? 'default' : 'ghost'}
                       size="sm"
                       onClick={() => setViewType('loss')}
                       className="gap-1 text-xs"
@@ -1247,15 +1247,15 @@ export default function PortfolioPage() {
                     </Button>
                   </div>
                   <div className="flex gap-1 p-1 bg-secondary rounded-lg">
-                    <Button 
-                      variant={chartType === 'pie' ? 'default' : 'ghost'} 
+                    <Button
+                      variant={chartType === 'pie' ? 'default' : 'ghost'}
                       size="sm"
                       onClick={() => setChartType('pie')}
                     >
                       <PieChartIcon className="h-4 w-4" />
                     </Button>
-                    <Button 
-                      variant={chartType === 'bar' ? 'default' : 'ghost'} 
+                    <Button
+                      variant={chartType === 'bar' ? 'default' : 'ghost'}
                       size="sm"
                       onClick={() => setChartType('bar')}
                     >
@@ -1267,7 +1267,7 @@ export default function PortfolioPage() {
             </CardHeader>
             <CardContent>
               {chartType === 'pie' ? (
-                <InteractiveDonut 
+                <InteractiveDonut
                   data={stockAllocationData}
                   title="Portfolio"
                   centerLabel="Total Value"
@@ -1280,15 +1280,15 @@ export default function PortfolioPage() {
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={stockAllocationData} layout="vertical">
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis type="number" tickFormatter={(value) => `$${(value/1000).toFixed(1)}k`} />
-                        <YAxis 
-                          dataKey="name" 
-                          type="category" 
-                          width={60} 
+                        <XAxis type="number" tickFormatter={(value) => `$${(value / 1000).toFixed(1)}k`} />
+                        <YAxis
+                          dataKey="name"
+                          type="category"
+                          width={60}
                           interval={0}
                           tick={{ fontSize: 10 }}
                         />
-                        <Tooltip 
+                        <Tooltip
                           content={<CustomTooltip />}
                           cursor={{ fill: 'transparent' }}
                         />
@@ -1303,8 +1303,8 @@ export default function PortfolioPage() {
 
                   <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
                     {stockAllocationData.map((stock) => (
-                      <div 
-                        key={stock.name} 
+                      <div
+                        key={stock.name}
                         className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
                       >
                         <div className="w-8 h-8 rounded-full flex items-center justify-center bg-muted shrink-0">
@@ -1362,14 +1362,14 @@ export default function PortfolioPage() {
                         <BarChart data={sectorAllocation} layout="vertical">
                           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                           <XAxis type="number" tickFormatter={(value) => `${value.toFixed(1)}%`} />
-                          <YAxis 
-                            dataKey="name" 
-                            type="category" 
-                            width={140} 
+                          <YAxis
+                            dataKey="name"
+                            type="category"
+                            width={140}
                             interval={0}
                             tick={{ fontSize: 11 }}
                           />
-                          <Tooltip 
+                          <Tooltip
                             formatter={(value: number) => `${value.toFixed(2)}%`}
                             cursor={{ fill: 'transparent' }}
                           />
@@ -1428,14 +1428,14 @@ export default function PortfolioPage() {
                         <BarChart data={industryAllocation} layout="vertical">
                           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                           <XAxis type="number" tickFormatter={(value) => `${value.toFixed(1)}%`} />
-                          <YAxis 
-                            dataKey="name" 
-                            type="category" 
-                            width={160} 
+                          <YAxis
+                            dataKey="name"
+                            type="category"
+                            width={160}
                             interval={0}
                             tick={{ fontSize: 10 }}
                           />
-                          <Tooltip 
+                          <Tooltip
                             formatter={(value: number) => `${value.toFixed(2)}%`}
                             cursor={{ fill: 'transparent' }}
                           />
@@ -1472,7 +1472,7 @@ export default function PortfolioPage() {
                   <CardTitle className="text-lg">Country Distribution</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <InteractiveDonut 
+                  <InteractiveDonut
                     data={countryAllocation.map((item, index) => ({
                       ...item,
                       color: COLORS[index % COLORS.length]
@@ -1490,7 +1490,7 @@ export default function PortfolioPage() {
                   <CardTitle className="text-lg">Asset Type Distribution</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <InteractiveDonut 
+                  <InteractiveDonut
                     data={assetTypeAllocation.map((item, index) => ({
                       ...item,
                       color: COLORS[index % COLORS.length]
@@ -1581,12 +1581,10 @@ export default function PortfolioPage() {
             {/* Risk Score Card */}
             <Card className={`border ${riskScore < 60 ? "border-red-500/50" : riskScore < 80 ? "border-amber-500/50" : "border-green-500/50"}`}>
               <CardContent className="flex items-center gap-4 p-6">
-                <div className={`flex h-16 w-16 items-center justify-center rounded-full ${
-                  riskScore < 60 ? "bg-red-500/20" : riskScore < 80 ? "bg-amber-500/20" : "bg-green-500/20"
-                }`}>
-                  <Shield className={`h-8 w-8 ${
-                    riskScore < 60 ? "text-red-500" : riskScore < 80 ? "text-amber-500" : "text-green-500"
-                  }`} />
+                <div className={`flex h-16 w-16 items-center justify-center rounded-full ${riskScore < 60 ? "bg-red-500/20" : riskScore < 80 ? "bg-amber-500/20" : "bg-green-500/20"
+                  }`}>
+                  <Shield className={`h-8 w-8 ${riskScore < 60 ? "text-red-500" : riskScore < 80 ? "text-amber-500" : "text-green-500"
+                    }`} />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
@@ -1640,9 +1638,8 @@ export default function PortfolioPage() {
                   )}
                 </div>
                 <div className="text-right">
-                  <p className={`text-4xl font-bold ${
-                    riskScore < 60 ? "text-red-500" : riskScore < 80 ? "text-amber-500" : "text-green-500"
-                  }`}>
+                  <p className={`text-4xl font-bold ${riskScore < 60 ? "text-red-500" : riskScore < 80 ? "text-amber-500" : "text-green-500"
+                    }`}>
                     {riskScore.toFixed(0)}
                   </p>
                   <p className="text-xs text-muted-foreground">out of 100</p>
@@ -1654,7 +1651,7 @@ export default function PortfolioPage() {
           {/* Insights Row */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Stock Concentration Card */}
-            <Card 
+            <Card
               className="cursor-pointer hover:shadow-lg transition-shadow"
               onClick={() => {
                 setMode('portfolio')
@@ -1671,11 +1668,10 @@ export default function PortfolioPage() {
               <CardContent className="space-y-3">
                 {concentrationWarnings.length > 0 ? (
                   concentrationWarnings.slice(0, 3).map(warning => (
-                    <div key={warning.symbol} className={`p-3 rounded-lg border ${
-                      warning.risk === 'VERY HIGH' ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900' :
-                      warning.risk === 'HIGH' ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-900' :
-                      'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900'
-                    }`}>
+                    <div key={warning.symbol} className={`p-3 rounded-lg border ${warning.risk === 'VERY HIGH' ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900' :
+                        warning.risk === 'HIGH' ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-900' :
+                          'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900'
+                      }`}>
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-semibold">{warning.symbol}</span>
                         <Badge variant="destructive" className="text-xs">
@@ -1704,7 +1700,7 @@ export default function PortfolioPage() {
             </Card>
 
             {/* Sector Allocation Card */}
-            <Card 
+            <Card
               className="cursor-pointer hover:shadow-lg transition-shadow"
               onClick={() => {
                 setMode('portfolio')
@@ -1734,12 +1730,11 @@ export default function PortfolioPage() {
                     </div>
                     <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
                       <div
-                        className={`h-full rounded-full ${
-                          sector.risk === 'VERY HIGH' ? 'bg-red-500' :
-                          sector.risk === 'HIGH' ? 'bg-orange-500' :
-                          sector.risk === 'MODERATE' ? 'bg-amber-500' :
-                          'bg-green-500'
-                        }`}
+                        className={`h-full rounded-full ${sector.risk === 'VERY HIGH' ? 'bg-red-500' :
+                            sector.risk === 'HIGH' ? 'bg-orange-500' :
+                              sector.risk === 'MODERATE' ? 'bg-amber-500' :
+                                'bg-green-500'
+                          }`}
                         style={{ width: `${Math.min(sector.allocation, 100)}%` }}
                       />
                     </div>
@@ -1752,7 +1747,7 @@ export default function PortfolioPage() {
             </Card>
 
             {/* Asset Type Card */}
-            <Card 
+            <Card
               className="cursor-pointer hover:shadow-lg transition-shadow"
               onClick={() => {
                 setMode('portfolio')
@@ -1782,11 +1777,10 @@ export default function PortfolioPage() {
                     </div>
                     <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
                       <div
-                        className={`h-full rounded-full ${
-                          asset.risk === 'HIGH' ? 'bg-red-500' :
-                          asset.risk === 'MODERATE' ? 'bg-amber-500' :
-                          'bg-green-500'
-                        }`}
+                        className={`h-full rounded-full ${asset.risk === 'HIGH' ? 'bg-red-500' :
+                            asset.risk === 'MODERATE' ? 'bg-amber-500' :
+                              'bg-green-500'
+                          }`}
                         style={{ width: `${Math.min(asset.allocation, 100)}%` }}
                       />
                     </div>
@@ -1837,9 +1831,9 @@ export default function PortfolioPage() {
                   </ResponsiveContainer>
                 </div>
               )}
-              
+
               {rebalanceChartView === 'sector' && (
-                <InteractiveDonut 
+                <InteractiveDonut
                   data={sectorAllocation.map((item, index) => ({
                     ...item,
                     color: COLORS[index % COLORS.length]
@@ -1848,9 +1842,9 @@ export default function PortfolioPage() {
                   centerLabel="Total"
                 />
               )}
-              
+
               {rebalanceChartView === 'asset' && (
-                <InteractiveDonut 
+                <InteractiveDonut
                   data={assetTypeAllocation.map((item, index) => ({
                     ...item,
                     color: COLORS[index % COLORS.length]
@@ -1906,8 +1900,8 @@ export default function PortfolioPage() {
                           <div className="space-y-4 py-4">
                             <div className="space-y-2">
                               <Label>Rebalance Threshold (%)</Label>
-                              <Input 
-                                type="number" 
+                              <Input
+                                type="number"
                                 value={rebalanceThreshold}
                                 onChange={(e) => setRebalanceThreshold(Number(e.target.value))}
                                 min={1}
@@ -2112,14 +2106,14 @@ export default function PortfolioPage() {
                     {allocationChanges.increases.length > 0 ? (
                       <div className="space-y-3">
                         {allocationChanges.increases.map((change) => (
-                          <div 
-                            key={change.symbol} 
+                          <div
+                            key={change.symbol}
                             className="relative p-4 rounded-lg overflow-hidden"
                             style={{ backgroundColor: `${HISTORY_GREEN}20` }}
                           >
-                            <div 
+                            <div
                               className="absolute inset-0 rounded-lg"
-                              style={{ 
+                              style={{
                                 backgroundColor: HISTORY_GREEN,
                                 width: `${Math.min((change.change / 20) * 100, 100)}%`,
                                 opacity: 0.3
@@ -2160,14 +2154,14 @@ export default function PortfolioPage() {
                     {allocationChanges.decreases.length > 0 ? (
                       <div className="space-y-3">
                         {allocationChanges.decreases.map((change) => (
-                          <div 
-                            key={change.symbol} 
+                          <div
+                            key={change.symbol}
                             className="relative p-4 rounded-lg overflow-hidden"
                             style={{ backgroundColor: `${HISTORY_RED}20` }}
                           >
-                            <div 
+                            <div
                               className="absolute inset-0 rounded-lg"
-                              style={{ 
+                              style={{
                                 backgroundColor: HISTORY_RED,
                                 width: `${Math.min((Math.abs(change.change) / 20) * 100, 100)}%`,
                                 opacity: 0.3
@@ -2208,8 +2202,8 @@ export default function PortfolioPage() {
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={allocationHistory}>
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis 
-                          dataKey="month" 
+                        <XAxis
+                          dataKey="month"
                           tick={{ fontSize: 12 }}
                           angle={-45}
                           textAnchor="end"
@@ -2252,8 +2246,8 @@ export default function PortfolioPage() {
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={allocationHistory}>
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis 
-                          dataKey="month" 
+                        <XAxis
+                          dataKey="month"
                           tick={{ fontSize: 12 }}
                           angle={-45}
                           textAnchor="end"
@@ -2295,7 +2289,7 @@ export default function PortfolioPage() {
                     <div>
                       <CardTitle className="text-base">Set Target Allocations</CardTitle>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Total: {totalTargetPercent.toFixed(2)}% 
+                        Total: {totalTargetPercent.toFixed(2)}%
                         {!isTargetValid && <span className="text-amber-500 ml-2">(Must equal 100%)</span>}
                       </p>
                     </div>
@@ -2311,8 +2305,8 @@ export default function PortfolioPage() {
                           <SelectItem value="50">Show 50</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         onClick={() => {
                           const equal = 100 / holdings.length
@@ -2324,8 +2318,8 @@ export default function PortfolioPage() {
                       >
                         Equal Weight
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         onClick={autoBalanceAllocations}
                       >
@@ -2345,7 +2339,7 @@ export default function PortfolioPage() {
                           <div className="space-y-4 py-4">
                             <div>
                               <Label>Scenario Name</Label>
-                              <Input 
+                              <Input
                                 placeholder="e.g., Conservative Growth"
                                 id="scenario-name"
                               />
@@ -2372,7 +2366,7 @@ export default function PortfolioPage() {
                     {targetAllocations.slice(0, targetPageSize).map((target) => {
                       const holding = holdings.find(h => h.symbol === target.symbol)
                       if (!holding) return null
-                      
+
                       return (
                         <div key={target.symbol} className="space-y-2">
                           <div className="flex items-center justify-between">
@@ -2445,13 +2439,12 @@ export default function PortfolioPage() {
                   {scenarios.length > 0 ? (
                     <div className="space-y-3">
                       {scenarios.map((scenario) => (
-                        <div 
+                        <div
                           key={scenario.id}
-                          className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                            selectedScenario === scenario.id 
-                              ? 'border-primary bg-primary/5' 
+                          className={`p-4 border rounded-lg cursor-pointer transition-colors ${selectedScenario === scenario.id
+                              ? 'border-primary bg-primary/5'
                               : 'border-border hover:border-primary/50'
-                          }`}
+                            }`}
                           onClick={() => loadScenario(scenario.id)}
                         >
                           <div className="flex items-center justify-between">
@@ -2461,7 +2454,7 @@ export default function PortfolioPage() {
                                 {scenario.targetAllocations.length} assets • {scenario.rebalanceThreshold}% threshold
                               </p>
                             </div>
-                            <Button 
+                            <Button
                               size="sm"
                               variant={selectedScenario === scenario.id ? "default" : "outline"}
                             >

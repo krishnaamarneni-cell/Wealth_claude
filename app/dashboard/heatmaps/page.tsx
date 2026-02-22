@@ -5,7 +5,7 @@ import { TradingViewHeatmap } from "@/components/heatmaps-section"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
-// ─── Market Config ────────────────────────────────────────────────────────────
+// ─── Config ──────────────────────────────────────────────────────────────────
 
 const MARKET_GROUPS = [
   {
@@ -41,7 +41,6 @@ const MARKET_GROUPS = [
   },
 ]
 
-// Flatten for easy active lookup
 const ALL_MARKETS = MARKET_GROUPS.flatMap((g) => g.markets)
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -68,16 +67,13 @@ export default function HeatmapPage() {
         </p>
       </div>
 
-      {/* ── Region + Market Tabs ── */}
+      {/* ── Region + Tab Selectors ── */}
       <div className="flex flex-col gap-3">
         {MARKET_GROUPS.map((group) => (
-          <div key={group.region} className="flex items-center gap-2 flex-wrap">
-            {/* Region Label */}
+          <div key={group.region} className="flex items-center gap-3 flex-wrap">
             <span className="text-xs font-semibold text-muted-foreground w-20 shrink-0">
               {group.region}
             </span>
-
-            {/* Market Tabs for this region */}
             <div className="flex gap-2 flex-wrap">
               {group.markets.map((market) => {
                 const isActive = activeDataSource === market.dataSource
@@ -86,7 +82,7 @@ export default function HeatmapPage() {
                     key={market.dataSource}
                     onClick={() => setActiveDataSource(market.dataSource)}
                     className={cn(
-                      "px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-150 border",
+                      "px-3 py-1.5 rounded-md text-sm font-medium transition-all border",
                       isActive
                         ? "bg-primary text-primary-foreground border-primary shadow-sm"
                         : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground"
@@ -120,13 +116,14 @@ export default function HeatmapPage() {
           </div>
         </div>
 
-        {/* Widget */}
-        {/* force remount on switch */}
-        <TradingViewHeatmap
-          key={activeDataSource}
-          dataSource={activeDataSource}
-          height={620}
-        />
+        {/* Widget — key forces full iframe reload on market switch */}
+        <div style={{ height: "620px", width: "100%" }}>
+          <TradingViewHeatmap
+            key={activeDataSource}
+            dataSource={activeDataSource}
+            height={620}
+          />
+        </div>
       </div>
 
       {/* ── Bottom Info Row ── */}
@@ -149,7 +146,7 @@ export default function HeatmapPage() {
               </span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="mt-1 h-2.5 w-2.5 rounded-sm bg-muted-foreground/50 shrink-0" />
+              <span className="mt-1 h-2.5 w-2.5 rounded-sm bg-muted-foreground/40 shrink-0" />
               <span>
                 <span className="font-medium text-foreground">Size</span> — Rectangle size = market cap weight
               </span>

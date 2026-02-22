@@ -383,8 +383,8 @@ function InteractiveDonut({
                 }
               }}
               className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 border-2 ${hoveredItem === item.name
-                  ? "border-gray-400 dark:border-gray-600"
-                  : "border-transparent hover:border-gray-300 dark:hover:border-gray-700"
+                ? "border-gray-400 dark:border-gray-600"
+                : "border-transparent hover:border-gray-300 dark:hover:border-gray-700"
                 }`}
               onMouseEnter={() => setHoveredItem(item.name)}
               onMouseLeave={() => setHoveredItem(null)}
@@ -1504,6 +1504,16 @@ export default function PortfolioPage() {
           </Tabs>
         </>
       )}
+      {mode === "portfolio" && (
+        <PortfolioAIInsight
+          mode="portfolio"
+          holdings={holdings}
+          totalPortfolioValue={totalPortfolioValue}
+          allocationHistory={allocationHistory}
+          driftScore={driftScore}
+          riskScore={riskScore}
+        />
+      )}
 
       {/* Rebalance Mode */}
       {mode === 'rebalance' && (
@@ -1669,8 +1679,8 @@ export default function PortfolioPage() {
                 {concentrationWarnings.length > 0 ? (
                   concentrationWarnings.slice(0, 3).map(warning => (
                     <div key={warning.symbol} className={`p-3 rounded-lg border ${warning.risk === 'VERY HIGH' ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900' :
-                        warning.risk === 'HIGH' ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-900' :
-                          'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900'
+                      warning.risk === 'HIGH' ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-900' :
+                        'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900'
                       }`}>
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-semibold">{warning.symbol}</span>
@@ -1731,9 +1741,9 @@ export default function PortfolioPage() {
                     <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
                       <div
                         className={`h-full rounded-full ${sector.risk === 'VERY HIGH' ? 'bg-red-500' :
-                            sector.risk === 'HIGH' ? 'bg-orange-500' :
-                              sector.risk === 'MODERATE' ? 'bg-amber-500' :
-                                'bg-green-500'
+                          sector.risk === 'HIGH' ? 'bg-orange-500' :
+                            sector.risk === 'MODERATE' ? 'bg-amber-500' :
+                              'bg-green-500'
                           }`}
                         style={{ width: `${Math.min(sector.allocation, 100)}%` }}
                       />
@@ -1778,8 +1788,8 @@ export default function PortfolioPage() {
                     <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
                       <div
                         className={`h-full rounded-full ${asset.risk === 'HIGH' ? 'bg-red-500' :
-                            asset.risk === 'MODERATE' ? 'bg-amber-500' :
-                              'bg-green-500'
+                          asset.risk === 'MODERATE' ? 'bg-amber-500' :
+                            'bg-green-500'
                           }`}
                         style={{ width: `${Math.min(asset.allocation, 100)}%` }}
                       />
@@ -2442,8 +2452,8 @@ export default function PortfolioPage() {
                         <div
                           key={scenario.id}
                           className={`p-4 border rounded-lg cursor-pointer transition-colors ${selectedScenario === scenario.id
-                              ? 'border-primary bg-primary/5'
-                              : 'border-border hover:border-primary/50'
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border hover:border-primary/50'
                             }`}
                           onClick={() => loadScenario(scenario.id)}
                         >

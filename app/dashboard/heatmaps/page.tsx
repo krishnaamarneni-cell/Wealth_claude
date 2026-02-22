@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { TradingViewHeatmap } from "@/components/tradingview-heatmap"
+import { TradingViewHeatmap } from "@/components/heatmaps-section"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 

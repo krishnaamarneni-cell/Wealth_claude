@@ -261,15 +261,20 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
             ))}
           </div>
 
+          {/* Loading state for entire content */}
+          {loading && (
+            <div className="py-8 text-center" style={{ color: "#94a3b8" }}>
+              <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2" />
+              <p className="text-sm">Loading stock data...</p>
+            </div>
+          )}
+
           {/* Chart */}
-          <div className="h-56 w-full min-h-[224px]">
-            {loading ? (
-              <div className="h-full flex items-center justify-center">
-                <RefreshCw className="h-5 w-5 animate-spin" style={{ color: "#94a3b8" }} />
-              </div>
-            ) : chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+          {!loading && (
+            <div style={{ height: 224, width: "100%" }}>
+              {chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={224}>
+                  <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor={lineColor} stopOpacity={0.25} />
@@ -306,11 +311,15 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-sm" style={{ color: "#94a3b8" }}>
-                {loading ? "" : "No chart data available"}
+              <div className="h-full flex flex-col items-center justify-center text-sm gap-2" style={{ height: 224, color: "#94a3b8" }}>
+                <div className="text-center">
+                  <p className="font-medium mb-1">No chart data available</p>
+                  <p className="text-xs">Unable to fetch historical data for {period} period</p>
+                </div>
               </div>
             )}
-          </div>
+            </div>
+          )}
 
           {/* Stats Grid — 16 tiles, always rendered */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">

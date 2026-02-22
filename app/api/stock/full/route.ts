@@ -168,8 +168,6 @@ async function fetchYahoo(symbol: string): Promise<StockFull> {
     daily,
   }
 }
-
-
 // ── Finnhub fallback ───────────────────────────────────────────────────────
 
 async function fetchFinnhub(symbol: string): Promise<StockFull> {

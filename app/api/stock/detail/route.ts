@@ -10,32 +10,70 @@ async function tFetch(url: string, ms = 8000) {
   finally { clearTimeout(t) }
 }
 
+// ── SOURCE 1: Yahoo Finance (no key needed) ────────────────────────────────
 async function yahoo(symbol: string) {
   try {
-    const r = await tFetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d&includePrePost=false`)
-    if (!r.ok) return null
-    const j = await r.json()
-    const m = j?.chart?.result?.[0]?.meta
-    if (!m?.regularMarketPrice) return null
-    const price = m.regularMarketPrice
-    const prev = m.previousClose ?? m.chartPreviousClose ?? 0
+    const [chartR, quoteR] = await Promise.allSettled([
+      tFetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d&includePrePost=false`),
+      tFetch(`https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbol}`)
+    ])
+
+    const chartJ = chartR.status === 'fulfilled' && chartR.value.ok ? await chartR.value.json() : null
+    const quoteJ = quoteR.status === 'fulfilled' && quoteR.value.ok ? await quoteR.value.json() : null
+
+    const m = chartJ?.chart?.result?.[0]?.meta
+    const q = quoteJ?.quoteResponse?.result?.[0]
+
+    const price = q?.regularMarketPrice ?? m?.regularMarketPrice ?? 0
+    if (!price) return null
+
+    const prev = q?.regularMarketPreviousClose ?? m?.previousClose ?? m?.chartPreviousClose ?? 0
+
+    // Earnings date — convert Unix timestamp to readable string
+    let earningsDate: string | null = null
+    const ets = q?.earningsTimestamp ?? q?.earningsTimestampStart ?? null
+    if (ets) {
+      earningsDate = new Date(ets * 1000).toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric'
+      })
+    }
+
+    // Ex-div date — convert Unix timestamp
+    let exDivDate: string | null = null
+    if (q?.exDividendDate) {
+      exDivDate = new Date(q.exDividendDate * 1000).toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric'
+      })
+    }
+
     return {
       price,
       previousClose: prev,
-      open: m.regularMarketOpen ?? null,
-      dayHigh: m.regularMarketDayHigh ?? null,
-      dayLow: m.regularMarketDayLow ?? null,
-      volume: m.regularMarketVolume ?? null,
-      marketCap: m.marketCap ?? null,
-      fiftyTwoWeekHigh: m.fiftyTwoWeekHigh ?? null,
-      fiftyTwoWeekLow: m.fiftyTwoWeekLow ?? null,
+      open: q?.regularMarketOpen ?? m?.regularMarketOpen ?? null,
+      dayHigh: q?.regularMarketDayHigh ?? m?.regularMarketDayHigh ?? null,
+      dayLow: q?.regularMarketDayLow ?? m?.regularMarketDayLow ?? null,
+      volume: q?.regularMarketVolume ?? m?.regularMarketVolume ?? null,
+      marketCap: q?.marketCap ?? m?.marketCap ?? null,
+      fiftyTwoWeekHigh: q?.fiftyTwoWeekHigh ?? m?.fiftyTwoWeekHigh ?? null,
+      fiftyTwoWeekLow: q?.fiftyTwoWeekLow ?? m?.fiftyTwoWeekLow ?? null,
       change: price - prev,
       changePercent: prev > 0 ? ((price - prev) / prev) * 100 : 0,
+      pe: q?.trailingPE ?? null,
+      eps: q?.epsTrailingTwelveMonths ?? null,
+      dividendAmount: q?.trailingAnnualDividendRate ?? null,
+      dividendYield: q?.trailingAnnualDividendYield
+        ? q.trailingAnnualDividendYield * 100
+        : null,
+      exDivDate,
+      earningsDate,
+      name: q?.longName ?? q?.shortName ?? null,
+      exchange: q?.fullExchangeName ?? q?.exchange ?? null,
     }
-  } catch { return null }
+  } catch (e: any) { console.error('[Yahoo]', e.message); return null }
 }
 
-async function finnhubAll(symbol: string, key: string) {
+// ── SOURCE 2: Finnhub (key required) ──────────────────────────────────────
+async function finnhub(symbol: string, key: string) {
   if (!key) return null
   try {
     const [mR, pR, tR, dR] = await Promise.allSettled([
@@ -44,6 +82,7 @@ async function finnhubAll(symbol: string, key: string) {
       tFetch(`https://finnhub.io/api/v1/stock/price-target?symbol=${symbol}&token=${key}`),
       tFetch(`https://finnhub.io/api/v1/stock/dividend2?symbol=${symbol}&token=${key}`),
     ])
+
     const metrics = mR.status === 'fulfilled' && mR.value.ok ? await mR.value.json() : null
     const profile = pR.status === 'fulfilled' && pR.value.ok ? await pR.value.json() : null
     const target = tR.status === 'fulfilled' && tR.value.ok ? await tR.value.json() : null
@@ -81,9 +120,55 @@ async function finnhubAll(symbol: string, key: string) {
       country: profile?.country ?? 'US',
       exchange: profile?.exchange ?? null,
     }
-  } catch (e: any) { console.error('[FinnhubAll]', e.message); return null }
+  } catch (e: any) { console.error('[Finnhub]', e.message); return null }
 }
 
+// ── SOURCE 3: Polygon (key required) ──────────────────────────────────────
+async function polygon(symbol: string, key: string) {
+  if (!key) return null
+  try {
+    const [snapR, refR, divR] = await Promise.allSettled([
+      tFetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}?apiKey=${key}`),
+      tFetch(`https://api.polygon.io/v3/reference/tickers/${symbol}?apiKey=${key}`),
+      tFetch(`https://api.polygon.io/v3/reference/dividends?ticker=${symbol}&limit=1&apiKey=${key}`),
+    ])
+
+    const snap = snapR.status === 'fulfilled' && snapR.value.ok ? await snapR.value.json() : null
+    const ref = refR.status === 'fulfilled' && refR.value.ok ? await refR.value.json() : null
+    const div = divR.status === 'fulfilled' && divR.value.ok ? await divR.value.json() : null
+
+    const ticker = snap?.ticker
+    const day = ticker?.day
+    const info = ref?.results
+
+    let divAmt: number | null = null
+    let exDivDate: string | null = null
+    if (div?.results?.length) {
+      divAmt = div.results[0]?.cash_amount ?? null
+      exDivDate = div.results[0]?.ex_dividend_date ?? null
+    }
+
+    return {
+      price: ticker?.lastTrade?.p ?? ticker?.prevDay?.c ?? null,
+      open: day?.o ?? null,
+      dayHigh: day?.h ?? null,
+      dayLow: day?.l ?? null,
+      volume: day?.v ?? null,
+      marketCap: info?.market_cap ?? null,
+      name: info?.name ?? null,
+      sector: info?.sic_description ?? null,
+      logo: info?.branding?.icon_url
+        ? `${info.branding.icon_url}?apiKey=${key}`
+        : null,
+      country: info?.locale?.toUpperCase() ?? 'US',
+      exchange: info?.primary_exchange ?? null,
+      divAmt,
+      exDivDate,
+    }
+  } catch (e: any) { console.error('[Polygon]', e.message); return null }
+}
+
+// ── GET ────────────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   const symbol = new URL(req.url).searchParams.get('symbol')?.toUpperCase()
   if (!symbol) return NextResponse.json({ error: 'symbol required' }, { status: 400 })
@@ -92,45 +177,60 @@ export async function GET(req: NextRequest) {
   if (hit && Date.now() - hit.t < TTL) return NextResponse.json({ ...hit.d, cached: true })
 
   const fhKey = process.env.FINNHUB_API_KEY ?? process.env.NEXT_PUBLIC_FINNHUB_API_KEY ?? ''
-  console.log(`\n===== detail ${symbol} key:${fhKey ? 'OK' : 'MISSING'} =====`)
+  const polyKey = process.env.POLYGON_API_KEY ?? process.env.NEXT_PUBLIC_POLYGON_API_KEY ?? ''
+
+  console.log(`\n===== detail ${symbol} fh:${fhKey ? 'OK' : 'MISSING'} poly:${polyKey ? 'OK' : 'MISSING'} =====`)
 
   try {
-    const [yq, fh] = await Promise.all([yahoo(symbol), finnhubAll(symbol, fhKey)])
+    // All 3 sources fire in parallel — no sequential waiting
+    const [yq, fh, poly] = await Promise.all([
+      yahoo(symbol),
+      finnhub(symbol, fhKey),
+      polygon(symbol, polyKey),
+    ])
 
-    const price = yq?.price ?? 0
-    const prev = yq?.previousClose ?? 0
+    const price = yq?.price ?? poly?.price ?? 0
 
     const out = {
       symbol,
-      name: fh?.name ?? symbol,
+
+      // ── Identity ───────────────────────────────
+      name: yq?.name ?? fh?.name ?? poly?.name ?? symbol,
+      sector: fh?.sector ?? poly?.sector ?? null,
+      logo: fh?.logo ?? poly?.logo ?? null,
+      country: fh?.country ?? poly?.country ?? 'US',
+      exchange: yq?.exchange ?? fh?.exchange ?? poly?.exchange ?? null,
+
+      // ── Price ──────────────────────────────────
       price,
       change: yq?.change ?? 0,
       changePercent: yq?.changePercent ?? 0,
-      open: yq?.open ?? null,
-      previousClose: prev,
-      dayHigh: yq?.dayHigh ?? null,
-      dayLow: yq?.dayLow ?? null,
-      volume: yq?.volume ?? null,
+      previousClose: yq?.previousClose ?? null,
+      open: yq?.open ?? poly?.open ?? null,
+      dayHigh: yq?.dayHigh ?? poly?.dayHigh ?? null,
+      dayLow: yq?.dayLow ?? poly?.dayLow ?? null,
+      volume: yq?.volume ?? poly?.volume ?? null,
       avgVolume: fh?.avgVolume ?? null,
-      marketCap: yq?.marketCap ?? fh?.marketCap ?? null,
+      marketCap: yq?.marketCap ?? fh?.marketCap ?? poly?.marketCap ?? null,
       fiftyTwoWeekHigh: yq?.fiftyTwoWeekHigh ?? fh?.high52 ?? null,
       fiftyTwoWeekLow: yq?.fiftyTwoWeekLow ?? fh?.low52 ?? null,
-      pe: fh?.pe ?? null,
-      eps: fh?.eps ?? null,
+
+      // ── Fundamentals ───────────────────────────
+      // Yahoo → Finnhub → Polygon (each field independently)
+      pe: yq?.pe ?? fh?.pe ?? null,
+      eps: yq?.eps ?? fh?.eps ?? null,
       beta: fh?.beta ?? null,
-      dividendYield: fh?.divYield ?? null,
-      dividendAmount: fh?.divAmt ?? null,
-      exDivDate: fh?.exDate ?? null,
+      dividendYield: yq?.dividendYield ?? fh?.divYield ?? null,
+      dividendAmount: yq?.dividendAmount ?? fh?.divAmt ?? poly?.divAmt ?? null,
+      exDivDate: yq?.exDivDate ?? fh?.exDate ?? poly?.exDivDate ?? null,
+      earningsDate: yq?.earningsDate ?? null,
       targetPrice: fh?.targetPrice ?? null,
-      sector: fh?.sector ?? null,
-      logo: fh?.logo ?? null,
-      country: fh?.country ?? 'US',
-      exchange: fh?.exchange ?? null,
     }
 
-    console.log(`[detail] ${symbol} price:${price} vol:${out.volume} pe:${out.pe} div:${out.dividendAmount}`)
+    console.log(`[detail] ${symbol} price:${price} pe:${out.pe} div:${out.dividendAmount} earnings:${out.earningsDate}`)
     MEM.set(symbol, { d: out, t: Date.now() })
     return NextResponse.json(out)
+
   } catch (e: any) {
     console.error(`[detail] ${symbol} FATAL:`, e.message)
     return NextResponse.json({ error: 'failed' }, { status: 500 })

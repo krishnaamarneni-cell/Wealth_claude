@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback, useRef } from "react"
+import { useState, useMemo, useCallback, useRef, useEffect } from "react"
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, ReferenceLine
@@ -16,6 +16,12 @@ import {
 
 // ── Types ─────────────────────────────────────────────────────────────
 type HistoryPoint = { date: string; price: number }
+
+interface SearchResult {
+  symbol: string
+  name: string
+  exchange: string
+}
 
 interface FundData {
   name: string; logo: string | null; sector: string | null; exchange: string | null
@@ -40,7 +46,7 @@ const COLORS = [
   '#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
   '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#a855f7'
 ]
-const CHART_PERIODS = ['1M', '3M', '6M', '1Y'] as const
+const CHART_PERIODS = ['1M', '3M', '6M', '1Y', '5Y'] as const
 type ChartPeriod = typeof CHART_PERIODS[number]
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -66,6 +72,7 @@ function getPeriodCutoff(p: ChartPeriod) {
   if (p === '3M') d.setMonth(d.getMonth() - 3)
   if (p === '6M') d.setMonth(d.getMonth() - 6)
   if (p === '1Y') d.setFullYear(d.getFullYear() - 1)
+  if (p === '5Y') d.setFullYear(d.getFullYear() - 5)
   return d.toISOString().split('T')[0]
 }
 
@@ -82,7 +89,6 @@ function cellCls(val: number | null, best: number | null, worst: number | null) 
   return ''
 }
 
-// ── Metrics definition ────────────────────────────────────────────────
 const METRICS = [
   { label: 'Current Price', key: 'price', fmt: fmtPrice, hb: null },
   { label: 'Market Cap', key: 'marketCap', fmt: fmtCap, hb: null },
@@ -108,11 +114,48 @@ export default function ComparePage() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [suggestions, setSuggestions] = useState<SearchResult[]>([])
+  const [searching, setSearching] = useState(false)
+  const [showDrop, setShowDrop] = useState(false)
   const colorIdx = useRef(0)
+  const searchTimer = useRef<NodeJS.Timeout | null>(null)
+  const dropRef = useRef<HTMLDivElement>(null)
 
-  // ── Add stock ───────────────────────────────────────────────────────
-  const addStock = useCallback(async () => {
-    const symbol = input.trim().toUpperCase()
+  // ── Close dropdown on outside click ──────────────────────────────
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (dropRef.current && !dropRef.current.contains(e.target as Node)) {
+        setShowDrop(false)
+      }
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [])
+
+  // ── Debounced search ──────────────────────────────────────────────
+  const handleInput = useCallback((val: string) => {
+    setInput(val)
+    setError(null)
+    setShowDrop(true)
+
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+
+    if (!val.trim()) { setSuggestions([]); setSearching(false); return }
+
+    setSearching(true)
+    searchTimer.current = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/stock/search?q=${encodeURIComponent(val)}`)
+        const d = await r.json()
+        setSuggestions(Array.isArray(d) ? d : [])
+      } catch { setSuggestions([]) }
+      finally { setSearching(false) }
+    }, 300)
+  }, [])
+
+  // ── Add stock ─────────────────────────────────────────────────────
+  const addStock = useCallback(async (symbolOverride?: string) => {
+    const symbol = (symbolOverride ?? input).trim().toUpperCase()
     if (!symbol) return
     if (stocks.length >= 10) { setError('Maximum 10 stocks'); return }
     if (stocks.find(s => s.symbol === symbol)) { setError(`${symbol} already added`); return }
@@ -120,14 +163,14 @@ export default function ComparePage() {
     setError(null)
     setLoading(symbol)
     setInput('')
+    setSuggestions([])
+    setShowDrop(false)
 
     const color = COLORS[colorIdx.current % COLORS.length]
     colorIdx.current++
-
     const willBeFund = stocks.length < 3
 
     try {
-      // Always fetch chart. If first 3, also fetch fundamentals in parallel
       const [chartRes, fundRes] = await Promise.all([
         fetch(`/api/stock/compare?symbols=${symbol}&mode=chart`).then(r => r.json()),
         willBeFund
@@ -149,17 +192,13 @@ export default function ComparePage() {
     } catch {
       setError(`Failed to fetch ${symbol}`)
       colorIdx.current--
-    } finally {
-      setLoading(null)
-    }
+    } finally { setLoading(null) }
   }, [input, stocks])
 
-  // ── Remove stock — auto-promote next stock into fundamentals ────────
+  // ── Remove + auto-promote ─────────────────────────────────────────
   const removeStock = useCallback((symbol: string) => {
     setStocks(prev => {
       const next = prev.filter(s => s.symbol !== symbol)
-
-      // Find stocks now in first 3 that don't have fund data yet
       const needFund = next.slice(0, 3).filter(s => s.fund === null)
       if (needFund.length > 0) {
         Promise.all(
@@ -183,7 +222,7 @@ export default function ComparePage() {
     })
   }, [])
 
-  // ── Normalized chart data ───────────────────────────────────────────
+  // ── Normalized chart data ─────────────────────────────────────────
   const chartData = useMemo(() => {
     if (!stocks.length) return []
     const cutoff = getPeriodCutoff(period)
@@ -214,16 +253,24 @@ export default function ComparePage() {
     })
   }, [stocks, period])
 
+  // ── Deduplicated X ticks — year for 5Y, month otherwise ──────────
   const xTicks = useMemo(() => {
     const seen = new Set<string>()
     return chartData.reduce<string[]>((acc, p) => {
-      const key = String(p.date).substring(0, 7)
+      const key = period === '5Y'
+        ? String(p.date).substring(0, 4)
+        : String(p.date).substring(0, 7)
       if (!seen.has(key)) { seen.add(key); acc.push(p.date) }
       return acc
     }, [])
-  }, [chartData])
+  }, [chartData, period])
 
-  // First 3 stocks with fund data loaded
+  const fmtXTick = (v: string) => {
+    if (period === '5Y') return v.substring(0, 4)
+    const parts = v.split('-')
+    return MONTHS[parseInt(parts[1]) - 1] ?? v
+  }
+
   const fundStocks = stocks.slice(0, 3).filter(s => s.fund !== null) as (StockEntry & { fund: FundData })[]
 
   return (
@@ -235,7 +282,7 @@ export default function ComparePage() {
         </p>
       </div>
 
-      {/* ── Stock Selector ──────────────────────────────────────── */}
+      {/* ── Search + Stock Selector ─────────────────────────────── */}
       <Card>
         <CardContent className="pt-4 space-y-3">
           {/* Pills */}
@@ -269,23 +316,55 @@ export default function ComparePage() {
             </div>
           )}
 
-          {/* Input */}
-          <div className="flex gap-2">
-            <div className="relative flex-1 max-w-xs">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          {/* Search input + dropdown */}
+          <div className="flex gap-2 items-start">
+            <div className="relative flex-1 max-w-sm" ref={dropRef}>
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+              {searching && (
+                <RefreshCw className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground z-10" />
+              )}
               <Input
-                placeholder="Enter ticker (e.g. AAPL)"
+                placeholder="Search by name or ticker (e.g. Apple or AAPL)"
                 value={input}
-                onChange={e => { setInput(e.target.value.toUpperCase()); setError(null) }}
-                onKeyDown={e => e.key === 'Enter' && addStock()}
-                className="pl-8"
+                onChange={e => handleInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    // If no suggestions, try direct ticker
+                    if (!suggestions.length) addStock()
+                    else if (suggestions[0]) addStock(suggestions[0].symbol)
+                  }
+                  if (e.key === 'Escape') { setShowDrop(false) }
+                }}
+                onFocus={() => { if (input.trim()) setShowDrop(true) }}
+                className="pl-8 pr-8"
                 disabled={loading !== null}
               />
+
+              {/* Dropdown */}
+              {showDrop && suggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden">
+                  {suggestions.map(s => (
+                    <button
+                      key={s.symbol}
+                      onMouseDown={e => { e.preventDefault(); addStock(s.symbol) }}
+                      className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/60 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-semibold text-sm text-foreground w-16 flex-shrink-0">{s.symbol}</span>
+                        <span className="text-xs text-muted-foreground truncate">{s.name}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">{s.exchange}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
+
             <Button
-              onClick={addStock}
+              onClick={() => addStock()}
               disabled={loading !== null || !input.trim() || stocks.length >= 10}
               size="sm"
+              className="flex-shrink-0"
             >
               {loading
                 ? <RefreshCw className="h-4 w-4 animate-spin mr-1" />
@@ -310,8 +389,8 @@ export default function ComparePage() {
         <Card>
           <CardContent className="py-24 text-center">
             <BarChart3 className="h-10 w-10 mx-auto mb-3 opacity-30" style={{ color: '#94a3b8' }} />
-            <p className="text-sm text-muted-foreground">Add stocks above to start comparing</p>
-            <p className="text-xs text-muted-foreground mt-1 opacity-60">Try AAPL, MSFT, NVDA, TSLA, AMZN...</p>
+            <p className="text-sm text-muted-foreground">Search for stocks above to start comparing</p>
+            <p className="text-xs text-muted-foreground mt-1 opacity-60">Try "Apple", "Tesla", or type a ticker like NVDA</p>
           </CardContent>
         </Card>
       ) : (
@@ -337,7 +416,7 @@ export default function ComparePage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">% Return — {period}</CardTitle>
-              <CardDescription>All stocks normalized to 0% at start of period</CardDescription>
+              <CardDescription>All stocks normalized to 0% at period start</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-[380px]">
@@ -348,7 +427,7 @@ export default function ComparePage() {
                     <XAxis
                       dataKey="date"
                       ticks={xTicks}
-                      tickFormatter={v => { const p = v.split('-'); return MONTHS[parseInt(p[1]) - 1] ?? v }}
+                      tickFormatter={fmtXTick}
                       tick={{ fill: '#94a3b8', fontSize: 10 }}
                       tickLine={false}
                       axisLine={false}
@@ -391,20 +470,19 @@ export default function ComparePage() {
             </CardContent>
           </Card>
 
-          {/* ── Fundamentals Section ────────────────────────────── */}
+          {/* ── Fundamentals ────────────────────────────────────── */}
           {fundStocks.length > 0 && (
             <div className="space-y-4">
               <div>
                 <h2 className="text-lg font-semibold">Fundamentals</h2>
                 <p className="text-sm text-muted-foreground">
-                  First 3 stocks only · 12hr cache · Finnhub
+                  First 3 stocks · 12hr cache · Finnhub
                 </p>
               </div>
 
               {/* Price cards */}
               <div className={`grid gap-4 ${fundStocks.length === 1 ? 'grid-cols-1 max-w-sm' :
-                  fundStocks.length === 2 ? 'grid-cols-2' :
-                    'grid-cols-3'
+                  fundStocks.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
                 }`}>
                 {fundStocks.map(stock => (
                   <Card key={stock.symbol} style={{ borderTopColor: stock.color, borderTopWidth: 3 }}>
@@ -421,7 +499,7 @@ export default function ComparePage() {
                           </div>
                           <p className="text-xs text-muted-foreground truncate">{stock.fund.name}</p>
                           {stock.fund.sector && (
-                            <p className="text-xs text-muted-foreground opacity-60">{stock.fund.sector}</p>
+                            <p className="text-xs opacity-60 text-muted-foreground">{stock.fund.sector}</p>
                           )}
                         </div>
                         {stock.fund.logo && (
@@ -439,10 +517,7 @@ export default function ComparePage() {
                           {stock.fund.changePercent >= 0
                             ? <ArrowUpRight className="h-4 w-4" />
                             : <ArrowDownRight className="h-4 w-4" />}
-                          <span>
-                            {stock.fund.changePercent >= 0 ? '+' : ''}
-                            {stock.fund.changePercent.toFixed(2)}%
-                          </span>
+                          <span>{stock.fund.changePercent >= 0 ? '+' : ''}{stock.fund.changePercent.toFixed(2)}%</span>
                           <span className="text-muted-foreground text-xs">today</span>
                         </div>
                       )}
@@ -469,10 +544,7 @@ export default function ComparePage() {
                           {fundStocks.map(stock => (
                             <TableHead key={stock.symbol} className="text-center">
                               <div className="flex items-center justify-center gap-1.5">
-                                <div
-                                  className="h-2.5 w-2.5 rounded-full flex-shrink-0"
-                                  style={{ backgroundColor: stock.color }}
-                                />
+                                <div className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: stock.color }} />
                                 {stock.symbol}
                               </div>
                             </TableHead>
@@ -481,7 +553,6 @@ export default function ComparePage() {
                       </TableHeader>
                       <TableBody>
                         {METRICS.map(metric => {
-                          // 52-week range — composite row
                           if (metric.key === '__52wk__') {
                             return (
                               <TableRow key="52wk">

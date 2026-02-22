@@ -83,7 +83,7 @@ export default function HeatmapPage() {
             >
               <TradingViewHeatmap
                 dataSource={market.dataSource}
-                height={620}
+                height={800}
               />
             </div>
           ))}

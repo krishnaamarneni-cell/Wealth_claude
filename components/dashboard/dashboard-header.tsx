@@ -18,10 +18,6 @@ import {
 export function DashboardHeader() {
   const router = useRouter()
 
-  const handleLogout = () => {
-    // Clear portfolio data and redirect to landing page
-    router.push('/')
-  }
   return (
     <header className="flex h-14 items-center justify-between border-b border-border px-4 lg:px-6">
       <div className="flex items-center gap-4">
@@ -53,11 +49,29 @@ export function DashboardHeader() {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Profile</DropdownMenuItem>
-            <DropdownMenuItem>Settings</DropdownMenuItem>
-            <DropdownMenuItem>Connected Accounts</DropdownMenuItem>
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => router.push("/dashboard/profile")}
+            >
+              Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => router.push("/dashboard/settings")}
+            >
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => router.push("/dashboard/settings?tab=connected")}
+            >
+              Connected Accounts
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-500 focus:text-red-600">
+            <DropdownMenuItem
+              onClick={() => router.push("/")}
+              className="cursor-pointer text-red-500 focus:text-red-600"
+            >
               Log out
             </DropdownMenuItem>
           </DropdownMenuContent>

@@ -52,14 +52,15 @@ async function historyFMP(symbol: string, cfg: PeriodCfg): Promise<Point[]> {
       .reverse()
     if (!pts.length) throw new Error("FMP intraday: no points")
     return pts
+  } else {
+    const res = await fetch(`${FMP_BASE}/historical-price-full/${symbol}?timeseries=${cfg.timeseries}&apikey=${FMP_KEY}`, { next: { revalidate: CACHE_TTL } })
+    const json = await res.json()
+    const pts = ((json as any).historical || [])
+      .map((d: any) => ({ date: d.date as string, price: d.close as number }))
+      .reverse()
+    if (!pts.length) throw new Error("FMP daily empty")
+    return pts
   }
-  const res = await fetch(`${FMP_BASE}/historical-price-full/${symbol}?timeseries=${cfg.timeseries}&apikey=${FMP_KEY}`, { next: { revalidate: CACHE_TTL } })
-  const json = await res.json()
-  const pts = ((json as any).historical || [])
-    .map((d: any) => ({ date: d.date as string, price: d.close as number }))
-    .reverse()
-  if (!pts.length) throw new Error("FMP daily empty")
-  return pts
 }
 
 async function historyPolygon(symbol: string, cfg: PeriodCfg): Promise<Point[]> {

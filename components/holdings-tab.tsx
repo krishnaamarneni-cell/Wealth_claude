@@ -362,7 +362,11 @@ function InteractiveHoldingsDonut({
 
 // ============ MAIN COMPONENT ============
 
-export default function HoldingsTab() {
+interface HoldingsTabProps {
+  onStockClick?: (symbol: string) => void
+}
+
+export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
   const [holdings, setHoldings] = useState<Holding[]>([])
   const [allHoldings, setAllHoldings] = useState<Holding[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -1379,7 +1383,11 @@ export default function HoldingsTab() {
                   <TableBody>
                     {holdings.length > 0 ? (
                       holdings.map((holding) => (
-                        <TableRow key={`${holding.symbol}-${holding.broker}`}>
+                        <TableRow
+                          key={`${holding.symbol}-${holding.broker}`}
+                          className="cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => onStockClick?.(holding.symbol)}
+                        >
                           <TableCell className="font-medium">
                             {holding.symbol}
                             {holding.splitAdjusted && (

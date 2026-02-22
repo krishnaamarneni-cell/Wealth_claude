@@ -50,7 +50,7 @@ function setCached<T>(key: string, data: T): void {
 }
 
 function fmtPrice(v: number | null | undefined) {
-  if (v == null || !isFinite(v)) return "—"
+  if (v == null || !isFinite(v) || v === 0) return "—"
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(v)
 }
 function fmtCap(v: number | null | undefined) {
@@ -128,26 +128,27 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
 
   if (!open || !symbol) return null
 
-  const isValid = detail && typeof detail.price === "number"
+  const isValid = detail != null && typeof detail.price === "number"
   const isUp = (detail?.changePercent ?? 0) >= 0
   const firstPrice = history[0]?.price ?? 0
   const lastPrice = history[history.length - 1]?.price ?? 0
   const chartUp = lastPrice >= firstPrice
 
-  const stats = isValid ? [
-    { label: "Open", value: fmtPrice(detail!.open) },
-    { label: "High", value: fmtPrice(detail!.high) },
-    { label: "Low", value: fmtPrice(detail!.low) },
-    { label: "Prev Close", value: fmtPrice(detail!.previousClose) },
-    { label: "Mkt Cap", value: fmtCap(detail!.marketCap) },
-    { label: "P/E Ratio", value: detail!.pe != null ? detail!.pe.toFixed(2) : "—" },
-    { label: "52-Wk High", value: fmtPrice(detail!.yearHigh) },
-    { label: "52-Wk Low", value: fmtPrice(detail!.yearLow) },
-    { label: "Volume", value: fmtVol(detail!.volume) },
-    { label: "Avg Volume", value: fmtVol(detail!.avgVolume) },
-    { label: "Dividend", value: detail!.dividendYield != null ? `${detail!.dividendYield.toFixed(2)}%` : "—" },
-    { label: "Qtrly Div Amt", value: detail!.lastDiv != null ? `$${detail!.lastDiv.toFixed(2)}` : "—" },
-  ] : []
+  // ── Stats always render — show "—" when data missing ──
+  const stats = [
+    { label: "Open", value: isValid ? fmtPrice(detail!.open) : loadingDetail ? "..." : "—" },
+    { label: "High", value: isValid ? fmtPrice(detail!.high) : loadingDetail ? "..." : "—" },
+    { label: "Low", value: isValid ? fmtPrice(detail!.low) : loadingDetail ? "..." : "—" },
+    { label: "Prev Close", value: isValid ? fmtPrice(detail!.previousClose) : loadingDetail ? "..." : "—" },
+    { label: "Mkt Cap", value: isValid ? fmtCap(detail!.marketCap) : loadingDetail ? "..." : "—" },
+    { label: "P/E Ratio", value: isValid ? (detail!.pe != null ? detail!.pe.toFixed(2) : "—") : loadingDetail ? "..." : "—" },
+    { label: "52-Wk High", value: isValid ? fmtPrice(detail!.yearHigh) : loadingDetail ? "..." : "—" },
+    { label: "52-Wk Low", value: isValid ? fmtPrice(detail!.yearLow) : loadingDetail ? "..." : "—" },
+    { label: "Volume", value: isValid ? fmtVol(detail!.volume) : loadingDetail ? "..." : "—" },
+    { label: "Avg Volume", value: isValid ? fmtVol(detail!.avgVolume) : loadingDetail ? "..." : "—" },
+    { label: "Dividend", value: isValid ? (detail!.dividendYield != null ? `${detail!.dividendYield.toFixed(2)}%` : "—") : loadingDetail ? "..." : "—" },
+    { label: "Qtrly Div Amt", value: isValid ? (detail!.lastDiv != null ? `$${detail!.lastDiv.toFixed(2)}` : "—") : loadingDetail ? "..." : "—" },
+  ]
 
   return (
     <div
@@ -168,7 +169,7 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
               )}
             </div>
             <p className="text-sm text-muted-foreground">
-              {loadingDetail ? "Loading..." : (detail?.name || "")}
+              {loadingDetail ? "Loading..." : (detail?.name || symbol)}
             </p>
           </div>
 
@@ -198,8 +199,8 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
                 key={p}
                 onClick={() => setPeriod(p)}
                 className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${period === p
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
               >
                 {p}
@@ -230,17 +231,17 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
                     axisLine={false}
                     interval="preserveStartEnd"
                     tickFormatter={(v) => {
-                      if (period === "1D") return v.substring(0, 5)
-                      if (period === "5Y") return v.substring(0, 4)
-                      return v.substring(5)
+                      if (period === "1D") return String(v).substring(0, 5)
+                      if (period === "5Y") return String(v).substring(0, 4)
+                      return String(v).substring(5)
                     }}
                   />
                   <YAxis
                     tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
                     tickLine={false}
                     axisLine={false}
-                    width={60}
-                    tickFormatter={(v) => `$${v.toFixed(0)}`}
+                    width={65}
+                    tickFormatter={(v) => `$${Number(v).toFixed(0)}`}
                     domain={["auto", "auto"]}
                   />
                   <Tooltip content={<ChartTooltip />} />
@@ -256,29 +257,24 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-                No chart data available
+              <div className="h-full flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+                <span>No chart data available for {period}</span>
+                {period === "1D" && <span className="text-xs">Market may be closed — try 1W</span>}
               </div>
             )}
           </div>
 
-          {/* Stats Grid */}
-          {loadingDetail ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {Array.from({ length: 12 }).map((_, i) => (
-                <div key={i} className="bg-muted/40 rounded-lg p-3 animate-pulse h-14" />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {stats.map((s) => (
-                <div key={s.label} className="bg-muted/40 rounded-lg p-3">
-                  <p className="text-xs text-muted-foreground mb-1">{s.label}</p>
-                  <p className="text-sm font-semibold text-foreground">{s.value}</p>
-                </div>
-              ))}
-            </div>
-          )}
+          {/* Stats Grid — always renders all 12 tiles */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {stats.map((s) => (
+              <div key={s.label} className="bg-muted/40 rounded-lg p-3">
+                <p className="text-xs text-muted-foreground mb-1">{s.label}</p>
+                <p className={`text-sm font-semibold ${s.value === "..." ? "text-muted-foreground animate-pulse" : "text-foreground"}`}>
+                  {s.value}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

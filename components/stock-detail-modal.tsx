@@ -219,8 +219,8 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
                   key={p}
                   onClick={() => { setPeriod(p); setChartNote(null) }}
                   className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${period === p
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-muted"
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-muted"
                     }`}
                   style={{ color: period === p ? undefined : "#94a3b8" }}
                 >
@@ -248,7 +248,6 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
                       <stop offset="95%" stopColor={lineColor} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
                   <XAxis
                     dataKey="date"
                     tick={{ fill: "#94a3b8", fontSize: 10 }}

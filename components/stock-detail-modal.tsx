@@ -176,22 +176,16 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
 
   const stats = [
     { label: "Prev Close", value: fmtPrice(stockData?.previousClose) },
-    { label: "Open", value: fmtPrice(stockData?.open) },
-    { label: "Bid", value: stockData?.bid || "—" },
-    { label: "Ask", value: stockData?.ask || "—" },
     { label: "Day's Range", value: stockData?.dayRange || "—" },
     { label: "52-Wk Range", value: stockData?.weekRange52 || "—" },
-    { label: "Volume", value: fmtVol(stockData?.volume) },
-    { label: "Avg Volume", value: fmtVol(stockData?.avgVolume) },
     { label: "Market Cap", value: fmtCap(stockData?.marketCap) },
-    { label: "Beta", value: fmtNum(stockData?.beta) },
     { label: "P/E (TTM)", value: fmtNum(stockData?.pe) },
     { label: "EPS (TTM)", value: stockData?.eps != null ? `$${stockData.eps.toFixed(2)}` : "—" },
     { label: "Earnings Date", value: stockData?.earningsDate || "—" },
     { label: "Dividend", value: stockData?.dividend || "—" },
     { label: "Ex-Div Date", value: stockData?.exDivDate || "—" },
-    { label: "1Y Target", value: fmtPrice(stockData?.targetPrice) },
   ]
+
 
   return (
     <div
@@ -275,49 +269,49 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
               {chartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={224}>
                   <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={lineColor} stopOpacity={0.25} />
-                      <stop offset="95%" stopColor={lineColor} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis
-                    dataKey="date"
-                    ticks={xTicks}
-                    tick={{ fill: "#94a3b8", fontSize: 10 }}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={v => fmtTick(String(v), period)}
-                  />
-                  <YAxis
-                    tick={{ fill: "#94a3b8", fontSize: 10 }}
-                    tickLine={false}
-                    axisLine={false}
-                    width={65}
-                    tickFormatter={v => `$${Number(v).toFixed(0)}`}
-                    domain={["auto", "auto"]}
-                  />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Area
-                    type="monotone"
-                    dataKey="price"
-                    stroke={lineColor}
-                    strokeWidth={2}
-                    fill="url(#grad)"
-                    dot={false}
-                    activeDot={{ r: 4, strokeWidth: 0 }}
-                    isAnimationActive={false}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-sm gap-2" style={{ height: 224, color: "#94a3b8" }}>
-                <div className="text-center">
-                  <p className="font-medium mb-1">No chart data available</p>
-                  <p className="text-xs">Unable to fetch historical data for {period} period</p>
+                    <defs>
+                      <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={lineColor} stopOpacity={0.25} />
+                        <stop offset="95%" stopColor={lineColor} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis
+                      dataKey="date"
+                      ticks={xTicks}
+                      tick={{ fill: "#94a3b8", fontSize: 10 }}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={v => fmtTick(String(v), period)}
+                    />
+                    <YAxis
+                      tick={{ fill: "#94a3b8", fontSize: 10 }}
+                      tickLine={false}
+                      axisLine={false}
+                      width={65}
+                      tickFormatter={v => `$${Number(v).toFixed(0)}`}
+                      domain={["auto", "auto"]}
+                    />
+                    <Tooltip content={<ChartTooltip />} />
+                    <Area
+                      type="monotone"
+                      dataKey="price"
+                      stroke={lineColor}
+                      strokeWidth={2}
+                      fill="url(#grad)"
+                      dot={false}
+                      activeDot={{ r: 4, strokeWidth: 0 }}
+                      isAnimationActive={false}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-sm gap-2" style={{ height: 224, color: "#94a3b8" }}>
+                  <div className="text-center">
+                    <p className="font-medium mb-1">No chart data available</p>
+                    <p className="text-xs">Unable to fetch historical data for {period} period</p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
             </div>
           )}
 

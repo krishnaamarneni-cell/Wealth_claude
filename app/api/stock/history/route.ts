@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 
-const FMP_KEY = process.env.FMP_API_KEY || ""
-const POLYGON_KEY = process.env.POLYGON_API_KEY || ""
-const FINNHUB_KEY = process.env.FINNHUB_API_KEY || ""
+const FMP_KEY = process.env.NEXT_PUBLIC_FMP_API_KEY || process.env.FMP_API_KEY || ""
+const POLYGON_KEY = process.env.NEXT_PUBLIC_POLYGON_API_KEY || process.env.POLYGON_API_KEY || ""
+const FINNHUB_KEY = process.env.NEXT_PUBLIC_FINNHUB_API_KEY || process.env.FINNHUB_API_KEY || ""
 
 const FMP_BASE = "https://financialmodelingprep.com/api/v3"
 const POLYGON_BASE = "https://api.polygon.io"

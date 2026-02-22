@@ -478,7 +478,7 @@ export default function DataInspectorPage() {
 
         {lastUpdate && (
           <p className="text-xs text-muted-foreground">
-            Last updated: {lastUpdate.toLocaleTimeString()} • Version: {dataVersion}
+            Last updated: {lastUpdate.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" })} • Version: {dataVersion}
           </p>
         )}
 

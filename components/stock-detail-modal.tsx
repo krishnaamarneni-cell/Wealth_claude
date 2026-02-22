@@ -198,8 +198,8 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
                 key={p}
                 onClick={() => setPeriod(p)}
                 className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${period === p
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
               >
                 {p}

@@ -3,6 +3,9 @@
 import { useState } from "react"
 import { TradingViewHeatmap } from "@/components/heatmaps-section"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { useSidebar } from "@/components/ui/sidebar"
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const MARKETS = [
@@ -11,21 +14,43 @@ const MARKETS = [
   { label: "Crypto", dataSource: "CRYPTO", components: "Top assets", region: "🪙 Crypto" },
 ]
 
-
 export default function HeatmapPage() {
   const [active, setActive] = useState("SPX500")
+  const { toggleSidebar, open } = useSidebar()
 
   const activeMarket = MARKETS.find((m) => m.dataSource === active) ?? MARKETS[0]
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-4 p-6">
 
-      {/* ── Header ── */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Market Heat Maps</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Real-time market visualization of major indices
-        </p>
+      {/* ── Header row with sidebar toggle ── */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Market Heat Maps</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Real-time market visualization of major indices
+          </p>
+        </div>
+
+        {/* Sidebar toggle button */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={toggleSidebar}
+          className="flex items-center gap-2"
+        >
+          {open ? (
+            <>
+              <PanelLeftClose className="h-4 w-4" />
+              <span className="text-xs">Collapse Sidebar</span>
+            </>
+          ) : (
+            <>
+              <PanelLeftOpen className="h-4 w-4" />
+              <span className="text-xs">Expand Sidebar</span>
+            </>
+          )}
+        </Button>
       </div>
 
       {/* ── Tabs ── */}
@@ -68,10 +93,7 @@ export default function HeatmapPage() {
           </div>
         </div>
 
-        {/* 
-          ALL 4 widgets mount at page load.
-          Switching is pure CSS show/hide — no re-render, no caching, guaranteed correct data. 
-        */}
+        {/* All 3 widgets mounted at load — CSS show/hide only */}
         <div style={{ width: "100%" }}>
           {MARKETS.map((market) => (
             <div

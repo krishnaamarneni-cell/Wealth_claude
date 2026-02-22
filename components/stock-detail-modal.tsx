@@ -208,7 +208,7 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
           </div>
 
           {/* Chart */}
-          <div className="h-64 w-full">
+          <div className="h-64 w-full min-h-[256px]">
             {loadingHistory ? (
               <div className="h-full flex items-center justify-center">
                 <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />

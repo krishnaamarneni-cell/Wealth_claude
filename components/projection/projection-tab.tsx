@@ -72,6 +72,7 @@ type FieldKey = keyof CaseAssumptions
 
 // ── Constants ─────────────────────────────────────────────────────────
 const CUR_YEAR = new Date().getFullYear()
+const LS_LAST_SYMBOL_KEY = 'projection_last_symbol'
 
 const CASES: {
   key: CaseKey
@@ -205,14 +206,54 @@ function runCase(s: StockData, a: CaseAssumptions): YearRow[] {
   return rows
 }
 
-// ── localStorage ──────────────────────────────────────────────────────
-const lsKey = (sym: string) => `projection_v2_${sym}`
-function lsLoad(sym: string): Assumptions | null {
-  try { const r = localStorage.getItem(lsKey(sym)); return r ? JSON.parse(r) : null }
-  catch { return null }
+// ── localStorage helpers ──────────────────────────────────────────────
+const lsAssumpKey = (sym: string) => `projection_v2_${sym}`
+
+function lsLoadAssumptions(sym: string): Assumptions | null {
+  try {
+    const r = localStorage.getItem(lsAssumpKey(sym))
+    return r ? JSON.parse(r) : null
+  } catch { return null }
 }
-function lsSave(sym: string, a: Assumptions) {
-  try { localStorage.setItem(lsKey(sym), JSON.stringify(a)) } catch { }
+
+function lsSaveAssumptions(sym: string, a: Assumptions) {
+  try { localStorage.setItem(lsAssumpKey(sym), JSON.stringify(a)) } catch { }
+}
+
+function lsLoadLastSymbol(): string {
+  try { return localStorage.getItem(LS_LAST_SYMBOL_KEY) ?? 'AAPL' } catch { return 'AAPL' }
+}
+
+function lsSaveLastSymbol(sym: string) {
+  try { localStorage.setItem(LS_LAST_SYMBOL_KEY, sym) } catch { }
+}
+
+// ── Projection Skeleton ───────────────────────────────────────────────
+function ProjectionSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      {/* Snapshot bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="bg-muted rounded-lg p-3 h-16" />
+        ))}
+      </div>
+      {/* 3 case cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="bg-muted rounded-xl h-64" />
+        ))}
+      </div>
+      {/* Chart */}
+      <div className="bg-muted rounded-xl h-[420px]" />
+      {/* Summary cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="bg-muted rounded-xl h-40" />
+        ))}
+      </div>
+    </div>
+  )
 }
 
 // ── FieldInput Component ──────────────────────────────────────────────
@@ -245,8 +286,7 @@ function FieldInput({ label, suffix, hint, data, color, onChange }: FieldInputPr
 
   const handleAvgChange = (val: string) => {
     const n = parseFloat(val)
-    const safe = isNaN(n) ? 0 : n
-    onChange({ ...data, average: safe, useYearly: false })
+    onChange({ ...data, average: isNaN(n) ? 0 : n, useYearly: false })
   }
 
   const setYear = (yk: keyof YearlyValues, val: string) => {
@@ -403,12 +443,13 @@ export default function ProjectionTab() {
   const [searching, setSearching] = useState(false)
   const [showDrop, setShowDrop] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [restoring, setRestoring] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeCase, setActiveCase] = useState<CaseKey>('current')
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const dropRef = useRef<HTMLDivElement>(null)
 
-  // Close dropdown on outside click
+  // ── Close dropdown on outside click ──────────────────────────────
   useEffect(() => {
     const fn = (e: MouseEvent) => {
       if (dropRef.current && !dropRef.current.contains(e.target as Node))
@@ -418,7 +459,47 @@ export default function ProjectionTab() {
     return () => document.removeEventListener('mousedown', fn)
   }, [])
 
-  // Debounced search
+  // ── Load stock core logic ─────────────────────────────────────────
+  const loadStock = useCallback(async (symbol: string, silent = false) => {
+    if (!silent) {
+      setLoading(true)
+      setError(null)
+      setInput('')
+      setSuggestions([])
+      setShowDrop(false)
+    }
+    lsSaveLastSymbol(symbol)
+    try {
+      const r = await fetch(`/api/stock/projection?symbol=${symbol}`)
+      const d = await r.json()
+      if (d.error || !d.price) {
+        if (!silent) setError(`No projection data for ${symbol}`)
+        return
+      }
+      const s = d as StockData
+      setStock(s)
+      const def = buildDefaults(s)
+      setDefaults(def)
+      setCurrentA(buildCurrentCase(s))
+      const saved = lsLoadAssumptions(symbol)
+      setAssumptions(saved ?? def)
+      setActiveCase('current')
+    } catch {
+      if (!silent) setError(`Failed to fetch ${symbol}`)
+    } finally {
+      if (!silent) setLoading(false)
+      setRestoring(false)
+    }
+  }, [])
+
+  // ── Restore last symbol on mount ──────────────────────────────────
+  useEffect(() => {
+    const last = lsLoadLastSymbol()
+    loadStock(last, true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // ── Debounced search ──────────────────────────────────────────────
   const handleInput = useCallback((val: string) => {
     setInput(val)
     setError(null)
@@ -436,30 +517,7 @@ export default function ProjectionTab() {
     }, 300)
   }, [])
 
-  // Load stock
-  const loadStock = useCallback(async (symbol: string) => {
-    setLoading(true)
-    setError(null)
-    setInput('')
-    setSuggestions([])
-    setShowDrop(false)
-    try {
-      const r = await fetch(`/api/stock/projection?symbol=${symbol}`)
-      const d = await r.json()
-      if (d.error || !d.price) { setError(`No projection data for ${symbol}`); return }
-      const s = d as StockData
-      setStock(s)
-      const def = buildDefaults(s)
-      setDefaults(def)
-      setCurrentA(buildCurrentCase(s))
-      const saved = lsLoad(symbol)
-      setAssumptions(saved ?? def)
-      setActiveCase('current')
-    } catch { setError(`Failed to fetch ${symbol}`) }
-    finally { setLoading(false) }
-  }, [])
-
-  // Edit a field in bear or bull
+  // ── Edit assumption field (bear or bull only) ─────────────────────
   const editField = useCallback((
     caseKey: 'bear' | 'bull',
     fieldKey: FieldKey,
@@ -471,25 +529,25 @@ export default function ProjectionTab() {
       [caseKey]: { ...assumptions[caseKey], [fieldKey]: updated },
     }
     setAssumptions(next)
-    lsSave(stock.symbol, next)
+    lsSaveAssumptions(stock.symbol, next)
   }, [assumptions, stock])
 
-  // Reset one editable case
+  // ── Reset one case ────────────────────────────────────────────────
   const resetCase = useCallback((caseKey: 'bear' | 'bull') => {
     if (!defaults || !assumptions || !stock) return
     const next = { ...assumptions, [caseKey]: defaults[caseKey] }
     setAssumptions(next)
-    lsSave(stock.symbol, next)
+    lsSaveAssumptions(stock.symbol, next)
   }, [defaults, assumptions, stock])
 
-  // Reset all
+  // ── Reset all ─────────────────────────────────────────────────────
   const resetAll = useCallback(() => {
     if (!defaults || !stock) return
     setAssumptions(defaults)
-    lsSave(stock.symbol, defaults)
+    lsSaveAssumptions(stock.symbol, defaults)
   }, [defaults, stock])
 
-  // Compute projections for all 3 cases
+  // ── Compute projections ───────────────────────────────────────────
   const proj = useMemo(() => {
     if (!stock || !assumptions || !currentA) return null
     return {
@@ -499,7 +557,7 @@ export default function ProjectionTab() {
     }
   }, [stock, assumptions, currentA])
 
-  // Chart data
+  // ── Chart data ────────────────────────────────────────────────────
   const chartData = useMemo(() => {
     if (!proj || !stock) return []
     return [
@@ -524,13 +582,27 @@ export default function ProjectionTab() {
   const activeRows = proj?.[activeCase] ?? []
   const activeCfg = CASES.find(c => c.key === activeCase)!
 
-  // Case assumptions for rendering editor — current is read-only
   function getCaseAssumptions(key: CaseKey): CaseAssumptions | null {
     if (!assumptions || !currentA) return null
     if (key === 'bear') return assumptions.bear
     if (key === 'bull') return assumptions.bull
     if (key === 'current') return currentA
     return null
+  }
+
+  // ── Skeleton while restoring ──────────────────────────────────────
+  if (restoring) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="pt-4 pb-4 space-y-2">
+            <div className="h-9 max-w-sm bg-muted rounded-md animate-pulse" />
+            <div className="h-3 w-64 bg-muted rounded animate-pulse" />
+          </CardContent>
+        </Card>
+        <ProjectionSkeleton />
+      </div>
+    )
   }
 
   return (
@@ -547,7 +619,7 @@ export default function ProjectionTab() {
                 onClick={resetAll}
                 className="h-7 text-xs gap-1.5 text-muted-foreground"
               >
-                <RotateCcw className="h-3 w-3" /> Reset all
+                <RotateCcw className="h-3 w-3" /> Reset all assumptions
               </Button>
             )}
           </div>
@@ -597,30 +669,26 @@ export default function ProjectionTab() {
           </div>
 
           {error && <p className="text-xs text-red-500">{error}</p>}
-          {!stock && !loading && (
-            <p className="text-xs text-muted-foreground">
-              Assumptions auto-filled from Finnhub TTM · Bear & Bull are editable · Saved per stock
-            </p>
-          )}
+          <p className="text-xs text-muted-foreground">
+            Assumptions auto-filled from Finnhub TTM · Bear & Bull editable · Saved per stock
+          </p>
         </CardContent>
       </Card>
 
-      {/* ── Empty state ─────────────────────────────────────────── */}
-      {!stock && !loading && (
+      {/* ── Loading spinner for manual searches ─────────────────── */}
+      {loading && !restoring && (
         <Card>
-          <CardContent className="py-24 text-center">
-            <BarChart3 className="h-10 w-10 mx-auto mb-3 opacity-30" style={{ color: '#94a3b8' }} />
-            <p className="text-sm text-muted-foreground">Search for a stock to build a projection</p>
-            <p className="text-xs text-muted-foreground mt-1 opacity-60">
-              Try "Apple", "Microsoft", or any US ticker
-            </p>
+          <CardContent className="py-20 text-center">
+            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-3" style={{ color: '#94a3b8' }} />
+            <p className="text-sm text-muted-foreground">Loading projection data...</p>
           </CardContent>
         </Card>
       )}
 
-      {stock && assumptions && currentA && proj && (
+      {/* ── Projection content ───────────────────────────────────── */}
+      {!loading && stock && assumptions && currentA && proj && (
         <>
-          {/* ── Stock header ──────────────────────────────────────── */}
+          {/* Stock header */}
           <div className="flex items-center gap-3">
             {stock.logo && (
               <img
@@ -641,7 +709,7 @@ export default function ProjectionTab() {
             </div>
           </div>
 
-          {/* ── Snapshot bar ──────────────────────────────────────── */}
+          {/* Snapshot bar */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
             {[
               { label: 'Current Price', value: fmtP2(stock.price) },
@@ -658,7 +726,7 @@ export default function ProjectionTab() {
             ))}
           </div>
 
-          {/* ── Assumption Editor — 3 columns ─────────────────────── */}
+          {/* Assumption editor — 3 columns */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {CASES.map(c => {
               const caseA = getCaseAssumptions(c.key)
@@ -678,22 +746,18 @@ export default function ProjectionTab() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <c.icon className="h-4 w-4" style={{ color: c.color }} />
-                        <CardTitle
-                          className="text-sm font-semibold"
-                          style={{ color: c.color }}
-                        >
+                        <CardTitle className="text-sm font-semibold" style={{ color: c.color }}>
                           {c.label} Case
                         </CardTitle>
                       </div>
-                      {c.editable && (
+                      {c.editable ? (
                         <button
                           onClick={() => resetCase(c.key as 'bear' | 'bull')}
                           className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
                         >
                           <RotateCcw className="h-3 w-3" /> Reset
                         </button>
-                      )}
-                      {!c.editable && (
+                      ) : (
                         <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded">
                           Finnhub TTM
                         </span>
@@ -705,21 +769,17 @@ export default function ProjectionTab() {
                     {FIELDS.map(f => {
                       const fd = caseA[f.key]
                       if (!c.editable) {
-                        // Current case — read only display
                         return (
                           <div key={f.key}>
                             <div className="flex items-center justify-between mb-1">
                               <label className="text-xs text-muted-foreground">{f.label}</label>
                             </div>
-                            <div
-                              className="h-8 px-3 flex items-center rounded-md text-sm border border-border bg-muted/40 text-muted-foreground"
-                            >
+                            <div className="h-8 px-3 flex items-center rounded-md text-sm border border-border bg-muted/40 text-muted-foreground">
                               {fd.average.toFixed(1)}{f.suffix}
                             </div>
                           </div>
                         )
                       }
-
                       return (
                         <FieldInput
                           key={f.key}
@@ -728,14 +788,12 @@ export default function ProjectionTab() {
                           hint={f.hint}
                           data={fd}
                           color={c.color}
-                          onChange={updated =>
-                            editField(c.key as 'bear' | 'bull', f.key, updated)
-                          }
+                          onChange={updated => editField(c.key as 'bear' | 'bull', f.key, updated)}
                         />
                       )
                     })}
 
-                    {/* Y5 preview inside card */}
+                    {/* Y5 preview */}
                     <div
                       className="mt-3 pt-3 border-t border-border rounded-lg p-3"
                       style={{ backgroundColor: c.areaColor }}
@@ -745,7 +803,7 @@ export default function ProjectionTab() {
                         {fmtP0(y5row.priceLow)} – {fmtP0(y5row.priceHigh)}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        EPS: ${y5row.eps.toFixed(2)} · Upside to high: {fmtPct(upsideHi)}
+                        EPS: ${y5row.eps.toFixed(2)} · Upside: {fmtPct(upsideHi)}
                       </p>
                     </div>
                   </CardContent>
@@ -754,7 +812,7 @@ export default function ProjectionTab() {
             })}
           </div>
 
-          {/* ── Price Band Chart ───────────────────────────────────── */}
+          {/* Price band chart */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">5-Year Price Projection</CardTitle>
@@ -801,8 +859,6 @@ export default function ProjectionTab() {
                       width={65}
                     />
                     <Tooltip content={<ChartTooltip />} />
-
-                    {/* Render bands: high line (solid) + low line (dashed) + area between */}
                     {CASES.map(c => (
                       <Area
                         key={`area_${c.key}`}
@@ -833,7 +889,7 @@ export default function ProjectionTab() {
                 </ResponsiveContainer>
               </div>
 
-              {/* Y5 upside summary below chart */}
+              {/* Y5 upside summary */}
               <div className="grid grid-cols-3 gap-3 mt-5">
                 {CASES.map(c => {
                   const row = proj[c.key][4]
@@ -843,10 +899,7 @@ export default function ProjectionTab() {
                     <div
                       key={c.key}
                       className="rounded-lg p-3 text-center border"
-                      style={{
-                        backgroundColor: c.areaColor,
-                        borderColor: `${c.color}30`,
-                      }}
+                      style={{ backgroundColor: c.areaColor, borderColor: `${c.color}30` }}
                     >
                       <div className="flex items-center justify-center gap-1 mb-1">
                         <c.icon className="h-3.5 w-3.5" style={{ color: c.color }} />
@@ -868,15 +921,12 @@ export default function ProjectionTab() {
             </CardContent>
           </Card>
 
-          {/* ── Year 5 Summary Cards ───────────────────────────────── */}
+          {/* Year 5 summary cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {CASES.map(c => {
               const row = proj[c.key][4]
               return (
-                <Card
-                  key={c.key}
-                  style={{ borderTopColor: c.color, borderTopWidth: 3 }}
-                >
+                <Card key={c.key} style={{ borderTopColor: c.color, borderTopWidth: 3 }}>
                   <CardContent className="p-4 space-y-2">
                     <div className="flex items-center gap-2">
                       <c.icon className="h-4 w-4" style={{ color: c.color }} />
@@ -920,7 +970,7 @@ export default function ProjectionTab() {
             })}
           </div>
 
-          {/* ── Year-by-Year Table ─────────────────────────────────── */}
+          {/* Year-by-year table */}
           <Card>
             <CardHeader className="pb-0">
               <div className="flex items-center justify-between flex-wrap gap-3">
@@ -928,7 +978,6 @@ export default function ProjectionTab() {
                   <CardTitle className="text-base">Year-by-Year Breakdown</CardTitle>
                   <CardDescription>Detailed projection per year</CardDescription>
                 </div>
-                {/* Case tab switcher */}
                 <div className="flex gap-0 border border-border rounded-lg overflow-hidden">
                   {CASES.map(c => (
                     <button
@@ -963,7 +1012,7 @@ export default function ProjectionTab() {
                     </tr>
                   </thead>
                   <tbody>
-                    {/* Current row */}
+                    {/* Now row */}
                     <tr className="border-b border-border/50">
                       <td className="py-2.5 font-medium text-muted-foreground">Now</td>
                       <td className="text-right py-2.5">{fmtBig(stock.revenue)}</td>
@@ -997,10 +1046,7 @@ export default function ProjectionTab() {
                         <td className="text-right py-2.5 text-muted-foreground">
                           {row.peLow.toFixed(0)}x / {row.peHigh.toFixed(0)}x
                         </td>
-                        <td
-                          className="text-right py-2.5 font-semibold"
-                          style={{ color: activeCfg.color }}
-                        >
+                        <td className="text-right py-2.5 font-semibold" style={{ color: activeCfg.color }}>
                           {fmtP0(row.priceLow)} – {fmtP0(row.priceHigh)}
                         </td>
                         <td className="text-right py-2.5">

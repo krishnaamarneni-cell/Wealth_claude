@@ -3,20 +3,13 @@
 import { useState } from "react"
 import { TradingViewHeatmap } from "@/components/heatmaps-section"
 import { Badge } from "@/components/ui/badge"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 const MARKET_GROUPS = [
   {
     region: "🇺🇸 US",
-    defaultSource: "SPX500",
     markets: [
       { label: "S&P 500", dataSource: "SPX500", components: "500 stocks" },
       { label: "NASDAQ 100", dataSource: "NASDAQ100", components: "100 stocks" },
@@ -25,7 +18,6 @@ const MARKET_GROUPS = [
   },
   {
     region: "🌍 Europe",
-    defaultSource: "FTSE",
     markets: [
       { label: "FTSE 100", dataSource: "FTSE", components: "100 stocks" },
       { label: "DAX", dataSource: "DAX", components: "40 stocks" },
@@ -34,7 +26,6 @@ const MARKET_GROUPS = [
   },
   {
     region: "🌏 Asia",
-    defaultSource: "NIKKEI225",
     markets: [
       { label: "Nikkei 225", dataSource: "NIKKEI225", components: "225 stocks" },
       { label: "ASX 200", dataSource: "ASX200", components: "200 stocks" },
@@ -44,9 +35,8 @@ const MARKET_GROUPS = [
   },
   {
     region: "🪙 Crypto",
-    defaultSource: "CRYPTO",
     markets: [
-      { label: "Crypto", dataSource: "CRYPTO", components: "Top assets" },
+      { label: "Crypto", dataSource: "CRYPTO", components: "Top crypto assets" },
     ],
   },
 ]
@@ -57,13 +47,6 @@ const ALL_MARKETS = MARKET_GROUPS.flatMap((g) => g.markets)
 
 export default function HeatmapPage() {
   const [activeDataSource, setActiveDataSource] = useState("SPX500")
-  const [widgetKey, setWidgetKey] = useState(0)  // increments on every switch
-
-  // Guaranteed fresh widget + state update
-  const handleMarketSelect = (dataSource: string) => {
-    setActiveDataSource(dataSource)
-    setWidgetKey((prev) => prev + 1)
-  }
 
   const activeMarket =
     ALL_MARKETS.find((m) => m.dataSource === activeDataSource) ?? ALL_MARKETS[0]
@@ -84,49 +67,37 @@ export default function HeatmapPage() {
         </p>
       </div>
 
-      {/* ── Dropdown Selectors ── */}
-      <div className="flex flex-wrap gap-3">
-        {MARKET_GROUPS.map((group) => {
-          // Check if the active market belongs to this group
-          const isActiveGroup = group.markets.some(
-            (m) => m.dataSource === activeDataSource
-          )
-          // Current value shown in this group's dropdown
-          const currentValue = isActiveGroup
-            ? activeDataSource
-            : group.defaultSource
+      {/* ── Flat Tabs by Region ── */}
+      <div className="flex flex-col gap-2">
+        {MARKET_GROUPS.map((group) => (
+          <div key={group.region} className="flex items-center gap-3 flex-wrap">
+            {/* Region Label */}
+            <span className="text-xs font-semibold text-muted-foreground min-w-[72px] shrink-0">
+              {group.region}
+            </span>
 
-          return (
-            <div key={group.region} className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground font-medium px-1">
-                {group.region}
-              </span>
-              <Select
-                value={currentValue}
-                onValueChange={(val) => handleMarketSelect(val)}
-              >
-                <SelectTrigger
-                  className={`w-[160px] ${isActiveGroup
-                      ? "border-primary text-primary ring-1 ring-primary"
-                      : "border-border"
-                    }`}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {group.markets.map((market) => (
-                    <SelectItem
-                      key={market.dataSource}
-                      value={market.dataSource}
-                    >
-                      {market.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Tabs */}
+            <div className="flex gap-2 flex-wrap">
+              {group.markets.map((market) => {
+                const isActive = activeDataSource === market.dataSource
+                return (
+                  <button
+                    key={market.dataSource}
+                    onClick={() => setActiveDataSource(market.dataSource)}
+                    className={cn(
+                      "px-4 py-1.5 rounded-md text-sm font-medium transition-all border cursor-pointer",
+                      isActive
+                        ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                        : "bg-transparent text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    {market.label}
+                  </button>
+                )
+              })}
             </div>
-          )
-        })}
+          </div>
+        ))}
       </div>
 
       {/* ── Heatmap Card ── */}
@@ -148,14 +119,11 @@ export default function HeatmapPage() {
           </div>
         </div>
 
-        {/* Widget */}
-        <div style={{ height: "620px", width: "100%" }}>
-          <TradingViewHeatmap
-            dataSource={activeDataSource}
-            height={620}
-            uniqueKey={widgetKey}
-          />
-        </div>
+        {/* Widget — no key prop needed, useEffect handles switching */}
+        <TradingViewHeatmap
+          dataSource={activeDataSource}
+          height={620}
+        />
       </div>
 
       {/* ── Bottom Info Row ── */}
@@ -168,19 +136,22 @@ export default function HeatmapPage() {
             <li className="flex items-start gap-2">
               <span className="mt-1 h-2.5 w-2.5 rounded-sm bg-green-600 shrink-0" />
               <span>
-                <span className="font-medium text-foreground">Green</span> — Stock is up. Darker = larger gain
+                <span className="font-medium text-foreground">Green</span>{" "}
+                — Stock is up. Darker = larger gain
               </span>
             </li>
             <li className="flex items-start gap-2">
               <span className="mt-1 h-2.5 w-2.5 rounded-sm bg-red-600 shrink-0" />
               <span>
-                <span className="font-medium text-foreground">Red</span> — Stock is down. Darker = larger loss
+                <span className="font-medium text-foreground">Red</span>{" "}
+                — Stock is down. Darker = larger loss
               </span>
             </li>
             <li className="flex items-start gap-2">
               <span className="mt-1 h-2.5 w-2.5 rounded-sm bg-muted-foreground/40 shrink-0" />
               <span>
-                <span className="font-medium text-foreground">Size</span> — Rectangle size = market cap weight
+                <span className="font-medium text-foreground">Size</span>{" "}
+                — Rectangle size = market cap weight
               </span>
             </li>
           </ul>
@@ -204,6 +175,7 @@ export default function HeatmapPage() {
             ))}
           </dl>
         </div>
+
       </div>
     </div>
   )

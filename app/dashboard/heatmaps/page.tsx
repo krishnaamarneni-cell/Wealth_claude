@@ -3,13 +3,20 @@
 import { useState } from "react"
 import { TradingViewHeatmap } from "@/components/heatmaps-section"
 import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
-// ─── Config ──────────────────────────────────────────────────────────────────
+// ─── Config ───────────────────────────────────────────────────────────────────
 
 const MARKET_GROUPS = [
   {
     region: "🇺🇸 US",
+    defaultSource: "SPX500",
     markets: [
       { label: "S&P 500", dataSource: "SPX500", components: "500 stocks" },
       { label: "NASDAQ 100", dataSource: "NASDAQ100", components: "100 stocks" },
@@ -18,6 +25,7 @@ const MARKET_GROUPS = [
   },
   {
     region: "🌍 Europe",
+    defaultSource: "FTSE",
     markets: [
       { label: "FTSE 100", dataSource: "FTSE", components: "100 stocks" },
       { label: "DAX", dataSource: "DAX", components: "40 stocks" },
@@ -26,6 +34,7 @@ const MARKET_GROUPS = [
   },
   {
     region: "🌏 Asia",
+    defaultSource: "NIKKEI225",
     markets: [
       { label: "Nikkei 225", dataSource: "NIKKEI225", components: "225 stocks" },
       { label: "ASX 200", dataSource: "ASX200", components: "200 stocks" },
@@ -35,6 +44,7 @@ const MARKET_GROUPS = [
   },
   {
     region: "🪙 Crypto",
+    defaultSource: "CRYPTO",
     markets: [
       { label: "Crypto", dataSource: "CRYPTO", components: "Top assets" },
     ],
@@ -47,6 +57,13 @@ const ALL_MARKETS = MARKET_GROUPS.flatMap((g) => g.markets)
 
 export default function HeatmapPage() {
   const [activeDataSource, setActiveDataSource] = useState("SPX500")
+  const [widgetKey, setWidgetKey] = useState(0)  // increments on every switch
+
+  // Guaranteed fresh widget + state update
+  const handleMarketSelect = (dataSource: string) => {
+    setActiveDataSource(dataSource)
+    setWidgetKey((prev) => prev + 1)
+  }
 
   const activeMarket =
     ALL_MARKETS.find((m) => m.dataSource === activeDataSource) ?? ALL_MARKETS[0]
@@ -67,34 +84,49 @@ export default function HeatmapPage() {
         </p>
       </div>
 
-      {/* ── Region + Tab Selectors ── */}
-      <div className="flex flex-col gap-3">
-        {MARKET_GROUPS.map((group) => (
-          <div key={group.region} className="flex items-center gap-3 flex-wrap">
-            <span className="text-xs font-semibold text-muted-foreground w-20 shrink-0">
-              {group.region}
-            </span>
-            <div className="flex gap-2 flex-wrap">
-              {group.markets.map((market) => {
-                const isActive = activeDataSource === market.dataSource
-                return (
-                  <button
-                    key={market.dataSource}
-                    onClick={() => setActiveDataSource(market.dataSource)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-md text-sm font-medium transition-all border",
-                      isActive
-                        ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                        : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground"
-                    )}
-                  >
-                    {market.label}
-                  </button>
-                )
-              })}
+      {/* ── Dropdown Selectors ── */}
+      <div className="flex flex-wrap gap-3">
+        {MARKET_GROUPS.map((group) => {
+          // Check if the active market belongs to this group
+          const isActiveGroup = group.markets.some(
+            (m) => m.dataSource === activeDataSource
+          )
+          // Current value shown in this group's dropdown
+          const currentValue = isActiveGroup
+            ? activeDataSource
+            : group.defaultSource
+
+          return (
+            <div key={group.region} className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground font-medium px-1">
+                {group.region}
+              </span>
+              <Select
+                value={currentValue}
+                onValueChange={(val) => handleMarketSelect(val)}
+              >
+                <SelectTrigger
+                  className={`w-[160px] ${isActiveGroup
+                      ? "border-primary text-primary ring-1 ring-primary"
+                      : "border-border"
+                    }`}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {group.markets.map((market) => (
+                    <SelectItem
+                      key={market.dataSource}
+                      value={market.dataSource}
+                    >
+                      {market.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* ── Heatmap Card ── */}
@@ -116,12 +148,12 @@ export default function HeatmapPage() {
           </div>
         </div>
 
-        {/* Widget — key forces full iframe reload on market switch */}
+        {/* Widget */}
         <div style={{ height: "620px", width: "100%" }}>
           <TradingViewHeatmap
-            key={activeDataSource}
             dataSource={activeDataSource}
             height={620}
+            uniqueKey={widgetKey}
           />
         </div>
       </div>

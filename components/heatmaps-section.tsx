@@ -1,54 +1,33 @@
 "use client"
 
-import { useEffect, useRef } from "react"
-
 interface TradingViewHeatmapProps {
   dataSource: string
   height?: number
 }
 
-export function TradingViewHeatmap({
-  dataSource,
-  height = 620,
-}: TradingViewHeatmapProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
+export function TradingViewHeatmap({ dataSource, height = 620 }: TradingViewHeatmapProps) {
+  // New timestamp every mount = browser cannot serve cached script
+  const cacheBust = Date.now()
 
-  useEffect(() => {
-    if (!containerRef.current) return
+  const config = JSON.stringify({
+    exchanges: [],
+    dataSource,
+    grouping: "sector",
+    blockSize: "market_cap_basic",
+    blockColor: "change",
+    locale: "en",
+    symbolUrl: "",
+    colorTheme: "dark",
+    hasTopBar: false,
+    isDataSetEnabled: false,
+    isZoomEnabled: true,
+    hasSymbolTooltip: true,
+    isMonoSize: false,
+    width: "100%",
+    height,
+  })
 
-    // Fully wipe previous iframe
-    containerRef.current.innerHTML = ""
-
-    // Create a brand new iframe each time
-    const iframe = document.createElement("iframe")
-    iframe.style.cssText = `
-      width: 100%;
-      height: ${height}px;
-      border: none;
-      display: block;
-    `
-    iframe.scrolling = "no"
-    containerRef.current.appendChild(iframe)
-
-    const config = JSON.stringify({
-      exchanges: [],
-      dataSource,
-      grouping: "sector",
-      blockSize: "market_cap_basic",
-      blockColor: "change",
-      locale: "en",
-      symbolUrl: "",
-      colorTheme: "dark",
-      hasTopBar: false,
-      isDataSetEnabled: false,
-      isZoomEnabled: true,
-      hasSymbolTooltip: true,
-      isMonoSize: false,
-      width: "100%",
-      height,
-    })
-
-    const html = `<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8" />
@@ -75,32 +54,22 @@ export function TradingViewHeatmap({
       <div class="tradingview-widget-container__widget"></div>
       <script
         type="text/javascript"
-        src="https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js"
+        src="https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js?cache=${cacheBust}"
         async
       >${config}</script>
     </div>
   </body>
 </html>`
 
-    // Write directly into iframe document — most reliable approach
-    const doc = iframe.contentDocument
-    if (doc) {
-      doc.open()
-      doc.write(html)
-      doc.close()
-    }
-
-    return () => {
-      if (containerRef.current) {
-        containerRef.current.innerHTML = ""
-      }
-    }
-  }, [dataSource, height])
-
   return (
-    <div
-      ref={containerRef}
-      style={{ height: `${height}px`, width: "100%" }}
+    <iframe
+      srcDoc={html}
+      width="100%"
+      height={height}
+      frameBorder="0"
+      scrolling="no"
+      title={`${dataSource} Heatmap`}
+      style={{ display: "block", border: "none", width: "100%" }}
     />
   )
 }

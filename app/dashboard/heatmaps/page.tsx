@@ -5,8 +5,6 @@ import { TradingViewHeatmap } from "@/components/heatmaps-section"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
-// ─── Config ───────────────────────────────────────────────────────────────────
-
 const MARKET_GROUPS = [
   {
     region: "🇺🇸 US",
@@ -43,10 +41,17 @@ const MARKET_GROUPS = [
 
 const ALL_MARKETS = MARKET_GROUPS.flatMap((g) => g.markets)
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
 export default function HeatmapPage() {
   const [activeDataSource, setActiveDataSource] = useState("SPX500")
+
+  // ↓ This is the critical piece — increments on EVERY tab click
+  // Forces React to fully destroy + recreate TradingViewHeatmap
+  const [mountKey, setMountKey] = useState(0)
+
+  const handleSelect = (dataSource: string) => {
+    setActiveDataSource(dataSource)
+    setMountKey((prev) => prev + 1) // always a new number = always a new component
+  }
 
   const activeMarket =
     ALL_MARKETS.find((m) => m.dataSource === activeDataSource) ?? ALL_MARKETS[0]
@@ -67,23 +72,20 @@ export default function HeatmapPage() {
         </p>
       </div>
 
-      {/* ── Flat Tabs by Region ── */}
+      {/* ── Flat Tabs ── */}
       <div className="flex flex-col gap-2">
         {MARKET_GROUPS.map((group) => (
           <div key={group.region} className="flex items-center gap-3 flex-wrap">
-            {/* Region Label */}
             <span className="text-xs font-semibold text-muted-foreground min-w-[72px] shrink-0">
               {group.region}
             </span>
-
-            {/* Tabs */}
             <div className="flex gap-2 flex-wrap">
               {group.markets.map((market) => {
                 const isActive = activeDataSource === market.dataSource
                 return (
                   <button
                     key={market.dataSource}
-                    onClick={() => setActiveDataSource(market.dataSource)}
+                    onClick={() => handleSelect(market.dataSource)}
                     className={cn(
                       "px-4 py-1.5 rounded-md text-sm font-medium transition-all border cursor-pointer",
                       isActive
@@ -103,7 +105,6 @@ export default function HeatmapPage() {
       {/* ── Heatmap Card ── */}
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
 
-        {/* Card Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold">
@@ -119,8 +120,9 @@ export default function HeatmapPage() {
           </div>
         </div>
 
-        {/* Widget — no key prop needed, useEffect handles switching */}
+        {/* key={mountKey} destroys old iframe completely on every click */}
         <TradingViewHeatmap
+          key={mountKey}
           dataSource={activeDataSource}
           height={620}
         />
@@ -128,36 +130,24 @@ export default function HeatmapPage() {
 
       {/* ── Bottom Info Row ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-        {/* How to Read */}
         <div className="rounded-xl border bg-card p-4 space-y-2">
           <h3 className="text-sm font-semibold">How to Read the Heat Map</h3>
           <ul className="space-y-1.5 text-sm text-muted-foreground">
             <li className="flex items-start gap-2">
               <span className="mt-1 h-2.5 w-2.5 rounded-sm bg-green-600 shrink-0" />
-              <span>
-                <span className="font-medium text-foreground">Green</span>{" "}
-                — Stock is up. Darker = larger gain
-              </span>
+              <span><span className="font-medium text-foreground">Green</span> — Stock is up. Darker = larger gain</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="mt-1 h-2.5 w-2.5 rounded-sm bg-red-600 shrink-0" />
-              <span>
-                <span className="font-medium text-foreground">Red</span>{" "}
-                — Stock is down. Darker = larger loss
-              </span>
+              <span><span className="font-medium text-foreground">Red</span> — Stock is down. Darker = larger loss</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="mt-1 h-2.5 w-2.5 rounded-sm bg-muted-foreground/40 shrink-0" />
-              <span>
-                <span className="font-medium text-foreground">Size</span>{" "}
-                — Rectangle size = market cap weight
-              </span>
+              <span><span className="font-medium text-foreground">Size</span> — Rectangle size = market cap weight</span>
             </li>
           </ul>
         </div>
 
-        {/* Market Overview */}
         <div className="rounded-xl border bg-card p-4 space-y-2">
           <h3 className="text-sm font-semibold">Market Overview</h3>
           <dl className="space-y-1.5 text-sm">
@@ -175,8 +165,8 @@ export default function HeatmapPage() {
             ))}
           </dl>
         </div>
-
       </div>
+
     </div>
   )
 }

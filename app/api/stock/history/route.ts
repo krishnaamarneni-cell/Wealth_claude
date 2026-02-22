@@ -1,23 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// ─── Cache ─────────────────────────────────────────────────────────────────────
 const CACHE = new Map<string, { data: unknown; timestamp: number }>()
 const CACHE_DURATION = 12 * 60 * 60 * 1000
 
-// ─── Twelve Data rate limiter (8 credits/min) ──────────────────────────────────
-const tdQueue: number[] = []
-async function waitForTwelveDataSlot() {
-  const now = Date.now()
-  while (tdQueue.length && now - tdQueue[0] > 60_000) tdQueue.shift()
-  if (tdQueue.length >= 8) {
-    const wait = 60_000 - (now - tdQueue[0]) + 200
-    await new Promise((r) => setTimeout(r, wait))
-    return waitForTwelveDataSlot()
-  }
-  tdQueue.push(Date.now())
-}
-
-// ─── Period Config ─────────────────────────────────────────────────────────────
 type Period = '1D' | '1W' | '1M' | '3M' | '6M' | '1Y' | '5Y'
 
 interface ChartPoint {
@@ -29,104 +14,124 @@ interface ChartPoint {
   volume: number
 }
 
-function getPeriodConfig(period: Period) {
-  const configs = {
-    '1D': { tdInterval: '5min', tdOutput: 78, days: 1, pgMultiplier: 5, pgTimespan: 'minute', fhResolution: '5' },
-    '1W': { tdInterval: '1day', tdOutput: 7, days: 7, pgMultiplier: 1, pgTimespan: 'day', fhResolution: 'D' },
-    '1M': { tdInterval: '1day', tdOutput: 30, days: 30, pgMultiplier: 1, pgTimespan: 'day', fhResolution: 'D' },
-    '3M': { tdInterval: '1day', tdOutput: 90, days: 90, pgMultiplier: 1, pgTimespan: 'day', fhResolution: 'D' },
-    '6M': { tdInterval: '1day', tdOutput: 180, days: 180, pgMultiplier: 1, pgTimespan: 'day', fhResolution: 'D' },
-    '1Y': { tdInterval: '1day', tdOutput: 252, days: 365, pgMultiplier: 1, pgTimespan: 'day', fhResolution: 'D' },
-    '5Y': { tdInterval: '1week', tdOutput: 260, days: 1825, pgMultiplier: 1, pgTimespan: 'week', fhResolution: 'W' },
+// ─── Timeout Fetch ─────────────────────────────────────────────────────────────
+async function timedFetch(url: string, ms = 9000): Promise<Response> {
+  const ctrl = new AbortController()
+  const t = setTimeout(() => ctrl.abort(), ms)
+  try {
+    return await fetch(url, { signal: ctrl.signal, cache: 'no-store' })
+  } finally {
+    clearTimeout(t)
   }
-  return configs[period] ?? configs['1Y']
 }
 
-// ─── Source: Twelve Data ───────────────────────────────────────────────────────
-async function fetchTwelveData(symbol: string, period: Period): Promise<ChartPoint[] | null> {
+// ─── Period Config ─────────────────────────────────────────────────────────────
+function getCfg(period: Period) {
+  const map = {
+    '1D': { tdInterval: '5min', tdOut: 78, days: 1, pgMult: 5, pgTs: 'minute', fhRes: '5' },
+    '1W': { tdInterval: '1h', tdOut: 40, days: 7, pgMult: 1, pgTs: 'hour', fhRes: '60' },
+    '1M': { tdInterval: '1day', tdOut: 31, days: 31, pgMult: 1, pgTs: 'day', fhRes: 'D' },
+    '3M': { tdInterval: '1day', tdOut: 90, days: 92, pgMult: 1, pgTs: 'day', fhRes: 'D' },
+    '6M': { tdInterval: '1day', tdOut: 180, days: 185, pgMult: 1, pgTs: 'day', fhRes: 'D' },
+    '1Y': { tdInterval: '1day', tdOut: 252, days: 366, pgMult: 1, pgTs: 'day', fhRes: 'D' },
+    '5Y': { tdInterval: '1week', tdOut: 260, days: 1826, pgMult: 1, pgTs: 'week', fhRes: 'W' },
+  }
+  return map[period] ?? map['1Y']
+}
+
+// ─── Twelve Data ───────────────────────────────────────────────────────────────
+async function fromTwelveData(symbol: string, period: Period): Promise<ChartPoint[] | null> {
+  const key = process.env.NEXT_PUBLIC_TWELVE_DATA_API_KEY
+  if (!key) { console.log('[TwelveData] key MISSING'); return null }
+
+  const cfg = getCfg(period)
+  const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${cfg.tdInterval}&outputsize=${cfg.tdOut}&format=JSON&apikey=${key}`
+  console.log(`[TwelveData] GET ${symbol} ${period}`)
+
   try {
-    const key = process.env.NEXT_PUBLIC_TWELVE_DATA_API_KEY
-    if (!key) return null
+    const res = await timedFetch(url)
+    const json = await res.json()
 
-    const cfg = getPeriodConfig(period)
-    await waitForTwelveDataSlot()
+    console.log(`[TwelveData] ${symbol} status:${json.status} values:${json.values?.length ?? 'N/A'} code:${json.code ?? ''}`)
 
-    const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${cfg.tdInterval}&outputsize=${cfg.tdOutput}&format=JSON&apikey=${key}`
-    const res = await fetch(url, { next: { revalidate: 3600 } })
-    if (!res.ok) return null
+    if (!res.ok || json.status === 'error' || !Array.isArray(json.values) || json.values.length === 0) {
+      return null
+    }
 
-    const data = await res.json()
-    if (data.status === 'error' || !Array.isArray(data.values)) return null
-
-    return (data.values as any[]).reverse().map((v) => ({
+    return json.values.reverse().map((v: any) => ({
       time: v.datetime,
-      open: parseFloat(v.open),
-      high: parseFloat(v.high),
-      low: parseFloat(v.low),
-      close: parseFloat(v.close),
-      volume: parseInt(v.volume ?? '0', 10),
+      open: parseFloat(v.open) || 0,
+      high: parseFloat(v.high) || 0,
+      low: parseFloat(v.low) || 0,
+      close: parseFloat(v.close) || 0,
+      volume: parseInt(v.volume ?? '0', 10) || 0,
     }))
-  } catch {
+  } catch (e: any) {
+    console.error(`[TwelveData] ${symbol} error: ${e.message}`)
     return null
   }
 }
 
-// ─── Source: Polygon ───────────────────────────────────────────────────────────
-async function fetchPolygon(symbol: string, period: Period): Promise<ChartPoint[] | null> {
+// ─── Polygon ───────────────────────────────────────────────────────────────────
+async function fromPolygon(symbol: string, period: Period): Promise<ChartPoint[] | null> {
+  const key = process.env.POLYGON_API_KEY ?? process.env.NEXT_PUBLIC_POLYGON_API_KEY
+  if (!key) { console.log('[Polygon] key MISSING'); return null }
+
+  const cfg = getCfg(period)
+  const to = new Date().toISOString().split('T')[0]
+  const from = new Date(Date.now() - cfg.days * 86_400_000).toISOString().split('T')[0]
+  const url = `https://api.polygon.io/v2/aggs/ticker/${symbol}/range/${cfg.pgMult}/${cfg.pgTs}/${from}/${to}?adjusted=true&sort=asc&limit=5000&apiKey=${key}`
+  console.log(`[Polygon] GET ${symbol} ${period} from:${from} to:${to}`)
+
   try {
-    const key = process.env.POLYGON_API_KEY ?? process.env.NEXT_PUBLIC_POLYGON_API_KEY
-    if (!key) return null
+    const res = await timedFetch(url)
+    const json = await res.json()
+    console.log(`[Polygon] ${symbol} resultsCount:${json.resultsCount ?? 0} status:${json.status}`)
 
-    const cfg = getPeriodConfig(period)
-    const to = new Date().toISOString().split('T')[0]
-    const from = new Date(Date.now() - cfg.days * 86_400_000).toISOString().split('T')[0]
+    if (!res.ok || !Array.isArray(json.results) || json.results.length === 0) return null
 
-    const url = `https://api.polygon.io/v2/aggs/ticker/${symbol}/range/${cfg.pgMultiplier}/${cfg.pgTimespan}/${from}/${to}?adjusted=true&sort=asc&limit=50000&apiKey=${key}`
-    const res = await fetch(url, { next: { revalidate: 3600 } })
-    if (!res.ok) return null
-
-    const data = await res.json()
-    if (!data.results?.length) return null
-
-    return data.results.map((v: any) => ({
+    return json.results.map((v: any) => ({
       time: new Date(v.t).toISOString(),
-      open: v.o,
-      high: v.h,
-      low: v.l,
-      close: v.c,
-      volume: v.v,
+      open: v.o ?? 0,
+      high: v.h ?? 0,
+      low: v.l ?? 0,
+      close: v.c ?? 0,
+      volume: v.v ?? 0,
     }))
-  } catch {
+  } catch (e: any) {
+    console.error(`[Polygon] ${symbol} error: ${e.message}`)
     return null
   }
 }
 
-// ─── Source: Finnhub ───────────────────────────────────────────────────────────
-async function fetchFinnhub(symbol: string, period: Period): Promise<ChartPoint[] | null> {
+// ─── Finnhub ───────────────────────────────────────────────────────────────────
+async function fromFinnhub(symbol: string, period: Period): Promise<ChartPoint[] | null> {
+  const key = process.env.FINNHUB_API_KEY ?? process.env.NEXT_PUBLIC_FINNHUB_API_KEY
+  if (!key) { console.log('[Finnhub] key MISSING'); return null }
+
+  const cfg = getCfg(period)
+  const to = Math.floor(Date.now() / 1000)
+  const from = to - cfg.days * 86_400
+  const url = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=${cfg.fhRes}&from=${from}&to=${to}&token=${key}`
+  console.log(`[Finnhub] GET ${symbol} ${period} res:${cfg.fhRes}`)
+
   try {
-    const key = process.env.FINNHUB_API_KEY ?? process.env.NEXT_PUBLIC_FINNHUB_API_KEY
-    if (!key) return null
+    const res = await timedFetch(url)
+    const json = await res.json()
+    console.log(`[Finnhub] ${symbol} s:${json.s} count:${json.c?.length ?? 0}`)
 
-    const cfg = getPeriodConfig(period)
-    const to = Math.floor(Date.now() / 1000)
-    const from = Math.floor(to - cfg.days * 86_400)
+    if (!res.ok || json.s !== 'ok' || !Array.isArray(json.c) || json.c.length === 0) return null
 
-    const url = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=${cfg.fhResolution}&from=${from}&to=${to}&token=${key}`
-    const res = await fetch(url, { next: { revalidate: 3600 } })
-    if (!res.ok) return null
-
-    const data = await res.json()
-    if (data.s !== 'ok' || !data.c?.length) return null
-
-    return data.t.map((ts: number, i: number) => ({
+    return json.t.map((ts: number, i: number) => ({
       time: new Date(ts * 1000).toISOString(),
-      open: data.o[i],
-      high: data.h[i],
-      low: data.l[i],
-      close: data.c[i],
-      volume: data.v[i],
+      open: json.o[i] ?? 0,
+      high: json.h[i] ?? 0,
+      low: json.l[i] ?? 0,
+      close: json.c[i] ?? 0,
+      volume: json.v[i] ?? 0,
     }))
-  } catch {
+  } catch (e: any) {
+    console.error(`[Finnhub] ${symbol} error: ${e.message}`)
     return null
   }
 }
@@ -145,47 +150,52 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ...cached.data, cached: true })
   }
 
-  try {
-    // Try Twelve Data → Polygon → Finnhub in order
-    let chartData: ChartPoint[] | null = null
-    let source = ''
+  console.log(`\n[history] ===== ${symbol} ${period} =====`)
 
-    chartData = await fetchTwelveData(symbol, period)
-    if (chartData?.length) { source = 'twelvedata' }
+  let chartData: ChartPoint[] | null = null
+  let source = 'none'
 
-    if (!chartData?.length) {
-      chartData = await fetchPolygon(symbol, period)
-      if (chartData?.length) source = 'polygon'
-    }
-
-    if (!chartData?.length) {
-      chartData = await fetchFinnhub(symbol, period)
-      if (chartData?.length) source = 'finnhub'
-    }
-
-    if (!chartData?.length) {
-      return NextResponse.json(
-        { symbol, period, chartData: [], source: 'none', error: 'No chart data available' },
-        { status: 200 } // 200 so UI can show empty state, not crash
-      )
-    }
-
-    const result = {
-      symbol,
-      period,
-      chartData,
-      source,
-      extendedHours: source === 'finnhub' && period === '1D',
-      dataPoints: chartData.length,
-    }
-
-    CACHE.set(cacheKey, { data: result, timestamp: Date.now() })
-    return NextResponse.json(result)
-  } catch (error) {
-    console.error(`[stock/history] ${symbol} ${period}:`, error)
-    return NextResponse.json(
-      { symbol, period, chartData: [], source: 'none', error: 'Internal error' },
-      { status: 500 }
-    )
+  // 1. Twelve Data
+  chartData = await fromTwelveData(symbol, period)
+  if (chartData?.length) {
+    source = 'twelvedata'
+    console.log(`[history] ${symbol} ✅ TwelveData ${chartData.length} pts`)
   }
+
+  // 2. Polygon fallback
+  if (!chartData?.length) {
+    chartData = await fromPolygon(symbol, period)
+    if (chartData?.length) {
+      source = 'polygon'
+      console.log(`[history] ${symbol} ✅ Polygon ${chartData.length} pts`)
+    }
+  }
+
+  // 3. Finnhub fallback
+  if (!chartData?.length) {
+    chartData = await fromFinnhub(symbol, period)
+    if (chartData?.length) {
+      source = 'finnhub'
+      console.log(`[history] ${symbol} ✅ Finnhub ${chartData.length} pts`)
+    }
+  }
+
+  if (!chartData?.length) {
+    console.log(`[history] ${symbol} ❌ ALL sources failed`)
+  }
+
+  const result = {
+    symbol,
+    period,
+    chartData: chartData ?? [],
+    source,
+    extendedHours: source === 'finnhub' && period === '1D',
+    dataPoints: chartData?.length ?? 0,
+  }
+
+  if (chartData?.length) {
+    CACHE.set(cacheKey, { data: result, timestamp: Date.now() })
+  }
+
+  return NextResponse.json(result)
 }

@@ -7,8 +7,6 @@ import {
 } from "recharts"
 import { TrendingUp, TrendingDown, X, RefreshCw } from "lucide-react"
 
-// ─── Types ────────────────────────────────────────────────────────────────
-
 interface StockDetail {
   symbol: string
   name: string
@@ -30,36 +28,45 @@ interface StockDetail {
   exchange: string
 }
 
-interface PricePoint {
-  date: string
-  price: number
-}
-
+interface PricePoint { date: string; price: number }
 type Period = "1D" | "1W" | "1M" | "3M" | "6M" | "1Y" | "5Y"
-
 const PERIODS: Period[] = ["1D", "1W", "1M", "3M", "6M", "1Y", "5Y"]
+const CACHE_TTL = 12 * 60 * 60 * 1000
 
-// ─── Formatters ───────────────────────────────────────────────────────────
-
-function fmtPrice(v: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency", currency: "USD", minimumFractionDigits: 2,
-  }).format(v)
+function getCached<T>(key: string): T | null {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = localStorage.getItem(key)
+    if (!raw) return null
+    const { data, ts } = JSON.parse(raw)
+    if (Date.now() - ts > CACHE_TTL) { localStorage.removeItem(key); return null }
+    return data as T
+  } catch { return null }
 }
-function fmtCap(v: number) {
+
+function setCached<T>(key: string, data: T): void {
+  if (typeof window === "undefined") return
+  try { localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() })) } catch { }
+}
+
+function fmtPrice(v: number | null | undefined) {
+  if (v == null || !isFinite(v)) return "—"
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(v)
+}
+function fmtCap(v: number | null | undefined) {
+  if (v == null || !isFinite(v) || v === 0) return "—"
   if (v >= 1e12) return `$${(v / 1e12).toFixed(2)}T`
   if (v >= 1e9) return `$${(v / 1e9).toFixed(2)}B`
   if (v >= 1e6) return `$${(v / 1e6).toFixed(2)}M`
   return `$${v.toLocaleString()}`
 }
-function fmtVol(v: number) {
+function fmtVol(v: number | null | undefined) {
+  if (v == null || !isFinite(v) || v === 0) return "—"
   if (v >= 1e9) return `${(v / 1e9).toFixed(2)}B`
   if (v >= 1e6) return `${(v / 1e6).toFixed(2)}M`
   if (v >= 1e3) return `${(v / 1e3).toFixed(1)}K`
   return v.toLocaleString()
 }
-
-// ─── Tooltip ──────────────────────────────────────────────────────────────
 
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
@@ -71,15 +78,11 @@ function ChartTooltip({ active, payload, label }: any) {
   )
 }
 
-// ─── Props ────────────────────────────────────────────────────────────────
-
 interface Props {
   symbol: string | null
   open: boolean
   onClose: () => void
 }
-
-// ─── Component ────────────────────────────────────────────────────────────
 
 export default function StockDetailModal({ symbol, open, onClose }: Props) {
   const [detail, setDetail] = useState<StockDetail | null>(null)
@@ -90,58 +93,70 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
 
   useEffect(() => {
     if (!symbol || !open) return
+    const key = `stockDetail_${symbol}`
+    const cached = getCached<StockDetail>(key)
+    if (cached) { setDetail(cached); return }
     setDetail(null)
     setLoadingDetail(true)
     fetch(`/api/stock/detail?symbol=${symbol}`)
       .then((r) => r.json())
-      .then((d) => setDetail(d))
+      .then((d) => {
+        if (typeof d?.price === "number") setCached(key, d)
+        setDetail(d)
+      })
       .catch(console.error)
       .finally(() => setLoadingDetail(false))
   }, [symbol, open])
 
   useEffect(() => {
     if (!symbol || !open) return
+    const key = `stockHistory_${symbol}_${period}`
+    const cached = getCached<PricePoint[]>(key)
+    if (cached) { setHistory(cached); return }
     setHistory([])
     setLoadingHistory(true)
     fetch(`/api/stock/history?symbol=${symbol}&period=${period}`)
       .then((r) => r.json())
-      .then((d) => setHistory(Array.isArray(d) ? d : []))
+      .then((d) => {
+        const pts = Array.isArray(d) ? d : []
+        if (pts.length > 0) setCached(key, pts)
+        setHistory(pts)
+      })
       .catch(console.error)
       .finally(() => setLoadingHistory(false))
   }, [symbol, open, period])
 
   if (!open || !symbol) return null
 
+  const isValid = detail && typeof detail.price === "number"
   const isUp = (detail?.changePercent ?? 0) >= 0
   const firstPrice = history[0]?.price ?? 0
   const lastPrice = history[history.length - 1]?.price ?? 0
   const chartUp = lastPrice >= firstPrice
 
-  const stats = detail ? [
-    { label: "Open", value: fmtPrice(detail.open) },
-    { label: "High", value: fmtPrice(detail.high) },
-    { label: "Low", value: fmtPrice(detail.low) },
-    { label: "Prev Close", value: fmtPrice(detail.previousClose) },
-    { label: "Mkt Cap", value: fmtCap(detail.marketCap) },
-    { label: "P/E Ratio", value: detail.pe != null ? detail.pe.toFixed(2) : "—" },
-    { label: "52-Wk High", value: fmtPrice(detail.yearHigh) },
-    { label: "52-Wk Low", value: fmtPrice(detail.yearLow) },
-    { label: "Volume", value: fmtVol(detail.volume) },
-    { label: "Avg Volume", value: fmtVol(detail.avgVolume) },
-    { label: "Dividend", value: detail.dividendYield != null ? `${detail.dividendYield.toFixed(2)}%` : "—" },
-    { label: "Qtrly Div Amt", value: detail.lastDiv != null ? `$${detail.lastDiv.toFixed(2)}` : "—" },
+  const stats = isValid ? [
+    { label: "Open", value: fmtPrice(detail!.open) },
+    { label: "High", value: fmtPrice(detail!.high) },
+    { label: "Low", value: fmtPrice(detail!.low) },
+    { label: "Prev Close", value: fmtPrice(detail!.previousClose) },
+    { label: "Mkt Cap", value: fmtCap(detail!.marketCap) },
+    { label: "P/E Ratio", value: detail!.pe != null ? detail!.pe.toFixed(2) : "—" },
+    { label: "52-Wk High", value: fmtPrice(detail!.yearHigh) },
+    { label: "52-Wk Low", value: fmtPrice(detail!.yearLow) },
+    { label: "Volume", value: fmtVol(detail!.volume) },
+    { label: "Avg Volume", value: fmtVol(detail!.avgVolume) },
+    { label: "Dividend", value: detail!.dividendYield != null ? `${detail!.dividendYield.toFixed(2)}%` : "—" },
+    { label: "Qtrly Div Amt", value: detail!.lastDiv != null ? `$${detail!.lastDiv.toFixed(2)}` : "—" },
   ] : []
 
   return (
-    /* Backdrop */
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      {/* Panel */}
       <div className="relative w-full max-w-3xl bg-card border border-border rounded-xl shadow-2xl overflow-hidden">
 
-        {/* ── Header ── */}
+        {/* Header */}
         <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-border">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -157,29 +172,26 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
             </p>
           </div>
 
-          {detail && (
+          {isValid && (
             <div className="text-right mr-8">
-              <p className="text-3xl font-bold text-foreground">{fmtPrice(detail.price)}</p>
+              <p className="text-3xl font-bold text-foreground">{fmtPrice(detail!.price)}</p>
               <div className={`flex items-center justify-end gap-1 text-sm font-medium mt-0.5 ${isUp ? "text-green-500" : "text-red-500"}`}>
                 {isUp ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                <span>{isUp ? "+" : ""}{detail.change.toFixed(2)}</span>
-                <span>({isUp ? "+" : ""}{detail.changePercent.toFixed(2)}%)</span>
+                <span>{isUp ? "+" : ""}{detail!.change.toFixed(2)}</span>
+                <span>({isUp ? "+" : ""}{detail!.changePercent.toFixed(2)}%)</span>
               </div>
             </div>
           )}
 
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* ── Body ── */}
+        {/* Body */}
         <div className="px-6 py-4 space-y-5 max-h-[75vh] overflow-y-auto">
 
-          {/* Period selector */}
+          {/* Period Selector */}
           <div className="flex gap-1">
             {PERIODS.map((p) => (
               <button
@@ -250,7 +262,7 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
             )}
           </div>
 
-          {/* Stats grid */}
+          {/* Stats Grid */}
           {loadingDetail ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {Array.from({ length: 12 }).map((_, i) => (

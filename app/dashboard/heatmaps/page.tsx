@@ -8,9 +8,9 @@ import { cn } from "@/lib/utils"
 const MARKETS = [
   { label: "S&P 500", dataSource: "SPX500", components: "500 stocks", region: "🇺🇸 US" },
   { label: "NASDAQ 100", dataSource: "NASDAQ100", components: "100 stocks", region: "🇺🇸 US" },
-  { label: "Dow Jones", dataSource: "DJI", components: "30 stocks", region: "🇺🇸 US" },
   { label: "Crypto", dataSource: "CRYPTO", components: "Top assets", region: "🪙 Crypto" },
 ]
+
 
 export default function HeatmapPage() {
   const [active, setActive] = useState("SPX500")

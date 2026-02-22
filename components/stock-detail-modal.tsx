@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
@@ -47,14 +46,12 @@ function fmtPrice(v: number) {
     style: "currency", currency: "USD", minimumFractionDigits: 2,
   }).format(v)
 }
-
 function fmtCap(v: number) {
   if (v >= 1e12) return `$${(v / 1e12).toFixed(2)}T`
   if (v >= 1e9) return `$${(v / 1e9).toFixed(2)}B`
   if (v >= 1e6) return `$${(v / 1e6).toFixed(2)}M`
   return `$${v.toLocaleString()}`
 }
-
 function fmtVol(v: number) {
   if (v >= 1e9) return `${(v / 1e9).toFixed(2)}B`
   if (v >= 1e6) return `${(v / 1e6).toFixed(2)}M`
@@ -62,7 +59,7 @@ function fmtVol(v: number) {
   return v.toLocaleString()
 }
 
-// ─── Custom Tooltip ───────────────────────────────────────────────────────
+// ─── Tooltip ──────────────────────────────────────────────────────────────
 
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
@@ -82,7 +79,7 @@ interface Props {
   onClose: () => void
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────
+// ─── Component ────────────────────────────────────────────────────────────
 
 export default function StockDetailModal({ symbol, open, onClose }: Props) {
   const [detail, setDetail] = useState<StockDetail | null>(null)
@@ -91,7 +88,6 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [loadingHistory, setLoadingHistory] = useState(false)
 
-  // Fetch quote + stats
   useEffect(() => {
     if (!symbol || !open) return
     setDetail(null)
@@ -103,7 +99,6 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
       .finally(() => setLoadingDetail(false))
   }, [symbol, open])
 
-  // Fetch price history
   useEffect(() => {
     if (!symbol || !open) return
     setHistory([])
@@ -115,41 +110,39 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
       .finally(() => setLoadingHistory(false))
   }, [symbol, open, period])
 
-  if (!symbol) return null
+  if (!open || !symbol) return null
 
   const isUp = (detail?.changePercent ?? 0) >= 0
   const firstPrice = history[0]?.price ?? 0
   const lastPrice = history[history.length - 1]?.price ?? 0
   const chartUp = lastPrice >= firstPrice
 
-  const stats = detail
-    ? [
-      { label: "Open", value: fmtPrice(detail.open) },
-      { label: "High", value: fmtPrice(detail.high) },
-      { label: "Low", value: fmtPrice(detail.low) },
-      { label: "Prev Close", value: fmtPrice(detail.previousClose) },
-      { label: "Mkt Cap", value: fmtCap(detail.marketCap) },
-      { label: "P/E Ratio", value: detail.pe != null ? detail.pe.toFixed(2) : "—" },
-      { label: "52-Wk High", value: fmtPrice(detail.yearHigh) },
-      { label: "52-Wk Low", value: fmtPrice(detail.yearLow) },
-      { label: "Volume", value: fmtVol(detail.volume) },
-      { label: "Avg Volume", value: fmtVol(detail.avgVolume) },
-      { label: "Dividend", value: detail.dividendYield != null ? `${detail.dividendYield.toFixed(2)}%` : "—" },
-      { label: "Qtrly Div Amt", value: detail.lastDiv != null ? `$${detail.lastDiv.toFixed(2)}` : "—" },
-    ]
-    : []
+  const stats = detail ? [
+    { label: "Open", value: fmtPrice(detail.open) },
+    { label: "High", value: fmtPrice(detail.high) },
+    { label: "Low", value: fmtPrice(detail.low) },
+    { label: "Prev Close", value: fmtPrice(detail.previousClose) },
+    { label: "Mkt Cap", value: fmtCap(detail.marketCap) },
+    { label: "P/E Ratio", value: detail.pe != null ? detail.pe.toFixed(2) : "—" },
+    { label: "52-Wk High", value: fmtPrice(detail.yearHigh) },
+    { label: "52-Wk Low", value: fmtPrice(detail.yearLow) },
+    { label: "Volume", value: fmtVol(detail.volume) },
+    { label: "Avg Volume", value: fmtVol(detail.avgVolume) },
+    { label: "Dividend", value: detail.dividendYield != null ? `${detail.dividendYield.toFixed(2)}%` : "—" },
+    { label: "Qtrly Div Amt", value: detail.lastDiv != null ? `$${detail.lastDiv.toFixed(2)}` : "—" },
+  ] : []
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl w-full p-0 gap-0 overflow-hidden bg-card border-border">
-
-        {/* Required by Radix — visually hidden */}
-        <DialogTitle className="sr-only">
-          {symbol} Stock Detail
-        </DialogTitle>
+    /* Backdrop */
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      {/* Panel */}
+      <div className="relative w-full max-w-3xl bg-card border border-border rounded-xl shadow-2xl overflow-hidden">
 
         {/* ── Header ── */}
-        <div className="flex items-start justify-between px-6 pt-5 pb-3 border-b border-border">
+        <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-border">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <h2 className="text-2xl font-bold text-foreground">{symbol}</h2>
@@ -164,17 +157,11 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
             </p>
           </div>
 
-          {/* Price block */}
           {detail && (
             <div className="text-right mr-8">
               <p className="text-3xl font-bold text-foreground">{fmtPrice(detail.price)}</p>
-              <div
-                className={`flex items-center justify-end gap-1 text-sm font-medium mt-0.5 ${isUp ? "text-green-500" : "text-red-500"
-                  }`}
-              >
-                {isUp
-                  ? <TrendingUp className="h-4 w-4" />
-                  : <TrendingDown className="h-4 w-4" />}
+              <div className={`flex items-center justify-end gap-1 text-sm font-medium mt-0.5 ${isUp ? "text-green-500" : "text-red-500"}`}>
+                {isUp ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
                 <span>{isUp ? "+" : ""}{detail.change.toFixed(2)}</span>
                 <span>({isUp ? "+" : ""}{detail.changePercent.toFixed(2)}%)</span>
               </div>
@@ -190,17 +177,17 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
         </div>
 
         {/* ── Body ── */}
-        <div className="px-6 py-4 space-y-5 max-h-[80vh] overflow-y-auto">
+        <div className="px-6 py-4 space-y-5 max-h-[75vh] overflow-y-auto">
 
-          {/* Period Selector */}
+          {/* Period selector */}
           <div className="flex gap-1">
             {PERIODS.map((p) => (
               <button
                 key={p}
                 onClick={() => setPeriod(p)}
                 className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${period === p
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
               >
                 {p}
@@ -218,7 +205,7 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={history} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                   <defs>
-                    <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor={chartUp ? "#22c55e" : "#ef4444"} stopOpacity={0.25} />
                       <stop offset="95%" stopColor={chartUp ? "#22c55e" : "#ef4444"} stopOpacity={0} />
                     </linearGradient>
@@ -250,7 +237,7 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
                     dataKey="price"
                     stroke={chartUp ? "#22c55e" : "#ef4444"}
                     strokeWidth={2}
-                    fill="url(#priceGradient)"
+                    fill="url(#priceGrad)"
                     dot={false}
                     activeDot={{ r: 4, strokeWidth: 0 }}
                   />
@@ -263,7 +250,7 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
             )}
           </div>
 
-          {/* Stats Grid */}
+          {/* Stats grid */}
           {loadingDetail ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {Array.from({ length: 12 }).map((_, i) => (
@@ -281,8 +268,7 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
             </div>
           )}
         </div>
-
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   )
 }

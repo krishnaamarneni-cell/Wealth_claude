@@ -7,9 +7,11 @@ import { RefreshCw } from "lucide-react"
 import { usePortfolio } from "@/lib/portfolio-context"
 import HoldingsTab from "@/components/holdings-tab"
 import DividendsTab from "@/components/dividends-tab"
+import StockDetailModal from "@/components/stock-detail-modal"
 
 export default function HoldingsPage() {
   const [activeTab, setActiveTab] = useState<"holdings" | "dividends">("holdings")
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null)
   const { refresh, isRefreshing } = usePortfolio()
 
   const handleRefresh = async () => {
@@ -19,7 +21,7 @@ export default function HoldingsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header with Tabs and Refresh */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Portfolio Dashboard</h1>
@@ -47,13 +49,20 @@ export default function HoldingsPage() {
         </TabsList>
 
         <TabsContent value="holdings" className="space-y-6 mt-6">
-          <HoldingsTab />
+          <HoldingsTab onStockClick={(symbol) => setSelectedSymbol(symbol)} />
         </TabsContent>
 
         <TabsContent value="dividends" className="space-y-6 mt-6">
           <DividendsTab />
         </TabsContent>
       </Tabs>
+
+      {/* Stock Detail Modal */}
+      <StockDetailModal
+        symbol={selectedSymbol}
+        open={!!selectedSymbol}
+        onClose={() => setSelectedSymbol(null)}
+      />
     </div>
   )
 }

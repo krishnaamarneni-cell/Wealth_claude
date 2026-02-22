@@ -244,10 +244,10 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
         </div>
 
         {/* ── Body ───────────────────────────────────────────────── */}
-        <div className="px-6 py-4 space-y-5 max-h-[72vh] overflow-y-auto">
+        <div className="px-6 py-4 space-y-5 max-h-[72vh] overflow-y-auto flex flex-col">
 
           {/* Period Selector */}
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-shrink-0">
             {PERIODS.map(p => (
               <button
                 key={p}
@@ -263,7 +263,7 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
 
           {/* Loading state for entire content */}
           {loading && (
-            <div className="py-8 text-center" style={{ color: "#94a3b8" }}>
+            <div className="py-8 text-center flex-shrink-0" style={{ color: "#94a3b8" }}>
               <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2" />
               <p className="text-sm">Loading stock data...</p>
             </div>
@@ -271,7 +271,7 @@ export default function StockDetailModal({ symbol, open, onClose }: Props) {
 
           {/* Chart */}
           {!loading && (
-            <div style={{ height: 224, width: "100%" }}>
+            <div style={{ height: 224, width: "100%", minWidth: 0 }} className="flex-shrink-0">
               {chartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={224}>
                   <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>

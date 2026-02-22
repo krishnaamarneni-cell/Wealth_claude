@@ -5,7 +5,10 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, ReferenceLine
 } from "recharts"
-import { X, Plus, Search, RefreshCw, BarChart3, ArrowUpRight, ArrowDownRight } from "lucide-react"
+import {
+  X, Plus, Search, RefreshCw,
+  BarChart3, ArrowUpRight, ArrowDownRight
+} from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,9 +16,11 @@ import {
   Table, TableBody, TableCell,
   TableHead, TableHeader, TableRow
 } from "@/components/ui/table"
+import ProjectionTab from "@/components/projection/projection-tab"
 
 // ── Types ─────────────────────────────────────────────────────────────
 type HistoryPoint = { date: string; price: number }
+type PageTab = 'compare' | 'projection'
 
 interface SearchResult {
   symbol: string
@@ -24,14 +29,28 @@ interface SearchResult {
 }
 
 interface FundData {
-  name: string; logo: string | null; sector: string | null; exchange: string | null
-  price: number | null; change: number | null; changePercent: number | null
-  marketCap: number | null; pe: number | null; eps: number | null
-  beta: number | null; pb: number | null; roe: number | null
-  netMargin: number | null; grossMargin: number | null
-  revenueGrowth: number | null; epsGrowth: number | null
-  debtToEquity: number | null; divYield: number | null
-  divAmt: number | null; high52: number | null; low52: number | null
+  name: string
+  logo: string | null
+  sector: string | null
+  exchange: string | null
+  price: number | null
+  change: number | null
+  changePercent: number | null
+  marketCap: number | null
+  pe: number | null
+  eps: number | null
+  beta: number | null
+  pb: number | null
+  roe: number | null
+  netMargin: number | null
+  grossMargin: number | null
+  revenueGrowth: number | null
+  epsGrowth: number | null
+  debtToEquity: number | null
+  divYield: number | null
+  divAmt: number | null
+  high52: number | null
+  low52: number | null
 }
 
 interface StockEntry {
@@ -53,7 +72,9 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 // ── Formatters ────────────────────────────────────────────────────────
 const fmtPrice = (v: any) => {
   if (v == null || !isFinite(v)) return '—'
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(v)
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency', currency: 'USD', minimumFractionDigits: 2,
+  }).format(v)
 }
 const fmtCap = (v: any) => {
   if (v == null || !isFinite(v) || v === 0) return '—'
@@ -79,7 +100,10 @@ function getPeriodCutoff(p: ChartPeriod) {
 function getBestWorst(vals: (number | null)[], higher: boolean) {
   const v = vals.filter(x => x != null) as number[]
   if (v.length < 2) return { best: null, worst: null }
-  return { best: higher ? Math.max(...v) : Math.min(...v), worst: higher ? Math.min(...v) : Math.max(...v) }
+  return {
+    best: higher ? Math.max(...v) : Math.min(...v),
+    worst: higher ? Math.min(...v) : Math.max(...v),
+  }
 }
 
 function cellCls(val: number | null, best: number | null, worst: number | null) {
@@ -89,6 +113,7 @@ function cellCls(val: number | null, best: number | null, worst: number | null) 
   return ''
 }
 
+// ── Metrics ───────────────────────────────────────────────────────────
 const METRICS = [
   { label: 'Current Price', key: 'price', fmt: fmtPrice, hb: null },
   { label: 'Market Cap', key: 'marketCap', fmt: fmtCap, hb: null },
@@ -97,65 +122,73 @@ const METRICS = [
   { label: 'Price to Book', key: 'pb', fmt: fmtNum, hb: false },
   { label: 'Revenue Growth YoY', key: 'revenueGrowth', fmt: fmtPct, hb: true },
   { label: 'EPS Growth YoY', key: 'epsGrowth', fmt: fmtPct, hb: true },
-  { label: 'Net Profit Margin', key: 'netMargin', fmt: (v: any) => fmtNum(v) === '—' ? '—' : `${fmtNum(v)}%`, hb: true },
-  { label: 'Gross Margin', key: 'grossMargin', fmt: (v: any) => fmtNum(v) === '—' ? '—' : `${fmtNum(v)}%`, hb: true },
-  { label: 'ROE', key: 'roe', fmt: (v: any) => fmtNum(v) === '—' ? '—' : `${fmtNum(v)}%`, hb: true },
+  {
+    label: 'Net Profit Margin', key: 'netMargin',
+    fmt: (v: any) => fmtNum(v) === '—' ? '—' : `${fmtNum(v)}%`, hb: true,
+  },
+  {
+    label: 'Gross Margin', key: 'grossMargin',
+    fmt: (v: any) => fmtNum(v) === '—' ? '—' : `${fmtNum(v)}%`, hb: true,
+  },
+  {
+    label: 'ROE', key: 'roe',
+    fmt: (v: any) => fmtNum(v) === '—' ? '—' : `${fmtNum(v)}%`, hb: true,
+  },
   { label: 'Beta', key: 'beta', fmt: fmtNum, hb: false },
   { label: 'Debt to Equity', key: 'debtToEquity', fmt: fmtNum, hb: false },
-  { label: 'Dividend Yield', key: 'divYield', fmt: (v: any) => fmtNum(v) === '—' ? '—' : `${fmtNum(v)}%`, hb: true },
+  {
+    label: 'Dividend Yield', key: 'divYield',
+    fmt: (v: any) => fmtNum(v) === '—' ? '—' : `${fmtNum(v)}%`, hb: true,
+  },
   { label: 'Dividend Amount', key: 'divAmt', fmt: fmtDolr, hb: true },
   { label: '52-Wk Range', key: '__52wk__', fmt: null, hb: null },
 ] as const
 
-// ── Component ─────────────────────────────────────────────────────────
-export default function ComparePage() {
+// ── Compare Tab ───────────────────────────────────────────────────────
+function CompareTab() {
   const [stocks, setStocks] = useState<StockEntry[]>([])
   const [period, setPeriod] = useState<ChartPeriod>('1Y')
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [suggestions, setSuggestions] = useState<SearchResult[]>([])
+  const [suggests, setSuggests] = useState<SearchResult[]>([])
   const [searching, setSearching] = useState(false)
   const [showDrop, setShowDrop] = useState(false)
   const colorIdx = useRef(0)
-  const searchTimer = useRef<NodeJS.Timeout | null>(null)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const dropRef = useRef<HTMLDivElement>(null)
 
-  // ── Close dropdown on outside click ──────────────────────────────
+  // Close dropdown on outside click
   useEffect(() => {
-    function handle(e: MouseEvent) {
-      if (dropRef.current && !dropRef.current.contains(e.target as Node)) {
+    const fn = (e: MouseEvent) => {
+      if (dropRef.current && !dropRef.current.contains(e.target as Node))
         setShowDrop(false)
-      }
     }
-    document.addEventListener('mousedown', handle)
-    return () => document.removeEventListener('mousedown', handle)
+    document.addEventListener('mousedown', fn)
+    return () => document.removeEventListener('mousedown', fn)
   }, [])
 
-  // ── Debounced search ──────────────────────────────────────────────
+  // Debounced search
   const handleInput = useCallback((val: string) => {
     setInput(val)
     setError(null)
     setShowDrop(true)
-
-    if (searchTimer.current) clearTimeout(searchTimer.current)
-
-    if (!val.trim()) { setSuggestions([]); setSearching(false); return }
-
+    if (timer.current) clearTimeout(timer.current)
+    if (!val.trim()) { setSuggests([]); setSearching(false); return }
     setSearching(true)
-    searchTimer.current = setTimeout(async () => {
+    timer.current = setTimeout(async () => {
       try {
         const r = await fetch(`/api/stock/search?q=${encodeURIComponent(val)}`)
         const d = await r.json()
-        setSuggestions(Array.isArray(d) ? d : [])
-      } catch { setSuggestions([]) }
+        setSuggests(Array.isArray(d) ? d : [])
+      } catch { setSuggests([]) }
       finally { setSearching(false) }
     }, 300)
   }, [])
 
-  // ── Add stock ─────────────────────────────────────────────────────
-  const addStock = useCallback(async (symbolOverride?: string) => {
-    const symbol = (symbolOverride ?? input).trim().toUpperCase()
+  // Add stock
+  const addStock = useCallback(async (symOverride?: string) => {
+    const symbol = (symOverride ?? input).trim().toUpperCase()
     if (!symbol) return
     if (stocks.length >= 10) { setError('Maximum 10 stocks'); return }
     if (stocks.find(s => s.symbol === symbol)) { setError(`${symbol} already added`); return }
@@ -163,7 +196,7 @@ export default function ComparePage() {
     setError(null)
     setLoading(symbol)
     setInput('')
-    setSuggestions([])
+    setSuggests([])
     setShowDrop(false)
 
     const color = COLORS[colorIdx.current % COLORS.length]
@@ -195,7 +228,7 @@ export default function ComparePage() {
     } finally { setLoading(null) }
   }, [input, stocks])
 
-  // ── Remove + auto-promote ─────────────────────────────────────────
+  // Remove + auto-promote into fundamentals
   const removeStock = useCallback((symbol: string) => {
     setStocks(prev => {
       const next = prev.filter(s => s.symbol !== symbol)
@@ -222,23 +255,19 @@ export default function ComparePage() {
     })
   }, [])
 
-  // ── Normalized chart data ─────────────────────────────────────────
+  // Normalized % return chart data
   const chartData = useMemo(() => {
     if (!stocks.length) return []
     const cutoff = getPeriodCutoff(period)
-
     const filtered = stocks.map(s => ({
       symbol: s.symbol,
       data: s.history.filter(p => p.date >= cutoff),
     }))
-
     const baseMap: Record<string, number> = {}
     filtered.forEach(s => { if (s.data.length) baseMap[s.symbol] = s.data[0].price })
-
     const allDates = Array.from(
       new Set(filtered.flatMap(s => s.data.map(p => p.date)))
     ).sort()
-
     return allDates.map(date => {
       const pt: Record<string, any> = { date }
       filtered.forEach(s => {
@@ -253,7 +282,7 @@ export default function ComparePage() {
     })
   }, [stocks, period])
 
-  // ── Deduplicated X ticks — year for 5Y, month otherwise ──────────
+  // Deduplicated X ticks
   const xTicks = useMemo(() => {
     const seen = new Set<string>()
     return chartData.reduce<string[]>((acc, p) => {
@@ -271,18 +300,14 @@ export default function ComparePage() {
     return MONTHS[parseInt(parts[1]) - 1] ?? v
   }
 
-  const fundStocks = stocks.slice(0, 3).filter(s => s.fund !== null) as (StockEntry & { fund: FundData })[]
+  const fundStocks = stocks
+    .slice(0, 3)
+    .filter(s => s.fund !== null) as (StockEntry & { fund: FundData })[]
 
   return (
-    <div className="p-4 lg:p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Compare Stocks</h1>
-        <p className="text-muted-foreground">
-          Up to 10 stocks on chart · fundamentals for first 3
-        </p>
-      </div>
+    <div className="space-y-6">
 
-      {/* ── Search + Stock Selector ─────────────────────────────── */}
+      {/* ── Stock Selector ──────────────────────────────────────── */}
       <Card>
         <CardContent className="pt-4 space-y-3">
           {/* Pills */}
@@ -294,12 +319,17 @@ export default function ComparePage() {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-muted/40 text-sm"
                   style={{ borderLeftColor: stock.color, borderLeftWidth: 3 }}
                 >
-                  <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: stock.color }} />
+                  <div
+                    className="h-2 w-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: stock.color }}
+                  />
                   <span className="font-semibold">{stock.symbol}</span>
                   <span
                     className="text-xs px-1.5 py-0.5 rounded font-medium"
                     style={{
-                      backgroundColor: i < 3 ? 'rgba(34,197,94,0.15)' : 'rgba(148,163,184,0.12)',
+                      backgroundColor: i < 3
+                        ? 'rgba(34,197,94,0.15)'
+                        : 'rgba(148,163,184,0.12)',
                       color: i < 3 ? '#22c55e' : '#94a3b8',
                     }}
                   >
@@ -329,37 +359,33 @@ export default function ComparePage() {
                 onChange={e => handleInput(e.target.value)}
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
-                    // If no suggestions, try direct ticker
-                    if (!suggestions.length) addStock()
-                    else if (suggestions[0]) addStock(suggestions[0].symbol)
+                    if (suggests.length) addStock(suggests[0].symbol)
+                    else if (input.trim()) addStock()
                   }
-                  if (e.key === 'Escape') { setShowDrop(false) }
+                  if (e.key === 'Escape') setShowDrop(false)
                 }}
                 onFocus={() => { if (input.trim()) setShowDrop(true) }}
                 className="pl-8 pr-8"
                 disabled={loading !== null}
               />
-
-              {/* Dropdown */}
-              {showDrop && suggestions.length > 0 && (
+              {showDrop && suggests.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden">
-                  {suggestions.map(s => (
+                  {suggests.map(s => (
                     <button
                       key={s.symbol}
                       onMouseDown={e => { e.preventDefault(); addStock(s.symbol) }}
                       className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/60 transition-colors text-left"
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="font-semibold text-sm text-foreground w-16 flex-shrink-0">{s.symbol}</span>
+                        <span className="font-semibold text-sm w-16 flex-shrink-0">{s.symbol}</span>
                         <span className="text-xs text-muted-foreground truncate">{s.name}</span>
                       </div>
-                      <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">{s.exchange}</span>
+                      <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">{s.exchange}</span>
                     </button>
                   ))}
                 </div>
               )}
             </div>
-
             <Button
               onClick={() => addStock()}
               disabled={loading !== null || !input.trim() || stocks.length >= 10}
@@ -374,8 +400,9 @@ export default function ComparePage() {
           </div>
 
           {error && <p className="text-xs text-red-500">{error}</p>}
-          {loading && <p className="text-xs text-muted-foreground">Fetching {loading}...</p>}
-
+          {loading && (
+            <p className="text-xs text-muted-foreground">Fetching {loading}...</p>
+          )}
           <p className="text-xs text-muted-foreground">
             {stocks.length}/10 stocks ·{' '}
             <span className="text-green-500">Chart + Fund</span> = first 3 ·{' '}
@@ -384,19 +411,26 @@ export default function ComparePage() {
         </CardContent>
       </Card>
 
-      {/* ── Empty state ─────────────────────────────────────────── */}
+      {/* ── Empty State ─────────────────────────────────────────── */}
       {stocks.length === 0 ? (
         <Card>
           <CardContent className="py-24 text-center">
-            <BarChart3 className="h-10 w-10 mx-auto mb-3 opacity-30" style={{ color: '#94a3b8' }} />
-            <p className="text-sm text-muted-foreground">Search for stocks above to start comparing</p>
-            <p className="text-xs text-muted-foreground mt-1 opacity-60">Try "Apple", "Tesla", or type a ticker like NVDA</p>
+            <BarChart3
+              className="h-10 w-10 mx-auto mb-3 opacity-30"
+              style={{ color: '#94a3b8' }}
+            />
+            <p className="text-sm text-muted-foreground">
+              Search for stocks above to start comparing
+            </p>
+            <p className="text-xs text-muted-foreground mt-1 opacity-60">
+              Try "Apple", "Tesla", or type a ticker like NVDA
+            </p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-6">
 
-          {/* ── Period Selector ─────────────────────────────────── */}
+          {/* ── Period Selector ────────────────────────────────── */}
           <div className="flex gap-1">
             {CHART_PERIODS.map(p => (
               <button
@@ -412,18 +446,31 @@ export default function ComparePage() {
             ))}
           </div>
 
-          {/* ── % Return Chart ──────────────────────────────────── */}
+          {/* ── % Return Chart ─────────────────────────────────── */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">% Return — {period}</CardTitle>
-              <CardDescription>All stocks normalized to 0% at period start</CardDescription>
+              <CardDescription>
+                All stocks normalized to 0% at period start
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-[380px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="4 4" strokeWidth={1} />
+                  <LineChart
+                    data={chartData}
+                    margin={{ top: 8, right: 16, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="hsl(var(--border))"
+                    />
+                    <ReferenceLine
+                      y={0}
+                      stroke="#94a3b8"
+                      strokeDasharray="4 4"
+                      strokeWidth={1}
+                    />
                     <XAxis
                       dataKey="date"
                       ticks={xTicks}
@@ -433,7 +480,9 @@ export default function ComparePage() {
                       axisLine={false}
                     />
                     <YAxis
-                      tickFormatter={v => `${v > 0 ? '+' : ''}${Number(v).toFixed(0)}%`}
+                      tickFormatter={v =>
+                        `${v > 0 ? '+' : ''}${Number(v).toFixed(0)}%`
+                      }
                       tick={{ fill: '#94a3b8', fontSize: 10 }}
                       tickLine={false}
                       axisLine={false}
@@ -447,7 +496,7 @@ export default function ComparePage() {
                         fontSize: 12,
                       }}
                       formatter={(v: number, name: string) => [
-                        `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`, name
+                        `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`, name,
                       ]}
                       labelStyle={{ color: '#94a3b8', fontSize: 11 }}
                     />
@@ -470,7 +519,7 @@ export default function ComparePage() {
             </CardContent>
           </Card>
 
-          {/* ── Fundamentals ────────────────────────────────────── */}
+          {/* ── Fundamentals Section ───────────────────────────── */}
           {fundStocks.length > 0 && (
             <div className="space-y-4">
               <div>
@@ -481,25 +530,40 @@ export default function ComparePage() {
               </div>
 
               {/* Price cards */}
-              <div className={`grid gap-4 ${fundStocks.length === 1 ? 'grid-cols-1 max-w-sm' :
-                  fundStocks.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
-                }`}>
+              <div
+                className={`grid gap-4 ${fundStocks.length === 1
+                    ? 'grid-cols-1 max-w-sm'
+                    : fundStocks.length === 2
+                      ? 'grid-cols-2'
+                      : 'grid-cols-3'
+                  }`}
+              >
                 {fundStocks.map(stock => (
-                  <Card key={stock.symbol} style={{ borderTopColor: stock.color, borderTopWidth: 3 }}>
+                  <Card
+                    key={stock.symbol}
+                    style={{ borderTopColor: stock.color, borderTopWidth: 3 }}
+                  >
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-3">
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                             <p className="font-bold text-lg">{stock.symbol}</p>
                             {stock.fund.exchange && (
-                              <span className="text-xs border border-border rounded px-1.5 py-0.5" style={{ color: '#94a3b8' }}>
+                              <span
+                                className="text-xs border border-border rounded px-1.5 py-0.5"
+                                style={{ color: '#94a3b8' }}
+                              >
                                 {stock.fund.exchange}
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground truncate">{stock.fund.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {stock.fund.name}
+                          </p>
                           {stock.fund.sector && (
-                            <p className="text-xs opacity-60 text-muted-foreground">{stock.fund.sector}</p>
+                            <p className="text-xs text-muted-foreground opacity-60">
+                              {stock.fund.sector}
+                            </p>
                           )}
                         </div>
                         {stock.fund.logo && (
@@ -507,17 +571,29 @@ export default function ComparePage() {
                             src={stock.fund.logo}
                             alt={stock.symbol}
                             className="h-9 w-9 rounded object-contain flex-shrink-0 ml-2"
-                            onError={e => (e.target as HTMLImageElement).style.display = 'none'}
+                            onError={e =>
+                              ((e.target as HTMLImageElement).style.display = 'none')
+                            }
                           />
                         )}
                       </div>
-                      <p className="text-2xl font-bold">{fmtPrice(stock.fund.price)}</p>
+                      <p className="text-2xl font-bold">
+                        {fmtPrice(stock.fund.price)}
+                      </p>
                       {stock.fund.changePercent != null && (
-                        <div className={`flex items-center gap-1 text-sm mt-1 ${stock.fund.changePercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        <div
+                          className={`flex items-center gap-1 text-sm mt-1 ${stock.fund.changePercent >= 0
+                              ? 'text-green-500'
+                              : 'text-red-500'
+                            }`}
+                        >
                           {stock.fund.changePercent >= 0
                             ? <ArrowUpRight className="h-4 w-4" />
                             : <ArrowDownRight className="h-4 w-4" />}
-                          <span>{stock.fund.changePercent >= 0 ? '+' : ''}{stock.fund.changePercent.toFixed(2)}%</span>
+                          <span>
+                            {stock.fund.changePercent >= 0 ? '+' : ''}
+                            {stock.fund.changePercent.toFixed(2)}%
+                          </span>
                           <span className="text-muted-foreground text-xs">today</span>
                         </div>
                       )}
@@ -544,7 +620,10 @@ export default function ComparePage() {
                           {fundStocks.map(stock => (
                             <TableHead key={stock.symbol} className="text-center">
                               <div className="flex items-center justify-center gap-1.5">
-                                <div className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: stock.color }} />
+                                <div
+                                  className="h-2.5 w-2.5 rounded-full flex-shrink-0"
+                                  style={{ backgroundColor: stock.color }}
+                                />
                                 {stock.symbol}
                               </div>
                             </TableHead>
@@ -556,9 +635,14 @@ export default function ComparePage() {
                           if (metric.key === '__52wk__') {
                             return (
                               <TableRow key="52wk">
-                                <TableCell className="text-sm font-medium">52-Wk Range</TableCell>
+                                <TableCell className="text-sm font-medium">
+                                  52-Wk Range
+                                </TableCell>
                                 {fundStocks.map(stock => (
-                                  <TableCell key={stock.symbol} className="text-center text-sm">
+                                  <TableCell
+                                    key={stock.symbol}
+                                    className="text-center text-sm"
+                                  >
                                     {stock.fund.low52 && stock.fund.high52
                                       ? `${fmtPrice(stock.fund.low52)} – ${fmtPrice(stock.fund.high52)}`
                                       : '—'}
@@ -568,14 +652,19 @@ export default function ComparePage() {
                             )
                           }
 
-                          const vals = fundStocks.map(s => (s.fund as any)[metric.key] as number | null)
-                          const { best, worst } = metric.hb != null
-                            ? getBestWorst(vals, metric.hb as boolean)
-                            : { best: null, worst: null }
+                          const vals = fundStocks.map(
+                            s => (s.fund as any)[metric.key] as number | null
+                          )
+                          const { best, worst } =
+                            metric.hb != null
+                              ? getBestWorst(vals, metric.hb as boolean)
+                              : { best: null, worst: null }
 
                           return (
                             <TableRow key={metric.label}>
-                              <TableCell className="text-sm font-medium">{metric.label}</TableCell>
+                              <TableCell className="text-sm font-medium">
+                                {metric.label}
+                              </TableCell>
                               {fundStocks.map(stock => {
                                 const val = (stock.fund as any)[metric.key]
                                 return (
@@ -599,6 +688,47 @@ export default function ComparePage() {
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Page ──────────────────────────────────────────────────────────────
+export default function ComparePage() {
+  const [pageTab, setPageTab] = useState<PageTab>('compare')
+
+  return (
+    <div className="p-4 lg:p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Compare Stocks</h1>
+        <p className="text-muted-foreground">
+          {pageTab === 'compare'
+            ? 'Up to 10 stocks on chart · fundamentals for first 3'
+            : 'Build a 5-year price projection for any stock'}
+        </p>
+      </div>
+
+      {/* ── Top-level tab bar ─────────────────────────────────── */}
+      <div className="flex gap-0 border-b border-border">
+        {([
+          { key: 'compare', label: 'Compare' },
+          { key: 'projection', label: 'Projection' },
+        ] as { key: PageTab; label: string }[]).map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setPageTab(tab.key)}
+            className={`px-6 py-2.5 text-sm font-medium border-b-2 transition-colors ${pageTab === tab.key
+                ? 'border-primary text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Tab content ───────────────────────────────────────── */}
+      {pageTab === 'compare' && <CompareTab />}
+      {pageTab === 'projection' && <ProjectionTab />}
     </div>
   )
 }

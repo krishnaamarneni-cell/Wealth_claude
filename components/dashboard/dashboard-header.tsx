@@ -61,12 +61,10 @@ export function DashboardHeader() {
             >
               Settings
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem
-              className="cursor-pointer"
-              onClick={() => router.push("/dashboard/settings?tab=connected")}
-            >
-              onClick={() => router.push("/")}
               className="cursor-pointer text-red-500 focus:text-red-600"
+              onClick={() => router.push("/")}
             >
               Log out
             </DropdownMenuItem>

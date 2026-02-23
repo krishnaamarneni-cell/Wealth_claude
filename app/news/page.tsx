@@ -15,26 +15,15 @@ export default function NewsPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-
       <div className="pt-16">
-
-        {/* Ticker — full width */}
         <MarketTicker />
-
         <div className="container mx-auto px-4 py-8 space-y-6">
-
-          {/* Money Flow — compact, full width, no Market Interpretation */}
           <MoneyFlowDashboard compact />
-
-          {/* Global Markets + Trending side by side */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <GlobalMarkets compact />
             <TrendingNews />
           </div>
-
-          {/* Main news feed + sidebar */}
           <PublicNewsSection />
-
         </div>
       </div>
     </div>

@@ -18,12 +18,23 @@ export default function NewsPage() {
       <div className="pt-16">
         <MarketTicker />
         <div className="container mx-auto px-4 py-8 space-y-6">
+
+          {/* Money Flow */}
           <MoneyFlowDashboard compact />
+
+          {/* News first — Trending + Latest side by side */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <GlobalMarkets compact />
             <TrendingNews />
+            {/* Extract "Latest News" from sidebar */}
+            <LatestNews />
           </div>
+
+          {/* Main news + sidebar */}
           <PublicNewsSection />
+
+          {/* Global Markets — full width bottom */}
+          <GlobalMarkets />
+
         </div>
       </div>
     </div>

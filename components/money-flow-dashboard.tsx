@@ -124,8 +124,8 @@ function InfoPanel({ onClose }: { onClose: () => void }) {
           <div
             key={row.symbol}
             className={`p-4 rounded-xl border ${row.ok
-                ? 'bg-secondary/30 border-border'
-                : 'bg-orange-500/10 border-orange-500/30'
+              ? 'bg-secondary/30 border-border'
+              : 'bg-orange-500/10 border-orange-500/30'
               }`}
           >
             <div className="flex items-center gap-2 mb-2">
@@ -138,10 +138,10 @@ function InfoPanel({ onClose }: { onClose: () => void }) {
                 {row.symbol}
               </span>
               <span className={`text-xs px-2 py-0.5 rounded font-semibold ml-auto ${row.type.includes('⚠️')
-                  ? 'bg-orange-500/20 text-orange-400'
-                  : row.type === 'Actual Price'
-                    ? 'bg-green-500/20 text-green-400'
-                    : 'bg-blue-500/20 text-blue-400'
+                ? 'bg-orange-500/20 text-orange-400'
+                : row.type === 'Actual Price'
+                  ? 'bg-green-500/20 text-green-400'
+                  : 'bg-blue-500/20 text-blue-400'
                 }`}>
                 {row.type}
               </span>
@@ -192,7 +192,7 @@ function LoadingSkeleton() {
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────
-export default function MoneyFlowDashboard() {
+export default function MoneyFlowDashboard({ compact = false }: { compact?: boolean }) {
   const [assets, setAssets] = useState<AssetClass[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -307,8 +307,8 @@ export default function MoneyFlowDashboard() {
           <button
             onClick={() => setShowInfo(v => !v)}
             className={`p-2 rounded-full border transition-all shrink-0 ${showInfo
-                ? 'bg-blue-500/20 border-blue-500/40 text-blue-400'
-                : 'bg-secondary/60 border-border text-muted-foreground hover:text-foreground hover:bg-secondary'
+              ? 'bg-blue-500/20 border-blue-500/40 text-blue-400'
+              : 'bg-secondary/60 border-border text-muted-foreground hover:text-foreground hover:bg-secondary'
               }`}
             title="What are these prices?"
           >
@@ -367,10 +367,10 @@ export default function MoneyFlowDashboard() {
                       <p className="font-bold text-base leading-tight">{asset.label}</p>
                       {/* Badge */}
                       <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full font-medium ${asset.isActual
-                          ? 'bg-green-500/20 text-green-400'
-                          : asset.badge.includes('⚠️')
-                            ? 'bg-orange-500/20 text-orange-400'
-                            : 'bg-secondary text-muted-foreground'
+                        ? 'bg-green-500/20 text-green-400'
+                        : asset.badge.includes('⚠️')
+                          ? 'bg-orange-500/20 text-orange-400'
+                          : 'bg-secondary text-muted-foreground'
                         }`}>
                         {asset.badge}
                       </span>
@@ -400,8 +400,8 @@ export default function MoneyFlowDashboard() {
 
                 {/* ── % Change — prominent ─────────────────────────── */}
                 <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold ${isPos
-                    ? 'bg-green-500/20 text-green-400'
-                    : 'bg-red-500/20 text-red-400'
+                  ? 'bg-green-500/20 text-green-400'
+                  : 'bg-red-500/20 text-red-400'
                   }`}>
                   {isPos
                     ? <TrendingUp className="h-3.5 w-3.5" />
@@ -415,18 +415,19 @@ export default function MoneyFlowDashboard() {
         </div>
 
         {/* ── Market Interpretation ──────────────────────────────────── */}
-        <div className="p-5 rounded-xl bg-blue-500/10 border-2 border-blue-500/30">
-          <div className="flex items-start gap-4">
-            <div className="p-2.5 rounded-full bg-blue-500/20 shrink-0 mt-0.5">
-              <Lightbulb className="h-5 w-5 text-blue-500" />
-            </div>
-            <div>
-              <h4 className="font-bold text-base mb-1.5">Market Interpretation</h4>
-              <p className="text-sm text-muted-foreground leading-relaxed">{narrative}</p>
+        {!compact && (
+          <div className="p-5 rounded-xl bg-blue-500/10 border-2 border-blue-500/30">
+            <div className="flex items-start gap-4">
+              <div className="p-2.5 rounded-full bg-blue-500/20 shrink-0 mt-0.5">
+                <Lightbulb className="h-5 w-5 text-blue-500" />
+              </div>
+              <div>
+                <h4 className="font-bold text-base mb-1.5">Market Interpretation</h4>
+                <p className="text-sm text-muted-foreground leading-relaxed">{narrative}</p>
+              </div>
             </div>
           </div>
-        </div>
-
+          
         {/* ── Legend ────────────────────────────────────────────────── */}
         <div className="flex items-center justify-center gap-6 pt-1 text-sm text-muted-foreground flex-wrap">
           <div className="flex items-center gap-1.5">

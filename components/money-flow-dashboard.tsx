@@ -427,7 +427,8 @@ export default function MoneyFlowDashboard({ compact = false }: { compact?: bool
               </div>
             </div>
           </div>
-          
+        )}
+
         {/* ── Legend ────────────────────────────────────────────────── */}
         <div className="flex items-center justify-center gap-6 pt-1 text-sm text-muted-foreground flex-wrap">
           <div className="flex items-center gap-1.5">

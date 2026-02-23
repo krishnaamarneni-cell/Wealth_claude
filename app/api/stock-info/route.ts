@@ -151,11 +151,12 @@ async function fetchFromPrimarySource(symbol: string): Promise<StockInfo | null>
       fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${FINNHUB_API_KEY}`)
     ])
 
-    if (!profileRes.ok || !quoteRes.ok) {
-      throw new Error(`Finnhub failed: Profile ${profileRes.status}, Quote ${quoteRes.status}`)
+    // Quote is essential - if it fails, abort
+    if (!quoteRes.ok) {
+      throw new Error(`Finnhub quote failed: ${quoteRes.status}`)
     }
 
-    const profile = await profileRes.json()
+    const profile = profileRes.ok ? await profileRes.json() : {}
     const quote = await quoteRes.json()
     const metrics = metricsRes.ok ? await metricsRes.json() : null
 

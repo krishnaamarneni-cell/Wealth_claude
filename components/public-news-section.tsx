@@ -93,7 +93,6 @@ export function PublicNewsSection() {
     : news
 
   const mainArticles = filtered.slice(0, 12)
-  const latestArticles = news.slice(0, 6)
 
   return (
     <div className="grid lg:grid-cols-3 gap-6">
@@ -189,7 +188,7 @@ export function PublicNewsSection() {
         }
       </div>
 
-      {/* ── Sidebar (right 1/3) ── */}
+      {/* ── Sidebar (right 1/3) — NO Latest News ── */}
       <div className="space-y-5">
 
         {/* Subscribe CTA — top for max visibility */}
@@ -223,45 +222,7 @@ export function PublicNewsSection() {
           </p>
         </div>
 
-        {/* Latest News */}
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <h3 className="font-bold text-base mb-4 flex items-center gap-2">
-            <Clock className="h-4 w-4 text-primary" />
-            Latest
-          </h3>
-          {loading
-            ? [...Array(5)].map((_, i) => (
-              <div key={i} className="h-14 bg-secondary rounded-lg animate-pulse mb-2" />
-            ))
-            : (
-              <div className="space-y-1">
-                {latestArticles.map((article, i) => (
-                  <a
-                    key={`latest-${i}`}
-                    href={article.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group flex gap-3 hover:bg-secondary/50 rounded-lg p-2 transition-colors"
-                  >
-                    <span className="text-base font-bold text-muted-foreground/30 shrink-0 w-5 text-center leading-tight mt-0.5">
-                      {i + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium leading-snug group-hover:text-primary transition-colors line-clamp-2">
-                        {article.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {formatDate(article.publishedDate)}
-                      </p>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            )}
-        </div>
-
-        {/* Popular Topics */}
+        {/* Popular Topics — ONLY */}
         <div className="rounded-2xl border border-border bg-card p-5">
           <h3 className="font-bold text-base mb-4 flex items-center gap-2">
             <Flame className="h-4 w-4 text-orange-500" />

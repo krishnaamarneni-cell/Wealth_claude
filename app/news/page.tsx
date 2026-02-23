@@ -3,6 +3,7 @@ import MarketTicker from "@/components/market-ticker"
 import MoneyFlowDashboard from "@/components/money-flow-dashboard"
 import GlobalMarkets from "@/components/global-markets"
 import { TrendingNews } from "@/components/trending-news"
+import { LatestNews } from "@/components/latest-news"        // ← NEW
 import { PublicNewsSection } from "@/components/public-news-section"
 import type { Metadata } from "next"
 
@@ -25,7 +26,6 @@ export default function NewsPage() {
           {/* News first — Trending + Latest side by side */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <TrendingNews />
-            {/* Extract "Latest News" from sidebar */}
             <LatestNews />
           </div>
 

@@ -1,46 +1,34 @@
-"use client"
-
-import { useEffect, useRef } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowRight } from "lucide-react"
 
 function HeatmapEmbed() {
-  const containerRef = useRef<HTMLDivElement>(null)
+  const config = JSON.stringify({
+    exchanges: [],
+    dataSource: "SPX500",
+    grouping: "sector",
+    blockSize: "market_cap_basic",
+    blockColor: "change",
+    locale: "en",
+    colorTheme: "dark",
+    hasTopBar: false,
+    isDataSetEnabled: false,
+    isZoomEnabled: false,
+    hasSymbolTooltip: false,
+    isMonoSize: false,
+    width: "100%",
+    height: 400,
+  })
 
-  useEffect(() => {
-    if (!containerRef.current) return
-    containerRef.current.innerHTML = ""
-
-    const iframe = document.createElement("iframe")
-    iframe.scrolling = "no"
-    iframe.style.cssText = "width:100%;height:400px;border:none;display:block;pointer-events:none;"
-
-    const config = JSON.stringify({
-      exchanges: [],
-      dataSource: "SPX500",
-      grouping: "sector",
-      blockSize: "market_cap_basic",
-      blockColor: "change",
-      locale: "en",
-      colorTheme: "dark",
-      hasTopBar: false,
-      isDataSetEnabled: false,
-      isZoomEnabled: false,
-      hasSymbolTooltip: false,
-      isMonoSize: false,
-      width: "100%",
-      height: 400,
-    })
-
-    const html = `<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8"/>
     <style>
-      *{margin:0;padding:0;box-sizing:border-box}
-      html,body{width:100%;height:100%;background:#0f0f0f;overflow:hidden}
-      .tradingview-widget-container,.tradingview-widget-container__widget{width:100%;height:400px}
+      * { margin:0; padding:0; box-sizing:border-box; }
+      html, body { width:100%; height:100%; background:#0f0f0f; overflow:hidden; }
+      .tradingview-widget-container,
+      .tradingview-widget-container__widget { width:100%; height:400px; }
     </style>
   </head>
   <body>
@@ -53,14 +41,17 @@ function HeatmapEmbed() {
   </body>
 </html>`
 
-    const doc = iframe.contentDocument ?? iframe.contentWindow?.document
-    containerRef.current.appendChild(iframe)
-    if (doc) { doc.open(); doc.write(html); doc.close() }
-
-    return () => { if (containerRef.current) containerRef.current.innerHTML = "" }
-  }, [])
-
-  return <div ref={containerRef} style={{ height: 400, width: "100%" }} />
+  return (
+    <iframe
+      srcDoc={html}
+      width="100%"
+      height={400}
+      frameBorder="0"
+      scrolling="no"
+      style={{ display: "block", border: "none", pointerEvents: "none" }}
+      title="S&P 500 Live Heatmap"
+    />
+  )
 }
 
 export function LivePreviewSection() {

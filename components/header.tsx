@@ -26,6 +26,9 @@ export function Header() {
           <Link href="#heatmaps" className="text-muted-foreground hover:text-foreground transition-colors">
             Heat Maps
           </Link>
+          <Link href="/news" className="text-muted-foreground hover:text-foreground transition-colors">
+            News
+          </Link>
           <Link href="#brokers" className="text-muted-foreground hover:text-foreground transition-colors">
             Brokers
           </Link>
@@ -57,32 +60,19 @@ export function Header() {
       {isMenuOpen && (
         <div className="md:hidden bg-background border-b border-border">
           <div className="container mx-auto px-4 py-4 flex flex-col gap-4">
-            <Link
-              href="#features"
-              className="text-muted-foreground hover:text-foreground transition-colors py-2"
-              onClick={() => setIsMenuOpen(false)}
-            >
+            <Link href="#features" className="text-muted-foreground hover:text-foreground transition-colors py-2" onClick={() => setIsMenuOpen(false)}>
               Features
             </Link>
-            <Link
-              href="#heatmaps"
-              className="text-muted-foreground hover:text-foreground transition-colors py-2"
-              onClick={() => setIsMenuOpen(false)}
-            >
+            <Link href="#heatmaps" className="text-muted-foreground hover:text-foreground transition-colors py-2" onClick={() => setIsMenuOpen(false)}>
               Heat Maps
             </Link>
-            <Link
-              href="#brokers"
-              className="text-muted-foreground hover:text-foreground transition-colors py-2"
-              onClick={() => setIsMenuOpen(false)}
-            >
+            <Link href="/news" className="text-muted-foreground hover:text-foreground transition-colors py-2" onClick={() => setIsMenuOpen(false)}>
+              News
+            </Link>
+            <Link href="#brokers" className="text-muted-foreground hover:text-foreground transition-colors py-2" onClick={() => setIsMenuOpen(false)}>
               Brokers
             </Link>
-            <Link
-              href="#faq"
-              className="text-muted-foreground hover:text-foreground transition-colors py-2"
-              onClick={() => setIsMenuOpen(false)}
-            >
+            <Link href="#faq" className="text-muted-foreground hover:text-foreground transition-colors py-2" onClick={() => setIsMenuOpen(false)}>
               FAQ
             </Link>
             <div className="flex flex-col gap-2 pt-4 border-t border-border">

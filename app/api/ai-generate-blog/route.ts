@@ -1,108 +1,105 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-interface GenerateBlogRequest {
-  topic: string
-}
-
-interface GenerateBlogResponse {
-  title: string
-  content: string
-  excerpt: string
-  tags: string[]
-}
-
 export async function POST(request: NextRequest) {
   try {
-    const body: GenerateBlogRequest = await request.json()
-    const { topic } = body
+    const { topic } = await request.json()
 
-    if (!topic || topic.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Topic is required' },
-        { status: 400 }
-      )
+    if (!topic?.trim()) {
+      return NextResponse.json({ error: 'Topic is required' }, { status: 400 })
     }
 
     const apiKey = process.env.PERPLEXITY_API_KEY
     if (!apiKey) {
-      return NextResponse.json(
-        { error: 'Perplexity API key not configured' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'PERPLEXITY_API_KEY not set' }, { status: 500 })
     }
 
-    const prompt = `Generate a finance/investment blog post about: "${topic}"
+    // ─── Call Perplexity ───────────────────────────────────────────────────
+    const prompt = `You are a finance blog writer. Generate a blog post about: "${topic}"
 
-Please provide the response in JSON format with these fields:
+Respond with ONLY a valid JSON object — no markdown, no code blocks, no explanation. Just the raw JSON:
+
 {
-  "title": "SEO-optimized title (50-60 chars)",
-  "content": "800-1000 word article in HTML format (use <p>, <h2>, <strong>, <em> tags)",
-  "excerpt": "50-70 word summary",
-  "tags": ["tag1", "tag2", "tag3", "tag4", "tag5"]
-}
+  "title": "SEO-optimized title, 50-60 characters",
+  "excerpt": "2-3 sentence summary, around 50 words",
+  "content": "800-1000 word article using HTML tags: <h2>, <p>, <strong>, <ul>, <li>. No <html>, <body>, or <head> tags.",
+  "tags": ["tag1", "tag2", "tag3", "tag4", "tag5"],
+  "image_query": "3-4 word Unsplash search query for a relevant finance/business photo"
+}`
 
-Make sure:
-- Title is catchy and SEO-friendly
-- Content is informative and well-structured with HTML formatting
-- Excerpt summarizes the main point
-- Tags are relevant for finance/investment topics
-- Valid JSON output only, no markdown code blocks`
-
-    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+    const perplexityRes = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         model: 'sonar-pro',
-        messages: [
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
+        messages: [{ role: 'user', content: prompt }],
         temperature: 0.7,
-        max_tokens: 2000,
+        max_tokens: 2500,
       }),
     })
 
-    if (!response.ok) {
-      const error = await response.text()
-      console.error('[v0] Perplexity API error:', error)
-      return NextResponse.json(
-        { error: 'Failed to generate blog post' },
-        { status: response.status }
-      )
+    if (!perplexityRes.ok) {
+      const err = await perplexityRes.text()
+      console.error('[blog-gen] Perplexity error:', err)
+      return NextResponse.json({ error: 'Perplexity API failed' }, { status: 502 })
     }
 
-    const data = await response.json()
-    const content = data.choices[0]?.message?.content
+    const perplexityData = await perplexityRes.json()
+    const rawContent = perplexityData.choices?.[0]?.message?.content ?? ''
 
-    if (!content) {
-      return NextResponse.json(
-        { error: 'No content generated' },
-        { status: 500 }
-      )
+    // ─── Parse JSON from response (strip markdown fences if present) ───────
+    let blogData: {
+      title: string
+      excerpt: string
+      content: string
+      tags: string[]
+      image_query: string
     }
 
-    // Parse JSON from response
-    const jsonMatch = content.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      return NextResponse.json(
-        { error: 'Invalid JSON format in response' },
-        { status: 500 }
-      )
+    try {
+      const cleaned = rawContent
+        .replace(/^```(?:json)?\s*/i, '')
+        .replace(/\s*```\s*$/, '')
+        .trim()
+
+      const match = cleaned.match(/\{[\s\S]*\}/)
+      if (!match) throw new Error('No JSON object found')
+      blogData = JSON.parse(match[0])
+    } catch (e) {
+      console.error('[blog-gen] JSON parse failed:', rawContent)
+      return NextResponse.json({ error: 'Failed to parse AI response as JSON' }, { status: 500 })
     }
 
-    const blogData: GenerateBlogResponse = JSON.parse(jsonMatch[0])
+    // ─── Fetch image from Unsplash ─────────────────────────────────────────
+    let image_url = ''
+    const unsplashKey = process.env.UNSPLASH_ACCESS_KEY
 
-    return NextResponse.json(blogData)
+    if (unsplashKey && blogData.image_query) {
+      try {
+        const unsplashRes = await fetch(
+          `https://api.unsplash.com/photos/random?query=${encodeURIComponent(blogData.image_query)}&orientation=landscape`,
+          { headers: { Authorization: `Client-ID ${unsplashKey}` } }
+        )
+        if (unsplashRes.ok) {
+          const img = await unsplashRes.json()
+          image_url = img.urls?.regular ?? ''
+        }
+      } catch (e) {
+        console.warn('[blog-gen] Unsplash fetch failed, continuing without image')
+      }
+    }
+
+    return NextResponse.json({
+      title: blogData.title,
+      excerpt: blogData.excerpt,
+      content: blogData.content,
+      tags: Array.isArray(blogData.tags) ? blogData.tags : [],
+      image_url,
+    })
   } catch (error) {
-    console.error('[v0] AI blog generation error:', error)
-    return NextResponse.json(
-      { error: 'Failed to generate blog post' },
-      { status: 500 }
-    )
+    console.error('[blog-gen] Unexpected error:', error)
+    return NextResponse.json({ error: 'Unexpected server error' }, { status: 500 })
   }
 }

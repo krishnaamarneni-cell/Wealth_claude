@@ -12,6 +12,9 @@ export const metadata: Metadata = {
   title: 'TrackFolio - Track All Investments In One Place',
   description: 'Stocks, ETFs, and Crypto Investment Tracker with Real-Time Market Heat Maps',
   generator: 'v0.app',
+  verification: {
+    google: 'xGF45OADo7Z_A5TGakMROClT8Ck5unwDFghtApnJWus',
+  },
   icons: {
     icon: [
       { url: '/icon-light-32x32.png', media: '(prefers-color-scheme: light)' },

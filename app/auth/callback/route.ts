@@ -19,7 +19,19 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/auth/login', request.url))
   }
 
-  // TODO: Check if profile exists in DB
-  // For now: Always go to dashboard
+  // Check if profile exists
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('id', session.user.id)
+    .single()
+
+  if (!profile) {
+    // Profile doesn't exist - redirect to setup
+    return NextResponse.redirect(new URL('/profile/setup', request.url))
+  }
+
+  // Profile exists - go to dashboard
   return NextResponse.redirect(new URL('/dashboard', request.url))
 }
+

@@ -21,7 +21,7 @@ export async function requireAdmin() {
   }
 
   // Check if user is admin
-  const adminEmail = process.env.ADMIN_EMAIL
+  const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || process.env.ADMIN_EMAIL
   if (!adminEmail || user.email !== adminEmail) {
     notFound()
   }

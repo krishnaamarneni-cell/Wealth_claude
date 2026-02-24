@@ -3,14 +3,14 @@ export interface BlogPost {
   slug: string
   title: string
   content: string
-  excerpt: string
+  excerpt: string | null
+  image_url: string | null
   tags: string[]
-  featured_image?: string
-  status: 'draft' | 'published'
-  author_id: string
+  published: boolean
+  published_at: string | null
+  author_id: string | null
   created_at: string
   updated_at: string
-  published_at?: string
 }
 
 export interface BlogPostFormData {
@@ -19,6 +19,6 @@ export interface BlogPostFormData {
   excerpt: string
   content: string
   tags: string[]
-  featured_image?: string
-  status: 'draft' | 'published'
+  image_url: string
+  published: boolean
 }

@@ -4,21 +4,32 @@ export type Database = {
       blog_posts: {
         Row: {
           id: string
-          title: string
           slug: string
+          title: string
           content: string
           excerpt: string | null
-          featured_image: string | null
-          featured_image_alt: string | null
-          secondary_image: string | null
-          secondary_image_alt: string | null
+          image_url: string | null
           tags: string[]
-          status: 'draft' | 'published'
+          published: boolean
+          published_at: string | null
+          author_id: string | null
           created_at: string
           updated_at: string
-          author_id: string
         }
-        Insert: Omit<Database['public']['Tables']['blog_posts']['Row'], 'id' | 'created_at' | 'updated_at'>
+        Insert: {
+          id?: string
+          slug: string
+          title: string
+          content?: string
+          excerpt?: string | null
+          image_url?: string | null
+          tags?: string[]
+          published?: boolean
+          published_at?: string | null
+          author_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
         Update: Partial<Database['public']['Tables']['blog_posts']['Insert']>
       }
     }

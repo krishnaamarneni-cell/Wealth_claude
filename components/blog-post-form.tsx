@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { BlogPost, BlogPostFormData } from '@/types/blog'
 import { titleToSlug, parseTags, formatTags } from '@/lib/blog-utils'
@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, Upload, X } from 'lucide-react'
+import { Loader2, Upload, X, Image as ImageIcon } from 'lucide-react'
 
 interface BlogPostFormProps {
   post?: BlogPost | null
@@ -20,172 +20,167 @@ export function BlogPostForm({ post, onClose, onSave }: BlogPostFormProps) {
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const [formData, setFormData] = useState<BlogPostFormData>({
-    title: post?.title || '',
-    slug: post?.slug || '',
-    excerpt: post?.excerpt || '',
-    content: post?.content || '',
-    tags: post?.tags || [],
-    featured_image: post?.featured_image || '',
-    status: post?.status || 'draft',
-  })
-  const [tagInput, setTagInput] = useState(formatTags(formData.tags))
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Auto-generate slug from title
+  const [formData, setFormData] = useState<BlogPostFormData>({
+    title: post?.title ?? '',
+    slug: post?.slug ?? '',
+    excerpt: post?.excerpt ?? '',
+    content: post?.content ?? '',
+    tags: post?.tags ?? [],
+    image_url: post?.image_url ?? '',
+    published: post?.published ?? false,
+  })
+
+  const [tagInput, setTagInput] = useState(formatTags(post?.tags ?? []))
+
+  // Auto-generate slug from title for new posts only
   useEffect(() => {
-    if (formData.title && !post) {
-      setFormData((prev) => ({
-        ...prev,
-        slug: titleToSlug(formData.title),
-      }))
+    if (!post && formData.title) {
+      setFormData((prev) => ({ ...prev, slug: titleToSlug(formData.title) }))
     }
   }, [formData.title, post])
 
+  // ─── Image Upload ──────────────────────────────────────────────────────────
+  // Works for BOTH new and existing posts.
+  // For new posts: uploads to blog-images/temp/{timestamp}.ext
+  // For existing posts: uploads to blog-images/{post.id}.ext
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file || !post?.id) return
+    if (!file) return
 
     try {
       setUploading(true)
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${post.id}/featured.${fileExt}`
+      const ext = file.name.split('.').pop()
+      const key = post?.id
+        ? `posts/${post.id}.${ext}`
+        : `posts/temp_${Date.now()}.${ext}`
 
       const { error: uploadError } = await supabase.storage
         .from('blog-images')
-        .upload(fileName, file, { upsert: true })
+        .upload(key, file, { upsert: true })
 
       if (uploadError) throw uploadError
 
-      // Get public URL
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from('blog-images').getPublicUrl(fileName)
+      const { data: { publicUrl } } = supabase.storage
+        .from('blog-images')
+        .getPublicUrl(key)
 
-      setFormData((prev) => ({
-        ...prev,
-        featured_image: publicUrl,
-      }))
-    } catch (error) {
-      console.error('[v0] Image upload error:', error)
-      alert('Failed to upload image')
+      setFormData((prev) => ({ ...prev, image_url: publicUrl }))
+    } catch (err) {
+      console.error('[blog-form] Image upload error:', err)
+      alert('Image upload failed. Check Supabase Storage bucket permissions.')
     } finally {
       setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
-  async function handleSubmit(e: React.FormEvent, status: 'draft' | 'published') {
-    e.preventDefault()
-
-    if (!formData.title.trim() || !formData.content.trim()) {
-      alert('Title and content are required')
+  // ─── Save / Publish ────────────────────────────────────────────────────────
+  async function handleSubmit(publish: boolean) {
+    if (!formData.title.trim()) {
+      alert('Title is required')
+      return
+    }
+    if (!formData.content.trim()) {
+      alert('Content is required')
       return
     }
 
     try {
       setLoading(true)
-      
-      // Get current user
-      const { data: { user }, error: authError } = await supabase.auth.getUser()
-      if (authError || !user) throw new Error('Not authenticated')
 
-      const postData = {
-        title: formData.title,
-        slug: formData.slug,
-        excerpt: formData.excerpt,
-        content: formData.content,
-        tags: parseTags(tagInput),
-        featured_image: formData.featured_image || null,
-        featured_image_alt: '',
-        secondary_image: null,
-        secondary_image_alt: '',
-        status,
-        author_id: user.id,
+      const tags = parseTags(tagInput)
+      const now = new Date().toISOString()
+
+      const payload = {
+        title: formData.title.trim(),
+        slug: formData.slug.trim() || titleToSlug(formData.title),
+        excerpt: formData.excerpt.trim(),
+        content: formData.content.trim(),
+        tags,
+        image_url: formData.image_url || null,
+        published: publish,
+        published_at: publish ? now : null,
       }
 
       if (post?.id) {
-        // Update
-        const { error: updateError } = await supabase
+        // ── Update existing post ──
+        const { error } = await supabase
           .from('blog_posts')
-          .update(postData)
+          .update(payload)
           .eq('id', post.id)
 
-        if (updateError) throw updateError
+        if (error) throw error
       } else {
-        // Create
-        const { error: insertError } = await supabase
+        // ── Create new post ──
+        const { error } = await supabase
           .from('blog_posts')
-          .insert([postData])
+          .insert([payload])
 
-        if (insertError) throw insertError
+        if (error) throw error
       }
 
-      alert('Post saved successfully!')
       onSave?.()
-    } catch (error) {
-      console.error('[v0] Error saving post:', error)
-      const errorMessage = error instanceof Error ? error.message : JSON.stringify(error)
-      alert('Failed to save post: ' + errorMessage)
+    } catch (err: any) {
+      console.error('[blog-form] Save error:', err)
+      alert('Save failed: ' + (err?.message ?? JSON.stringify(err)))
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <form className="space-y-4">
+    <div className="space-y-5">
       {/* Title */}
       <div>
-        <label className="text-sm font-medium mb-1 block">Title</label>
+        <label className="text-sm font-medium mb-1.5 block">Title *</label>
         <Input
           placeholder="Post title"
           value={formData.title}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, title: e.target.value }))
-          }
+          onChange={(e) => setFormData((p) => ({ ...p, title: e.target.value }))}
         />
       </div>
 
       {/* Slug */}
       <div>
-        <label className="text-sm font-medium mb-1 block">Slug</label>
+        <label className="text-sm font-medium mb-1.5 block">Slug</label>
         <Input
-          placeholder="url-slug"
+          placeholder="url-friendly-slug"
           value={formData.slug}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, slug: e.target.value }))
-          }
+          onChange={(e) => setFormData((p) => ({ ...p, slug: e.target.value }))}
         />
+        <p className="text-xs text-muted-foreground mt-1">
+          Auto-generated from title. Edit to customise.
+        </p>
       </div>
 
       {/* Excerpt */}
       <div>
-        <label className="text-sm font-medium mb-1 block">Excerpt</label>
+        <label className="text-sm font-medium mb-1.5 block">Excerpt</label>
         <Textarea
-          placeholder="Brief summary (50-70 words)"
+          placeholder="Brief summary shown in post cards (50-70 words)"
           value={formData.excerpt}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, excerpt: e.target.value }))
-          }
+          onChange={(e) => setFormData((p) => ({ ...p, excerpt: e.target.value }))}
           rows={2}
         />
       </div>
 
       {/* Content */}
       <div>
-        <label className="text-sm font-medium mb-1 block">Content</label>
+        <label className="text-sm font-medium mb-1.5 block">Content * (HTML supported)</label>
         <Textarea
-          placeholder="Post content (supports HTML)"
+          placeholder="<h2>Introduction</h2><p>Your content here...</p>"
           value={formData.content}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, content: e.target.value }))
-          }
-          rows={6}
+          onChange={(e) => setFormData((p) => ({ ...p, content: e.target.value }))}
+          rows={10}
           className="font-mono text-xs"
         />
       </div>
 
       {/* Tags */}
       <div>
-        <label className="text-sm font-medium mb-1 block">Tags</label>
+        <label className="text-sm font-medium mb-1.5 block">Tags</label>
         <Input
           placeholder="finance, ai, stocks (comma-separated)"
           value={tagInput}
@@ -193,89 +188,101 @@ export function BlogPostForm({ post, onClose, onSave }: BlogPostFormProps) {
         />
         <div className="flex gap-2 mt-2 flex-wrap">
           {parseTags(tagInput).map((tag) => (
-            <Badge key={tag} variant="secondary">
+            <Badge key={tag} variant="secondary" className="text-xs">
               {tag}
             </Badge>
           ))}
         </div>
       </div>
 
-      {/* Featured Image */}
-      {post?.id && (
-        <div>
-          <label className="text-sm font-medium mb-1 block">Featured Image</label>
-          {formData.featured_image && (
-            <div className="relative mb-2 rounded-md overflow-hidden">
-              <img
-                src={formData.featured_image}
-                alt="Featured"
-                className="w-full h-32 object-cover"
-              />
-              <button
-                type="button"
-                onClick={() =>
-                  setFormData((prev) => ({ ...prev, featured_image: '' }))
-                }
-                className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          )}
-          <label className="flex items-center justify-center gap-2 border-2 border-dashed rounded-md p-4 cursor-pointer hover:bg-muted/50 transition-colors">
-            <Upload className="h-4 w-4" />
-            <span className="text-sm">Upload image</span>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              disabled={uploading}
-              className="hidden"
-            />
-          </label>
-        </div>
-      )}
+      {/* Featured Image — works for new AND existing posts */}
+      <div>
+        <label className="text-sm font-medium mb-1.5 block">Featured Image</label>
 
-      {/* Buttons */}
-      <div className="flex gap-2 pt-4">
-        <Button
-          type="button"
-          onClick={(e) => handleSubmit(e, 'draft')}
-          disabled={loading}
-          variant="outline"
-          className="flex-1"
-        >
-          {loading ? (
+        {/* Preview */}
+        {formData.image_url && (
+          <div className="relative mb-3 rounded-lg overflow-hidden border border-border">
+            <img
+              src={formData.image_url}
+              alt="Featured"
+              className="w-full h-40 object-cover"
+            />
+            <button
+              type="button"
+              onClick={() => setFormData((p) => ({ ...p, image_url: '' }))}
+              className="absolute top-2 right-2 bg-black/70 text-white p-1 rounded-full hover:bg-red-600 transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* URL input (from AI) */}
+        {!formData.image_url && (
+          <Input
+            placeholder="Or paste image URL (auto-filled by AI)"
+            value={formData.image_url}
+            onChange={(e) => setFormData((p) => ({ ...p, image_url: e.target.value }))}
+            className="mb-2"
+          />
+        )}
+
+        {/* Upload button */}
+        <label className="flex items-center justify-center gap-2 border-2 border-dashed border-border rounded-lg p-4 cursor-pointer hover:bg-muted/40 transition-colors">
+          {uploading ? (
             <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Saving...
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-sm">Uploading...</span>
             </>
           ) : (
-            'Save Draft'
+            <>
+              <Upload className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">
+                {formData.image_url ? 'Replace image' : 'Upload image'}
+              </span>
+            </>
           )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            disabled={uploading}
+            className="hidden"
+          />
+        </label>
+        <p className="text-xs text-muted-foreground mt-1">
+          Uploads to Supabase Storage (blog-images bucket). Works for new and existing posts.
+        </p>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex gap-3 pt-2 border-t border-border">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => handleSubmit(false)}
+          disabled={loading || uploading}
+          className="flex-1"
+        >
+          {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+          Save Draft
         </Button>
         <Button
           type="button"
-          onClick={(e) => handleSubmit(e, 'published')}
-          disabled={loading}
+          onClick={() => handleSubmit(true)}
+          disabled={loading || uploading}
           className="flex-1"
         >
-          {loading ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Publishing...
-            </>
-          ) : (
-            'Publish'
-          )}
+          {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+          Publish
         </Button>
         {onClose && (
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
         )}
       </div>
-    </form>
+    </div>
   )
 }
-

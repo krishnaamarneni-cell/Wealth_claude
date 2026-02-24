@@ -1,5 +1,7 @@
 import { createBrowserClient, createServerClient } from '@supabase/ssr'
 import type { Database } from '@/types/database'
+import type { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 
 // Client-side Supabase client
 export function createClient() {
@@ -34,3 +36,43 @@ export function createServerSideClient(
     }
   )
 }
+
+// Middleware helper for session updates and auth checks
+export async function updateSession(request: NextRequest) {
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
+
+  const supabase = createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options)
+          })
+        },
+      },
+    }
+  )
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  // Redirect to login if accessing protected routes without auth
+  if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
+    return NextResponse.redirect(
+      new URL('/auth?message=login_required', request.url)
+    )
+  }
+
+  return response
+}
+

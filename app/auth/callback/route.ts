@@ -1,17 +1,18 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { createServerSideClient } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
+  const cookieStore = await cookies()
 
   if (code) {
-    const supabase = createRouteHandlerClient({ cookies })
+    const supabase = await createServerSideClient(cookieStore)
     await supabase.auth.exchangeCodeForSession(code)
   }
 
-  // CHECK PROFILE EXISTS → Redirect accordingly
+  const supabase = await createServerSideClient(cookieStore)
   const { data: { session } } = await supabase.auth.getSession()
 
   if (!session) {
@@ -19,6 +20,6 @@ export async function GET(request: NextRequest) {
   }
 
   // TODO: Check if profile exists in DB
-  // For now: Always go to profile setup
-  return NextResponse.redirect(new URL('/profile/setup', request.url))
+  // For now: Always go to dashboard
+  return NextResponse.redirect(new URL('/dashboard', request.url))
 }

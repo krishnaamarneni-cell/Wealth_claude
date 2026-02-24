@@ -83,6 +83,10 @@ export function BlogPostForm({ post, onClose, onSave }: BlogPostFormProps) {
 
     try {
       setLoading(true)
+      
+      // Get current user
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) throw new Error('Not authenticated')
 
       const postData = {
         title: formData.title,
@@ -95,6 +99,7 @@ export function BlogPostForm({ post, onClose, onSave }: BlogPostFormProps) {
         secondary_image: null,
         secondary_image_alt: '',
         status,
+        author_id: user.id,
       }
 
       if (post?.id) {

@@ -1,80 +1,57 @@
+"use client"
+
 import Link from 'next/link'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { ArrowRight, Clock } from 'lucide-react'
-import { cookies } from 'next/headers'
-import { createServerSideClient } from '@/lib/supabase'
-import { estimateReadTime } from '@/lib/blog-utils'
-import type { BlogPost } from '@/types/blog'
 
-// Fallback posts shown if Supabase has no published posts yet
 const FALLBACK_POSTS = [
   {
     slug: 'how-to-track-dividend-stocks',
-    tags: ['Dividends'],
+    tag: 'Dividends',
     title: 'How to Track Dividend Stocks for Free in 2026',
-    excerpt:
-      'Learn how to monitor your dividend income, yield on cost, and payout schedules — all without paying for expensive software.',
+    excerpt: 'Learn how to monitor your dividend income, yield on cost, and payout schedules — all without paying for expensive software.',
     readTime: '5 min read',
     image_url: null as string | null,
   },
   {
     slug: 'sp500-heatmap-explained',
-    tags: ['Market Analysis'],
+    tag: 'Market Analysis',
     title: 'How to Read a Stock Market Heatmap',
-    excerpt:
-      'Green, red, big tiles, small tiles — here\'s exactly what every element of a market heatmap is telling you about where money is flowing.',
+    excerpt: "Green, red, big tiles, small tiles — here's exactly what every element of a market heatmap is telling you about where money is flowing.",
     readTime: '4 min read',
     image_url: null as string | null,
   },
   {
     slug: 'nasdaq-vs-sp500',
-    tags: ['Investing'],
-    title: 'NASDAQ 100 vs S&P 500 — What\'s the Difference?',
-    excerpt:
-      'Both are major US indices but they track very different things. Here\'s how to decide which one matters more for your portfolio.',
+    tag: 'Investing',
+    title: "NASDAQ 100 vs S&P 500 — What's the Difference?",
+    excerpt: 'Both are major US indices but they track very different things. Here\'s how to decide which one matters more for your portfolio.',
     readTime: '6 min read',
     image_url: null as string | null,
   },
 ]
 
-async function getPublishedPosts() {
-  try {
-    const cookieStore = await cookies()
-    const supabase = createServerSideClient(cookieStore)
-
-    const { data, error } = await supabase
-      .from('blog_posts')
-      .select('id, slug, title, excerpt, image_url, tags, content, published_at, created_at')
-      .eq('published', true)
-      .order('published_at', { ascending: false })
-      .limit(3)
-
-    if (error) {
-      console.error('[blog-section] Supabase error:', error.message)
-      return null
-    }
-
-    return data as BlogPost[]
-  } catch (err) {
-    console.error('[blog-section] Unexpected error:', err)
-    return null
-  }
+interface Post {
+  slug: string
+  tag: string
+  title: string
+  excerpt: string
+  readTime: string
+  image_url: string | null
 }
 
-export async function BlogSection() {
-  const dbPosts = await getPublishedPosts()
+export function BlogSection() {
+  const [posts, setPosts] = useState<Post[]>(FALLBACK_POSTS)
 
-  const postsToShow =
-    dbPosts && dbPosts.length > 0
-      ? dbPosts.map((p) => ({
-        slug: p.slug,
-        tags: p.tags ?? [],
-        title: p.title,
-        excerpt: p.excerpt ?? '',
-        readTime: estimateReadTime(p.content),
-        image_url: p.image_url,
-      }))
-      : FALLBACK_POSTS
+  useEffect(() => {
+    fetch('/api/blog-posts')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data && data.length > 0) setPosts(data)
+      })
+      .catch(() => { })
+  }, [])
 
   return (
     <section className="py-20 px-4 bg-secondary/20">
@@ -97,13 +74,12 @@ export async function BlogSection() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
-          {postsToShow.map((post) => (
+          {posts.map((post) => (
             <Link
               key={post.slug}
               href={`/blog/${post.slug}`}
               className="group bg-card rounded-2xl border border-border overflow-hidden hover:border-primary/50 transition-all duration-300 flex flex-col"
             >
-              {/* Image */}
               {post.image_url && (
                 <div className="h-40 overflow-hidden">
                   <img
@@ -113,11 +89,10 @@ export async function BlogSection() {
                   />
                 </div>
               )}
-
               <div className="p-6 flex flex-col flex-1">
                 <div className="mb-3">
                   <span className="text-xs font-medium text-primary px-3 py-1 bg-primary/10 rounded-full">
-                    {post.tags[0] ?? 'Finance'}
+                    {post.tag}
                   </span>
                 </div>
                 <h3 className="text-base font-semibold text-foreground mb-2 group-hover:text-primary transition-colors leading-snug">

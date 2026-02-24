@@ -13,15 +13,24 @@ export default async function DashboardLayout({
   children: React.ReactNode
 }) {
   // ─── Protect dashboard - require authentication ────────────────────────
-  const cookieStore = await cookies()
-  const supabase = createServerSideClient(cookieStore)
+  try {
+    const cookieStore = await cookies()
+    const supabase = createServerSideClient(cookieStore)
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser()
 
-  if (!user) {
-    redirect('/auth?message=login_required')
+    console.log('[v0-dashboard] Auth check:', { hasUser: !!user, error: error?.message })
+
+    if (!user || error) {
+      console.log('[v0-dashboard] No user, redirecting to /auth')
+      redirect('/auth?message=login_required')
+    }
+  } catch (err) {
+    console.error('[v0-dashboard] Auth check error:', err)
+    redirect('/auth?message=auth_error')
   }
 
   // ─── Render dashboard only if authenticated ────────────────────────────

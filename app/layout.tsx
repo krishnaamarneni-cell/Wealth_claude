@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   description: 'Stocks, ETFs, and Crypto Investment Tracker with Real-Time Market Heat Maps',
   generator: 'v0.app',
   verification: {
-    google: 'xGF45OADo7Z_A5TGakMROClT8Ck5unwDFghtApnJWus',
+    google: 'Qi6WdINWYf8YAIsl0eV6l56--X0f68wo8nYEmBuMdRo',
   },
   icons: {
     icon: [

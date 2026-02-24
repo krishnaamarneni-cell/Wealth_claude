@@ -16,7 +16,7 @@ interface BlogPost {
   created_at: string
 }
 
-export default function BlogAdmin() {
+export function BlogAdmin() {
   const supabase = createClient()
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [loading, setLoading] = useState(false)

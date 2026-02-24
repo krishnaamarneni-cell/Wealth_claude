@@ -75,6 +75,7 @@ export function BlogPostForm({ post, onClose, onSave }: BlogPostFormProps) {
 
   async function handleSubmit(e: React.FormEvent, status: 'draft' | 'published') {
     e.preventDefault()
+    console.log('[v0] Form submit started:', { title: formData.title, status })
 
     if (!formData.title.trim() || !formData.content.trim()) {
       alert('Title and content are required')
@@ -84,6 +85,7 @@ export function BlogPostForm({ post, onClose, onSave }: BlogPostFormProps) {
     try {
       setLoading(true)
       const { data: userData } = await supabase.auth.getUser()
+      console.log('[v0] Auth user:', userData.user?.email)
       if (!userData.user) throw new Error('Not authenticated')
 
       const postData = {
@@ -98,27 +100,36 @@ export function BlogPostForm({ post, onClose, onSave }: BlogPostFormProps) {
         ...(status === 'published' && { published_at: new Date().toISOString() }),
       }
 
+      console.log('[v0] Saving post data:', postData)
+
       if (post?.id) {
         // Update
-        const { error } = await supabase
+        console.log('[v0] Updating post:', post.id)
+        const { data, error } = await supabase
           .from('blog_posts')
           .update(postData)
           .eq('id', post.id)
+          .select()
 
+        console.log('[v0] Update result:', { data, error })
         if (error) throw error
       } else {
         // Create
-        const { error } = await supabase
+        console.log('[v0] Creating new post')
+        const { data, error } = await supabase
           .from('blog_posts')
           .insert([postData])
+          .select()
 
+        console.log('[v0] Insert result:', { data, error })
         if (error) throw error
       }
 
+      console.log('[v0] Post saved successfully, calling onSave')
       onSave?.()
     } catch (error) {
       console.error('[v0] Error saving post:', error)
-      alert('Failed to save post')
+      alert('Failed to save post: ' + (error instanceof Error ? error.message : 'Unknown error'))
     } finally {
       setLoading(false)
     }

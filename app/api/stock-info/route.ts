@@ -214,9 +214,14 @@ async function fetchFromFallback(symbol: string): Promise<StockInfo | null> {
       fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${FINNHUB_API_KEY}`)
     ])
 
-    if (!profileRes.ok || !quoteRes.ok) {
+    // Quote is essential
+    if (!quoteRes.ok) {
       throw new Error('Finnhub fallback failed')
     }
+
+    const profile = profileRes.ok ? await profileRes.json() : {}
+    const quote = await quoteRes.json()
+    const metrics = metricsRes.ok ? await metricsRes.json() : null
 
     const profile = await profileRes.json()
     const quote = await quoteRes.json()

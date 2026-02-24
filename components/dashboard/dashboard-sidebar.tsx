@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import {
   BarChart3,
   Briefcase,
@@ -13,9 +14,11 @@ import {
   TrendingUp,
   GitCompare,
   Database,
+  BookOpen,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { createClient } from "@/lib/supabase"
 
 import {
   Sidebar,
@@ -48,8 +51,42 @@ const analysisNav = [
   { title: "Goal Tracker", url: "/dashboard/goals", icon: Target },
 ]
 
+const developmentNav = [
+  { title: "Blog", url: "/admin/blog", icon: BookOpen },
+  { title: "Data Inspector", url: "/dashboard/data-inspector", icon: Database },
+]
+
 export function DashboardSidebar() {
   const pathname = usePathname()
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    checkAdmin()
+  }, [])
+
+  async function checkAdmin() {
+    try {
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        setLoading(false)
+        return
+      }
+
+      const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
+      if (adminEmail && user.email === adminEmail) {
+        setIsAdmin(true)
+      }
+    } catch (error) {
+      console.error("[v0] Error checking admin status:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <Sidebar className="border-r border-border">
@@ -132,21 +169,26 @@ export function DashboardSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Development</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={pathname === "/dashboard/data-inspector"}>
-                  <Link href="/dashboard/data-inspector">
-                    <Database className="h-4 w-4" />
-                    <span>Data Inspector</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Admin-only Development Section */}
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Development</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {developmentNav.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={pathname === item.url}>
+                      <Link href={item.url}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
     </Sidebar>
   )

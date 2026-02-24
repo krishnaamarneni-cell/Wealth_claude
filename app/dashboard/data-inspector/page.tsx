@@ -28,17 +28,25 @@ export default function DataInspectorPage() {
       data: { user },
     } = await supabase.auth.getUser()
 
+    console.log('[v0] User:', user?.email)
+    console.log('[v0] Admin email from env:', process.env.NEXT_PUBLIC_ADMIN_EMAIL)
+
     if (!user) {
+      console.log('[v0] No user, redirecting to auth')
       router.push('/auth')
       return
     }
 
     const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
+    console.log('[v0] Checking admin access:', user.email, '===', adminEmail)
+    
     if (!adminEmail || user.email !== adminEmail) {
+      console.log('[v0] Not admin, redirecting to dashboard')
       router.push('/dashboard')
       return
     }
 
+    console.log('[v0] Admin access granted!')
     setIsAdmin(true)
     setLoading(false)
   }
@@ -54,6 +62,10 @@ export default function DataInspectorPage() {
   if (!isAdmin) {
     return null
   }
+
+  // Render the actual DataInspectorContent if admin
+  return <DataInspectorContent />
+}
 
 
 // ==================== CACHE HELPERS ====================
@@ -373,7 +385,7 @@ const calculateDividendSummary = (dividends: DividendTransaction[]) => {
 
 // ==================== MAIN COMPONENT ====================
 
-export default function DataInspectorPage() {
+function DataInspectorContent() {
   const portfolioContext = usePortfolio()
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
   const [isLoading, setIsLoading] = useState(false)

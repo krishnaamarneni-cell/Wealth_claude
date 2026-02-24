@@ -71,7 +71,7 @@ export function PricingSection() {
             </ul>
 
             <Button asChild variant="outline" size="lg" className="w-full">
-              <Link href="/auth/login">Get Started Free</Link>
+              <Link href="/auth">Get Started Free</Link>
             </Button>
           </div>
 
@@ -112,7 +112,7 @@ export function PricingSection() {
             </ul>
 
             <Button asChild size="lg" className="relative w-full bg-primary text-primary-foreground hover:bg-primary/90">
-              <Link href="/auth/login">
+              <Link href="/auth">
                 Start 7-Day Free Trial
                 <Zap className="ml-2 h-4 w-4" />
               </Link>

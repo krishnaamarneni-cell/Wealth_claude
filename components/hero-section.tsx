@@ -36,7 +36,7 @@ export function HeroSection() {
               size="lg"
               className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 h-12 text-base"
             >
-              <Link href="/auth/login">
+              <Link href="/auth">
                 Start for Free
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>

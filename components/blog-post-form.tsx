@@ -75,6 +75,7 @@ export function BlogPostForm({ post, onClose, onSave }: BlogPostFormProps) {
 
   async function handleSubmit(e: React.FormEvent, status: 'draft' | 'published') {
     e.preventDefault()
+    console.log('[v0] Submit clicked - title:', formData.title)
 
     if (!formData.title.trim() || !formData.content.trim()) {
       alert('Title and content are required')
@@ -83,7 +84,9 @@ export function BlogPostForm({ post, onClose, onSave }: BlogPostFormProps) {
 
     try {
       setLoading(true)
-      const { data: userData } = await supabase.auth.getUser()
+      const { data: userData, error: authError } = await supabase.auth.getUser()
+      console.log('[v0] Auth check:', { email: userData.user?.email, error: authError })
+      
       if (!userData.user) throw new Error('Not authenticated')
 
       const postData = {
@@ -100,27 +103,36 @@ export function BlogPostForm({ post, onClose, onSave }: BlogPostFormProps) {
         author_id: userData.user.id,
       }
 
+      console.log('[v0] Post data to save:', JSON.stringify(postData, null, 2))
+
       if (post?.id) {
         // Update
-        const { error } = await supabase
+        console.log('[v0] Updating post:', post.id)
+        const { data: updateData, error: updateError } = await supabase
           .from('blog_posts')
           .update(postData)
           .eq('id', post.id)
 
-        if (error) throw error
+        console.log('[v0] Update response:', { data: updateData, error: updateError })
+        if (updateError) throw updateError
       } else {
         // Create
-        const { error } = await supabase
+        console.log('[v0] Creating new post')
+        const { data: insertData, error: insertError } = await supabase
           .from('blog_posts')
           .insert([postData])
 
-        if (error) throw error
+        console.log('[v0] Insert response:', { data: insertData, error: insertError })
+        if (insertError) throw insertError
       }
 
+      console.log('[v0] Save successful, calling onSave')
+      alert('Post saved successfully!')
       onSave?.()
     } catch (error) {
       console.error('[v0] Error saving post:', error)
-      alert('Failed to save post: ' + (error instanceof Error ? error.message : 'Unknown error'))
+      const errorMessage = error instanceof Error ? error.message : JSON.stringify(error)
+      alert('Failed to save post: ' + errorMessage)
     } finally {
       setLoading(false)
     }

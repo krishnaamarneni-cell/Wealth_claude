@@ -18,7 +18,7 @@ export default async function BlogAdminPage() {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect('/auth/login?message=admin_required')
+    redirect('/auth?message=admin_required')
   }
 
   // Use server-only ADMIN_EMAIL first (more secure), fall back to public

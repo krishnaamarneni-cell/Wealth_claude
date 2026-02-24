@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Mail, Github, Loader2, Check } from 'lucide-react'
 
-const COMPANY_NAME = 'StockSync'
+const COMPANY_NAME = 'TrackFolio'
 
 export default function AuthPage() {
   const supabase = createClient()
@@ -136,11 +136,16 @@ export default function AuthPage() {
       <Card className="max-w-md w-full">
         <CardHeader className="text-center">
           <Link href="/" className="inline-block hover:opacity-80 transition-opacity">
-            <div className="mb-2">
-              <h1 className="text-2xl font-bold">{COMPANY_NAME}</h1>
-              <p className="text-sm text-muted-foreground">Track your portfolio, maximize returns</p>
+            <div className="mb-2 flex items-center justify-center gap-2">
+              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-bold text-sm">
+                TF
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold">{COMPANY_NAME}</h1>
+              </div>
             </div>
           </Link>
+          <p className="text-sm text-muted-foreground">Track your portfolio, maximize returns</p>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="signup" className="w-full">

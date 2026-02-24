@@ -1,5 +1,6 @@
 "use client"
 
+// Navigation header component with responsive design
 import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"

@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AlertCircle, Eye, Save, Upload } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { createBrowserClient } from '@/lib/supabase'
 import type { Database } from '@/types/database'
 
 interface BlogFormData {

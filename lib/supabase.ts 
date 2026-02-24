@@ -1,41 +1,40 @@
-import { createServerClient, createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createBrowserClient, createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { type Database } from '@/types/supabase' // We'll create this later
+import type { Database } from '@/types/database'
 
-// Server component client
+// ─── Client-side (browser) ───────────────────────────────────────────────────
+// Use this in 'use client' components
 export function createClient() {
-  const cookieStore = cookies()
-  
-  return createServerClient(
+  return createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+}
+
+// ─── Server-side ─────────────────────────────────────────────────────────────
+// Use this in Server Components, Route Handlers, Server Actions
+// cookieStore is the already-resolved value from `await cookies()`
+export function createServerSideClient(
+  cookieStore: Awaited<ReturnType<typeof cookies>>
+) {
+  return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
+        getAll() {
+          return cookieStore.getAll()           // ← no inner await (already resolved)
         },
-        set(name: string, value: string, options: any) {
+        setAll(cookiesToSet) {
           try {
-            cookieStore.set({ name, value, ...options })
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            )
           } catch {
-            // The `set` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
-          }
-        },
-        remove(name: string, options: any) {
-          try {
-            cookieStore.set({ name, value: '', ...options })
-          } catch {
-            // The `delete` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
+            // Called from a Server Component — safe to ignore
           }
         },
       },
     }
   )
 }
-
-// Client component client
-export const createBrowserClient = () => createClientComponentClient<Database>()

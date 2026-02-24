@@ -1,6 +1,9 @@
-"use client"
+'use client'
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase'
+import { useState as useStateTwo, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -9,6 +12,48 @@ import { usePortfolio } from "@/lib/portfolio-context"
 import { getTransactionsFromStorage } from "@/lib/transaction-storage"
 import { calculateAllReturns } from "@/lib/return-calculator"
 import { calculateAndFetchHoldings, type Holding } from "@/lib/holdings-calculator"
+
+export default function DataInspectorPage() {
+  const router = useRouter()
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    checkAdmin()
+  }, [])
+
+  async function checkAdmin() {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      router.push('/auth')
+      return
+    }
+
+    const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
+    if (!adminEmail || user.email !== adminEmail) {
+      router.push('/dashboard')
+      return
+    }
+
+    setIsAdmin(true)
+    setLoading(false)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <RefreshCw className="h-6 w-6 animate-spin" />
+      </div>
+    )
+  }
+
+  if (!isAdmin) {
+    return null
+  }
 
 
 // ==================== CACHE HELPERS ====================

@@ -1,6 +1,5 @@
-import { redirect, notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
-import { createServerSideClient } from '@/lib/supabase'
+import { requireAdmin } from '@/lib/admin-guard'
 import { BlogPostForm } from '@/components/blog-post-form'
 
 export const metadata = {
@@ -9,23 +8,8 @@ export const metadata = {
 }
 
 export default async function BlogAdminPage() {
-  const cookieStore = await cookies()
-  const supabase = await createServerSideClient(cookieStore)
-
-  // Check authentication
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect('/auth/login')
-  }
-
-  // Check if user is admin
-  const adminEmail = process.env.ADMIN_EMAIL
-  if (!adminEmail || user.email !== adminEmail) {
-    notFound()
-  }
+  // This will redirect if not logged in, show 404 if not admin
+  await requireAdmin()
 
   return (
     <div className="min-h-screen bg-slate-950">

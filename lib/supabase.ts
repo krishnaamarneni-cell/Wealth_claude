@@ -10,7 +10,7 @@ export function createClient() {
 }
 
 // Server-side Supabase client (for Route Handlers and Server Actions)
-export async function createServerSideClient(
+export function createServerSideClient(
   cookieStore: Awaited<ReturnType<typeof import('next/headers').cookies>>
 ) {
   return createServerClient<Database>(
@@ -18,13 +18,13 @@ export async function createServerSideClient(
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        async getAll() {
-          return (await cookieStore).getAll()
+        getAll() {
+          return cookieStore.getAll()
         },
-        async setAll(cookiesToSet) {
+        setAll(cookiesToSet) {
           try {
             for (const { name, value, options } of cookiesToSet) {
-              (await cookieStore).set(name, value, options)
+              cookieStore.set(name, value, options)
             }
           } catch (error) {
             console.error('Error setting cookies:', error)

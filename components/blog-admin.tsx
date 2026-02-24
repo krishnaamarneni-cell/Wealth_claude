@@ -22,9 +22,18 @@ export function BlogAdmin() {
   const [aiTopic, setAiTopic] = useState('')
 
   useEffect(() => {
+    initializeBlogTable()
     loadPosts()
     setupRealtimeListener()
   }, [])
+
+  async function initializeBlogTable() {
+    try {
+      await fetch('/api/init-blog', { method: 'POST' })
+    } catch (error) {
+      console.error('[v0] Error initializing blog table:', error)
+    }
+  }
 
   async function loadPosts() {
     try {

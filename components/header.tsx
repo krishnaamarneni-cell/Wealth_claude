@@ -42,10 +42,10 @@ export function Header() {
         {/* Desktop CTA */}
         <div className="hidden md:flex items-center gap-3">
           <Button variant="ghost" className="text-foreground" asChild>
-            <Link href="/auth">Login</Link>
+            <Link href="/auth/login">Login</Link>
           </Button>
           <Button className="bg-primary text-primary-foreground hover:bg-primary/90" asChild>
-            <Link href="/auth">Try for Free</Link>
+            <Link href="/auth/login">Try for Free</Link>
           </Button>
         </div>
 
@@ -100,10 +100,10 @@ export function Header() {
             </Link>
             <div className="flex flex-col gap-2 pt-4 border-t border-border">
               <Button variant="ghost" className="text-foreground justify-start" asChild>
-                <Link href="/auth">Login</Link>
+                <Link href="/auth/login">Login</Link>
               </Button>
               <Button className="bg-primary text-primary-foreground hover:bg-primary/90" asChild>
-                <Link href="/auth">Try for Free</Link>
+                <Link href="/auth/login">Try for Free</Link>
               </Button>
             </div>
           </div>

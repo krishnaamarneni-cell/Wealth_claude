@@ -211,7 +211,7 @@ export function PublicNewsSection() {
             ))}
           </ul>
           <Link
-            href="/auth"
+            href="/auth/login"
             className="flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-lg px-4 py-2.5 text-sm font-semibold hover:bg-primary/90 transition-colors w-full"
           >
             Start Free Trial

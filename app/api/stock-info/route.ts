@@ -223,10 +223,6 @@ async function fetchFromFallback(symbol: string): Promise<StockInfo | null> {
     const quote = await quoteRes.json()
     const metrics = metricsRes.ok ? await metricsRes.json() : null
 
-    const profile = await profileRes.json()
-    const quote = await quoteRes.json()
-    const metrics = metricsRes.ok ? await metricsRes.json() : null
-
     const currentPrice = quote.c || 0
     const week52High = metrics?.metric?.['52WeekHigh'] || quote.h || 0
     const week52Low = metrics?.metric?.['52WeekLow'] || quote.l || 0

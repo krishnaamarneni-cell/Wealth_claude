@@ -107,9 +107,8 @@ export function BlogPostForm({ post, onClose, onSave }: BlogPostFormProps) {
         content: formData.content.trim(),
         tags,
         image_url: formData.image_url || null,
-        status: publish ? 'published' : 'draft',
+        published: publish,
         published_at: publish ? now : null,
-        author_id: user.id,
       }
 
       if (post?.id) {

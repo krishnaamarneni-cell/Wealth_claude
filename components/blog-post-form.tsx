@@ -75,7 +75,6 @@ export function BlogPostForm({ post, onClose, onSave }: BlogPostFormProps) {
 
   async function handleSubmit(e: React.FormEvent, status: 'draft' | 'published') {
     e.preventDefault()
-    console.log('[v0] Form submit started:', { title: formData.title, status })
 
     if (!formData.title.trim() || !formData.content.trim()) {
       alert('Title and content are required')
@@ -85,7 +84,6 @@ export function BlogPostForm({ post, onClose, onSave }: BlogPostFormProps) {
     try {
       setLoading(true)
       const { data: userData } = await supabase.auth.getUser()
-      console.log('[v0] Auth user:', userData.user?.email)
       if (!userData.user) throw new Error('Not authenticated')
 
       const postData = {
@@ -95,37 +93,30 @@ export function BlogPostForm({ post, onClose, onSave }: BlogPostFormProps) {
         content: formData.content,
         tags: parseTags(tagInput),
         featured_image: formData.featured_image || null,
+        featured_image_alt: '',
+        secondary_image: null,
+        secondary_image_alt: '',
         status,
         author_id: userData.user.id,
-        ...(status === 'published' && { published_at: new Date().toISOString() }),
       }
-
-      console.log('[v0] Saving post data:', postData)
 
       if (post?.id) {
         // Update
-        console.log('[v0] Updating post:', post.id)
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('blog_posts')
           .update(postData)
           .eq('id', post.id)
-          .select()
 
-        console.log('[v0] Update result:', { data, error })
         if (error) throw error
       } else {
         // Create
-        console.log('[v0] Creating new post')
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('blog_posts')
           .insert([postData])
-          .select()
 
-        console.log('[v0] Insert result:', { data, error })
         if (error) throw error
       }
 
-      console.log('[v0] Post saved successfully, calling onSave')
       onSave?.()
     } catch (error) {
       console.error('[v0] Error saving post:', error)

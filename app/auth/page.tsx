@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
@@ -134,10 +135,12 @@ export default function AuthPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="max-w-md w-full">
         <CardHeader className="text-center">
-          <div className="mb-2">
-            <h1 className="text-2xl font-bold">{COMPANY_NAME}</h1>
-            <p className="text-sm text-muted-foreground">Track your portfolio, maximize returns</p>
-          </div>
+          <Link href="/" className="inline-block hover:opacity-80 transition-opacity">
+            <div className="mb-2">
+              <h1 className="text-2xl font-bold">{COMPANY_NAME}</h1>
+              <p className="text-sm text-muted-foreground">Track your portfolio, maximize returns</p>
+            </div>
+          </Link>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="signup" className="w-full">

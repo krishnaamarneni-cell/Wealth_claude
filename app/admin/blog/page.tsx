@@ -1,7 +1,6 @@
 import { cookies } from 'next/headers'
 import { createServerSideClient } from '@/lib/supabase'
 import { redirect, notFound } from 'next/navigation'
-import { BlogPostForm } from '@/components/blog-post-form'
 
 export const metadata = {
   title: 'Create Blog Post - Admin',
@@ -28,21 +27,16 @@ export default async function BlogAdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-slate-950 pt-20">
       <div className="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Create Blog Post</h1>
-          <p className="text-slate-400">Write, edit, and publish new blog posts</p>
+          <h1 className="text-3xl font-bold text-white mb-2">Blog Admin</h1>
+          <p className="text-slate-400">Welcome to the blog management panel</p>
+          <p className="text-slate-500 text-sm mt-4">Logged in as: {user.email}</p>
         </div>
 
-        {/* Form */}
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-6">
-          <BlogPostForm
-            onSave={data => {
-              console.log('Blog post saved:', data)
-            }}
-          />
+          <p className="text-slate-300">Admin access verified. Blog form coming soon.</p>
         </div>
       </div>
     </div>

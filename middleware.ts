@@ -2,16 +2,13 @@ import { type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase'
 
 export async function middleware(request: NextRequest) {
-  // Protect /dashboard routes
+  console.log('[v0-middleware] Request:', request.nextUrl.pathname)
+
+  // Protect /dashboard routes - redirect to auth if not logged in
   if (request.nextUrl.pathname.startsWith('/dashboard')) {
-    // Update the session and check if user is authenticated
+    console.log('[v0-middleware] Checking auth for /dashboard')
     const response = await updateSession(request)
-    
-    // If updateSession redirects (user not authenticated), use that response
-    if (response.status !== 200) {
-      return response
-    }
-    
+    console.log('[v0-middleware] Auth check response status:', response.status)
     return response
   }
 
@@ -20,6 +17,15 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.png|.*\\.jpg|.*\\.jpeg|.*\\.gif|.*\\.svg).*)',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     */
+    '/((?!_next/static|_next/image|api|favicon.ico|public).*)',
   ],
 }
+

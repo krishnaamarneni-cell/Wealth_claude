@@ -326,7 +326,8 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
       console.log('[Portfolio] Starting calculation using shared calculator...')
     }
 
-    const txns = getTransactionsFromStorage() as Transaction[]
+    // PHASE 3: NOW ASYNC - Must await the Parallel Read strategy
+    const txns = await getTransactionsFromStorage()
 
     if (!silent) {
       console.log(`[Portfolio] Loaded ${txns.length} transactions`)

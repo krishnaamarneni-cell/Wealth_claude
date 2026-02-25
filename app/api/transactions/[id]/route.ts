@@ -1,6 +1,6 @@
-import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSideClient } from '@/lib/supabase'
+import { cookies } from 'next/headers'
+import { createServerSideClient } from '@/lib/supabase-server'
 
 export async function DELETE(
   request: NextRequest,
@@ -17,13 +17,15 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // NEXT.JS 16: params is a Promise, must be awaited
+    // NEXT.JS 16: params is a Promise - MUST BE AWAITED
     const { id: transactionId } = await params
 
     if (!transactionId) {
       console.error('[DELETE /api/transactions] No transaction ID provided')
       return NextResponse.json({ error: 'Transaction ID required' }, { status: 400 })
     }
+
+    console.log('[DELETE /api/transactions] Deleting:', transactionId, 'for user:', user.id)
 
     // Delete transaction from Supabase
     // RLS policy ensures user can only delete their own transactions

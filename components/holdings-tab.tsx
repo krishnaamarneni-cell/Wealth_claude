@@ -518,21 +518,33 @@ export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
   }, [])
 
   const loadWatchlist = async () => {
-    const items = await getWatchlistFromStorage()
-    setWatchlist(items)
+    try {
+      const items = await getWatchlistFromStorage()
+      
+      if (!Array.isArray(items)) {
+        console.error('[holdings-tab] getWatchlistFromStorage did not return an array:', items)
+        setWatchlist([])
+        return
+      }
+      
+      setWatchlist(items)
 
-    if (items.length === 0) return
+      if (items.length === 0) return
 
-    // Check cache first
-    const cache = getWatchlistCache()
-    if (cache && cache.data.length === items.length) {
-      setWatchlistPrices(cache.priceData)
-      console.log('⚡ Using cached watchlist prices')
-      return
+      // Check cache first
+      const cache = getWatchlistCache()
+      if (cache && cache.data.length === items.length) {
+        setWatchlistPrices(cache.priceData)
+        console.log('⚡ Using cached watchlist prices')
+        return
+      }
+
+      // Fetch fresh prices
+      await fetchWatchlistPrices(items)
+    } catch (error) {
+      console.error('[holdings-tab] Error loading watchlist:', error)
+      setWatchlist([])
     }
-
-    // Fetch fresh prices
-    await fetchWatchlistPrices(items)
   }
 
   const fetchWatchlistPrices = async (items: WatchlistItem[]) => {
@@ -652,14 +664,15 @@ export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
     }
   }
 
-  const handleRemoveFromWatchlist = (symbol: string) => {
+  const handleRemoveFromWatchlist = async (symbol: string) => {
     if (confirm(`Remove ${symbol} from watchlist?`)) {
-      removeFromWatchlist(symbol)
-      setWatchlist(getWatchlistFromStorage())
+      await removeFromWatchlist(symbol)
+      const updated = await getWatchlistFromStorage()
+      setWatchlist(updated)
     }
   }
 
-  const watchlistWithPrices = watchlist.map(item => ({
+  const watchlistWithPrices = (Array.isArray(watchlist) ? watchlist : []).map(item => ({
     ...item,
     ...watchlistPrices[item.symbol],
     priceChange: watchlistPrices[item.symbol]
@@ -671,29 +684,38 @@ export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
   }))
 
   const loadTransactionsAndCalculateHoldings = async (silent = false) => {
-    if (!silent) {
-      setIsLoading(true)
-    }
-
-    const txns: Transaction[] = await getTransactionsFromStorage()
-
-    if (!silent) {
-      console.log("✅ Transactions loaded:", txns.length)
-    }
-
-    if (txns.length === 0) {
+    try {
       if (!silent) {
-        console.log("❌ No transactions found!")
+        setIsLoading(true)
       }
-      setAllHoldings([])
-      setTransactions([])
-      setAvailableBrokers([])
-      setIsLoading(false)
-      return
-    }
 
-    txns.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    setTransactions(txns)
+      const txns: Transaction[] = await getTransactionsFromStorage()
+
+      if (!Array.isArray(txns)) {
+        console.error('[holdings-tab] getTransactionsFromStorage did not return an array:', txns)
+        setAllHoldings([])
+        setTransactions([])
+        setIsLoading(false)
+        return
+      }
+
+      if (!silent) {
+        console.log("✅ Transactions loaded:", txns.length)
+      }
+
+      if (txns.length === 0) {
+        if (!silent) {
+          console.log("❌ No transactions found!")
+        }
+        setAllHoldings([])
+        setTransactions([])
+        setAvailableBrokers([])
+        setIsLoading(false)
+        return
+      }
+
+      txns.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      setTransactions(txns)
 
     const brokers = Array.from(new Set(txns.map((t) => t.broker).filter(Boolean)))
     setAvailableBrokers(brokers)

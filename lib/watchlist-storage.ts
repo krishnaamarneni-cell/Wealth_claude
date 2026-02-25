@@ -35,86 +35,54 @@ const WATCHLIST_CACHE_KEY = 'portfolio-watchlist-cache'
 const CACHE_DURATION = 24 * 60 * 60 * 1000
 
 /**
- * Get watchlist from storage - PARALLEL READ STRATEGY
- * 1. Try Supabase API first (if feature flag enabled)
- * 2. Fallback to localStorage if Supabase fails
+ * Get watchlist from storage - PHASE 3
+ * NOW: Reads ONLY from Supabase API
  */
 export const getWatchlistFromStorage = async (): Promise<WatchlistItem[]> => {
   if (typeof window === 'undefined') return []
 
-  // STEP 1: Try Supabase if feature flag enabled
-  if (isSupabaseStorageEnabled()) {
-    try {
-      console.log('[watchlist-storage] Trying Supabase API...')
-      const response = await fetch('/api/watchlist', { cache: 'no-store' })
-
-      if (response.ok) {
-        const data = await response.json()
-        if (Array.isArray(data) && data.length > 0) {
-          console.log('[watchlist-storage] ✅ Loaded from Supabase:', data.length, 'items')
-          return data
-        }
-      }
-    } catch (err) {
-      console.warn('[watchlist-storage] Supabase API failed, falling back to localStorage:', err)
-    }
-  }
-
-  // STEP 2: Fallback to localStorage
   try {
-    const stored = localStorage.getItem(WATCHLIST_KEY)
-    if (stored) {
-      const data = JSON.parse(stored)
-      console.log('[watchlist-storage] ✅ Loaded from localStorage:', data.length, 'items')
-      return data
+    console.log('[watchlist-storage] Fetching from Supabase API...')
+    const response = await fetch('/api/watchlist', { cache: 'no-store' })
+
+    if (response.ok) {
+      const data = await response.json()
+      if (Array.isArray(data)) {
+        console.log('[watchlist-storage] ✅ Loaded from Supabase:', data.length, 'items')
+        return data
+      }
     }
-  } catch (error) {
-    console.error('[watchlist-storage] Failed to load watchlist:', error)
+  } catch (err) {
+    console.error('[watchlist-storage] Error fetching from Supabase:', err)
   }
 
+  // Return empty if Supabase fails - no fallback
   return []
 }
 
 /**
- * Save watchlist to storage - SAVE TO BOTH
- * 1. Try Supabase if feature flag enabled
- * 2. Always save to localStorage as backup
+ * Save watchlist to storage - PHASE 3
+ * NOW: Saves ONLY to Supabase API
  */
 export const saveWatchlistToStorage = async (watchlist: WatchlistItem[]): Promise<void> => {
   if (typeof window === 'undefined') return
 
-  let savedToSupabase = false
-  let savedToLocalStorage = false
-
-  // STEP 1: Try to save to Supabase if enabled
-  if (isSupabaseStorageEnabled()) {
-    try {
-      console.log('[watchlist-storage] Saving to Supabase...')
-      const response = await fetch('/api/watchlist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(watchlist[watchlist.length - 1]),
-      })
-
-      if (response.ok) {
-        console.log('[watchlist-storage] ✅ Saved to Supabase')
-        savedToSupabase = true
-      } else {
-        console.warn('[watchlist-storage] Supabase save failed:', response.status)
-      }
-    } catch (err) {
-      console.warn('[watchlist-storage] Supabase save error (non-critical):', err)
-    }
-  }
-
-  // STEP 2: Always save to localStorage as backup
   try {
-    localStorage.setItem(WATCHLIST_KEY, JSON.stringify(watchlist))
-    console.log('[watchlist-storage] ✅ Saved to localStorage:', watchlist.length, 'items')
-    savedToLocalStorage = true
-    window.dispatchEvent(new Event('watchlistUpdated'))
-  } catch (error) {
-    console.error('[watchlist-storage] Failed to save watchlist:', error)
+    console.log('[watchlist-storage] Saving to Supabase...')
+    const response = await fetch('/api/watchlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(watchlist[watchlist.length - 1]),
+    })
+
+    if (response.ok) {
+      console.log('[watchlist-storage] ✅ Saved to Supabase')
+      window.dispatchEvent(new Event('watchlistUpdated'))
+    } else {
+      console.error('[watchlist-storage] Supabase save failed:', response.status)
+    }
+  } catch (err) {
+    console.error('[watchlist-storage] Supabase save error:', err)
   }
 }
 

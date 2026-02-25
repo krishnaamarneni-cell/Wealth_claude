@@ -672,7 +672,7 @@ export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
     }
   }
 
-  const watchlistWithPrices = (Array.isArray(watchlist) ? watchlist : []).map(item => ({
+  const watchlistWithPrices = watchlist && Array.isArray(watchlist) ? watchlist.map(item => ({
     ...item,
     ...watchlistPrices[item.symbol],
     priceChange: watchlistPrices[item.symbol]
@@ -681,7 +681,7 @@ export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
     priceChangePercent: watchlistPrices[item.symbol] && item.addedPrice > 0
       ? ((watchlistPrices[item.symbol].currentPrice - item.addedPrice) / item.addedPrice) * 100
       : 0
-  }))
+  })) : []
 
   const loadTransactionsAndCalculateHoldings = async (silent = false) => {
     try {
@@ -770,7 +770,15 @@ export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
       brokers,
       allTimeHigh: currentHigh,
       timestamp: Date.now(),
+    }).catch(err => {
+      console.error('[holdings-tab] Error caching holdings:', err)
     })
+    } catch (error) {
+      console.error('[holdings-tab] Error loading holdings:', error)
+      setAllHoldings([])
+      setTransactions([])
+      setIsLoading(false)
+    }
   }
 
   const handleRefresh = () => {

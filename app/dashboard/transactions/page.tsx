@@ -240,13 +240,41 @@ export default function TransactionsPage() {
     })
   }
 
-  const handleDeleteTransaction = (id: string) => {
-    const updatedTransactions = transactions.filter(t => t.id !== id)
-    setTransactions(updatedTransactions)
-    saveTransactionsToStorage(updatedTransactions)
+  const handleDeleteTransaction = async (id: string) => {
+    // First, delete from Supabase
+    try {
+      console.log('[transactions-page] Deleting transaction:', id)
+      const response = await fetch(`/api/transactions/${id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (!response.ok) {
+        console.error('[transactions-page] Delete failed:', response.status)
+        setUploadError('Failed to delete transaction')
+        setTimeout(() => setUploadError(''), 3000)
+        return
+      }
+
+      console.log('[transactions-page] ✅ Deleted from Supabase')
+
+      // Then reload all transactions from Supabase
+      const updatedTransactions = await getTransactionsFromStorage()
+      setTransactions(updatedTransactions)
+      
+      setUploadSuccess('✅ Transaction deleted')
+      setTimeout(() => setUploadSuccess(''), 3000)
+
+      // Trigger portfolio refresh
+      window.dispatchEvent(new Event('transactionsUpdated'))
+    } catch (error) {
+      console.error('[transactions-page] Error deleting transaction:', error)
+      setUploadError('Error deleting transaction')
+      setTimeout(() => setUploadError(''), 3000)
+    }
   }
 
-  const deleteFile = (fileId: string) => {
+  const deleteFile = async (fileId: string) => {
     const fileToDelete = uploadedFiles.find(f => f.id === fileId)
     if (!fileToDelete) return
 
@@ -254,23 +282,36 @@ export default function TransactionsPage() {
       return
     }
 
-// Delete file from list
-const updatedFiles = uploadedFiles.filter(f => f.id !== fileId)
-setUploadedFiles(updatedFiles)
-localStorage.setItem('uploadedFiles', JSON.stringify(updatedFiles))
+    try {
+      // Find all transactions with this fileId
+      const transactionsToDelete = transactions.filter(tx => tx.fileId === fileId)
 
-// Delete transactions from that file
-const updatedTransactions = transactions.filter(tx => tx.fileId !== fileId)
-setTransactions(updatedTransactions)
-saveTransactionsToStorage(updatedTransactions)
+      // Delete each transaction from Supabase
+      for (const tx of transactionsToDelete) {
+        await fetch(`/api/transactions/${tx.id}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
 
-setUploadSuccess(`✅ Deleted "${fileToDelete.name}" and ${fileToDelete.transactionCount} transactions`)
+      console.log('[transactions-page] ✅ Deleted', transactionsToDelete.length, 'transactions from Supabase')
 
-// 🆕 ADD THIS LINE:
-window.dispatchEvent(new Event('transactionsUpdated'))
+      // Update local state
+      const updatedFiles = uploadedFiles.filter(f => f.id !== fileId)
+      setUploadedFiles(updatedFiles)
 
-setTimeout(() => setUploadSuccess(''), 3000)
+      const updatedTransactions = transactions.filter(tx => tx.fileId !== fileId)
+      setTransactions(updatedTransactions)
 
+      setUploadSuccess(`✅ Deleted "${fileToDelete.name}" and ${fileToDelete.transactionCount} transactions`)
+      window.dispatchEvent(new Event('transactionsUpdated'))
+
+      setTimeout(() => setUploadSuccess(''), 3000)
+    } catch (error) {
+      console.error('[transactions-page] Error deleting file:', error)
+      setUploadError('Error deleting transactions')
+      setTimeout(() => setUploadError(''), 3000)
+    }
   }
 
 const deleteAllData = () => {

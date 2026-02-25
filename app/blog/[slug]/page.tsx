@@ -1,5 +1,4 @@
-import { cookies } from 'next/headers'
-import { createServerSideClient } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
@@ -18,27 +17,32 @@ function estimateReadTime(content: string): string {
   return `${mins} min read`
 }
 
-async function getPost(slug: string) {
-  const cookieStore = await cookies()
-  const supabase = createServerSideClient(cookieStore)
+// Use public anon client — no cookies needed, works for unauthenticated visitors
+function getPublicSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  return createClient(url, key)
+}
 
-  // Try exact slug match first
+async function getPost(slug: string) {
+  const supabase = getPublicSupabase()
+
+  // Exact match
   const { data } = await supabase
     .from('blog_posts')
     .select('*')
     .eq('slug', slug)
-    .eq('status', 'published')
+    .eq('published', true)
     .maybeSingle()
 
   if (data) return data
 
-  // Fallback: auto-blog adds timestamp suffix to slugs e.g. "my-post-title-1234567890"
-  // If exact match fails, try matching the beginning of the slug
+  // Fallback: slug prefix match (handles timestamp suffix)
   const { data: fallback } = await supabase
     .from('blog_posts')
     .select('*')
     .ilike('slug', `${slug}%`)
-    .eq('status', 'published')
+    .eq('published', true)
     .limit(1)
     .maybeSingle()
 
@@ -48,7 +52,6 @@ async function getPost(slug: string) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const post = await getPost(params.slug)
   if (!post) return { title: 'Post Not Found' }
-
   return {
     title: `${post.title} — TrackFolio`,
     description: post.excerpt ?? '',
@@ -70,7 +73,6 @@ export default async function BlogPostPage({ params }: Props) {
     <div className="min-h-screen bg-background">
       <Header />
       <div className="pt-16">
-        {/* Hero image */}
         {post.image_url && (
           <div className="w-full h-72 md:h-[480px] overflow-hidden">
             <img
@@ -82,16 +84,12 @@ export default async function BlogPostPage({ params }: Props) {
         )}
 
         <div className="container mx-auto px-4 py-12 max-w-3xl">
-          {/* Back link */}
-          <Link
-            href="/news"
-            className="inline-flex items-center gap-2 text-base text-muted-foreground hover:text-foreground transition-colors mb-10"
-          >
+          <Link href="/news"
+            className="inline-flex items-center gap-2 text-base text-muted-foreground hover:text-foreground transition-colors mb-10">
             <ArrowLeft className="h-5 w-5" />
             Back to News
           </Link>
 
-          {/* Tags */}
           <div className="flex gap-2 flex-wrap mb-6">
             {(post.tags ?? []).map((tag: string) => (
               <Badge key={tag} variant="secondary" className="text-sm px-3 py-1">
@@ -100,19 +98,16 @@ export default async function BlogPostPage({ params }: Props) {
             ))}
           </div>
 
-          {/* Title */}
           <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-6">
             {post.title}
           </h1>
 
-          {/* Excerpt */}
           {post.excerpt && (
             <p className="text-xl text-muted-foreground leading-relaxed mb-6">
               {post.excerpt}
             </p>
           )}
 
-          {/* Meta */}
           <div className="flex items-center gap-6 text-base text-muted-foreground mb-10 pb-10 border-b border-border">
             <span className="flex items-center gap-2">
               <Clock className="h-5 w-5" />
@@ -122,15 +117,12 @@ export default async function BlogPostPage({ params }: Props) {
               <span className="flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
                 {new Date(post.published_at).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
+                  year: 'numeric', month: 'long', day: 'numeric',
                 })}
               </span>
             )}
           </div>
 
-          {/* Content */}
           <article
             className="
               prose prose-invert max-w-none
@@ -153,12 +145,9 @@ export default async function BlogPostPage({ params }: Props) {
             dangerouslySetInnerHTML={{ __html: post.content }}
           />
 
-          {/* Bottom back link */}
           <div className="mt-16 pt-8 border-t border-border">
-            <Link
-              href="/news"
-              className="inline-flex items-center gap-2 text-base text-muted-foreground hover:text-foreground transition-colors"
-            >
+            <Link href="/news"
+              className="inline-flex items-center gap-2 text-base text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="h-5 w-5" />
               Back to all articles
             </Link>

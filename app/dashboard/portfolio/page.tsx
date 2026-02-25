@@ -105,14 +105,14 @@ interface CachedData {
   transactionCount: number
 }
 
-const getCached = (): CachedData | null => {
+const getCached = async (): Promise<CachedData | null> => {
   if (typeof window === 'undefined') return null
   try {
     const cached = localStorage.getItem(CACHE_KEY)
     if (!cached) return null
     const data: CachedData = JSON.parse(cached)
     const age = Date.now() - data.timestamp
-    const currentTxns = getTransactionsFromStorage()
+    const currentTxns = await getTransactionsFromStorage()
     if (data.transactionCount !== currentTxns.length) {
       localStorage.removeItem(CACHE_KEY)
       return null
@@ -124,10 +124,10 @@ const getCached = (): CachedData | null => {
   }
 }
 
-const setCache = (data: Omit<CachedData, 'transactionCount'>): void => {
+const setCache = async (data: Omit<CachedData, 'transactionCount'>): Promise<void> => {
   if (typeof window === 'undefined') return
   try {
-    const txns = getTransactionsFromStorage()
+    const txns = await getTransactionsFromStorage()
     const cacheData: CachedData = { ...data, transactionCount: txns.length }
     localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData))
   } catch (error) {
@@ -463,7 +463,7 @@ export default function PortfolioPage() {
   // Load data
   useEffect(() => {
     const loadData = async () => {
-      const cached = getCached()
+      const cached = await getCached()
 
       if (cached) {
         setHoldings(cached.holdings)
@@ -480,7 +480,7 @@ export default function PortfolioPage() {
   const loadHoldingsData = async (silent = false) => {
     if (!silent) setIsLoading(true)
 
-    const txns = getTransactionsFromStorage() as Transaction[]
+    const txns = await getTransactionsFromStorage()
 
     if (txns.length === 0) {
       setHoldings([])
@@ -567,6 +567,8 @@ export default function PortfolioPage() {
     setCache({
       holdings: filteredHoldings,
       timestamp: Date.now()
+    }).catch(err => {
+      console.error('[portfolio] Cache save error:', err)
     })
   }
 
@@ -578,8 +580,8 @@ export default function PortfolioPage() {
   }
 
   // Calculate allocation history
-  const calculateAllocationHistory = (): AllocationHistory[] => {
-    const txns = getTransactionsFromStorage()
+  const calculateAllocationHistory = async (): Promise<AllocationHistory[]> => {
+    const txns = await getTransactionsFromStorage()
     const months: AllocationHistory[] = []
     const today = new Date()
 

@@ -199,9 +199,25 @@ function EmailCapture() {
   const [email, setEmail] = useState("")
   const [submitted, setSubmitted] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (email) setSubmitted(true)
+    if (email) {
+      try {
+        const response = await fetch('/api/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        })
+
+        if (response.ok) {
+          setSubmitted(true)
+        } else {
+          alert('Subscription failed. Try again.')
+        }
+      } catch (error) {
+        alert('Subscription failed. Try again.')
+      }
+    }
   }
 
   return (

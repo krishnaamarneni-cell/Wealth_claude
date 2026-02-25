@@ -1,15 +1,11 @@
 import { Header } from "@/components/header"
 import MarketTicker from "@/components/market-ticker"
-import MoneyFlowDashboard from "@/components/money-flow-dashboard"
-import GlobalMarkets from "@/components/global-markets"
-import { TrendingNews } from "@/components/trending-news"
-import { LatestNews } from "@/components/latest-news"        // ← NEW
-import { PublicNewsSection } from "@/components/public-news-section"
+import { NewsHub } from "@/components/news-hub"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "Market News — TrackFolio",
-  description: "Latest stock market news, S&P 500 updates, global markets and financial analysis",
+  title: "Market Intelligence — TrackFolio",
+  description: "AI-powered stock market analysis, trending tickers, crypto moves and financial insights updated 3x daily.",
 }
 
 export default function NewsPage() {
@@ -18,23 +14,8 @@ export default function NewsPage() {
       <Header />
       <div className="pt-16">
         <MarketTicker />
-        <div className="container mx-auto px-4 py-8 space-y-6">
-
-          {/* Money Flow */}
-          <MoneyFlowDashboard compact />
-
-          {/* News first — Trending + Latest side by side */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <TrendingNews />
-            <LatestNews />
-          </div>
-
-          {/* Main news + sidebar */}
-          <PublicNewsSection />
-
-          {/* Global Markets — full width bottom */}
-          <GlobalMarkets />
-
+        <div className="container mx-auto px-4 py-8">
+          <NewsHub />
         </div>
       </div>
     </div>

@@ -98,9 +98,9 @@ const getCachedHoldings = (): CachedHoldingsData | null => {
   }
 }
 
-const setCachedHoldings = (data: Omit<CachedHoldingsData, 'transactionCount'>): void => {
+const setCachedHoldings = async (data: Omit<CachedHoldingsData, 'transactionCount'>): Promise<void> => {
   try {
-    const txns = getTransactionsFromStorage()
+    const txns = await getTransactionsFromStorage()
     const cacheData: CachedHoldingsData = {
       ...data,
       transactionCount: txns.length
@@ -507,7 +507,7 @@ export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
   }, [])
 
   const loadWatchlist = async () => {
-    const items = getWatchlistFromStorage()
+    const items = await getWatchlistFromStorage()
     setWatchlist(items)
 
     if (items.length === 0) return
@@ -664,7 +664,7 @@ export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
       setIsLoading(true)
     }
 
-    const txns: Transaction[] = getTransactionsFromStorage()
+    const txns: Transaction[] = await getTransactionsFromStorage()
 
     if (!silent) {
       console.log("✅ Transactions loaded:", txns.length)

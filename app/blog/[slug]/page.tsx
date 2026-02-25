@@ -1,5 +1,4 @@
-import { cookies } from 'next/headers'
-import { createServerSideClient } from '@/lib/supabase'
+import { createServerClient } from '@supabase/ssr'
 import { notFound } from 'next/navigation'
 import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
@@ -18,59 +17,43 @@ function estimateReadTime(content: string): string {
   return `${mins} min read`
 }
 
+// Public Supabase client — no cookies, works for any visitor
+function getSupabase() {
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => [],
+        setAll: () => { },
+      },
+    }
+  )
+}
+
 async function getPost(slug: string) {
-  try {
-    const cookieStore = await cookies()
-    const supabase = createServerSideClient(cookieStore)
+  const supabase = getSupabase()
 
-    // Try exact match
-    const { data } = await supabase
-      .from('blog_posts')
-      .select('*')
-      .eq('slug', slug)
-      .eq('published', true)
-      .maybeSingle()
+  // Exact match
+  const { data } = await supabase
+    .from('blog_posts')
+    .select('*')
+    .eq('slug', slug)
+    .eq('published', true)
+    .maybeSingle()
 
-    if (data) return data
+  if (data) return data
 
-    // Fallback: prefix match for timestamp suffixes
-    const { data: fallback } = await supabase
-      .from('blog_posts')
-      .select('*')
-      .ilike('slug', `${slug}%`)
-      .eq('published', true)
-      .limit(1)
-      .maybeSingle()
+  // Prefix match — handles timestamp suffixes added by auto-blog
+  const { data: fallback } = await supabase
+    .from('blog_posts')
+    .select('*')
+    .ilike('slug', `${slug}%`)
+    .eq('published', true)
+    .limit(1)
+    .maybeSingle()
 
-    return fallback ?? null
-  } catch {
-    // If cookie-based client fails, try without cookies
-    // This handles unauthenticated public visitors
-    const { createClient } = await import('@supabase/supabase-js')
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-
-    const { data } = await supabase
-      .from('blog_posts')
-      .select('*')
-      .eq('slug', slug)
-      .eq('published', true)
-      .maybeSingle()
-
-    if (data) return data
-
-    const { data: fallback } = await supabase
-      .from('blog_posts')
-      .select('*')
-      .ilike('slug', `${slug}%`)
-      .eq('published', true)
-      .limit(1)
-      .maybeSingle()
-
-    return fallback ?? null
-  }
+  return fallback ?? null
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -147,6 +130,7 @@ export default async function BlogPostPage({ params }: Props) {
             )}
           </div>
 
+          {/* blog-content styles are in styles/globals.css */}
           <article
             className="blog-content"
             dangerouslySetInnerHTML={{ __html: post.content }}

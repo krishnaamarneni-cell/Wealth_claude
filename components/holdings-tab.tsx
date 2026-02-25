@@ -507,45 +507,15 @@ export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
         break
     }
 
-  // ==================== WATCHLIST FUNCTIONS ====================
+    setHoldings(filteredHoldings)
+  }, [selectedBroker, allHoldings, sortBy])
 
-  const fetchWatchlistPrices = async (items: WatchlistItem[]) => {
-    setIsLoadingWatchlist(true)
-
-    try {
-      if (!Array.isArray(items) || items.length === 0) {
-        setIsLoadingWatchlist(false)
-        return
-      }
-
-      const symbols = items.map(item => item.symbol)
-      const quotes = await getBatchStockQuotes(symbols)
-
-      const priceData: Record<string, WatchlistPriceData> = {}
-
-      Object.entries(quotes).forEach(([symbol, quote]) => {
-        priceData[symbol] = {
-          currentPrice: quote.price,
-          change: quote.change,
-          changePercent: quote.changesPercentage,
-          high52Week: quote.yearHigh,
-          low52Week: quote.yearLow,
-          dividendYield: quote.dividendYield || 0,
-          marketCap: quote.marketCap || 0,
-          peRatio: quote.pe || 0,
-          volume: quote.volume || 0,
-          lastUpdated: Date.now(),
-        }
-      })
-
-      setWatchlistPrices(priceData)
-      saveWatchlistCache(items, priceData)
-    } catch (error) {
-      console.error('[holdings-tab] Failed to fetch watchlist prices:', error)
-    } finally {
-      setIsLoadingWatchlist(false)
-    }
-  }
+  // Load watchlist on mount
+  useEffect(() => {
+    loadWatchlist().catch(err => {
+      console.error('[holdings-tab] Error loading watchlist:', err)
+    })
+  }, [])
 
   const loadWatchlist = async () => {
     try {
@@ -577,14 +547,21 @@ export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
     }
   }
 
-  // ==================== EFFECTS ====================
+  const fetchWatchlistPrices = async (items: WatchlistItem[]) => {
+    setIsLoadingWatchlist(true)
 
-  // Load watchlist on mount
-  useEffect(() => {
-    loadWatchlist().catch(err => {
-      console.error('[holdings-tab] Error loading watchlist:', err)
-    })
-  }, [])
+    try {
+      const symbols = items.map(item => item.symbol)
+      const quotes = await getBatchStockQuotes(symbols)
+
+      const priceData: Record<string, WatchlistPriceData> = {}
+
+      Object.entries(quotes).forEach(([symbol, quote]) => {
+        priceData[symbol] = {
+          currentPrice: quote.price,
+          change: quote.change,
+          changePercent: quote.changesPercentage,
+          high52Week: quote.yearHigh,
           low52Week: quote.yearLow,
           dividendYield: 0,
           marketCap: quote.marketCap,
@@ -695,19 +672,16 @@ export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
     }
   }
 
-  const watchlistWithPrices = 
-    Array.isArray(watchlist) 
-      ? watchlist.map(item => ({
-        ...item,
-        ...watchlistPrices[item.symbol],
-        priceChange: watchlistPrices[item.symbol]
-          ? watchlistPrices[item.symbol].currentPrice - item.addedPrice
-          : 0,
-        priceChangePercent: watchlistPrices[item.symbol] && item.addedPrice > 0
-          ? ((watchlistPrices[item.symbol].currentPrice - item.addedPrice) / item.addedPrice) * 100
-          : 0
-      }))
-      : []
+  const watchlistWithPrices = watchlist && Array.isArray(watchlist) ? watchlist.map(item => ({
+    ...item,
+    ...watchlistPrices[item.symbol],
+    priceChange: watchlistPrices[item.symbol]
+      ? watchlistPrices[item.symbol].currentPrice - item.addedPrice
+      : 0,
+    priceChangePercent: watchlistPrices[item.symbol] && item.addedPrice > 0
+      ? ((watchlistPrices[item.symbol].currentPrice - item.addedPrice) / item.addedPrice) * 100
+      : 0
+  })) : []
 
   const loadTransactionsAndCalculateHoldings = async (silent = false) => {
     try {

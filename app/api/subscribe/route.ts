@@ -1,17 +1,14 @@
 import { createServerClient } from '@supabase/ssr'
+import { Resend } from 'resend'
 import { NextRequest, NextResponse } from 'next/server'
+import { WelcomeEmail } from '@/emails/welcome'
+import * as React from 'react'
 
-// Copy your exact getSupabase function from blog page
 function getSupabase() {
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => [],
-        setAll: () => { },
-      },
-    }
+    { cookies: { getAll: () => [], setAll: () => { } } }
   )
 }
 
@@ -23,16 +20,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Valid email required' }, { status: 400 })
     }
 
+    // Save to Supabase
     const supabase = getSupabase()
-
-    const { error } = await supabase
+    const { error: dbError } = await supabase
       .from('subscribers')
       .upsert({ email }, { onConflict: 'email' })
 
-    if (error) {
-      console.error('Subscribe error:', error)
+    if (dbError) {
+      console.error('DB error:', dbError)
       return NextResponse.json({ error: 'Subscription failed' }, { status: 500 })
     }
+
+    // Send welcome email
+    const resend = new Resend(process.env.RESEND_API_KEY!)
+    await resend.emails.send({
+      from: 'WealthClaude <marketing@wealthclaude.com>',
+      to: [email],
+      subject: "You're in — WealthClaude Daily Brief 🎯",
+      react: React.createElement(WelcomeEmail, { email }),
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {

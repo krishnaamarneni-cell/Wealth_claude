@@ -790,31 +790,46 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
   // ==================== INITIAL LOAD ====================
 
   useEffect(() => {
-    const cached = getCachedData()
+    // Create async wrapper since useEffect can't be async directly
+    const loadData = async () => {
+      const cached = getCachedData()
 
-    if (cached) {
-      console.log('[Portfolio] ⚡ Showing cached data, refreshing in background...')
-      setData({ ...cached, isLoading: false, isFetchingBatch: false })
-      calculateCoreData(true)
-    } else {
-      calculateCoreData(false)
+      if (cached) {
+        console.log('[Portfolio] ⚡ Showing cached data, refreshing in background...')
+        setData({ ...cached, isLoading: false, isFetchingBatch: false })
+        await calculateCoreData(true)
+      } else {
+        await calculateCoreData(false)
+      }
     }
+
+    // Call the async function
+    loadData().catch(err => {
+      console.error('[Portfolio] Error loading data:', err)
+      setData(prev => ({ ...prev, isLoading: false }))
+    })
 
     const refreshInterval = setInterval(() => {
       console.log('[Portfolio] 🔄 Auto-refresh (3 hours)...')
-      calculateCoreData(true)
+      calculateCoreData(true).catch(err => {
+        console.error('[Portfolio] Error during auto-refresh:', err)
+      })
     }, CACHE_DURATION)
 
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'transactions' || e.key === 'uploadedFiles') {
         console.log('[Portfolio] 🔄 Storage changed, recalculating...')
-        calculateCoreData(false)
+        calculateCoreData(false).catch(err => {
+          console.error('[Portfolio] Error during storage change:', err)
+        })
       }
     }
 
     const handleLocalUpdate = () => {
       console.log('[Portfolio] 🔄 Local update, recalculating...')
-      calculateCoreData(false)
+      calculateCoreData(false).catch(err => {
+        console.error('[Portfolio] Error during local update:', err)
+      })
     }
 
     window.addEventListener('storage', handleStorageChange)

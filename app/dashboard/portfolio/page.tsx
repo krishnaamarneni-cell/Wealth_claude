@@ -468,13 +468,16 @@ export default function PortfolioPage() {
       if (cached) {
         setHoldings(cached.holdings)
         setIsLoading(false)
-        loadHoldingsData(true)
+        await loadHoldingsData(true)
       } else {
         await loadHoldingsData(false)
       }
     }
 
-    loadData()
+    loadData().catch(err => {
+      console.error('[portfolio] Error loading data:', err)
+      setIsLoading(false)
+    })
   }, [])
 
   const loadHoldingsData = async (silent = false) => {

@@ -1,5 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
+import { createServerSideClient } from '@/lib/supabase'
 import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
 import { Badge } from '@/components/ui/badge'
@@ -17,21 +18,15 @@ function estimateReadTime(content: string): string {
   return `${mins} min read`
 }
 
-function getPublicSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-}
-
 async function getPost(slug: string) {
-  const supabase = getPublicSupabase()
+  const cookieStore = await cookies()
+  const supabase = createServerSideClient(cookieStore)
 
   const { data } = await supabase
     .from('blog_posts')
     .select('*')
     .eq('slug', slug)
-    .eq('published', true)
+    .eq('status', 'published')
     .maybeSingle()
 
   if (data) return data
@@ -40,7 +35,7 @@ async function getPost(slug: string) {
     .from('blog_posts')
     .select('*')
     .ilike('slug', `${slug}%`)
-    .eq('published', true)
+    .eq('status', 'published')
     .limit(1)
     .maybeSingle()
 

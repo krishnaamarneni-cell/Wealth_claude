@@ -511,15 +511,6 @@ export function NewsHub() {
                 </div>
               </div>
             )}
-
-            {/* When filtering, show all results in grid */}
-            {isFiltering && filtered.length > 0 && filtered[0] && (
-              <div className="grid md:grid-cols-2 gap-4">
-                {filtered.map((post, i) => (
-                  <PostCard key={post.id} post={post} index={i} />
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Right: sticky sidebar (1/3 width) */}

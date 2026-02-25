@@ -395,24 +395,33 @@ export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
   const [isAddingTicker, setIsAddingTicker] = useState(false)
 
   useEffect(() => {
-    const cached = getCachedHoldings()
+    const loadData = async () => {
+      const cached = getCachedHoldings()
 
-    if (cached) {
-      console.log('⚡ Showing cached holdings instantly')
-      setAllHoldings(cached.holdings)
-      setTransactions(cached.transactions)
-      setAvailableBrokers(cached.brokers)
-      setAllTimeHigh(cached.allTimeHigh)
-      setIsLoading(false)
+      if (cached) {
+        console.log('⚡ Showing cached holdings instantly')
+        setAllHoldings(cached.holdings)
+        setTransactions(cached.transactions)
+        setAvailableBrokers(cached.brokers)
+        setAllTimeHigh(cached.allTimeHigh)
+        setIsLoading(false)
 
-      loadTransactionsAndCalculateHoldings(true)
-    } else {
-      loadTransactionsAndCalculateHoldings(false)
+        await loadTransactionsAndCalculateHoldings(true)
+      } else {
+        await loadTransactionsAndCalculateHoldings(false)
+      }
     }
+
+    loadData().catch(err => {
+      console.error('[holdings-tab] Error loading data:', err)
+      setIsLoading(false)
+    })
 
     const refreshInterval = setInterval(() => {
       console.log("Auto-refreshing holdings data...")
-      loadTransactionsAndCalculateHoldings(true)
+      loadTransactionsAndCalculateHoldings(true).catch(err => {
+        console.error('[holdings-tab] Error refreshing:', err)
+      })
     }, 3 * 60 * 60 * 1000)
 
     return () => clearInterval(refreshInterval)
@@ -503,7 +512,9 @@ export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
 
   // Load watchlist on mount
   useEffect(() => {
-    loadWatchlist()
+    loadWatchlist().catch(err => {
+      console.error('[holdings-tab] Error loading watchlist:', err)
+    })
   }, [])
 
   const loadWatchlist = async () => {

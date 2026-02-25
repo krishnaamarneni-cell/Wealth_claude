@@ -17,17 +17,16 @@ function estimateReadTime(content: string): string {
   return `${mins} min read`
 }
 
-// Use public anon client — no cookies needed, works for unauthenticated visitors
 function getPublicSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  return createClient(url, key)
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 }
 
 async function getPost(slug: string) {
   const supabase = getPublicSupabase()
 
-  // Exact match
   const { data } = await supabase
     .from('blog_posts')
     .select('*')
@@ -37,7 +36,6 @@ async function getPost(slug: string) {
 
   if (data) return data
 
-  // Fallback: slug prefix match (handles timestamp suffix)
   const { data: fallback } = await supabase
     .from('blog_posts')
     .select('*')
@@ -123,25 +121,9 @@ export default async function BlogPostPage({ params }: Props) {
             )}
           </div>
 
+          {/* blog-content class is styled in globals.css */}
           <article
-            className="
-              prose prose-invert max-w-none
-              prose-headings:font-bold prose-headings:text-foreground
-              prose-h2:text-3xl prose-h2:mt-10 prose-h2:mb-4
-              prose-h3:text-2xl prose-h3:mt-8 prose-h3:mb-3
-              prose-p:text-lg prose-p:text-muted-foreground prose-p:leading-relaxed prose-p:mb-5
-              prose-strong:text-foreground prose-strong:font-semibold
-              prose-li:text-lg prose-li:text-muted-foreground prose-li:leading-relaxed
-              prose-ul:my-4 prose-ol:my-4
-              prose-a:text-primary prose-a:no-underline hover:prose-a:underline
-              [&_.key-takeaways]:bg-primary/10 [&_.key-takeaways]:border [&_.key-takeaways]:border-primary/30 [&_.key-takeaways]:rounded-2xl [&_.key-takeaways]:p-6 [&_.key-takeaways]:my-8
-              [&_.key-takeaways_h3]:text-primary [&_.key-takeaways_h3]:text-xl [&_.key-takeaways_h3]:font-bold [&_.key-takeaways_h3]:mb-3
-              [&_.key-takeaways_li]:text-base [&_.key-takeaways_li]:text-foreground
-              [&_.faq]:my-8
-              [&_.faq_h2]:text-2xl [&_.faq_h2]:font-bold [&_.faq_h2]:mb-6
-              [&_.faq_h3]:text-xl [&_.faq_h3]:font-semibold [&_.faq_h3]:text-foreground [&_.faq_h3]:mt-6 [&_.faq_h3]:mb-2
-              [&_.faq_p]:text-lg [&_.faq_p]:text-muted-foreground
-            "
+            className="blog-content"
             dangerouslySetInnerHTML={{ __html: post.content }}
           />
 

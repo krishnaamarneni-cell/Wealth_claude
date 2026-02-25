@@ -27,7 +27,7 @@ async function getPost(slug: string) {
     .from('blog_posts')
     .select('*')
     .eq('slug', slug)
-    .eq('published', true)
+    .eq('status', 'published')
     .maybeSingle()
 
   if (data) return data
@@ -38,7 +38,7 @@ async function getPost(slug: string) {
     .from('blog_posts')
     .select('*')
     .ilike('slug', `${slug}%`)
-    .eq('published', true)
+    .eq('status', 'published')
     .limit(1)
     .maybeSingle()
 

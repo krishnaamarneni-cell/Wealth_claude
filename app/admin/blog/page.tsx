@@ -4,9 +4,6 @@ import { redirect, notFound } from 'next/navigation'
 import { BlogAdmin } from '@/components/blog-admin'
 import { AutoBlogStatus } from '@/components/auto-blog-status'
 
-// Then inside the JSX somewhere prominent:
-<AutoBlogStatus />
-
 export const metadata = {
   title: 'Blog Admin — TrackFolio',
   description: 'Create and manage blog posts',
@@ -14,7 +11,6 @@ export const metadata = {
 
 export default async function BlogAdminPage() {
   const cookieStore = await cookies()
-  // createServerSideClient is now synchronous (no await needed)
   const supabase = createServerSideClient(cookieStore)
 
   const {
@@ -25,7 +21,6 @@ export default async function BlogAdminPage() {
     redirect('/auth?message=admin_required')
   }
 
-  // Use server-only ADMIN_EMAIL first (more secure), fall back to public
   const adminEmail = process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL
   const isAdmin = adminEmail ? user.email === adminEmail : false
 
@@ -43,6 +38,12 @@ export default async function BlogAdminPage() {
             <span className="text-foreground font-medium">{user.email}</span>
           </p>
         </div>
+
+        {/* Auto Blog Engine Status */}
+        <div className="mb-8">
+          <AutoBlogStatus />
+        </div>
+
         <BlogAdmin />
       </div>
     </div>

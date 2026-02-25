@@ -10,20 +10,22 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from('blog_posts')
-      .select('slug, title, excerpt, image_url, tags, content')
-      .eq('published', true)
+      .select('id, slug, title, excerpt, image_url, tags, content, status')
+      .eq('status', 'published')
       .order('published_at', { ascending: false })
-      .limit(3)
+      .limit(50)
 
     if (error) throw error
 
     const posts = (data ?? []).map((p) => ({
+      id: p.id,
       slug: p.slug,
       tag: p.tags?.[0] ?? 'Finance',
       title: p.title,
       excerpt: p.excerpt ?? '',
       readTime: estimateReadTime(p.content),
       image_url: p.image_url ?? null,
+      tags: p.tags ?? [],
     }))
 
     return NextResponse.json(posts)

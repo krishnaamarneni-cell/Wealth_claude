@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     // Send welcome email
     const resend = new Resend(process.env.RESEND_API_KEY!)
     await resend.emails.send({
-      from: 'WealthClaude <marketing@wealthclaude.com>',
+      from: 'WealthClaude <noreply@wealthclaude.com>',
       to: [email],
       subject: "You're in — WealthClaude Daily Brief 🎯",
       react: React.createElement(WelcomeEmail, { email }),

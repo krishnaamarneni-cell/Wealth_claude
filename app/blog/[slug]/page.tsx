@@ -8,7 +8,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 
 interface Props {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }
 
 function estimateReadTime(content: string): string {
@@ -57,7 +57,8 @@ async function getPost(slug: string) {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const post = await getPost(params.slug)
+  const { slug } = await params
+  const post = await getPost(slug)
   if (!post) return { title: 'Post Not Found' }
   return {
     title: `${post.title} — TrackFolio`,
@@ -71,7 +72,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function BlogPostPage({ params }: Props) {
-  const post = await getPost(params.slug)
+  const { slug } = await params
+  const post = await getPost(slug)
   if (!post) notFound()
 
   const readTime = estimateReadTime(post.content ?? '')

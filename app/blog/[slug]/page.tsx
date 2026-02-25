@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
-import { notFound } from 'next/navigation'
 import { createServerSideClient } from '@/lib/supabase'
+import { notFound } from 'next/navigation'
 import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
 import { Badge } from '@/components/ui/badge'
@@ -19,27 +19,58 @@ function estimateReadTime(content: string): string {
 }
 
 async function getPost(slug: string) {
-  const cookieStore = await cookies()
-  const supabase = createServerSideClient(cookieStore)
+  try {
+    const cookieStore = await cookies()
+    const supabase = createServerSideClient(cookieStore)
 
-  const { data } = await supabase
-    .from('blog_posts')
-    .select('*')
-    .eq('slug', slug)
-    .eq('status', 'published')
-    .maybeSingle()
+    // Try exact match
+    const { data } = await supabase
+      .from('blog_posts')
+      .select('*')
+      .eq('slug', slug)
+      .eq('published', true)
+      .maybeSingle()
 
-  if (data) return data
+    if (data) return data
 
-  const { data: fallback } = await supabase
-    .from('blog_posts')
-    .select('*')
-    .ilike('slug', `${slug}%`)
-    .eq('status', 'published')
-    .limit(1)
-    .maybeSingle()
+    // Fallback: prefix match for timestamp suffixes
+    const { data: fallback } = await supabase
+      .from('blog_posts')
+      .select('*')
+      .ilike('slug', `${slug}%`)
+      .eq('published', true)
+      .limit(1)
+      .maybeSingle()
 
-  return fallback ?? null
+    return fallback ?? null
+  } catch {
+    // If cookie-based client fails, try without cookies
+    // This handles unauthenticated public visitors
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+
+    const { data } = await supabase
+      .from('blog_posts')
+      .select('*')
+      .eq('slug', slug)
+      .eq('published', true)
+      .maybeSingle()
+
+    if (data) return data
+
+    const { data: fallback } = await supabase
+      .from('blog_posts')
+      .select('*')
+      .ilike('slug', `${slug}%`)
+      .eq('published', true)
+      .limit(1)
+      .maybeSingle()
+
+    return fallback ?? null
+  }
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -116,7 +147,6 @@ export default async function BlogPostPage({ params }: Props) {
             )}
           </div>
 
-          {/* blog-content class is styled in globals.css */}
           <article
             className="blog-content"
             dangerouslySetInnerHTML={{ __html: post.content }}

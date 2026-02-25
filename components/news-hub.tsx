@@ -521,7 +521,7 @@ export function NewsHub() {
                   {isFiltering ? "Search Results" : "Latest Analysis"}
                 </h2>
                 <div className="grid md:grid-cols-2 gap-4">
-                  {(isFiltering ? filtered : gridPosts).map((post, i) => (
+                  {gridPosts.map((post, i) => (
                     <PostCard key={post.id} post={post} index={i} />
                   ))}
                 </div>

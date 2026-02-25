@@ -117,20 +117,42 @@ export default function TransactionsPage() {
     fees: '0'
   })
 
-  // Load data from localStorage on mount
+  // Load data from Supabase on mount
   useEffect(() => {
     loadDataFromStorage()
+
+    // Listen for transaction updates (deletion, etc)
+    const handleTransactionsUpdated = async () => {
+      console.log('[transactions-page] Detected transactions updated, reloading...')
+      await loadDataFromStorage()
+    }
+
+    window.addEventListener('transactionsUpdated', handleTransactionsUpdated)
+
+    return () => {
+      window.removeEventListener('transactionsUpdated', handleTransactionsUpdated)
+    }
   }, [])
 
-  const loadDataFromStorage = () => {
-    const storedTransactions = localStorage.getItem('transactions')
-    const storedFiles = localStorage.getItem('uploadedFiles')
-    
-    if (storedTransactions) {
-      setTransactions(JSON.parse(storedTransactions))
+  const loadDataFromStorage = async () => {
+    try {
+      // Load transactions from Supabase API (not localStorage)
+      const storedTransactions = await getTransactionsFromStorage()
+      console.log('[transactions-page] Loaded transactions from Supabase:', storedTransactions.length)
+      setTransactions(storedTransactions)
+    } catch (error) {
+      console.error('[transactions-page] Error loading transactions:', error)
+      setTransactions([])
     }
-    if (storedFiles) {
-      setUploadedFiles(JSON.parse(storedFiles))
+
+    // Load uploaded files from localStorage (no Supabase integration yet)
+    try {
+      const storedFiles = localStorage.getItem('uploadedFiles')
+      if (storedFiles) {
+        setUploadedFiles(JSON.parse(storedFiles))
+      }
+    } catch (error) {
+      console.error('[transactions-page] Error loading files:', error)
     }
   }
 

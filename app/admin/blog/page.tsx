@@ -2,6 +2,10 @@ import { cookies } from 'next/headers'
 import { createServerSideClient } from '@/lib/supabase'
 import { redirect, notFound } from 'next/navigation'
 import { BlogAdmin } from '@/components/blog-admin'
+import { AutoBlogStatus } from '@/components/auto-blog-status'
+
+// Then inside the JSX somewhere prominent:
+<AutoBlogStatus />
 
 export const metadata = {
   title: 'Blog Admin — TrackFolio',

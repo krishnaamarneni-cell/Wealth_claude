@@ -41,7 +41,7 @@ export default async function DashboardLayout({
         <SidebarInset>
           <DashboardHeader />
           {/* ✅ FIXED: Removed overflow-auto, added min-h-0 */}
-          <main className="flex-1 p-4 lg:p-6 min-h-0">{children}</main>
+          <main className="flex-1 overflow-y-auto min-h-0">{children}</main>
         </SidebarInset>
       </SidebarProvider>
     </PortfolioProvider>

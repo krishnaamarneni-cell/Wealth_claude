@@ -457,48 +457,500 @@ export default function TransactionsPage() {
     return 'BUY'
   }
 
-  const parseTransactionsFromCSV = (csvData: string[][], fileId: string): Transaction[] => {
-    if (csvData.length < 2) {
-      throw new Error('CSV file must have at least a header row and one data row')
-    }
+  // ============================================================
+  // PASTE THESE FUNCTIONS inside TransactionsPage component,
+  // REPLACING everything from parseFidelityCSV down through
+  // the end of parseTransactionsFromCSV
+  // ============================================================
 
+  // ── Shared helpers ──────────────────────────────────────────
+
+  const cleanNum = (val: string) =>
+    parseFloat((val || '0').replace(/[$,()%\s]/g, '').replace(/^\((.+)\)$/, '-$1') || '0')
+
+  const detectType = (raw: string): Transaction['type'] | null => {
+    const s = raw.toUpperCase().trim()
+    if (s.includes('BUY') || s.includes('PURCHASE') || s === 'BTO' || s.includes('REINVEST')) return 'BUY'
+    if (s.includes('SELL') || s.includes('SALE') || s === 'STC' || s.includes('YOU SOLD')) return 'SELL'
+    if (s === 'CDIV' || s === 'MDIV' || s.includes('DIVIDEND') || s.includes('DIV') || s === 'INT' || s.includes('INTEREST') || s === 'SLIP') return 'DIVIDEND'
+    if (s === 'DCF' || s.includes('DEPOSIT') || s.includes('CONTRIBUTION') || s.includes('WIRE IN') || s.includes('ACH IN')) return 'DEPOSIT'
+    if (s.includes('WITHDRAW') || s.includes('DISTRIBUTION') || s.includes('WIRE OUT') || s.includes('ACH OUT')) return 'WITHDRAWAL'
+    return null
+  }
+
+  const makeId = () => Date.now().toString() + Math.random().toString(36).substr(2, 9)
+
+  // ── Broker detection ────────────────────────────────────────
+
+  const detectBroker = (headers: string[]): string => {
+    const h = headers.join(',')
+    if (h.includes('run date') && h.includes('action') && h.includes('account number')) return 'fidelity'
+    if (h.includes('side') && h.includes('filled') && h.includes('avg price') && h.includes('placed time')) return 'webull'
+    if (h.includes('activity date') && h.includes('trans code') && h.includes('instrument')) return 'robinhood'
+    if (h.includes('date') && h.includes('action') && h.includes('symbol') && h.includes('fees & comm')) return 'schwab'
+    if (h.includes('transaction id') && h.includes('reg fee')) return 'tdameritrade'
+    if (h.includes('transactiondate') || (h.includes('transactiontype') && h.includes('securitytype'))) return 'etrade'
+    if (h.includes('net amount') && h.includes('gross amount') && h.includes('commission') && h.includes('time')) return 'merrill'
+    if (h.includes('share price') && h.includes('total cost') && !h.includes('avg price')) return 'sofi'
+    if (h.includes('trade date') && h.includes('principal') && h.includes('net amount') && !h.includes('commission ($)')) return 'chase'
+    if (h.includes('action') && h.includes('net amount') && h.includes('commission') && h.includes('time') && !h.includes('account number')) return 'ally'
+    if (h.includes('clientaccountid') || (h.includes('buy/sell') && h.includes('tradeprice'))) return 'ibkr'
+    if (h.includes('trade date') && h.includes('transaction type') && h.includes('investment name')) return 'vanguard'
+    return 'generic'
+  }
+
+  // ── Fidelity ────────────────────────────────────────────────
+  // Columns: Run Date, Account, Account Number, Action, Symbol,
+  //          Description, Type, Price ($), Quantity, Commission ($),
+  //          Fees ($), Accrued Interest ($), Amount ($), Settlement Date
+
+  const parseFidelityCSV = (csvData: string[][], fileId: string): Transaction[] => {
+    const headerIdx = csvData.findIndex(r => r.some(c => c.toLowerCase().includes('run date')))
+    if (headerIdx === -1) throw new Error('Cannot find header row in Fidelity CSV')
+    const headers = csvData[headerIdx].map(h => h.toLowerCase().trim().replace(/\s*\(\$\)\s*/g, '').trim())
+    const rows = csvData.slice(headerIdx + 1)
+
+    const col = (name: string) => headers.findIndex(h => h.includes(name))
+    const dateIdx = col('run date'), actionIdx = col('action'), symbolIdx = col('symbol')
+    const priceIdx = col('price'), qtyIdx = col('quantity'), amountIdx = col('amount')
+    const commIdx = col('commission'), feesIdx = col('fees')
+
+    return rows.flatMap(row => {
+      if (!row.length || row.every(c => !c.trim())) return []
+      const action = (row[actionIdx] || '').toUpperCase()
+      const symbol = (row[symbolIdx] || '').trim()
+      if (!action || symbol === 'SPAXX' || !symbol) return []
+
+      let type: Transaction['type']
+      if (action.includes('YOU BOUGHT') || action.includes('REINVEST')) type = 'BUY'
+      else if (action.includes('YOU SOLD')) type = 'SELL'
+      else if (action.includes('DIVIDEND') || action.includes('INTEREST')) type = 'DIVIDEND'
+      else if (action.includes('CONTRIBUTION') || action.includes('DEPOSIT')) type = 'DEPOSIT'
+      else return []
+
+      const price = Math.abs(cleanNum(row[priceIdx] || '0'))
+      const qty = Math.abs(cleanNum(row[qtyIdx] || '0'))
+      const amount = Math.abs(cleanNum(row[amountIdx] || '0'))
+      const fees = Math.abs(cleanNum(row[commIdx] || '0')) + Math.abs(cleanNum(row[feesIdx] || '0'))
+      const total = amount || qty * price
+      if (total === 0 && qty === 0) return []
+
+      return [{
+        id: makeId(), date: parseDate(row[dateIdx] || ''), type, symbol,
+        shares: qty, price, total, broker: '', fees, fileId
+      }]
+    })
+  }
+
+  // ── Webull ──────────────────────────────────────────────────
+  // Columns: Name, Symbol, Side, Status, Filled, Total Qty,
+  //          Price, Avg Price, Time-in-Force, Placed Time, Filled Time
+
+  const parseWebullCSV = (csvData: string[][], fileId: string): Transaction[] => {
     const headers = csvData[0].map(h => h.toLowerCase().trim())
     const rows = csvData.slice(1)
 
-    const dateIdx = headers.findIndex(h =>
-      h.includes('activity date') || h.includes('date') || h.includes('time')
-    )
-    const typeIdx = headers.findIndex(h =>
-      h.includes('trans code') || h.includes('type') || h.includes('action') || h.includes('transaction')
-    )
-    const symbolIdx = headers.findIndex(h =>
-      h.includes('instrument') || h.includes('symbol') || h.includes('ticker') || h.includes('stock')
-    )
-    const descriptionIdx = headers.findIndex(h =>
-      h.includes('description')
-    )
-    const sharesIdx = headers.findIndex(h =>
-      h.includes('quantity') || h.includes('shares') || h.includes('qty')
-    )
-    const priceIdx = headers.findIndex(h =>
-      h.includes('price') && !h.includes('settle')
-    )
-    const totalIdx = headers.findIndex(h =>
-      h.includes('amount') || h.includes('total') || h.includes('value')
-    )
-    const feesIdx = headers.findIndex(h =>
-      h.includes('fee') || h.includes('commission')
-    )
+    const col = (name: string) => headers.findIndex(h => h.includes(name))
+    const symbolIdx = col('symbol'), sideIdx = col('side'), statusIdx = col('status')
+    const filledIdx = col('filled'), avgPriceIdx = col('avg price'), dateIdx = col('filled time')
 
-    if (dateIdx === -1) {
-      throw new Error('CSV must contain a "Date" column')
+    return rows.flatMap(row => {
+      if (!row.length || row.every(c => !c.trim())) return []
+      const status = (row[statusIdx] || '').trim()
+      if (status.toLowerCase() !== 'filled') return []
+
+      const side = (row[sideIdx] || '').toUpperCase()
+      const type: Transaction['type'] = side === 'BUY' ? 'BUY' : side === 'SELL' ? 'SELL' : null
+      if (!type) return []
+
+      const symbol = (row[symbolIdx] || '').trim()
+      if (!symbol) return []
+
+      // Filled Time looks like "10/06/2025 10:07:14 EDT"
+      const rawDate = (row[dateIdx] || '').split(' ')[0]
+      const shares = Math.abs(cleanNum(row[filledIdx] || '0'))
+      const price = Math.abs(cleanNum(row[avgPriceIdx] || '0'))
+      const total = shares * price
+
+      return [{
+        id: makeId(), date: parseDate(rawDate), type, symbol,
+        shares, price, total, broker: '', fees: 0, fileId
+      }]
+    })
+  }
+
+  // ── Charles Schwab ──────────────────────────────────────────
+  // Columns: Date, Action, Symbol, Description, Quantity, Price,
+  //          Fees & Comm, Amount
+  // Note: Schwab CSV has a few header/footer lines to skip
+
+  const parseSchwabCSV = (csvData: string[][], fileId: string): Transaction[] => {
+    const headerIdx = csvData.findIndex(r =>
+      r.some(c => c.toLowerCase().trim() === 'date') &&
+      r.some(c => c.toLowerCase().trim() === 'action')
+    )
+    if (headerIdx === -1) throw new Error('Cannot find header in Schwab CSV')
+    const headers = csvData[headerIdx].map(h => h.toLowerCase().trim())
+    const rows = csvData.slice(headerIdx + 1)
+
+    const col = (name: string) => headers.findIndex(h => h.includes(name))
+    const dateIdx = col('date'), actionIdx = col('action'), symbolIdx = col('symbol')
+    const qtyIdx = col('quantity'), priceIdx = col('price')
+    const feesIdx = col('fees'), amountIdx = col('amount')
+
+    return rows.flatMap(row => {
+      if (!row.length || row.every(c => !c.trim())) return []
+      const action = (row[actionIdx] || '').trim()
+      const symbol = (row[symbolIdx] || '').trim()
+      if (!action || !symbol) return []
+
+      const type = detectType(action)
+      if (!type) return []
+
+      const qty = Math.abs(cleanNum(row[qtyIdx] || '0'))
+      const price = Math.abs(cleanNum(row[priceIdx] || '0'))
+      const amount = Math.abs(cleanNum(row[amountIdx] || '0'))
+      const fees = Math.abs(cleanNum(row[feesIdx] || '0'))
+      const total = amount || qty * price
+      if (total === 0) return []
+
+      return [{
+        id: makeId(), date: parseDate(row[dateIdx] || ''), type, symbol,
+        shares: qty, price, total, broker: '', fees, fileId
+      }]
+    })
+  }
+
+  // ── TD Ameritrade ───────────────────────────────────────────
+  // Columns: DATE, TRANSACTION ID, DESCRIPTION, QUANTITY, SYMBOL,
+  //          PRICE, COMMISSION, AMOUNT, REG FEE, ...
+
+  const parseTDAmeritrade = (csvData: string[][], fileId: string): Transaction[] => {
+    const headers = csvData[0].map(h => h.toLowerCase().trim())
+    const rows = csvData.slice(1)
+
+    const col = (name: string) => headers.findIndex(h => h.includes(name))
+    const dateIdx = col('date'), descIdx = col('description'), symbolIdx = col('symbol')
+    const qtyIdx = col('quantity'), priceIdx = col('price')
+    const commIdx = col('commission'), amountIdx = col('amount'), regFeeIdx = col('reg fee')
+
+    return rows.flatMap(row => {
+      if (!row.length || row.every(c => !c.trim())) return []
+      const desc = (row[descIdx] || '').toUpperCase()
+      const symbol = (row[symbolIdx] || '').trim()
+      if (!desc || !symbol) return []
+
+      const type = detectType(desc)
+      if (!type) return []
+
+      const qty = Math.abs(cleanNum(row[qtyIdx] || '0'))
+      const price = Math.abs(cleanNum(row[priceIdx] || '0'))
+      const amount = Math.abs(cleanNum(row[amountIdx] || '0'))
+      const fees = Math.abs(cleanNum(row[commIdx] || '0')) + Math.abs(cleanNum(row[regFeeIdx] || '0'))
+      const total = amount || qty * price
+
+      return [{
+        id: makeId(), date: parseDate(row[dateIdx] || ''), type, symbol,
+        shares: qty, price, total, broker: '', fees, fileId
+      }]
+    })
+  }
+
+  // ── E*TRADE ─────────────────────────────────────────────────
+  // Columns: TransactionDate, TransactionType, SecurityType,
+  //          Symbol, Quantity, Amount, Price, Commission, Description
+
+  const parseEtrade = (csvData: string[][], fileId: string): Transaction[] => {
+    const headers = csvData[0].map(h => h.toLowerCase().replace(/\s+/g, '').trim())
+    const rows = csvData.slice(1)
+
+    const col = (name: string) => headers.findIndex(h => h.includes(name))
+    const dateIdx = col('transactiondate') !== -1 ? col('transactiondate') : col('date')
+    const typeIdx = col('transactiontype') !== -1 ? col('transactiontype') : col('type')
+    const symbolIdx = col('symbol'), qtyIdx = col('quantity')
+    const priceIdx = col('price'), amountIdx = col('amount'), commIdx = col('commission')
+
+    return rows.flatMap(row => {
+      if (!row.length || row.every(c => !c.trim())) return []
+      const symbol = (row[symbolIdx] || '').trim()
+      const rawType = (row[typeIdx] || '').trim()
+      if (!symbol || !rawType) return []
+
+      const type = detectType(rawType)
+      if (!type) return []
+
+      const qty = Math.abs(cleanNum(row[qtyIdx] || '0'))
+      const price = Math.abs(cleanNum(row[priceIdx] || '0'))
+      const amount = Math.abs(cleanNum(row[amountIdx] || '0'))
+      const fees = Math.abs(cleanNum(row[commIdx] || '0'))
+      const total = amount || qty * price
+
+      return [{
+        id: makeId(), date: parseDate(row[dateIdx] || ''), type, symbol,
+        shares: qty, price, total, broker: '', fees, fileId
+      }]
+    })
+  }
+
+  // ── Merrill Edge ────────────────────────────────────────────
+  // Columns: Date, Time, Type, Quantity, Symbol, Price,
+  //          Gross Amount, Commission, Net Amount, Description
+
+  const parseMerrillEdge = (csvData: string[][], fileId: string): Transaction[] => {
+    const headers = csvData[0].map(h => h.toLowerCase().trim())
+    const rows = csvData.slice(1)
+
+    const col = (name: string) => headers.findIndex(h => h.includes(name))
+    const dateIdx = col('date'), typeIdx = col('type'), symbolIdx = col('symbol')
+    const qtyIdx = col('quantity'), priceIdx = col('price')
+    const commIdx = col('commission'), netIdx = col('net amount')
+
+    return rows.flatMap(row => {
+      if (!row.length || row.every(c => !c.trim())) return []
+      const symbol = (row[symbolIdx] || '').trim()
+      const rawType = (row[typeIdx] || '').trim()
+      if (!symbol || !rawType) return []
+
+      const type = detectType(rawType)
+      if (!type) return []
+
+      const qty = Math.abs(cleanNum(row[qtyIdx] || '0'))
+      const price = Math.abs(cleanNum(row[priceIdx] || '0'))
+      const amount = Math.abs(cleanNum(row[netIdx] || '0'))
+      const fees = Math.abs(cleanNum(row[commIdx] || '0'))
+      const total = amount || qty * price
+
+      return [{
+        id: makeId(), date: parseDate(row[dateIdx] || ''), type, symbol,
+        shares: qty, price, total, broker: '', fees, fileId
+      }]
+    })
+  }
+
+  // ── SoFi ────────────────────────────────────────────────────
+  // Columns: Date, Symbol, Type, Shares, Share Price, Total Cost, Description
+
+  const parseSoFi = (csvData: string[][], fileId: string): Transaction[] => {
+    const headers = csvData[0].map(h => h.toLowerCase().trim())
+    const rows = csvData.slice(1)
+
+    const col = (name: string) => headers.findIndex(h => h.includes(name))
+    const dateIdx = col('date'), symbolIdx = col('symbol'), typeIdx = col('type')
+    const sharesIdx = col('shares'), priceIdx = col('share price'), totalIdx = col('total cost')
+
+    return rows.flatMap(row => {
+      if (!row.length || row.every(c => !c.trim())) return []
+      const symbol = (row[symbolIdx] || '').trim()
+      const rawType = (row[typeIdx] || '').trim()
+      if (!symbol || !rawType) return []
+
+      const type = detectType(rawType)
+      if (!type) return []
+
+      const shares = Math.abs(cleanNum(row[sharesIdx] || '0'))
+      const price = Math.abs(cleanNum(row[priceIdx] || '0'))
+      const total = Math.abs(cleanNum(row[totalIdx] || '0')) || shares * price
+
+      return [{
+        id: makeId(), date: parseDate(row[dateIdx] || ''), type, symbol,
+        shares, price, total, broker: '', fees: 0, fileId
+      }]
+    })
+  }
+
+  // ── Chase (You Invest) ───────────────────────────────────────
+  // Columns: Trade Date, Symbol, Type, Quantity, Price,
+  //          Principal, Fees, Net Amount
+
+  const parseChase = (csvData: string[][], fileId: string): Transaction[] => {
+    const headers = csvData[0].map(h => h.toLowerCase().trim())
+    const rows = csvData.slice(1)
+
+    const col = (name: string) => headers.findIndex(h => h.includes(name))
+    const dateIdx = col('trade date'), symbolIdx = col('symbol'), typeIdx = col('type')
+    const qtyIdx = col('quantity'), priceIdx = col('price')
+    const feesIdx = col('fees'), netIdx = col('net amount')
+
+    return rows.flatMap(row => {
+      if (!row.length || row.every(c => !c.trim())) return []
+      const symbol = (row[symbolIdx] || '').trim()
+      const rawType = (row[typeIdx] || '').trim()
+      if (!symbol || !rawType) return []
+
+      const type = detectType(rawType)
+      if (!type) return []
+
+      const qty = Math.abs(cleanNum(row[qtyIdx] || '0'))
+      const price = Math.abs(cleanNum(row[priceIdx] || '0'))
+      const total = Math.abs(cleanNum(row[netIdx] || '0')) || qty * price
+      const fees = Math.abs(cleanNum(row[feesIdx] || '0'))
+
+      return [{
+        id: makeId(), date: parseDate(row[dateIdx] || ''), type, symbol,
+        shares: qty, price, total, broker: '', fees, fileId
+      }]
+    })
+  }
+
+  // ── Ally Invest ─────────────────────────────────────────────
+  // Columns: Date, Time, Action, Symbol, Description, Quantity,
+  //          Price, Commission, Net Amount
+
+  const parseAlly = (csvData: string[][], fileId: string): Transaction[] => {
+    const headers = csvData[0].map(h => h.toLowerCase().trim())
+    const rows = csvData.slice(1)
+
+    const col = (name: string) => headers.findIndex(h => h.includes(name))
+    const dateIdx = col('date'), actionIdx = col('action'), symbolIdx = col('symbol')
+    const qtyIdx = col('quantity'), priceIdx = col('price')
+    const commIdx = col('commission'), netIdx = col('net amount')
+
+    return rows.flatMap(row => {
+      if (!row.length || row.every(c => !c.trim())) return []
+      const symbol = (row[symbolIdx] || '').trim()
+      const rawType = (row[actionIdx] || '').trim()
+      if (!symbol || !rawType) return []
+
+      const type = detectType(rawType)
+      if (!type) return []
+
+      const qty = Math.abs(cleanNum(row[qtyIdx] || '0'))
+      const price = Math.abs(cleanNum(row[priceIdx] || '0'))
+      const total = Math.abs(cleanNum(row[netIdx] || '0')) || qty * price
+      const fees = Math.abs(cleanNum(row[commIdx] || '0'))
+
+      return [{
+        id: makeId(), date: parseDate(row[dateIdx] || ''), type, symbol,
+        shares: qty, price, total, broker: '', fees, fileId
+      }]
+    })
+  }
+
+  // ── Interactive Brokers ─────────────────────────────────────
+  // Columns: ClientAccountID, Currency, Symbol, DateTime,
+  //          Quantity, TradePrice, IBCommission, NetCash, Buy/Sell
+
+  const parseIBKR = (csvData: string[][], fileId: string): Transaction[] => {
+    const headers = csvData[0].map(h => h.toLowerCase().trim().replace(/\//g, ''))
+    const rows = csvData.slice(1)
+
+    const col = (name: string) => headers.findIndex(h => h.includes(name))
+    const dateIdx = col('datetime'), symbolIdx = col('symbol')
+    const qtyIdx = col('quantity'), priceIdx = col('tradeprice')
+    const commIdx = col('ibcommission'), netIdx = col('netcash')
+    const sideIdx = col('buysell')
+
+    return rows.flatMap(row => {
+      if (!row.length || row.every(c => !c.trim())) return []
+      const symbol = (row[symbolIdx] || '').trim()
+      const side = (row[sideIdx] || '').trim().toUpperCase()
+      if (!symbol || !side) return []
+
+      const type: Transaction['type'] = side === 'BUY' ? 'BUY' : side === 'SELL' ? 'SELL' : null
+      if (!type) return []
+
+      const rawDate = (row[dateIdx] || '').split(',')[0].split(' ')[0]
+      const qty = Math.abs(cleanNum(row[qtyIdx] || '0'))
+      const price = Math.abs(cleanNum(row[priceIdx] || '0'))
+      const total = Math.abs(cleanNum(row[netIdx] || '0')) || qty * price
+      const fees = Math.abs(cleanNum(row[commIdx] || '0'))
+
+      return [{
+        id: makeId(), date: parseDate(rawDate), type, symbol,
+        shares: qty, price, total, broker: '', fees, fileId
+      }]
+    })
+  }
+
+  // ── Vanguard ─────────────────────────────────────────────────
+  // Columns: Trade date, Settlement date, Transaction type,
+  //          Transaction description, Investment name, Symbol,
+  //          Shares, Share price, Principal amount, Commission fees,
+  //          Net amount, Accrued interest, Account type
+
+  const parseVanguard = (csvData: string[][], fileId: string): Transaction[] => {
+    const headerIdx = csvData.findIndex(r => r.some(c => c.toLowerCase().includes('trade date')))
+    if (headerIdx === -1) throw new Error('Cannot find header in Vanguard CSV')
+    const headers = csvData[headerIdx].map(h => h.toLowerCase().trim())
+    const rows = csvData.slice(headerIdx + 1)
+
+    const col = (name: string) => headers.findIndex(h => h.includes(name))
+    const dateIdx = col('trade date'), typeIdx = col('transaction type')
+    const symbolIdx = col('symbol'), sharesIdx = col('shares')
+    const priceIdx = col('share price'), netIdx = col('net amount')
+    const commIdx = col('commission')
+
+    return rows.flatMap(row => {
+      if (!row.length || row.every(c => !c.trim())) return []
+      const symbol = (row[symbolIdx] || '').trim()
+      const rawType = (row[typeIdx] || '').trim()
+      if (!symbol || !rawType) return []
+
+      const type = detectType(rawType)
+      if (!type) return []
+
+      const shares = Math.abs(cleanNum(row[sharesIdx] || '0'))
+      const price = Math.abs(cleanNum(row[priceIdx] || '0'))
+      const total = Math.abs(cleanNum(row[netIdx] || '0')) || shares * price
+      const fees = Math.abs(cleanNum(row[commIdx] || '0'))
+
+      return [{
+        id: makeId(), date: parseDate(row[dateIdx] || ''), type, symbol,
+        shares, price, total, broker: '', fees, fileId
+      }]
+    })
+  }
+
+  // ── Master parser (auto-detects broker) ─────────────────────
+
+  const parseTransactionsFromCSV = (csvData: string[][], fileId: string): Transaction[] => {
+    if (csvData.length < 2) throw new Error('CSV must have at least a header and one data row')
+
+    // Find first non-empty row for header detection
+    const firstRow = csvData.find(r => r.some(c => c.trim())) || csvData[0]
+    const headers = firstRow.map(h => h.toLowerCase().trim().replace(/\s*\(\$\)\s*/g, '').trim())
+    const broker = detectBroker(headers)
+
+    console.log('[CSV Parser] Detected broker format:', broker)
+
+    switch (broker) {
+      case 'fidelity': return parseFidelityCSV(csvData, fileId)
+      case 'webull': return parseWebullCSV(csvData, fileId)
+      case 'schwab': return parseSchwabCSV(csvData, fileId)
+      case 'tdameritrade': return parseTDAmeritrade(csvData, fileId)
+      case 'etrade': return parseEtrade(csvData, fileId)
+      case 'merrill': return parseMerrillEdge(csvData, fileId)
+      case 'sofi': return parseSoFi(csvData, fileId)
+      case 'chase': return parseChase(csvData, fileId)
+      case 'ally': return parseAlly(csvData, fileId)
+      case 'ibkr': return parseIBKR(csvData, fileId)
+      case 'vanguard': return parseVanguard(csvData, fileId)
+      default: return parseRobinhoodCSV(csvData, fileId) // fallback
     }
+  }
+
+  // ── Robinhood (original, kept as fallback) ───────────────────
+
+  const parseRobinhoodCSV = (csvData: string[][], fileId: string): Transaction[] => {
+    const headers = csvData[0].map(h => h.toLowerCase().trim())
+    const rows = csvData.slice(1)
+
+    const dateIdx = headers.findIndex(h => h.includes('activity date') || h.includes('date'))
+    const typeIdx = headers.findIndex(h => h.includes('trans code') || h.includes('type') || h.includes('action'))
+    const symbolIdx = headers.findIndex(h => h.includes('instrument') || h.includes('symbol') || h.includes('ticker'))
+    const descriptionIdx = headers.findIndex(h => h.includes('description'))
+    const sharesIdx = headers.findIndex(h => h.includes('quantity') || h.includes('shares'))
+    const priceIdx = headers.findIndex(h => h.includes('price') && !h.includes('settle'))
+    const totalIdx = headers.findIndex(h => h.includes('amount') || h.includes('total'))
+    const feesIdx = headers.findIndex(h => h.includes('fee') || h.includes('commission'))
+
+    if (dateIdx === -1) throw new Error('CSV must contain a "Date" column')
 
     const parsedTransactions: Transaction[] = []
 
     for (const row of rows) {
-      if (row.length === 0 || row.every(cell => !cell.trim())) continue
-      if (row[0] && row[0].toLowerCase().includes('the data provided')) continue
+      if (!row.length || row.every(c => !c.trim())) continue
+      if (row[0]?.toLowerCase().includes('the data provided')) continue
 
       try {
         const rawDate = row[dateIdx] || ''
@@ -512,54 +964,32 @@ export default function TransactionsPage() {
         const type = detectTransactionType(rawType, rawDescription)
 
         let symbol = rawSymbol
-
         if (!symbol && rawDescription) {
-          const symbolMatch = rawDescription.match(/^([A-Z]{1,5})\s/)
-          if (symbolMatch) {
-            symbol = symbolMatch[1]
-          }
+          const m = rawDescription.match(/^([A-Z]{1,5})\s/)
+          if (m) symbol = m[1]
         }
-
-        if (!symbol && (type === 'DIVIDEND' || type === 'DEPOSIT' || type === 'WITHDRAWAL')) {
-          symbol = '-'
-        }
-
-        if (!symbol && (type === 'BUY' || type === 'SELL')) {
-          continue
-        }
+        if (!symbol && (type === 'DIVIDEND' || type === 'DEPOSIT' || type === 'WITHDRAWAL')) symbol = '-'
+        if (!symbol && (type === 'BUY' || type === 'SELL')) continue
 
         const rawShares = sharesIdx !== -1 ? (row[sharesIdx] || '0') : '0'
         const rawPrice = priceIdx !== -1 ? (row[priceIdx] || '0') : '0'
         const rawTotal = totalIdx !== -1 ? (row[totalIdx] || '0') : '0'
 
         let shares = parseFloat(rawShares.replace(/[^0-9.-]/g, '') || '0')
-        let price = parseFloat(rawPrice.replace(/[$,()]/g, '').replace(/\(/g, '-') || '0')
+        let price = parseFloat(rawPrice.replace(/[$,()]/g, '') || '0')
 
-        // Special handling for CDIV (dividend) - extract from description and column 9
         if (type === 'DIVIDEND') {
-          // Get description from column 5 (index 4)
           const description = row[4] || ''
-
-          // Extract shares from description: "29.729528 shares"
           const sharesMatch = description.match(/(\d+\.?\d*)\s+shares/)
-          if (sharesMatch) {
-            shares = parseFloat(sharesMatch[1])
-          }
-
-          // Extract rate from description: "at 0.235"
+          if (sharesMatch) shares = parseFloat(sharesMatch[1])
           const rateMatch = description.match(/at\s+(\d+\.?\d*)/)
-          if (rateMatch) {
-            price = parseFloat(rateMatch[1])
-          }
+          if (rateMatch) price = parseFloat(rateMatch[1])
         }
 
-        // Special handling for CDIV (dividend) - use column 9 (index 8) directly
         let total = 0
         if (type === 'DIVIDEND' && row.length > 8 && row[8]) {
-          // For CDIV rows, column 9 (index 8) contains the dividend amount
           total = parseFloat(row[8].replace(/[$,]/g, '') || '0')
         } else if (rawTotal) {
-          // Otherwise use the normal total column
           total = parseFloat(rawTotal.replace(/[$,()]/g, '').replace(/^\(/, '-').replace(/\)$/, '') || '0')
         }
 
@@ -567,28 +997,21 @@ export default function TransactionsPage() {
           total = -Math.abs(total)
         }
 
-        const fees = feesIdx !== -1 ? parseFloat(row[feesIdx]?.replace(/[$,]/g, '') || '0') : 0
-
         if (total === 0 && shares > 0 && price > 0) {
           total = shares * price
-          if (type === 'BUY') {
-            total = -Math.abs(total)
-          }
+          if (type === 'BUY') total = -Math.abs(total)
         }
 
-        const displayTotal = Math.abs(total)
+        const fees = feesIdx !== -1 ? parseFloat(row[feesIdx]?.replace(/[$,]/g, '') || '0') : 0
 
         parsedTransactions.push({
-          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-          date,
-          type,
+          id: makeId(),
+          date, type,
           symbol: symbol || '-',
           shares: Math.abs(shares),
           price: Math.abs(price),
-          total: displayTotal,
-          broker: '',
-          fees,
-          fileId
+          total: Math.abs(total),
+          broker: '', fees, fileId
         })
       } catch (err) {
         console.error('Error parsing row:', err)

@@ -785,7 +785,7 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
     } finally {
       setData(prev => ({ ...prev, isFetchingBatch: false, fetchProgress: undefined }))
     }
-  }, [calculateCoreData])
+  }, [])
 
   // ==================== INITIAL LOAD ====================
 
@@ -795,9 +795,15 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
       const cached = getCachedData()
 
       if (cached) {
-        console.log('[Portfolio] ⚡ Showing cached data, refreshing in background...')
+        const cacheAge = Date.now() - (JSON.parse(localStorage.getItem(CACHE_KEY) || '{}').timestamp || 0)
+        const cacheAgeMinutes = cacheAge / 1000 / 60
         setData({ ...cached, isLoading: false, isFetchingBatch: false })
-        await calculateCoreData(true)
+        if (cacheAgeMinutes > 30) {
+          console.log(`[Portfolio] ⚡ Cache ${Math.floor(cacheAgeMinutes)}min old — background refresh`)
+          await calculateCoreData(true)
+        } else {
+          console.log(`[Portfolio] ⚡ Cache ${Math.floor(cacheAgeMinutes)}min old — skipping refresh`)
+        }
       } else {
         await calculateCoreData(false)
       }
@@ -840,14 +846,14 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
       window.removeEventListener('storage', handleStorageChange)
       window.removeEventListener('transactionsUpdated', handleLocalUpdate)
     }
-  }, [calculateCoreData])
+  }, [])
 
   const refresh = useCallback(async () => {
     console.log('[Portfolio] 🔄 Manual refresh')
     setData((prev) => ({ ...prev, isRefreshing: true }))
     await calculateCoreData(false)
     setData((prev) => ({ ...prev, isRefreshing: false }))
-  }, [calculateCoreData])
+  }, [])
 
   const value: PortfolioContextData = {
     ...data,

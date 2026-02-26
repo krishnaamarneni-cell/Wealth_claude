@@ -51,8 +51,8 @@ export async function POST(request: NextRequest) {
         bio: profile.bio || '',
         timezone: profile.timezone || 'UTC',
         currency: profile.currency || 'USD',
-        avatar: profile.avatar || '',
         avatar_url: profile.avatar || '',
+        updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' })
 
     if (error) throw error

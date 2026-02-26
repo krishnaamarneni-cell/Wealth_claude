@@ -815,58 +815,57 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
         await calculateCoreData(false)
       }
     }
-  }
 
     loadData().catch(err => {
-    console.error('[Portfolio] Error loading data:', err)
-    setData(prev => ({ ...prev, isLoading: false }))
-  })
+      console.error('[Portfolio] Error loading data:', err)
+      setData(prev => ({ ...prev, isLoading: false }))
+    })
 
     const refreshInterval = setInterval(() => {
-    console.log('[Portfolio] 🔄 Auto-refresh (3 hours)...')
-    calculateCoreData(true).catch(err => {
-      console.error('[Portfolio] Error during auto-refresh:', err)
-    })
-  }, CACHE_DURATION)
+      console.log('[Portfolio] 🔄 Auto-refresh (3 hours)...')
+      calculateCoreData(true).catch(err => {
+        console.error('[Portfolio] Error during auto-refresh:', err)
+      })
+    }, CACHE_DURATION)
 
-  const handleStorageChange = (e: StorageEvent) => {
-    if (e.key === 'transactions' || e.key === 'uploadedFiles') {
-      console.log('[Portfolio] 🔄 Storage changed, recalculating...')
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'transactions' || e.key === 'uploadedFiles') {
+        console.log('[Portfolio] 🔄 Storage changed, recalculating...')
+        calculateCoreData(false).catch(err => {
+          console.error('[Portfolio] Error during storage change:', err)
+        })
+      }
+    }
+
+    const handleLocalUpdate = () => {
+      console.log('[Portfolio] 🔄 Local update, recalculating...')
       calculateCoreData(false).catch(err => {
-        console.error('[Portfolio] Error during storage change:', err)
+        console.error('[Portfolio] Error during local update:', err)
       })
     }
+
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('transactionsUpdated', handleLocalUpdate)
+
+    return () => {
+      clearInterval(refreshInterval)
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('transactionsUpdated', handleLocalUpdate)
+    }
+  }, []) // Empty deps - only runs once on mount, not on page switches
+
+  const refresh = useCallback(async () => {
+    console.log('[Portfolio] 🔄 Manual refresh')
+    setData((prev) => ({ ...prev, isRefreshing: true }))
+    await calculateCoreData(false)
+    setData((prev) => ({ ...prev, isRefreshing: false }))
+  }, [calculateCoreData])
+
+  const value: PortfolioContextData = {
+    ...data,
+    refresh,
+    smartRefresh,
   }
 
-  const handleLocalUpdate = () => {
-    console.log('[Portfolio] 🔄 Local update, recalculating...')
-    calculateCoreData(false).catch(err => {
-      console.error('[Portfolio] Error during local update:', err)
-    })
-  }
-
-  window.addEventListener('storage', handleStorageChange)
-  window.addEventListener('transactionsUpdated', handleLocalUpdate)
-
-  return () => {
-    clearInterval(refreshInterval)
-    window.removeEventListener('storage', handleStorageChange)
-    window.removeEventListener('transactionsUpdated', handleLocalUpdate)
-  }
-}, []) // Empty deps - only runs once on mount, not on page switches
-
-const refresh = useCallback(async () => {
-  console.log('[Portfolio] 🔄 Manual refresh')
-  setData((prev) => ({ ...prev, isRefreshing: true }))
-  await calculateCoreData(false)
-  setData((prev) => ({ ...prev, isRefreshing: false }))
-}, [calculateCoreData])
-
-const value: PortfolioContextData = {
-  ...data,
-  refresh,
-  smartRefresh,
-}
-
-return <PortfolioContext.Provider value={value}>{children}</PortfolioContext.Provider>
+  return <PortfolioContext.Provider value={value}>{children}</PortfolioContext.Provider>
 }

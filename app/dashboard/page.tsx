@@ -78,7 +78,11 @@ function DashboardContent() {
     setIsMounted(true)
   }, [])
 
-  if (!isMounted) return <DashboardSkeleton />
+  // Check if we have context data loaded - if so, skip skeleton even on first mount
+  const hasContextData = (holdings && holdings.length > 0) || (portfolioValue && portfolioValue > 0)
+  
+  // Only show skeleton on true first load when neither isMounted nor context data exists
+  if (!isMounted && !hasContextData) return <DashboardSkeleton />
 
   // ── Safe values after mount ─────────────────────────────────────────────
   const safeHoldings = holdings ?? []

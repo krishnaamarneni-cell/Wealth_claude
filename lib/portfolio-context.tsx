@@ -847,7 +847,7 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
       window.removeEventListener('storage', handleStorageChange)
       window.removeEventListener('transactionsUpdated', handleLocalUpdate)
     }
-  }, [calculateCoreData])
+  }, []) // Empty deps - only runs once on mount, not on page switches
 
   const refresh = useCallback(async () => {
     console.log('[Portfolio] 🔄 Manual refresh')

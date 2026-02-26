@@ -6,8 +6,9 @@ export async function GET() {
   try {
     const cookieStore = await cookies()
     const supabase = createServerSideClient(cookieStore)
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) return NextResponse.json(null, { status: 401 })
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json(null, { status: 401 })
 
     const { data, error } = await supabase
       .from('profiles')
@@ -24,8 +25,8 @@ export async function GET() {
       bio: data.bio || '',
       timezone: data.timezone || 'UTC',
       currency: data.currency || 'USD',
-      avatar: data.avatar_url || data.avatar || '',
-      memberSince: data.created_at || new Date().toISOString(),
+      avatar: data.avatar_url || '',
+      memberSince: user.created_at || new Date().toISOString(),
     })
   } catch (err) {
     console.error('[/api/profile] GET error:', err)
@@ -37,8 +38,9 @@ export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies()
     const supabase = createServerSideClient(cookieStore)
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const profile = await request.json()
 
@@ -56,12 +58,13 @@ export async function POST(request: NextRequest) {
       }, { onConflict: 'user_id' })
 
     if (error) {
-      console.error('[/api/profile] Supabase upsert error:', JSON.stringify(error))
-      return NextResponse.json({ error: error.message, details: error }, { status: 500 })
+      console.error('[/api/profile] Supabase error:', error.message, error.code)
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
     return NextResponse.json({ success: true })
   } catch (err: any) {
     console.error('[/api/profile] POST error:', err)
-    return NextResponse.json({ error: err.message || 'Failed' }, { status: 500 })
+    return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

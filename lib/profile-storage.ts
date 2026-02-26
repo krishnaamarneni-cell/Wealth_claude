@@ -31,14 +31,14 @@ export async function getProfileFromStorage(): Promise<ProfileData> {
       }
     }
   } catch (e) {
-    console.warn('[profile-storage] Could not load from Supabase, using localStorage')
+    console.warn('[profile-storage] Supabase failed, using localStorage')
   }
 
   try {
     const stored = localStorage.getItem('userProfile')
     if (stored) return JSON.parse(stored)
   } catch (e) {
-    console.error('[profile-storage] Error reading localStorage:', e)
+    console.error('[profile-storage] localStorage error:', e)
   }
 
   return DEFAULT_PROFILE
@@ -53,9 +53,16 @@ export async function saveProfileToStorage(profile: ProfileData): Promise<boolea
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(profile),
     })
-    return response.ok
+
+    if (!response.ok) {
+      const err = await response.json()
+      console.error('[profile-storage] Save failed:', err)
+      return false
+    }
+
+    return true
   } catch (e) {
-    console.error('[profile-storage] Error saving to Supabase:', e)
+    console.error('[profile-storage] Network error:', e)
     return false
   }
 }

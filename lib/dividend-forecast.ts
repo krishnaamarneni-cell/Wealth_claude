@@ -473,11 +473,18 @@ export async function fetchSymbolDividendEvents(symbol: string): Promise<Dividen
 export async function buildCalculatedDividendsFromTransactions(
   transactionsInput?: any[] // Accept optional transactions parameter
 ): Promise<DividendForecast[]> {
-  // Use passed transactions or fall back to storage
-  const transactions = transactionsInput || getTransactionsFromStorage();
+  // Use passed transactions or fall back to storage - MUST AWAIT async function
+  let transactions = transactionsInput
+  if (!transactions) {
+    transactions = await getTransactionsFromStorage()
+  }
+
+  if (!Array.isArray(transactions) || transactions.length === 0) {
+    return []
+  }
   
   // Group by symbol
-  const bySymbol: Record<string, typeof transactions> = {};
+  const bySymbol: Record<string, typeof transactions> = {}
   for (const t of transactions) {
     if (!bySymbol[t.symbol]) bySymbol[t.symbol] = [];
     bySymbol[t.symbol].push(t);

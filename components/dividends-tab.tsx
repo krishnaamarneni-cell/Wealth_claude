@@ -809,7 +809,8 @@ export default function DividendsTab() {
 
     const build = async () => {
       try {
-        const result = await buildCalculatedDividendsFromTransactions()
+        // Pass transactions directly to avoid async issues
+        const result = await buildCalculatedDividendsFromTransactions(transactions)
 
         sessionStorage.setItem(
           "calculated_dividends_from_txn",

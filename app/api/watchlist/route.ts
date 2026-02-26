@@ -23,7 +23,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json(data || [])
+    // Map snake_case DB columns → camelCase for the frontend
+    const mapped = (data || []).map((w: any) => ({
+      id: w.id,
+      symbol: w.symbol,
+      companyName: w.company_name,   // snake → camel
+      addedDate: w.added_date,       // snake → camel
+      addedPrice: w.added_price,     // snake → camel
+      priceAlert: w.price_alert,     // snake → camel
+      alertEnabled: w.alert_enabled, // snake → camel
+    }))
+
+    return NextResponse.json(mapped)
   } catch (err: any) {
     console.error('[/api/watchlist] Error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -48,11 +59,11 @@ export async function POST(request: NextRequest) {
         {
           user_id: user.id,
           symbol: body.symbol,
-          company_name: body.company_name || null,
-          added_date: body.added_date,
-          added_price: body.added_price || null,
-          price_alert: body.price_alert || null,
-          alert_enabled: body.alert_enabled || false,
+          company_name: body.companyName || body.company_name || null,  // accept either format
+          added_date: body.addedDate || body.added_date,
+          added_price: body.addedPrice ?? body.added_price ?? null,
+          price_alert: body.priceAlert ?? body.price_alert ?? null,
+          alert_enabled: body.alertEnabled ?? body.alert_enabled ?? false,
         },
       ])
       .select()
@@ -62,7 +73,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json(data?.[0])
+    // Return camelCase too
+    const w = data?.[0]
+    return NextResponse.json(w ? {
+      id: w.id,
+      symbol: w.symbol,
+      companyName: w.company_name,
+      addedDate: w.added_date,
+      addedPrice: w.added_price,
+      priceAlert: w.price_alert,
+      alertEnabled: w.alert_enabled,
+    } : null)
   } catch (err: any) {
     console.error('[/api/watchlist POST] Error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

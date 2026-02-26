@@ -23,7 +23,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json(data || [])
+    // Map snake_case DB columns → camelCase for the frontend
+    const mapped = (data || []).map((t: any) => ({
+      id: t.id,
+      date: t.date,
+      symbol: t.symbol,
+      type: t.type,
+      shares: t.shares,
+      price: t.price,
+      total: t.total,
+      broker: t.broker,
+      fileId: t.file_id,       // snake → camel
+      fees: t.fees,
+      source: t.source,
+    }))
+
+    return NextResponse.json(mapped)
   } catch (err: any) {
     console.error('[/api/transactions] Error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -54,7 +69,7 @@ export async function POST(request: NextRequest) {
           price: body.price,
           total: body.total,
           broker: body.broker || null,
-          file_id: body.file_id || null,
+          file_id: body.fileId || body.file_id || null,  // accept either format
           fees: body.fees || 0,
           source: body.source || 'manual',
         },
@@ -66,7 +81,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json(data?.[0])
+    // Return camelCase too
+    const t = data?.[0]
+    return NextResponse.json(t ? {
+      id: t.id,
+      date: t.date,
+      symbol: t.symbol,
+      type: t.type,
+      shares: t.shares,
+      price: t.price,
+      total: t.total,
+      broker: t.broker,
+      fileId: t.file_id,
+      fees: t.fees,
+      source: t.source,
+    } : null)
   } catch (err: any) {
     console.error('[/api/transactions POST] Error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

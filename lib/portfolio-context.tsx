@@ -313,13 +313,7 @@ interface PortfolioProviderProps {
 }
 
 export function PortfolioProvider({ children }: PortfolioProviderProps) {
-  const [data, setData] = useState<PortfolioContextData>(() => {
-    const cached = getCachedData()
-    if (cached) {
-      return { ...cached, isLoading: false, isFetchingBatch: false }
-    }
-    return INITIAL_STATE
-  })
+  return { ...INITIAL_STATE, isLoading: false }
 
   const calculateCoreData = useCallback(async (silent = false) => {
     if (!silent) {

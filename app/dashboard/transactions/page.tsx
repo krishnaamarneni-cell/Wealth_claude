@@ -119,15 +119,33 @@ export default function TransactionsPage() {
     fees: '0'
   })
 
-  // Load uploaded files from localStorage on mount only
+  // Load uploaded files — try Supabase first, fallback to localStorage
   useEffect(() => {
-    try {
-      const storedFiles = localStorage.getItem('uploadedFiles')
-      if (storedFiles) setUploadedFiles(JSON.parse(storedFiles))
-    } catch (error) {
-      console.error('[transactions-page] Error loading files:', error)
+    const loadFiles = async () => {
+      try {
+        const response = await fetch('/api/uploaded-files')
+        if (response.ok) {
+          const files = await response.json()
+          if (Array.isArray(files) && files.length > 0) {
+            setUploadedFiles(files)
+            localStorage.setItem('uploadedFiles', JSON.stringify(files))
+            return
+          }
+        }
+      } catch (e) {
+        console.warn('[transactions-page] Could not load files from Supabase, using localStorage')
+      }
+      // Fallback to localStorage
+      try {
+        const storedFiles = localStorage.getItem('uploadedFiles')
+        if (storedFiles) setUploadedFiles(JSON.parse(storedFiles))
+      } catch (error) {
+        console.error('[transactions-page] Error loading files:', error)
+      }
     }
+    loadFiles()
   }, [])
+
   // Sync transactions from context (no Supabase call on every page visit)
   useEffect(() => {
     setTransactions(contextTransactions)
@@ -323,25 +341,27 @@ export default function TransactionsPage() {
     }
   }
 
-  const deleteAllData = () => {
+  const deleteAllData = async () => {
     if (!confirm('⚠️ Delete ALL transactions and files? This cannot be undone!')) return
+
+    try {
+      // Delete all transactions from Supabase
+      await fetch('/api/transactions', { method: 'DELETE' })
+      // Delete all file metadata from Supabase
+      await fetch('/api/uploaded-files', { method: 'DELETE' })
+    } catch (e) {
+      console.error('[transactions-page] Error deleting from Supabase:', e)
+    }
 
     localStorage.removeItem('transactions')
     localStorage.removeItem('uploadedFiles')
-
-    // Verify deletion
-    const verifyTx = localStorage.getItem('transactions')
-    const verifyFiles = localStorage.getItem('uploadedFiles')
-    console.log("[v0] ✅ Actually deleted: tx null?", verifyTx === null, "files null?", verifyFiles === null)
 
     setTransactions([])
     setUploadedFiles([])
     setUploadSuccess('✅ All data deleted')
 
-    // 🆕 ADD THESE 2 LINES:
     window.dispatchEvent(new Event('transactionsUpdated'))
     setTimeout(() => window.location.reload(), 500)
-
     setTimeout(() => setUploadSuccess(''), 3000)
   }
 
@@ -1033,7 +1053,8 @@ export default function TransactionsPage() {
       return
     }
 
-    const fileId = Date.now().toString()
+    // Use the fileId already embedded in pendingFile transactions (set during parse)
+    const fileId = pendingFile.data[0]?.fileId || Date.now().toString()
 
     const updatedTransactions = pendingFile.data.map(tx => ({
       ...tx,
@@ -1057,7 +1078,7 @@ export default function TransactionsPage() {
       const freshTransactions = await getTransactionsFromStorage()
       setTransactions(freshTransactions)
 
-      // Save file record to localStorage
+      // Save file record to Supabase + localStorage
       const newFile: UploadedFile = {
         id: fileId,
         name: fileName.trim(),
@@ -1067,6 +1088,17 @@ export default function TransactionsPage() {
       const allFiles = [...uploadedFiles, newFile]
       setUploadedFiles(allFiles)
       localStorage.setItem('uploadedFiles', JSON.stringify(allFiles))
+
+      // Also save to Supabase so it survives logout
+      try {
+        await fetch('/api/uploaded-files', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newFile)
+        })
+      } catch (e) {
+        console.warn('[transactions-page] Could not save file metadata to Supabase:', e)
+      }
 
       setUploadSuccess(`✅ Successfully imported ${updatedTransactions.length} transaction${updatedTransactions.length > 1 ? 's' : ''} from "${fileName}"`)
       window.dispatchEvent(new Event('transactionsUpdated'))

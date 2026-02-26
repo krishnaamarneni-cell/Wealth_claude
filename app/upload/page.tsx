@@ -38,7 +38,7 @@ export default function UploadPage() {
 
   const parseDate = (dateStr: string): string => {
     const trimmed = dateStr.trim()
-    
+
     // Try M/D/YYYY format first
     const slashMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/)
     if (slashMatch) {
@@ -47,12 +47,12 @@ export default function UploadPage() {
       const year = slashMatch[3]
       return `${year}-${month}-${day}`
     }
-    
+
     // Try YYYY-MM-DD format
     if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
       return trimmed.split(' ')[0]
     }
-    
+
     return new Date().toISOString().split('T')[0]
   }
 
@@ -121,13 +121,13 @@ export default function UploadPage() {
     const headers = csvData[0].map(h => h.toLowerCase().trim())
     const rows = csvData.slice(1)
 
-    const dateIdx = headers.findIndex(h => 
+    const dateIdx = headers.findIndex(h =>
       h.includes('activity date') || h.includes('date') || h.includes('time')
     )
-    const typeIdx = headers.findIndex(h => 
+    const typeIdx = headers.findIndex(h =>
       h.includes('trans code') || h.includes('type') || h.includes('action')
     )
-    const symbolIdx = headers.findIndex(h => 
+    const symbolIdx = headers.findIndex(h =>
       h.includes('instrument') || h.includes('symbol') || h.includes('ticker')
     )
     const descriptionIdx = headers.findIndex(h => h.includes('description'))
@@ -179,13 +179,13 @@ export default function UploadPage() {
           }
         } else {
           // For BUY/SELL, try to find quantity and price
-          const sharesIdx = headers.findIndex(h => 
+          const sharesIdx = headers.findIndex(h =>
             h.includes('quantity') || h.includes('shares') || h.includes('qty')
           )
-          const priceIdx = headers.findIndex(h => 
+          const priceIdx = headers.findIndex(h =>
             h.includes('price') && !h.includes('settle')
           )
-          const totalIdx = headers.findIndex(h => 
+          const totalIdx = headers.findIndex(h =>
             h.includes('amount') || h.includes('total') || h.includes('value')
           )
 
@@ -283,8 +283,6 @@ export default function UploadPage() {
 
       // Save to both locations
       saveTransactionsToStorage(allTransactions)
-      localStorage.setItem('transactions', JSON.stringify(allTransactions))
-      localStorage.setItem('portfolio-transactions', JSON.stringify(allTransactions))
 
       // Clear cache
       if (typeof window !== 'undefined' && (window as any).__portfolioCache) {
@@ -323,11 +321,10 @@ export default function UploadPage() {
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
-              isDragging
+            className={`rounded-lg border-2 border-dashed p-8 text-center transition-colors ${isDragging
                 ? 'border-primary bg-primary/5'
                 : 'border-muted-foreground/25 hover:border-muted-foreground/50'
-            }`}
+              }`}
           >
             <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="font-semibold mb-2">Drag and drop your CSV file</h3>

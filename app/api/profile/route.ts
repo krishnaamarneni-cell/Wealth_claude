@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
         currency: profile.currency || 'USD',
         avatar: profile.avatar || '',
         avatar_url: profile.avatar || '',
-      })
+      }, { onConflict: 'user_id' })
 
     if (error) throw error
     return NextResponse.json({ success: true })

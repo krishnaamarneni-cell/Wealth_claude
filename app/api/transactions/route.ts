@@ -57,23 +57,28 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
 
+    // Support both single transaction and bulk array { transactions: [...] }
+    const items: any[] = Array.isArray(body.transactions)
+      ? body.transactions
+      : [body]
+
+    const rows = items.map((tx: any) => ({
+      user_id: user.id,
+      date: tx.date,
+      symbol: tx.symbol,
+      type: tx.type,
+      shares: tx.shares,
+      price: tx.price,
+      total: tx.total,
+      broker: tx.broker || null,
+      file_id: tx.fileId || tx.file_id || null,
+      fees: tx.fees || 0,
+      source: tx.source || 'manual',
+    }))
+
     const { data, error } = await supabase
       .from('transactions')
-      .insert([
-        {
-          user_id: user.id,
-          date: body.date,
-          symbol: body.symbol,
-          type: body.type,
-          shares: body.shares,
-          price: body.price,
-          total: body.total,
-          broker: body.broker || null,
-          file_id: body.fileId || body.file_id || null,  // accept either format
-          fees: body.fees || 0,
-          source: body.source || 'manual',
-        },
-      ])
+      .insert(rows)
       .select()
 
     if (error) {
@@ -81,9 +86,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Return camelCase too
-    const t = data?.[0]
-    return NextResponse.json(t ? {
+    const mapped = (data || []).map((t: any) => ({
       id: t.id,
       date: t.date,
       symbol: t.symbol,
@@ -95,7 +98,9 @@ export async function POST(request: NextRequest) {
       fileId: t.file_id,
       fees: t.fees,
       source: t.source,
-    } : null)
+    }))
+
+    return NextResponse.json(mapped)
   } catch (err: any) {
     console.error('[/api/transactions POST] Error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

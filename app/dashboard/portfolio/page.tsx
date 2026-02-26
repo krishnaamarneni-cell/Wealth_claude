@@ -81,6 +81,7 @@ import {
 import { getTransactionsFromStorage } from "@/lib/transaction-storage"
 import { calculateAndFetchHoldings, type Holding, type Transaction } from "@/lib/holdings-calculator"
 import { usePortfolio } from "@/lib/portfolio-context"
+import { getRebalanceFromStorage, saveScenarioToStorage, saveLastRebalanceDateToStorage, deleteScenarioFromStorage } from "@/lib/rebalance-storage"
 
 const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1']
 const HISTORY_GREEN = '#37c522'
@@ -430,7 +431,7 @@ export default function PortfolioPage() {
     }
   }, [contextHoldings, contextTransactions, contextIsLoading])
 
-  const loadHoldingsData = (contextHoldings: Holding[], contextTransactions: Transaction[]) => {
+  const loadHoldingsData = async (contextHoldings: Holding[], contextTransactions: Transaction[]) => {
     if (!contextHoldings || contextHoldings.length === 0) {
       setHoldings([])
       setIsLoading(contextIsLoading)
@@ -453,16 +454,10 @@ export default function PortfolioPage() {
     }
 
     // Load saved rebalance data
-    const savedLastRebalance = localStorage.getItem('lastRebalanceDate')
-    if (savedLastRebalance) setLastRebalanceDate(savedLastRebalance)
-
-    const savedScenarios = localStorage.getItem('rebalanceScenarios')
-    if (savedScenarios) {
-      try {
-        setScenarios(JSON.parse(savedScenarios))
-      } catch (e) {
-        console.error('Failed to parse scenarios:', e)
-      }
+    const rebalanceData = await getRebalanceFromStorage()
+    if (rebalanceData.lastRebalanceDate) setLastRebalanceDate(rebalanceData.lastRebalanceDate)
+    if (rebalanceData.scenarios && rebalanceData.scenarios.length > 0) {
+      setScenarios(rebalanceData.scenarios)
     }
   }
 

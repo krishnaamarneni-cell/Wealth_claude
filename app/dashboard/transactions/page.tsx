@@ -224,7 +224,7 @@ export default function TransactionsPage() {
     setCurrentPage(1)
   }
 
-  const handleAddTransaction = () => {
+  const handleAddTransaction = async () => {
     const shares = parseFloat(newTransaction.shares) || 0
     const price = parseFloat(newTransaction.price) || 0
     const fees = parseFloat(newTransaction.fees) || 0

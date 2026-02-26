@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { toast } from "sonner"
+import { getProfileFromStorage, saveProfileToStorage } from "@/lib/profile-storage"
 
 const TIMEZONES = [
   "America/New_York",
@@ -59,14 +60,17 @@ export default function ProfilePage() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    const saved = localStorage.getItem("userProfile")
-    if (saved) setProfile(JSON.parse(saved))
+    const loadProfile = async () => {
+      const saved = await getProfileFromStorage()
+      if (saved) setProfile(saved)
+    }
+    loadProfile()
   }, [])
 
   const handleSave = async () => {
     setIsSaving(true)
     await new Promise((r) => setTimeout(r, 600)) // simulate save
-    localStorage.setItem("userProfile", JSON.stringify(profile))
+    await saveProfileToStorage(profile)
     setIsSaving(false)
     toast.success("Profile saved successfully")
   }

@@ -283,8 +283,8 @@ export default function PortfolioChart() {
           </div>
         ) : (
           <>
-            {/* Chart Container */}
-            <div className="w-full h-[300px]">
+            {/* Chart Container with proper dimensions for Recharts */}
+            <div className="w-full h-[300px] overflow-hidden" style={{ minWidth: 0 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
                   data={safeChartData}

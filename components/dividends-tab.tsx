@@ -805,7 +805,7 @@ export default function DividendsTab() {
 
   // Build calculated dividends from transactions
   useEffect(() => {
-    if (!transactions || transactions.length === 0) return
+    if (!transactions || !Array.isArray(transactions) || transactions.length === 0) return
 
     const build = async () => {
       try {
@@ -870,8 +870,10 @@ export default function DividendsTab() {
 
         if (allForecasts.length === 0) {
           console.log('[Dividends] No API dividend data found, using yield-based calculation...')
-          const yieldBasedDivs = buildYieldBasedDividends(transactions, holdings)
-          allForecasts.push(...yieldBasedDivs)
+          if (Array.isArray(transactions) && transactions.length > 0) {
+            const yieldBasedDivs = buildYieldBasedDividends(transactions, holdings)
+            allForecasts.push(...yieldBasedDivs)
+          }
         }
 
         const calcRaw = sessionStorage.getItem("calculated_dividends_from_txn")

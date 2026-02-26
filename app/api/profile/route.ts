@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
         timezone: profile.timezone || 'UTC',
         currency: profile.currency || 'USD',
         avatar: profile.avatar || '',
+        avatar_url: profile.avatar || '',
       })
 
     if (error) throw error

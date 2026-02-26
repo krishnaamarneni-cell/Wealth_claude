@@ -52,6 +52,7 @@ import {
 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { getTransactionsFromStorage } from "@/lib/transaction-storage"
+import { usePortfolio } from "@/lib/portfolio-context"
 
 interface Transaction {
   id: string
@@ -87,7 +88,8 @@ const brokers = [
 ]
 
 export default function TransactionsPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const { transactions: contextTransactions, refresh: contextRefresh } = usePortfolio()
+  const [transactions, setTransactions] = useState<Transaction[]>(contextTransactions)
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [filterType, setFilterType] = useState<string>('all')
@@ -117,44 +119,19 @@ export default function TransactionsPage() {
     fees: '0'
   })
 
-  // Load data from Supabase on mount
+  // Load uploaded files from localStorage on mount only
   useEffect(() => {
-    loadDataFromStorage()
-
-    // Listen for transaction updates (deletion, etc)
-    const handleTransactionsUpdated = async () => {
-      console.log('[transactions-page] Detected transactions updated, reloading...')
-      await loadDataFromStorage()
-    }
-
-    window.addEventListener('transactionsUpdated', handleTransactionsUpdated)
-
-    return () => {
-      window.removeEventListener('transactionsUpdated', handleTransactionsUpdated)
-    }
-  }, [])
-
-  const loadDataFromStorage = async () => {
-    try {
-      // Load transactions from Supabase API (not localStorage)
-      const storedTransactions = await getTransactionsFromStorage()
-      console.log('[transactions-page] Loaded transactions from Supabase:', storedTransactions.length)
-      setTransactions(storedTransactions)
-    } catch (error) {
-      console.error('[transactions-page] Error loading transactions:', error)
-      setTransactions([])
-    }
-
-    // Load uploaded files from localStorage (no Supabase integration yet)
     try {
       const storedFiles = localStorage.getItem('uploadedFiles')
-      if (storedFiles) {
-        setUploadedFiles(JSON.parse(storedFiles))
-      }
+      if (storedFiles) setUploadedFiles(JSON.parse(storedFiles))
     } catch (error) {
       console.error('[transactions-page] Error loading files:', error)
     }
-  }
+  }, [])
+  // Sync transactions from context (no Supabase call on every page visit)
+  useEffect(() => {
+    setTransactions(contextTransactions)
+  }, [contextTransactions])
 
   // FIXED: Sync transactions with uploaded files
   const syncDataWithFiles = () => {
@@ -1165,7 +1142,7 @@ export default function TransactionsPage() {
           <Button
             variant="outline"
             className="gap-2 bg-transparent"
-            onClick={() => window.location.reload()}
+            onClick={() => contextRefresh()}
             disabled={isRefreshing}
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />

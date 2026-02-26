@@ -32,11 +32,11 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { 
-  Upload, 
-  Plus, 
-  FileSpreadsheet, 
-  ArrowUpRight, 
+import {
+  Upload,
+  Plus,
+  FileSpreadsheet,
+  ArrowUpRight,
   ArrowDownLeft,
   Trash2,
   Filter,
@@ -98,7 +98,7 @@ export default function TransactionsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(25)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  
+
   const [searchSymbol, setSearchSymbol] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -106,7 +106,7 @@ export default function TransactionsPage() {
   const [maxPrice, setMaxPrice] = useState('')
   const [minTotal, setMinTotal] = useState('')
   const [maxTotal, setMaxTotal] = useState('')
-  
+
   const [newTransaction, setNewTransaction] = useState({
     date: new Date().toISOString().split('T')[0],
     type: 'BUY' as Transaction['type'],
@@ -159,18 +159,18 @@ export default function TransactionsPage() {
   // FIXED: Sync transactions with uploaded files
   const syncDataWithFiles = () => {
     setIsRefreshing(true)
-    
+
     // Get current file IDs
     const validFileIds = uploadedFiles.map(f => f.id)
     validFileIds.push('manual') // Keep manually added transactions
-    
+
     // Filter transactions to only keep those from existing files
     const syncedTransactions = transactions.filter(tx => validFileIds.includes(tx.fileId))
-    
+
     // Update state and save to storage
     setTransactions(syncedTransactions)
     saveTransactionsToStorage(syncedTransactions)
-    
+
     setUploadSuccess('✅ Data synced successfully')
     setTimeout(() => {
       setUploadSuccess('')
@@ -201,15 +201,15 @@ export default function TransactionsPage() {
   const totalInvested = transactions
     .filter(t => t.type === 'BUY')
     .reduce((sum, t) => sum + t.total, 0)
-  
+
   const totalSold = transactions
     .filter(t => t.type === 'SELL')
     .reduce((sum, t) => sum + t.total, 0)
-  
+
   const totalDividends = transactions
     .filter(t => t.type === 'DIVIDEND')
     .reduce((sum, t) => sum + t.total, 0)
-  
+
   const uniqueSymbols = new Set(transactions.filter(t => t.type === 'BUY' || t.type === 'SELL').map(t => t.symbol))
 
   const clearFilters = () => {
@@ -228,7 +228,7 @@ export default function TransactionsPage() {
     const shares = parseFloat(newTransaction.shares) || 0
     const price = parseFloat(newTransaction.price) || 0
     const fees = parseFloat(newTransaction.fees) || 0
-    
+
     const transaction: Transaction = {
       id: Date.now().toString(),
       date: newTransaction.date,
@@ -241,15 +241,15 @@ export default function TransactionsPage() {
       fees,
       fileId: 'manual'
     }
-    
+
     const updatedTransactions = [transaction, ...transactions]
     setTransactions(updatedTransactions)
-    
+
     // Save to storage with verification
     saveTransactionsToStorage(updatedTransactions)
     const verifyTransaction = localStorage.getItem('portfolio-transactions')
     console.log("[v0] ✅ Actually saved transaction:", verifyTransaction !== null, "| Total count:", JSON.parse(verifyTransaction || '[]').length)
-    
+
     setIsAddDialogOpen(false)
     setNewTransaction({
       date: new Date().toISOString().split('T')[0],
@@ -283,7 +283,7 @@ export default function TransactionsPage() {
       // Then reload all transactions from Supabase
       const updatedTransactions = await getTransactionsFromStorage()
       setTransactions(updatedTransactions)
-      
+
       setUploadSuccess('✅ Transaction deleted')
       setTimeout(() => setUploadSuccess(''), 3000)
 
@@ -336,27 +336,27 @@ export default function TransactionsPage() {
     }
   }
 
-const deleteAllData = () => {
-  if (!confirm('⚠️ Delete ALL transactions and files? This cannot be undone!')) return
+  const deleteAllData = () => {
+    if (!confirm('⚠️ Delete ALL transactions and files? This cannot be undone!')) return
 
-  localStorage.removeItem('transactions')
-  localStorage.removeItem('uploadedFiles')
-  
-  // Verify deletion
-  const verifyTx = localStorage.getItem('transactions')
-  const verifyFiles = localStorage.getItem('uploadedFiles')
-  console.log("[v0] ✅ Actually deleted: tx null?", verifyTx === null, "files null?", verifyFiles === null)
-  
-  setTransactions([])
-  setUploadedFiles([])
-  setUploadSuccess('✅ All data deleted')
-  
-  // 🆕 ADD THESE 2 LINES:
-  window.dispatchEvent(new Event('transactionsUpdated'))
-  setTimeout(() => window.location.reload(), 500)
-  
-  setTimeout(() => setUploadSuccess(''), 3000)
-}
+    localStorage.removeItem('transactions')
+    localStorage.removeItem('uploadedFiles')
+
+    // Verify deletion
+    const verifyTx = localStorage.getItem('transactions')
+    const verifyFiles = localStorage.getItem('uploadedFiles')
+    console.log("[v0] ✅ Actually deleted: tx null?", verifyTx === null, "files null?", verifyFiles === null)
+
+    setTransactions([])
+    setUploadedFiles([])
+    setUploadSuccess('✅ All data deleted')
+
+    // 🆕 ADD THESE 2 LINES:
+    window.dispatchEvent(new Event('transactionsUpdated'))
+    setTimeout(() => window.location.reload(), 500)
+
+    setTimeout(() => setUploadSuccess(''), 3000)
+  }
 
 
   const parseCSV = (text: string): string[][] => {
@@ -364,11 +364,11 @@ const deleteAllData = () => {
     let current = ''
     let inQuotes = false
     let row: string[] = []
-    
+
     for (let i = 0; i < text.length; i++) {
       const char = text[i]
       const nextChar = text[i + 1]
-      
+
       if (char === '"') {
         if (inQuotes && nextChar === '"') {
           current += '"'
@@ -395,23 +395,23 @@ const deleteAllData = () => {
         current += char
       }
     }
-    
+
     if (current || row.length > 0) {
       row.push(current.trim())
       if (row.some(cell => cell)) {
         result.push(row)
       }
     }
-    
+
     return result
   }
 
   const parseDate = (dateStr: string): string => {
     if (!dateStr) return new Date().toISOString().split('T')[0]
-    
+
     try {
       let date = new Date(dateStr)
-      
+
       if (isNaN(date.getTime())) {
         const parts = dateStr.split(/[\/\-]/)
         if (parts.length === 3) {
@@ -421,11 +421,11 @@ const deleteAllData = () => {
           date = new Date(year, month, day)
         }
       }
-      
+
       if (isNaN(date.getTime())) {
         return new Date().toISOString().split('T')[0]
       }
-      
+
       return date.toISOString().split('T')[0]
     } catch {
       return new Date().toISOString().split('T')[0]
@@ -434,16 +434,16 @@ const deleteAllData = () => {
 
   const detectTransactionType = (typeStr: string, description?: string): Transaction['type'] => {
     const normalized = typeStr.toUpperCase().trim()
-    
+
     if (normalized === 'BUY' || normalized.includes('PURCHASE') || normalized === 'BTO' || normalized === 'Buy') return 'BUY'
     if (normalized === 'SELL' || normalized.includes('SALE') || normalized === 'STC' || normalized === 'Sell') return 'SELL'
     if (normalized === 'CDIV' || normalized.includes('DIV') || normalized.includes('DIVIDEND')) return 'DIVIDEND'
-    if (normalized === 'DCF' || normalized.includes('DEPOSIT') || normalized.includes('CASH IN') || 
-        (description && description.toLowerCase().includes('transfer'))) return 'DEPOSIT'
+    if (normalized === 'DCF' || normalized.includes('DEPOSIT') || normalized.includes('CASH IN') ||
+      (description && description.toLowerCase().includes('transfer'))) return 'DEPOSIT'
     if (normalized.includes('WITHDRAWAL') || normalized.includes('CASH OUT')) return 'WITHDRAWAL'
     if (normalized === 'SLIP' || normalized.includes('STOCK LENDING')) return 'DIVIDEND'
     if (normalized === 'INT' || normalized.includes('INTEREST')) return 'DIVIDEND'
-    
+
     return 'BUY'
   }
 
@@ -455,28 +455,28 @@ const deleteAllData = () => {
     const headers = csvData[0].map(h => h.toLowerCase().trim())
     const rows = csvData.slice(1)
 
-    const dateIdx = headers.findIndex(h => 
+    const dateIdx = headers.findIndex(h =>
       h.includes('activity date') || h.includes('date') || h.includes('time')
     )
-    const typeIdx = headers.findIndex(h => 
+    const typeIdx = headers.findIndex(h =>
       h.includes('trans code') || h.includes('type') || h.includes('action') || h.includes('transaction')
     )
-    const symbolIdx = headers.findIndex(h => 
+    const symbolIdx = headers.findIndex(h =>
       h.includes('instrument') || h.includes('symbol') || h.includes('ticker') || h.includes('stock')
     )
     const descriptionIdx = headers.findIndex(h =>
       h.includes('description')
     )
-    const sharesIdx = headers.findIndex(h => 
+    const sharesIdx = headers.findIndex(h =>
       h.includes('quantity') || h.includes('shares') || h.includes('qty')
     )
-    const priceIdx = headers.findIndex(h => 
+    const priceIdx = headers.findIndex(h =>
       h.includes('price') && !h.includes('settle')
     )
-    const totalIdx = headers.findIndex(h => 
+    const totalIdx = headers.findIndex(h =>
       h.includes('amount') || h.includes('total') || h.includes('value')
     )
-    const feesIdx = headers.findIndex(h => 
+    const feesIdx = headers.findIndex(h =>
       h.includes('fee') || h.includes('commission')
     )
 
@@ -495,54 +495,54 @@ const deleteAllData = () => {
         const rawType = typeIdx !== -1 ? (row[typeIdx] || '') : ''
         const rawDescription = descriptionIdx !== -1 ? (row[descriptionIdx] || '') : ''
         const rawSymbol = symbolIdx !== -1 ? (row[symbolIdx] || '').toUpperCase().trim() : ''
-        
+
         if (!rawDate || !rawType.trim()) continue
-        
+
         const date = parseDate(rawDate)
         const type = detectTransactionType(rawType, rawDescription)
-        
+
         let symbol = rawSymbol
-        
+
         if (!symbol && rawDescription) {
           const symbolMatch = rawDescription.match(/^([A-Z]{1,5})\s/)
           if (symbolMatch) {
             symbol = symbolMatch[1]
           }
         }
-        
+
         if (!symbol && (type === 'DIVIDEND' || type === 'DEPOSIT' || type === 'WITHDRAWAL')) {
           symbol = '-'
         }
-        
+
         if (!symbol && (type === 'BUY' || type === 'SELL')) {
           continue
         }
-        
+
         const rawShares = sharesIdx !== -1 ? (row[sharesIdx] || '0') : '0'
         const rawPrice = priceIdx !== -1 ? (row[priceIdx] || '0') : '0'
         const rawTotal = totalIdx !== -1 ? (row[totalIdx] || '0') : '0'
-        
+
         let shares = parseFloat(rawShares.replace(/[^0-9.-]/g, '') || '0')
         let price = parseFloat(rawPrice.replace(/[$,()]/g, '').replace(/\(/g, '-') || '0')
-        
+
         // Special handling for CDIV (dividend) - extract from description and column 9
         if (type === 'DIVIDEND') {
           // Get description from column 5 (index 4)
           const description = row[4] || ''
-          
+
           // Extract shares from description: "29.729528 shares"
           const sharesMatch = description.match(/(\d+\.?\d*)\s+shares/)
           if (sharesMatch) {
             shares = parseFloat(sharesMatch[1])
           }
-          
+
           // Extract rate from description: "at 0.235"
           const rateMatch = description.match(/at\s+(\d+\.?\d*)/)
           if (rateMatch) {
             price = parseFloat(rateMatch[1])
           }
         }
-        
+
         // Special handling for CDIV (dividend) - use column 9 (index 8) directly
         let total = 0
         if (type === 'DIVIDEND' && row.length > 8 && row[8]) {
@@ -552,11 +552,11 @@ const deleteAllData = () => {
           // Otherwise use the normal total column
           total = parseFloat(rawTotal.replace(/[$,()]/g, '').replace(/^\(/, '-').replace(/\)$/, '') || '0')
         }
-        
+
         if (rawTotal.includes('(') && rawTotal.includes(')') && !rawTotal.startsWith('-')) {
           total = -Math.abs(total)
         }
-        
+
         const fees = feesIdx !== -1 ? parseFloat(row[feesIdx]?.replace(/[$,]/g, '') || '0') : 0
 
         if (total === 0 && shares > 0 && price > 0) {
@@ -565,7 +565,7 @@ const deleteAllData = () => {
             total = -Math.abs(total)
           }
         }
-        
+
         const displayTotal = Math.abs(total)
 
         parsedTransactions.push({
@@ -584,7 +584,7 @@ const deleteAllData = () => {
         console.error('Error parsing row:', err)
       }
     }
-    
+
     return parsedTransactions
   }
 
@@ -598,17 +598,17 @@ const deleteAllData = () => {
     try {
       const text = await file.text()
       const csvData = parseCSV(text)
-      
+
       const fileId = Date.now().toString() + Math.random().toString(36).substr(2, 9)
       const newTransactions = parseTransactionsFromCSV(csvData, fileId)
-      
+
       if (newTransactions.length === 0) {
         throw new Error('No valid transactions found in the file')
       }
 
       setPendingFile({ data: newTransactions, originalName: file.name })
       setFileName(file.name.replace('.csv', ''))
-      
+
       event.target.value = ''
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to parse file'
@@ -624,7 +624,7 @@ const deleteAllData = () => {
     }
 
     const fileId = Date.now().toString()
-    
+
     const updatedTransactions = pendingFile.data.map(tx => ({
       ...tx,
       broker: fileName.trim(),
@@ -633,7 +633,7 @@ const deleteAllData = () => {
 
     const allTransactions = [...updatedTransactions, ...transactions]
     setTransactions(allTransactions)
-    
+
     // Save to storage with verification
     saveTransactionsToStorage(allTransactions)
     const verifyTransaction = localStorage.getItem('portfolio-transactions')
@@ -647,7 +647,7 @@ const deleteAllData = () => {
     }
     const allFiles = [...uploadedFiles, newFile]
     setUploadedFiles(allFiles)
-    
+
     // Actually save to localStorage with verification
     const filesData = JSON.stringify(allFiles)
     localStorage.setItem('uploadedFiles', filesData)
@@ -657,7 +657,7 @@ const deleteAllData = () => {
     setUploadSuccess(`✅ Successfully imported ${updatedTransactions.length} transaction${updatedTransactions.length > 1 ? 's' : ''} from "${fileName}"`)
     setPendingFile(null)
     setFileName('')
-    
+
     setTimeout(() => setUploadSuccess(''), 5000)
   }
 
@@ -712,16 +712,16 @@ const deleteAllData = () => {
   ].filter(Boolean).length
 
   return (
-    <div className="p-4 lg:p-6 space-y-6">
+    <div className="p-4 lg:p-6 space-y-6 overflow-y-auto min-h-0 flex-1">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Transactions</h1>
           <p className="text-muted-foreground">Manage and track all your investment transactions</p>
         </div>
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            className="gap-2 bg-transparent" 
+          <Button
+            variant="outline"
+            className="gap-2 bg-transparent"
             onClick={() => window.location.reload()}
             disabled={isRefreshing}
           >
@@ -879,7 +879,7 @@ const deleteAllData = () => {
           </AlertDescription>
         </Alert>
       )}
-      
+
       {uploadError && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
@@ -962,7 +962,7 @@ const deleteAllData = () => {
                 <TabsTrigger value="upload">File Upload</TabsTrigger>
                 <TabsTrigger value="brokers">Broker Templates</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="upload">
                 <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
                   <Upload className="h-10 w-10 mx-auto mb-4 text-muted-foreground" />
@@ -989,7 +989,7 @@ const deleteAllData = () => {
                   </div>
                 </div>
               </TabsContent>
-              
+
               <TabsContent value="brokers">
                 <div className="grid sm:grid-cols-2 gap-4">
                   {['Robinhood', 'Fidelity', 'Charles Schwab', 'Webull'].map((broker) => (
@@ -1221,7 +1221,7 @@ const deleteAllData = () => {
                 {filteredTransactions.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                      {transactions.length === 0 
+                      {transactions.length === 0
                         ? 'No transactions found. Add your first transaction or import from a broker.'
                         : 'No transactions match your filters. Try adjusting your search criteria.'}
                     </TableCell>
@@ -1266,7 +1266,7 @@ const deleteAllData = () => {
               </TableBody>
             </Table>
           </div>
-          
+
           {/* Pagination */}
           {filteredTransactions.length > 0 && (
             <div className="flex items-center justify-between mt-4">

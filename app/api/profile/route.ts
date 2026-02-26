@@ -55,10 +55,13 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' })
 
-    if (error) throw error
+    if (error) {
+      console.error('[/api/profile] Supabase upsert error:', JSON.stringify(error))
+      return NextResponse.json({ error: error.message, details: error }, { status: 500 })
+    }
     return NextResponse.json({ success: true })
-  } catch (err) {
+  } catch (err: any) {
     console.error('[/api/profile] POST error:', err)
-    return NextResponse.json({ error: 'Failed' }, { status: 500 })
+    return NextResponse.json({ error: err.message || 'Failed' }, { status: 500 })
   }
 }

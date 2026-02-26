@@ -307,7 +307,8 @@ export default function PerformancePage() {
   ]
 
   // ── Loading ───────────────────────────────────
-  if (isLoading) {
+  // Only show loading spinner on true first load with no data at all
+  if (isLoading && !holdings?.length) {
     return (
       <div className="p-4 lg:p-6 flex items-center justify-center py-12">
         <RefreshCw className="animate-spin h-8 w-8 text-primary mr-3" />
@@ -316,8 +317,7 @@ export default function PerformancePage() {
     )
   }
 
-  // ── Empty ─────────────────────────────────────
-  if (!holdings?.length) {
+  if (!isLoading && !holdings?.length) {
     return (
       <div className="p-4 lg:p-6 space-y-6">
         <div>
@@ -452,10 +452,10 @@ export default function PerformancePage() {
                               onClick={() => toggleBenchmark(b.id)}
                               disabled={!canSelect}
                               className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${isSelected
-                                  ? "border-primary bg-primary/10"
-                                  : canSelect
-                                    ? "border-border hover:border-primary/50"
-                                    : "border-border opacity-50 cursor-not-allowed"
+                                ? "border-primary bg-primary/10"
+                                : canSelect
+                                  ? "border-border hover:border-primary/50"
+                                  : "border-border opacity-50 cursor-not-allowed"
                                 }`}
                             >
                               <div className="flex items-center gap-3">

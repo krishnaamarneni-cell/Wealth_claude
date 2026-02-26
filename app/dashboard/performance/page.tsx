@@ -169,7 +169,6 @@ const calcFactors = (holdings: Holding[]) => {
 
 export default function PerformancePage() {
   const { benchmarks, holdings, transactions, isLoading, isRefreshing, refresh } = usePortfolio()
-  console.log('[Performance] isLoading:', isLoading, 'holdings:', holdings?.length, 'transactions:', transactions?.length)
   const [lastUpdate, setLastUpdate] = useState(new Date())
   const [selectedTab, setSelectedTab] = useState("overview")
   const [selectedBenchmarks, setSelectedBenchmarks] = useState<string[]>(["sp500", "nasdaq"])
@@ -308,8 +307,7 @@ export default function PerformancePage() {
   ]
 
   // ── Loading ───────────────────────────────────
-  // Only show loading spinner on true first load with no data at all
-  if (isLoading && !holdings?.length) {
+  if (isLoading) {
     return (
       <div className="p-4 lg:p-6 flex items-center justify-center py-12">
         <RefreshCw className="animate-spin h-8 w-8 text-primary mr-3" />
@@ -318,7 +316,8 @@ export default function PerformancePage() {
     )
   }
 
-  if (!isLoading && !holdings?.length) {
+  // ── Empty ─────────────────────────────────────
+  if (!holdings?.length) {
     return (
       <div className="p-4 lg:p-6 space-y-6">
         <div>

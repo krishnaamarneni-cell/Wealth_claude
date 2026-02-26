@@ -51,7 +51,7 @@ import {
   RefreshCw
 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { saveTransactionsToStorage, getTransactionsFromStorage } from "@/lib/transaction-storage"
+import { getTransactionsFromStorage } from "@/lib/transaction-storage"
 
 interface Transaction {
   id: string
@@ -242,13 +242,23 @@ export default function TransactionsPage() {
       fileId: 'manual'
     }
 
-    const updatedTransactions = [transaction, ...transactions]
-    setTransactions(updatedTransactions)
+    try {
+      const response = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transactions: [transaction] })
+      })
 
-    // Save to storage with verification
-    saveTransactionsToStorage(updatedTransactions)
-    const verifyTransaction = localStorage.getItem('portfolio-transactions')
-    console.log("[v0] ✅ Actually saved transaction:", verifyTransaction !== null, "| Total count:", JSON.parse(verifyTransaction || '[]').length)
+      if (!response.ok) throw new Error('Failed to save')
+
+      const freshTransactions = await getTransactionsFromStorage()
+      setTransactions(freshTransactions)
+      window.dispatchEvent(new Event('transactionsUpdated'))
+    } catch (error) {
+      console.error('[transactions-page] Error adding transaction:', error)
+      setUploadError('Failed to add transaction')
+      setTimeout(() => setUploadError(''), 3000)
+    }
 
     setIsAddDialogOpen(false)
     setNewTransaction({
@@ -617,7 +627,7 @@ export default function TransactionsPage() {
     }
   }
 
-  const confirmFileUpload = () => {
+  const confirmFileUpload = async () => {
     if (!pendingFile || !fileName.trim()) {
       alert('Please enter a file name')
       return
@@ -631,33 +641,43 @@ export default function TransactionsPage() {
       fileId: fileId
     }))
 
-    const allTransactions = [...updatedTransactions, ...transactions]
-    setTransactions(allTransactions)
+    try {
+      // Save each transaction to Supabase via API
+      const response = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transactions: updatedTransactions })
+      })
 
-    // Save to storage with verification
-    saveTransactionsToStorage(allTransactions)
-    const verifyTransaction = localStorage.getItem('portfolio-transactions')
-    console.log("[v0] ✅ Actually saved:", verifyTransaction !== null, "| Count:", JSON.parse(verifyTransaction || '[]').length)
+      if (!response.ok) {
+        throw new Error('Failed to save transactions to server')
+      }
 
-    const newFile: UploadedFile = {
-      id: fileId,
-      name: fileName.trim(),
-      uploadDate: new Date().toISOString(),
-      transactionCount: updatedTransactions.length
+      // Reload all transactions from Supabase
+      const freshTransactions = await getTransactionsFromStorage()
+      setTransactions(freshTransactions)
+
+      // Save file record to localStorage
+      const newFile: UploadedFile = {
+        id: fileId,
+        name: fileName.trim(),
+        uploadDate: new Date().toISOString(),
+        transactionCount: updatedTransactions.length
+      }
+      const allFiles = [...uploadedFiles, newFile]
+      setUploadedFiles(allFiles)
+      localStorage.setItem('uploadedFiles', JSON.stringify(allFiles))
+
+      setUploadSuccess(`✅ Successfully imported ${updatedTransactions.length} transaction${updatedTransactions.length > 1 ? 's' : ''} from "${fileName}"`)
+      window.dispatchEvent(new Event('transactionsUpdated'))
+    } catch (error) {
+      console.error('[transactions-page] Error saving transactions:', error)
+      setUploadError('Failed to save transactions. Please try again.')
+      setTimeout(() => setUploadError(''), 5000)
     }
-    const allFiles = [...uploadedFiles, newFile]
-    setUploadedFiles(allFiles)
 
-    // Actually save to localStorage with verification
-    const filesData = JSON.stringify(allFiles)
-    localStorage.setItem('uploadedFiles', filesData)
-    const verifyFiles = localStorage.getItem('uploadedFiles')
-    console.log("[v0] ✅ Actually saved files:", verifyFiles !== null, "| Count:", JSON.parse(verifyFiles || '[]').length)
-
-    setUploadSuccess(`✅ Successfully imported ${updatedTransactions.length} transaction${updatedTransactions.length > 1 ? 's' : ''} from "${fileName}"`)
     setPendingFile(null)
     setFileName('')
-
     setTimeout(() => setUploadSuccess(''), 5000)
   }
 

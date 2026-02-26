@@ -70,7 +70,7 @@ interface CachedHoldingsData {
   transactionCount: number
 }
 
-const getCachedHoldings = (): CachedHoldingsData | null => {
+const getCachedHoldings = async (): Promise<CachedHoldingsData | null> => {
   try {
     const cached = localStorage.getItem(CACHE_KEY)
     if (!cached) return null
@@ -78,7 +78,7 @@ const getCachedHoldings = (): CachedHoldingsData | null => {
     const data: CachedHoldingsData = JSON.parse(cached)
     const age = Date.now() - data.timestamp
 
-    const currentTxns = getTransactionsFromStorage()
+    const currentTxns = await getTransactionsFromStorage()
     if (data.transactionCount !== currentTxns.length) {
       console.log('🔄 Transaction count changed, cache invalid')
       localStorage.removeItem(CACHE_KEY)
@@ -396,7 +396,7 @@ export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
 
   useEffect(() => {
     const loadData = async () => {
-      const cached = getCachedHoldings()
+      const cached = await getCachedHoldings()
 
       if (cached) {
         console.log('⚡ Showing cached holdings instantly')
@@ -520,13 +520,13 @@ export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
   const loadWatchlist = async () => {
     try {
       const items = await getWatchlistFromStorage()
-      
+
       if (!Array.isArray(items)) {
         console.error('[holdings-tab] getWatchlistFromStorage did not return an array:', items)
         setWatchlist([])
         return
       }
-      
+
       setWatchlist(items)
 
       if (items.length === 0) return
@@ -611,10 +611,10 @@ export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
       const quotes = await getBatchStockQuotes([result.symbol])
       const currentPrice = quotes[result.symbol]?.price || 0
 
-      addToWatchlist(result.symbol, result.name, currentPrice)
+      await addToWatchlist(result.symbol, result.name, currentPrice)
 
       // Reload watchlist
-      const updatedWatchlist = getWatchlistFromStorage()
+      const updatedWatchlist = await getWatchlistFromStorage()
       setWatchlist(updatedWatchlist)
 
       // Fetch price for new stock immediately
@@ -648,10 +648,10 @@ export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
         return
       }
 
-      addToWatchlist(ticker, quote.name || ticker, quote.price)
+      await addToWatchlist(ticker, quote.name || ticker, quote.price)
 
       // Reload watchlist
-      const updatedWatchlist = getWatchlistFromStorage()
+      const updatedWatchlist = await getWatchlistFromStorage()
       setWatchlist(updatedWatchlist)
       await fetchWatchlistPrices(updatedWatchlist)
 
@@ -717,62 +717,62 @@ export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
       txns.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       setTransactions(txns)
 
-    const brokers = Array.from(new Set(txns.map((t) => t.broker).filter(Boolean)))
-    setAvailableBrokers(brokers)
+      const brokers = Array.from(new Set(txns.map((t) => t.broker).filter(Boolean)))
+      setAvailableBrokers(brokers)
 
-    const { holdingsToFetch, symbolsWithSplits } = calculateHoldings(txns)
+      const { holdingsToFetch, symbolsWithSplits } = calculateHoldings(txns)
 
-    if (!silent) {
-      console.log("✅ Holdings to fetch:", holdingsToFetch.length)
-      console.log("✅ Symbols with splits:", symbolsWithSplits)
-    }
-
-    if (holdingsToFetch.length === 0) {
       if (!silent) {
-        console.log("❌ No active holdings found!")
+        console.log("✅ Holdings to fetch:", holdingsToFetch.length)
+        console.log("✅ Symbols with splits:", symbolsWithSplits)
       }
+
+      if (holdingsToFetch.length === 0) {
+        if (!silent) {
+          console.log("❌ No active holdings found!")
+        }
+        setIsLoading(false)
+        return
+      }
+
+      const holdingsWithPriceData = await buildHoldingsWithPrices(holdingsToFetch, symbolsWithSplits)
+
+      if (!silent) {
+        console.log("✅ Holdings with prices:", holdingsWithPriceData.length)
+      }
+
+      const totalPortfolioValue = holdingsWithPriceData.reduce((sum, h) => sum + h.marketValue, 0)
+
+      if (totalPortfolioValue > 0) {
+        holdingsWithPriceData.forEach((holding) => {
+          holding.allocation = (holding.marketValue / totalPortfolioValue) * 100
+        })
+      }
+
+      const storedHigh = localStorage.getItem("allTimeHigh")
+      const currentHigh = storedHigh ? parseFloat(storedHigh) : totalPortfolioValue
+
+      if (totalPortfolioValue > currentHigh) {
+        setAllTimeHigh(totalPortfolioValue)
+        localStorage.setItem("allTimeHigh", totalPortfolioValue.toString())
+      } else {
+        setAllTimeHigh(currentHigh)
+      }
+
+      holdingsWithPriceData.sort((a, b) => b.allocation - a.allocation)
+
+      setAllHoldings(holdingsWithPriceData)
       setIsLoading(false)
-      return
-    }
 
-    const holdingsWithPriceData = await buildHoldingsWithPrices(holdingsToFetch, symbolsWithSplits)
-
-    if (!silent) {
-      console.log("✅ Holdings with prices:", holdingsWithPriceData.length)
-    }
-
-    const totalPortfolioValue = holdingsWithPriceData.reduce((sum, h) => sum + h.marketValue, 0)
-
-    if (totalPortfolioValue > 0) {
-      holdingsWithPriceData.forEach((holding) => {
-        holding.allocation = (holding.marketValue / totalPortfolioValue) * 100
+      setCachedHoldings({
+        holdings: holdingsWithPriceData,
+        transactions: txns,
+        brokers,
+        allTimeHigh: currentHigh,
+        timestamp: Date.now(),
+      }).catch(err => {
+        console.error('[holdings-tab] Error caching holdings:', err)
       })
-    }
-
-    const storedHigh = localStorage.getItem("allTimeHigh")
-    const currentHigh = storedHigh ? parseFloat(storedHigh) : totalPortfolioValue
-
-    if (totalPortfolioValue > currentHigh) {
-      setAllTimeHigh(totalPortfolioValue)
-      localStorage.setItem("allTimeHigh", totalPortfolioValue.toString())
-    } else {
-      setAllTimeHigh(currentHigh)
-    }
-
-    holdingsWithPriceData.sort((a, b) => b.allocation - a.allocation)
-
-    setAllHoldings(holdingsWithPriceData)
-    setIsLoading(false)
-
-    setCachedHoldings({
-      holdings: holdingsWithPriceData,
-      transactions: txns,
-      brokers,
-      allTimeHigh: currentHigh,
-      timestamp: Date.now(),
-    }).catch(err => {
-      console.error('[holdings-tab] Error caching holdings:', err)
-    })
     } catch (error) {
       console.error('[holdings-tab] Error loading holdings:', error)
       setAllHoldings([])

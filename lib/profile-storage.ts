@@ -1,6 +1,4 @@
-import type { User } from '@supabase/supabase-js'
-
-interface ProfileData {
+export interface ProfileData {
   fullName: string
   username: string
   email: string
@@ -11,49 +9,53 @@ interface ProfileData {
   memberSince: string
 }
 
-const PROFILE_STORAGE_KEY = 'userProfile'
-
-/**
- * Get profile from storage (localStorage for now)
- * TODO: Replace with Supabase when /api/profile endpoint is created
- */
-export async function getProfileFromStorage(): Promise<ProfileData | null> {
-  try {
-    const saved = localStorage.getItem(PROFILE_STORAGE_KEY)
-    if (!saved) return null
-    
-    const profile = JSON.parse(saved) as ProfileData
-    console.log('[profile-storage] Loaded profile from storage')
-    return profile
-  } catch (error) {
-    console.error('[profile-storage] Error loading profile:', error)
-    return null
-  }
+const DEFAULT_PROFILE: ProfileData = {
+  fullName: '',
+  username: '',
+  email: '',
+  bio: '',
+  timezone: 'UTC',
+  currency: 'USD',
+  avatar: '',
+  memberSince: new Date().toISOString(),
 }
 
-/**
- * Save profile to storage (localStorage for now)
- * TODO: Replace with Supabase when /api/profile endpoint is created
- */
-export async function saveProfileToStorage(profile: ProfileData): Promise<void> {
+export async function getProfileFromStorage(): Promise<ProfileData> {
   try {
-    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile))
-    console.log('[profile-storage] Saved profile to storage')
-  } catch (error) {
-    console.error('[profile-storage] Error saving profile:', error)
-    throw error
+    const response = await fetch('/api/profile')
+    if (response.ok) {
+      const data = await response.json()
+      if (data) {
+        localStorage.setItem('userProfile', JSON.stringify(data))
+        return data
+      }
+    }
+  } catch (e) {
+    console.warn('[profile-storage] Could not load from Supabase, using localStorage')
   }
+
+  try {
+    const stored = localStorage.getItem('userProfile')
+    if (stored) return JSON.parse(stored)
+  } catch (e) {
+    console.error('[profile-storage] Error reading localStorage:', e)
+  }
+
+  return DEFAULT_PROFILE
 }
 
-/**
- * Clear profile from storage
- */
-export async function clearProfileFromStorage(): Promise<void> {
+export async function saveProfileToStorage(profile: ProfileData): Promise<boolean> {
+  localStorage.setItem('userProfile', JSON.stringify(profile))
+
   try {
-    localStorage.removeItem(PROFILE_STORAGE_KEY)
-    console.log('[profile-storage] Cleared profile from storage')
-  } catch (error) {
-    console.error('[profile-storage] Error clearing profile:', error)
-    throw error
+    const response = await fetch('/api/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(profile),
+    })
+    return response.ok
+  } catch (e) {
+    console.error('[profile-storage] Error saving to Supabase:', e)
+    return false
   }
 }

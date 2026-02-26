@@ -31,15 +31,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Subscription failed' }, { status: 500 })
     }
 
-    // Send React email ✅
-    await resend.emails.send({
-      from: 'WealthClaude <noreply@wealthclaude.com>',
-      to: [email],
-      subject: "You're in — WealthClaude Daily Brief 🎯",
-      react: React.createElement(WelcomeEmail, { email }),
-    })
+    // ✅ Email wrapped in try/catch — never breaks subscription
+    try {
+      await resend.emails.send({
+        from: 'WealthClaude <noreply@wealthclaude.com>',
+        to: [email],
+        subject: "You're in — WealthClaude Daily Brief 🎯",
+        react: React.createElement(WelcomeEmail, { email }),
+      })
+      console.log('✅ Email sent to:', email)
+    } catch (emailError) {
+      console.error('❌ Email error:', emailError)
+      // Don't return error — subscription already saved!
+    }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true }) // ✅ Always returns success
   } catch (error) {
     console.error('Subscribe error:', error)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })

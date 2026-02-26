@@ -10,8 +10,8 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from('blog_posts')
-      .select('id, slug, title, excerpt, image_url, tags, content, status')
-      .eq('status', 'published')
+      .select('id, slug, title, excerpt, image_url, tags, content, published, published_at')
+      .eq('published', true)
       .order('published_at', { ascending: false })
       .limit(50)
 

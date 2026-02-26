@@ -39,7 +39,7 @@ import {
   BarChart3,
   X
 } from "lucide-react"
-import { getTransactionsFromStorage } from "@/lib/transaction-storage"
+import { usePortfolio } from "@/lib/portfolio-context"
 import type { Transaction, Holding } from "@/lib/holdings-calculator"
 import { calculateHoldings, buildHoldingsWithPrices } from "@/lib/holdings-calculator"
 import {
@@ -70,7 +70,7 @@ interface CachedHoldingsData {
   transactionCount: number
 }
 
-const getCachedHoldings = async (): Promise<CachedHoldingsData | null> => {
+const getCachedHoldings = async (transactionsCount: number): Promise<CachedHoldingsData | null> => {
   try {
     const cached = localStorage.getItem(CACHE_KEY)
     if (!cached) return null
@@ -78,12 +78,23 @@ const getCachedHoldings = async (): Promise<CachedHoldingsData | null> => {
     const data: CachedHoldingsData = JSON.parse(cached)
     const age = Date.now() - data.timestamp
 
-    const currentTxns = await getTransactionsFromStorage()
-    if (data.transactionCount !== currentTxns.length) {
+    // Check if transaction count matches (passed from context now)
+    if (data.transactionCount !== transactionsCount) {
       console.log('🔄 Transaction count changed, cache invalid')
       localStorage.removeItem(CACHE_KEY)
       return null
     }
+
+    if (age < CACHE_DURATION) {
+      console.log(`⚡ Using cached holdings (${Math.floor(age / 1000 / 60)} min old)`)
+      return data
+    }
+    return null
+  } catch (error) {
+    console.error('Error getting cached holdings:', error)
+    return null
+  }
+}
 
     if (age < CACHE_DURATION) {
       console.log(`⚡ Using cached holdings (${Math.floor(age / 1000 / 60)} min old)`)
@@ -98,12 +109,11 @@ const getCachedHoldings = async (): Promise<CachedHoldingsData | null> => {
   }
 }
 
-const setCachedHoldings = async (data: Omit<CachedHoldingsData, 'transactionCount'>): Promise<void> => {
+const setCachedHoldings = (data: Omit<CachedHoldingsData, 'transactionCount'>, transactionsCount: number): void => {
   try {
-    const txns = await getTransactionsFromStorage()
     const cacheData: CachedHoldingsData = {
       ...data,
-      transactionCount: txns.length
+      transactionCount: transactionsCount
     }
     localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData))
     console.log('✓ Holdings cached')
@@ -367,6 +377,9 @@ interface HoldingsTabProps {
 }
 
 export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
+  // Get transactions from Portfolio context (already loaded and cached)
+  const { transactions: contextTransactions } = usePortfolio()
+  
   const [holdings, setHoldings] = useState<Holding[]>([])
   const [allHoldings, setAllHoldings] = useState<Holding[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -396,7 +409,7 @@ export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
 
   useEffect(() => {
     const loadData = async () => {
-      const cached = await getCachedHoldings()
+      const cached = await getCachedHoldings(contextTransactions?.length || 0)
 
       if (cached) {
         console.log('⚡ Showing cached holdings instantly')
@@ -425,7 +438,7 @@ export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
     }, 3 * 60 * 60 * 1000)
 
     return () => clearInterval(refreshInterval)
-  }, [])
+  }, [contextTransactions?.length])
 
   useEffect(() => {
     let filteredHoldings: Holding[]
@@ -687,10 +700,11 @@ export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
         setIsLoading(true)
       }
 
-      const txns: Transaction[] = await getTransactionsFromStorage()
+      // Use transactions from context (already loaded via usePortfolio)
+      const txns: Transaction[] = transactions
 
       if (!Array.isArray(txns)) {
-        console.error('[holdings-tab] getTransactionsFromStorage did not return an array:', txns)
+        console.error('[holdings-tab] transactions from context is not an array:', txns)
         setAllHoldings([])
         setTransactions([])
         setIsLoading(false)
@@ -768,9 +782,7 @@ export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
         brokers,
         allTimeHigh: currentHigh,
         timestamp: Date.now(),
-      }).catch(err => {
-        console.error('[holdings-tab] Error caching holdings:', err)
-      })
+      }, txns.length)
     } catch (error) {
       console.error('[holdings-tab] Error loading holdings:', error)
       setAllHoldings([])

@@ -665,11 +665,9 @@ export default function HoldingsTab({ onStockClick }: HoldingsTabProps) {
   }
 
   const handleRemoveFromWatchlist = async (symbol: string) => {
-    if (confirm(`Remove ${symbol} from watchlist?`)) {
-      await removeFromWatchlist(symbol)
-      const updated = await getWatchlistFromStorage()
-      setWatchlist(updated)
-    }
+    await removeFromWatchlist(symbol)
+    const updated = await getWatchlistFromStorage()
+    setWatchlist(updated)
   }
 
   const watchlistWithPrices = watchlist && Array.isArray(watchlist) ? watchlist.map(item => ({

@@ -797,70 +797,76 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
 
       if (cached) {
         setData({ ...cached, isLoading: false, isFetchingBatch: false })
-        // Only do background refresh once per app session, not every page switch
-        if (!hasInitialized.current) {
+
+        // Check cache age — skip background refresh if under 30 minutes
+        const cacheAge = Date.now() - (JSON.parse(localStorage.getItem(CACHE_KEY) || '{}').timestamp || 0)
+        const cacheAgeMinutes = cacheAge / 1000 / 60
+
+        if (!hasInitialized.current && cacheAgeMinutes > 30) {
           hasInitialized.current = true
-          console.log('[Portfolio] ⚡ Cache hit — background refresh once')
+          console.log(`[Portfolio] ⚡ Cache ${Math.floor(cacheAgeMinutes)}min old — background refresh`)
           await calculateCoreData(true)
         } else {
-          console.log('[Portfolio] ⚡ Cache hit — skipping background refresh (already initialized)')
+          hasInitialized.current = true
+          console.log(`[Portfolio] ⚡ Cache ${Math.floor(cacheAgeMinutes)}min old — skipping refresh`)
         }
       } else {
         hasInitialized.current = true
         await calculateCoreData(false)
       }
     }
-
-    loadData().catch(err => {
-      console.error('[Portfolio] Error loading data:', err)
-      setData(prev => ({ ...prev, isLoading: false }))
-    })
-
-    const refreshInterval = setInterval(() => {
-      console.log('[Portfolio] 🔄 Auto-refresh (3 hours)...')
-      calculateCoreData(true).catch(err => {
-        console.error('[Portfolio] Error during auto-refresh:', err)
-      })
-    }, CACHE_DURATION)
-
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'transactions' || e.key === 'uploadedFiles') {
-        console.log('[Portfolio] 🔄 Storage changed, recalculating...')
-        calculateCoreData(false).catch(err => {
-          console.error('[Portfolio] Error during storage change:', err)
-        })
-      }
-    }
-
-    const handleLocalUpdate = () => {
-      console.log('[Portfolio] 🔄 Local update, recalculating...')
-      calculateCoreData(false).catch(err => {
-        console.error('[Portfolio] Error during local update:', err)
-      })
-    }
-
-    window.addEventListener('storage', handleStorageChange)
-    window.addEventListener('transactionsUpdated', handleLocalUpdate)
-
-    return () => {
-      clearInterval(refreshInterval)
-      window.removeEventListener('storage', handleStorageChange)
-      window.removeEventListener('transactionsUpdated', handleLocalUpdate)
-    }
-  }, []) // Empty deps - only runs once on mount, not on page switches
-
-  const refresh = useCallback(async () => {
-    console.log('[Portfolio] 🔄 Manual refresh')
-    setData((prev) => ({ ...prev, isRefreshing: true }))
-    await calculateCoreData(false)
-    setData((prev) => ({ ...prev, isRefreshing: false }))
-  }, [calculateCoreData])
-
-  const value: PortfolioContextData = {
-    ...data,
-    refresh,
-    smartRefresh,
   }
 
-  return <PortfolioContext.Provider value={value}>{children}</PortfolioContext.Provider>
+    loadData().catch(err => {
+    console.error('[Portfolio] Error loading data:', err)
+    setData(prev => ({ ...prev, isLoading: false }))
+  })
+
+    const refreshInterval = setInterval(() => {
+    console.log('[Portfolio] 🔄 Auto-refresh (3 hours)...')
+    calculateCoreData(true).catch(err => {
+      console.error('[Portfolio] Error during auto-refresh:', err)
+    })
+  }, CACHE_DURATION)
+
+  const handleStorageChange = (e: StorageEvent) => {
+    if (e.key === 'transactions' || e.key === 'uploadedFiles') {
+      console.log('[Portfolio] 🔄 Storage changed, recalculating...')
+      calculateCoreData(false).catch(err => {
+        console.error('[Portfolio] Error during storage change:', err)
+      })
+    }
+  }
+
+  const handleLocalUpdate = () => {
+    console.log('[Portfolio] 🔄 Local update, recalculating...')
+    calculateCoreData(false).catch(err => {
+      console.error('[Portfolio] Error during local update:', err)
+    })
+  }
+
+  window.addEventListener('storage', handleStorageChange)
+  window.addEventListener('transactionsUpdated', handleLocalUpdate)
+
+  return () => {
+    clearInterval(refreshInterval)
+    window.removeEventListener('storage', handleStorageChange)
+    window.removeEventListener('transactionsUpdated', handleLocalUpdate)
+  }
+}, []) // Empty deps - only runs once on mount, not on page switches
+
+const refresh = useCallback(async () => {
+  console.log('[Portfolio] 🔄 Manual refresh')
+  setData((prev) => ({ ...prev, isRefreshing: true }))
+  await calculateCoreData(false)
+  setData((prev) => ({ ...prev, isRefreshing: false }))
+}, [calculateCoreData])
+
+const value: PortfolioContextData = {
+  ...data,
+  refresh,
+  smartRefresh,
+}
+
+return <PortfolioContext.Provider value={value}>{children}</PortfolioContext.Provider>
 }

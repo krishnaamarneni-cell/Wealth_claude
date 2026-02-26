@@ -80,6 +80,7 @@ import {
 } from "lucide-react"
 import { getTransactionsFromStorage } from "@/lib/transaction-storage"
 import { calculateAndFetchHoldings, type Holding, type Transaction } from "@/lib/holdings-calculator"
+import { usePortfolio } from "@/lib/portfolio-context"
 
 const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1']
 const HISTORY_GREEN = '#37c522'
@@ -420,91 +421,31 @@ export default function PortfolioPage() {
   const [investmentStrategy, setInvestmentStrategy] = useState<'lowToHigh' | 'closeToTarget'>('lowToHigh')
   const [rebalanceChartView, setRebalanceChartView] = useState<RebalanceChartView>('stock')
 
+  const { holdings: contextHoldings, transactions: contextTransactions, isLoading: contextIsLoading } = usePortfolio()
+
   // Load data
   useEffect(() => {
-    const loadData = async () => {
-      const cached = await getCached()
-
-      if (cached) {
-        setHoldings(cached.holdings)
-        setIsLoading(false)
-        loadHoldingsData(true)
-      } else {
-        await loadHoldingsData(false)
-      }
+    if (!contextIsLoading && contextHoldings && contextHoldings.length > 0) {
+      loadHoldingsData(contextHoldings, contextTransactions || [])
     }
+  }, [contextHoldings, contextTransactions, contextIsLoading])
 
-    loadData()
-  }, [])
-
-  const loadHoldingsData = async (silent = false) => {
-    if (!silent) setIsLoading(true)
-
-    const txns = await getTransactionsFromStorage()
-
-    if (txns.length === 0) {
+  const loadHoldingsData = (contextHoldings: Holding[], contextTransactions: Transaction[]) => {
+    if (!contextHoldings || contextHoldings.length === 0) {
       setHoldings([])
-      setIsLoading(false)
+      setIsLoading(contextIsLoading)
       return
     }
 
-    const holdingsWithPrices = await calculateAndFetchHoldings(txns)
-    const consolidatedMap = new Map<string, Holding>()
+    // Use context holdings directly and set loading state
+    setHoldings(contextHoldings)
+    setIsLoading(contextIsLoading)
 
-    holdingsWithPrices.forEach((holding) => {
-      if (consolidatedMap.has(holding.symbol)) {
-        const existing = consolidatedMap.get(holding.symbol)!
-        const combinedShares = existing.shares + holding.shares
-        const combinedCost = existing.totalCost + holding.totalCost
-        const combinedMarketValue = existing.marketValue + holding.marketValue
-        const combinedTodayGain = existing.todayGain + holding.todayGain
-        const combinedTotalGain = existing.totalGain + holding.totalGain
-
-        const avgCost = combinedCost / combinedShares
-        const currentPrice = combinedMarketValue / combinedShares
-        const yesterdayValue = combinedMarketValue - combinedTodayGain
-        const todayGainPercent = yesterdayValue > 0 ? (combinedTodayGain / yesterdayValue) * 100 : 0
-        const totalGainPercent = combinedCost > 0 ? (combinedTotalGain / combinedCost) * 100 : 0
-
-        consolidatedMap.set(holding.symbol, {
-          ...existing,
-          shares: combinedShares,
-          totalCost: combinedCost,
-          avgCost: avgCost,
-          marketValue: combinedMarketValue,
-          currentPrice: currentPrice,
-          todayGain: combinedTodayGain,
-          todayGainPercent: isFinite(todayGainPercent) ? todayGainPercent : 0,
-          totalGain: combinedTotalGain,
-          totalGainPercent: isFinite(totalGainPercent) ? totalGainPercent : 0,
-          allocation: 0,
-          broker: "All Accounts",
-          splitAdjusted: existing.splitAdjusted || holding.splitAdjusted,
-        })
-      } else {
-        consolidatedMap.set(holding.symbol, { ...holding })
-      }
-    })
-
-    const consolidatedHoldings = Array.from(consolidatedMap.values())
-    const totalPortfolioValue = consolidatedHoldings.reduce((sum, h) => sum + h.marketValue, 0)
-
-    consolidatedHoldings.forEach(holding => {
-      holding.allocation = totalPortfolioValue > 0 ? (holding.marketValue / totalPortfolioValue) * 100 : 0
-    })
-
-    // ✅ FILTER: Remove holdings < 0.20%
-    const filteredHoldings = consolidatedHoldings.filter(h => h.allocation >= 0.20)
-
-    filteredHoldings.sort((a, b) => b.allocation - a.allocation)
-    setHoldings(filteredHoldings)
-    setIsLoading(false)
-
-    // Initialize equal-weight targets
+    // Initialize equal-weight targets if not already set
     if (targetAllocations.length === 0) {
-      const equalWeight = 100 / filteredHoldings.length
+      const equalWeight = 100 / contextHoldings.length
       setTargetAllocations(
-        filteredHoldings.map(h => ({
+        contextHoldings.map(h => ({
           symbol: h.symbol,
           targetPercent: equalWeight
         }))
@@ -523,20 +464,12 @@ export default function PortfolioPage() {
         console.error('Failed to parse scenarios:', e)
       }
     }
-
-    setCache({
-      holdings: filteredHoldings,
-      timestamp: Date.now()
-    }).catch(err => {
-      console.error('[portfolio] Cache save error:', err)
-    })
   }
 
   const handleRefresh = () => {
     setIsRefreshing(true)
-    loadHoldingsData(false).finally(() => {
-      setTimeout(() => setIsRefreshing(false), 1000)
-    })
+    // Refresh will happen automatically when context data updates
+    setTimeout(() => setIsRefreshing(false), 1000)
   }
 
   // Calculate allocation history

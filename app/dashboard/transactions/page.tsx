@@ -1087,15 +1087,16 @@ export default function TransactionsPage() {
       }
       const allFiles = [...uploadedFiles, newFile]
       setUploadedFiles(allFiles)
-      localStorage.setItem('uploadedFiles', JSON.stringify(allFiles))
 
-      // Also save to Supabase so it survives logout
+      // Save to Supabase first
       try {
         await fetch('/api/uploaded-files', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newFile)
         })
+        // Only update localStorage if Supabase succeeded
+        localStorage.setItem('uploadedFiles', JSON.stringify(allFiles))
       } catch (e) {
         console.warn('[transactions-page] Could not save file metadata to Supabase:', e)
       }

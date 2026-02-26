@@ -627,7 +627,13 @@ export default function PortfolioPage() {
     return months
   }
 
-  const allocationHistory = useMemo(() => calculateAllocationHistory(), [holdings])
+  const [allocationHistory, setAllocationHistory] = useState<AllocationHistory[]>([])
+
+  useEffect(() => {
+    if (holdings.length > 0) {
+      calculateAllocationHistory().then(setAllocationHistory)
+    }
+  }, [holdings])
 
   const allocationChanges = useMemo(() => {
     if (allocationHistory.length < 2) return { increases: [], decreases: [] }

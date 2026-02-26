@@ -1,9 +1,3 @@
-/**
- * Transaction Storage Utility - PHASE 3 MIGRATION
- * NOW: Reads ONLY from Supabase API
- * NO fallback to localStorage to prevent data conflicts during migration
- */
-
 import { isSupabaseStorageEnabled } from './feature-flags'
 
 export interface Transaction {
@@ -22,58 +16,59 @@ export interface Transaction {
 
 const STANDARD_KEY = 'portfolio-transactions'
 
-/**
- * Get transactions from storage
- * PHASE 3: Only reads from Supabase API - NO localStorage fallback
- * This prevents mixing old (712 items) with new data during migration
- */
+// ── In-memory cache ──────────────────────────────────────────
+// Survives page navigation (context stays mounted), cleared on mutations
+let memoryCache: Transaction[] | null = null
+let memoryCacheTime: number = 0
+const MEMORY_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
+export function invalidateTransactionCache(): void {
+  memoryCache = null
+  memoryCacheTime = 0
+  console.log('[transaction-storage] 🗑️ In-memory cache invalidated')
+}
+
 export async function getTransactionsFromStorage(): Promise<Transaction[]> {
   if (typeof window === 'undefined') return []
 
+  // Return in-memory cache if fresh
+  if (memoryCache && (Date.now() - memoryCacheTime) < MEMORY_CACHE_TTL) {
+    console.log('[transaction-storage] ⚡ Using in-memory cache:', memoryCache.length, 'transactions')
+    return memoryCache
+  }
+
   try {
     console.log('[transaction-storage] Fetching from Supabase API...')
-    const response = await fetch('/api/transactions', { cache: 'no-store' })
+    const response = await fetch('/api/transactions')
 
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`)
-    }
+    if (!response.ok) throw new Error(`API error: ${response.status}`)
 
     const data = await response.json()
-    
     if (!Array.isArray(data)) {
       console.error('[transaction-storage] Invalid API response format')
       return []
     }
+
+    // Store in memory cache
+    memoryCache = data
+    memoryCacheTime = Date.now()
 
     console.log('[transaction-storage] ✅ Loaded from Supabase:', data.length, 'transactions')
     logTransactionTypes(data)
     return data
   } catch (err) {
     console.error('[transaction-storage] Error fetching from Supabase:', err)
-    // Return empty array instead of falling back to localStorage
-    return []
+    return memoryCache || [] // Fall back to stale cache if available
   }
 }
 
-/**
- * Save transactions to storage
- * PHASE 3: Saves to Supabase API
- * Also updates localStorage cache for offline support
- */
 export async function saveTransactionsToStorage(transactions: Transaction[]): Promise<boolean> {
   if (typeof window === 'undefined') return false
 
-  let savedToSupabase = false
-
-  // SAVE TO SUPABASE
   try {
     console.log('[transaction-storage] Saving to Supabase...')
     const lastTransaction = transactions[transactions.length - 1]
-    
-    if (!lastTransaction) {
-      console.error('[transaction-storage] No transaction to save')
-      return false
-    }
+    if (!lastTransaction) return false
 
     const response = await fetch('/api/transactions', {
       method: 'POST',
@@ -83,28 +78,23 @@ export async function saveTransactionsToStorage(transactions: Transaction[]): Pr
 
     if (response.ok) {
       console.log('[transaction-storage] ✅ Saved to Supabase')
-      savedToSupabase = true
+      invalidateTransactionCache()
       clearAllCaches()
+      return true
     } else {
       console.error('[transaction-storage] Supabase save failed:', response.status)
+      return false
     }
   } catch (err) {
     console.error('[transaction-storage] Supabase save error:', err)
     return false
   }
-
-  return savedToSupabase
 }
 
-/**
- * Delete transaction from storage
- * PHASE 3: Deletes from Supabase only
- */
 export async function deleteTransactionFromStorage(transactionId: string): Promise<boolean> {
   if (typeof window === 'undefined') return false
 
   try {
-    console.log('[transaction-storage] Deleting transaction from Supabase:', transactionId)
     const response = await fetch(`/api/transactions/${transactionId}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -112,6 +102,7 @@ export async function deleteTransactionFromStorage(transactionId: string): Promi
 
     if (response.ok) {
       console.log('[transaction-storage] ✅ Deleted from Supabase')
+      invalidateTransactionCache()
       clearAllCaches()
       return true
     } else {
@@ -124,22 +115,14 @@ export async function deleteTransactionFromStorage(transactionId: string): Promi
   }
 }
 
-/**
- * Clear transactions - clears Supabase data only
- */
 export function clearTransactionsFromStorage(): void {
   if (typeof window === 'undefined') return
-
-  console.log('[transaction-storage] Clearing cache (Supabase data remains)')
+  invalidateTransactionCache()
   clearAllCaches()
 }
 
-/**
- * Clear all page caches when transactions change
- */
 export function clearAllCaches(): void {
   if (typeof window === 'undefined') return
-
   try {
     localStorage.removeItem('holdingsPageCache')
     localStorage.removeItem('dataInspectorCache')
@@ -152,14 +135,8 @@ export function clearAllCaches(): void {
   }
 }
 
-/**
- * Helper: Log transaction types for debugging
- */
 function logTransactionTypes(transactions: Transaction[]): void {
   const types: Record<string, number> = {}
-  transactions.forEach((t) => {
-    types[t.type] = (types[t.type] || 0) + 1
-  })
+  transactions.forEach(t => { types[t.type] = (types[t.type] || 0) + 1 })
   console.log('[transaction-storage] Transaction types:', types)
 }
-

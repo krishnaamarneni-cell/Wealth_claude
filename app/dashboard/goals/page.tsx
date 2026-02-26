@@ -172,10 +172,10 @@ function calculateDebtPayoffSchedule(debts: Debt[], strategy: PayoffStrategy, ex
 
 export default function GoalsPage() {
   const portfolioContext = usePortfolio()
-  
+
   // Tab state
   const [activeTab, setActiveTab] = useState('goals')
-  
+
   // Goal Tracker State
   const [contributionType, setContributionType] = useState<"monthly" | "yearly">("monthly")
   const [baseContributionAmount, setBaseContributionAmount] = useState(500)
@@ -183,7 +183,7 @@ export default function GoalsPage() {
   const [expectedReturn, setExpectedReturn] = useState(8)
   const [currentSavings, setCurrentSavings] = useState(0)
   const [includePortfolio, setIncludePortfolio] = useState(true)
-  
+
   // Edit states
   const [isEditingGoal, setIsEditingGoal] = useState(false)
   const [isEditingContribution, setIsEditingContribution] = useState(false)
@@ -234,12 +234,12 @@ export default function GoalsPage() {
     : 0
 
   // Goal calculations
-  const totalCurrentValue = includePortfolio 
+  const totalCurrentValue = includePortfolio
     ? portfolioValue + currentSavings + totalAssetsValue
     : currentSavings + totalAssetsValue
   const progressPercent = targetValue > 0 ? (totalCurrentValue / targetValue) * 100 : 0
   const remainingAmount = Math.max(0, targetValue - totalCurrentValue)
-  
+
   let monthsToGoal = 0
   const monthlyContribution = contributionType === "monthly" ? baseContributionAmount : baseContributionAmount / 12
   if (monthlyContribution > 0) {
@@ -260,17 +260,17 @@ export default function GoalsPage() {
       monthsToGoal = Math.ceil(remainingAmount / monthlyContribution)
     }
   }
-  
+
   const completionDate = new Date()
   completionDate.setMonth(completionDate.getMonth() + monthsToGoal)
   const projectedCompletion = formatDateShort(completionDate)
 
   const blendedReturn = totalCurrentValue > 0
     ? (
-        (portfolioValue * expectedReturn) + 
-        (currentSavings * 0) + 
-        (totalAssetsValue * weightedAssetReturn)
-      ) / totalCurrentValue
+      (portfolioValue * expectedReturn) +
+      (currentSavings * 0) +
+      (totalAssetsValue * weightedAssetReturn)
+    ) / totalCurrentValue
     : expectedReturn
 
   const projectionData = generateProjectionData(totalCurrentValue, monthlyContribution, blendedReturn, targetValue)
@@ -364,22 +364,22 @@ export default function GoalsPage() {
       alert("Maximum 10 assets allowed")
       return
     }
-    
+
     const value = Number(newAssetValue)
     const returnRate = Number(newAssetReturn)
-    
+
     if (!newAssetName || value <= 0 || returnRate < 0 || returnRate > 100) {
       alert("Please enter valid asset details")
       return
     }
-    
+
     const asset: Asset = {
       id: Date.now().toString(),
       name: newAssetName,
       value: value,
       expectedReturn: returnRate
     }
-    
+
     setAssets([...assets, asset])
     setNewAssetName("")
     setNewAssetValue("")
@@ -468,7 +468,7 @@ export default function GoalsPage() {
   // ==================== RENDER ====================
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 lg:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Goals & Finance</h1>
         <p className="text-muted-foreground">Track your financial goals, debts, and overall financial health</p>
@@ -505,15 +505,13 @@ export default function GoalsPage() {
                     <span className="text-xs text-muted-foreground">Include Portfolio</span>
                     <button
                       onClick={() => setIncludePortfolio(!includePortfolio)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        includePortfolio ? 'bg-primary' : 'bg-gray-600'
-                      }`}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${includePortfolio ? 'bg-primary' : 'bg-gray-600'
+                        }`}
                       aria-label="Toggle portfolio inclusion"
                     >
                       <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          includePortfolio ? 'translate-x-6' : 'translate-x-1'
-                        }`}
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${includePortfolio ? 'translate-x-6' : 'translate-x-1'
+                          }`}
                       />
                     </button>
                     <span className={`text-xs font-medium ${includePortfolio ? 'text-primary' : 'text-muted-foreground'}`}>
@@ -573,7 +571,7 @@ export default function GoalsPage() {
                   <div className="text-xs text-muted-foreground">
                     {includePortfolio ? (
                       <>
-                        Portfolio: {formatCurrency(portfolioValue)} + 
+                        Portfolio: {formatCurrency(portfolioValue)} +
                         Savings: {formatCurrency(currentSavings)}
                         {totalAssetsValue > 0 && <> + Assets: {formatCurrency(totalAssetsValue)}</>}
                       </>
@@ -589,9 +587,8 @@ export default function GoalsPage() {
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
-                <div className={`rounded-lg border border-border p-4 ${
-                  includePortfolio ? 'bg-secondary/50' : 'bg-secondary/20 opacity-50'
-                }`}>
+                <div className={`rounded-lg border border-border p-4 ${includePortfolio ? 'bg-secondary/50' : 'bg-secondary/20 opacity-50'
+                  }`}>
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <TrendingUp className="h-4 w-4" />
@@ -678,21 +675,19 @@ export default function GoalsPage() {
                     <div className="flex gap-1 rounded-md bg-secondary p-1">
                       <button
                         onClick={() => setContributionType("monthly")}
-                        className={`px-1.5 py-0.5 text-xs rounded transition-colors ${
-                          contributionType === "monthly"
+                        className={`px-1.5 py-0.5 text-xs rounded transition-colors ${contributionType === "monthly"
                             ? "bg-primary text-primary-foreground"
                             : "text-muted-foreground hover:text-foreground"
-                        }`}
+                          }`}
                       >
                         Mo.
                       </button>
                       <button
                         onClick={() => setContributionType("yearly")}
-                        className={`px-1.5 py-0.5 text-xs rounded transition-colors ${
-                          contributionType === "yearly"
+                        className={`px-1.5 py-0.5 text-xs rounded transition-colors ${contributionType === "yearly"
                             ? "bg-primary text-primary-foreground"
                             : "text-muted-foreground hover:text-foreground"
-                        }`}
+                          }`}
                       >
                         Yr.
                       </button>
@@ -883,7 +878,7 @@ export default function GoalsPage() {
                       </button>
                     </div>
                   ))}
-                  
+
                   {totalAssetsValue > 0 && (
                     <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 mt-4">
                       <div className="flex items-center justify-between">
@@ -1065,9 +1060,8 @@ export default function GoalsPage() {
                   return (
                     <div key={milestone} className="flex items-center gap-4">
                       <div
-                        className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                          achieved ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
-                        }`}
+                        className={`flex h-10 w-10 items-center justify-center rounded-full ${achieved ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+                          }`}
                       >
                         {achieved ? (
                           <CheckCircle2 className="h-5 w-5" />
@@ -1168,12 +1162,12 @@ export default function GoalsPage() {
                       type="text"
                       placeholder="Debt name (e.g., Chase Sapphire)"
                       value={newDebt.name}
-                      onChange={(e) => setNewDebt({...newDebt, name: e.target.value})}
+                      onChange={(e) => setNewDebt({ ...newDebt, name: e.target.value })}
                       className="rounded border border-border bg-secondary px-3 py-2 text-sm"
                     />
                     <select
                       value={newDebt.type}
-                      onChange={(e) => setNewDebt({...newDebt, type: e.target.value as Debt['type']})}
+                      onChange={(e) => setNewDebt({ ...newDebt, type: e.target.value as Debt['type'] })}
                       className="rounded border border-border bg-secondary px-3 py-2 text-sm"
                     >
                       <option value="Credit Card">Credit Card</option>
@@ -1187,14 +1181,14 @@ export default function GoalsPage() {
                       type="number"
                       placeholder="Balance ($)"
                       value={newDebt.balance || ''}
-                      onChange={(e) => setNewDebt({...newDebt, balance: Number(e.target.value)})}
+                      onChange={(e) => setNewDebt({ ...newDebt, balance: Number(e.target.value) })}
                       className="rounded border border-border bg-secondary px-3 py-2 text-sm"
                     />
                     <input
                       type="number"
                       placeholder="APR (%)"
                       value={newDebt.apr || ''}
-                      onChange={(e) => setNewDebt({...newDebt, apr: Number(e.target.value)})}
+                      onChange={(e) => setNewDebt({ ...newDebt, apr: Number(e.target.value) })}
                       step="0.01"
                       className="rounded border border-border bg-secondary px-3 py-2 text-sm"
                     />
@@ -1202,21 +1196,21 @@ export default function GoalsPage() {
                       type="number"
                       placeholder="Monthly payment ($)"
                       value={newDebt.monthlyPayment || ''}
-                      onChange={(e) => setNewDebt({...newDebt, monthlyPayment: Number(e.target.value)})}
+                      onChange={(e) => setNewDebt({ ...newDebt, monthlyPayment: Number(e.target.value) })}
                       className="rounded border border-border bg-secondary px-3 py-2 text-sm"
                     />
                     <input
                       type="number"
                       placeholder="Minimum payment ($)"
                       value={newDebt.minimumPayment || ''}
-                      onChange={(e) => setNewDebt({...newDebt, minimumPayment: Number(e.target.value)})}
+                      onChange={(e) => setNewDebt({ ...newDebt, minimumPayment: Number(e.target.value) })}
                       className="rounded border border-border bg-secondary px-3 py-2 text-sm"
                     />
                     <input
                       type="number"
                       placeholder="Loan term (months, optional)"
                       value={newDebt.loanTerm || ''}
-                      onChange={(e) => setNewDebt({...newDebt, loanTerm: e.target.value ? Number(e.target.value) : undefined})}
+                      onChange={(e) => setNewDebt({ ...newDebt, loanTerm: e.target.value ? Number(e.target.value) : undefined })}
                       className="rounded border border-border bg-secondary px-3 py-2 text-sm"
                     />
                   </div>
@@ -1258,7 +1252,7 @@ export default function GoalsPage() {
                   {debts.sort((a, b) => b.apr - a.apr).map((debt) => {
                     const monthlyInterest = calculateMonthlyInterest(debt)
                     const annualInterest = calculateAnnualInterest(debt)
-                    
+
                     return (
                       <div key={debt.id} className="rounded-lg border border-border bg-secondary/30 p-4">
                         <div className="flex items-start justify-between">
@@ -1268,11 +1262,10 @@ export default function GoalsPage() {
                               <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
                                 {debt.type}
                               </span>
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                                debt.apr > 15 ? 'bg-red-500/20 text-red-500' :
-                                debt.apr > 8 ? 'bg-orange-500/20 text-orange-500' :
-                                'bg-green-500/20 text-green-500'
-                              }`}>
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${debt.apr > 15 ? 'bg-red-500/20 text-red-500' :
+                                  debt.apr > 8 ? 'bg-orange-500/20 text-orange-500' :
+                                    'bg-green-500/20 text-green-500'
+                                }`}>
                                 {debt.apr}% APR
                               </span>
                             </div>
@@ -1334,7 +1327,7 @@ export default function GoalsPage() {
                             cx="50%"
                             cy="50%"
                             labelLine={false}
-                            label={({name, percent}) => `${name}: ${percent.toFixed(1)}%`}
+                            label={({ name, percent }) => `${name}: ${percent.toFixed(1)}%`}
                             outerRadius={100}
                             fill="#8884d8"
                             dataKey="value"
@@ -1357,9 +1350,9 @@ export default function GoalsPage() {
                     <div className="grid grid-cols-2 gap-2 mt-4">
                       {debtPieData.map((item) => (
                         <div key={item.name} className="flex items-center gap-2">
-                          <div 
-                            className="w-3 h-3 rounded-full" 
-                            style={{backgroundColor: DEBT_COLORS[item.name as keyof typeof DEBT_COLORS] || '#6b7280'}}
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: DEBT_COLORS[item.name as keyof typeof DEBT_COLORS] || '#6b7280' }}
                           />
                           <span className="text-xs text-muted-foreground">{item.name}</span>
                         </div>
@@ -1378,15 +1371,15 @@ export default function GoalsPage() {
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={debts.sort((a, b) => calculateAnnualInterest(b) - calculateAnnualInterest(a))}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.5} />
-                          <XAxis 
-                            dataKey="name" 
+                          <XAxis
+                            dataKey="name"
                             fontSize={10}
                             angle={-45}
                             textAnchor="end"
                             height={80}
                             stroke="#9ca3af"
                           />
-                          <YAxis 
+                          <YAxis
                             tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
                             fontSize={12}
                             stroke="#9ca3af"
@@ -1431,21 +1424,19 @@ export default function GoalsPage() {
                       <div className="flex gap-2">
                         <button
                           onClick={() => setPayoffStrategy('avalanche')}
-                          className={`px-3 py-1.5 text-xs rounded transition-colors ${
-                            payoffStrategy === 'avalanche'
+                          className={`px-3 py-1.5 text-xs rounded transition-colors ${payoffStrategy === 'avalanche'
                               ? 'bg-primary text-primary-foreground'
                               : 'bg-secondary text-foreground hover:bg-secondary/80'
-                          }`}
+                            }`}
                         >
                           Avalanche
                         </button>
                         <button
                           onClick={() => setPayoffStrategy('snowball')}
-                          className={`px-3 py-1.5 text-xs rounded transition-colors ${
-                            payoffStrategy === 'snowball'
+                          className={`px-3 py-1.5 text-xs rounded transition-colors ${payoffStrategy === 'snowball'
                               ? 'bg-primary text-primary-foreground'
                               : 'bg-secondary text-foreground hover:bg-secondary/80'
-                          }`}
+                            }`}
                         >
                           Snowball
                         </button>
@@ -1511,9 +1502,9 @@ export default function GoalsPage() {
                         <div>
                           <p className="text-xs text-muted-foreground">Best Method</p>
                           <p className="font-bold text-primary">
-                            {avalancheSchedule[avalancheSchedule.length - 1]?.totalInterestPaid < 
-                             snowballSchedule[snowballSchedule.length - 1]?.totalInterestPaid 
-                              ? 'Avalanche' 
+                            {avalancheSchedule[avalancheSchedule.length - 1]?.totalInterestPaid <
+                              snowballSchedule[snowballSchedule.length - 1]?.totalInterestPaid
+                              ? 'Avalanche'
                               : 'Snowball'}
                           </p>
                         </div>
@@ -1539,7 +1530,7 @@ export default function GoalsPage() {
                       {payoffStrategy === 'avalanche' ? 'Avalanche' : 'Snowball'} Payoff Order:
                     </h4>
                     <div className="space-y-2">
-                      {(payoffStrategy === 'avalanche' 
+                      {(payoffStrategy === 'avalanche'
                         ? [...debts].sort((a, b) => b.apr - a.apr)
                         : [...debts].sort((a, b) => a.balance - b.balance)
                       ).map((debt, index) => (
@@ -1557,11 +1548,10 @@ export default function GoalsPage() {
                               <p className="text-xs text-muted-foreground">Balance</p>
                             </div>
                             <div>
-                              <p className={`font-medium ${
-                                debt.apr > 15 ? 'text-red-500' :
-                                debt.apr > 8 ? 'text-orange-500' :
-                                'text-green-500'
-                              }`}>
+                              <p className={`font-medium ${debt.apr > 15 ? 'text-red-500' :
+                                  debt.apr > 8 ? 'text-orange-500' :
+                                    'text-green-500'
+                                }`}>
                                 {debt.apr}% APR
                               </p>
                               <p className="text-xs text-muted-foreground">
@@ -1592,14 +1582,12 @@ export default function GoalsPage() {
                   <span className="text-sm text-muted-foreground">Include Portfolio</span>
                   <button
                     onClick={() => setIncludePortfolioInOverview(!includePortfolioInOverview)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      includePortfolioInOverview ? 'bg-primary' : 'bg-gray-600'
-                    }`}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${includePortfolioInOverview ? 'bg-primary' : 'bg-gray-600'
+                      }`}
                   >
                     <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        includePortfolioInOverview ? 'translate-x-6' : 'translate-x-1'
-                      }`}
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${includePortfolioInOverview ? 'translate-x-6' : 'translate-x-1'
+                        }`}
                     />
                   </button>
                   <span className={`text-sm font-medium ${includePortfolioInOverview ? 'text-primary' : 'text-muted-foreground'}`}>
@@ -1612,14 +1600,12 @@ export default function GoalsPage() {
                   <button
                     onClick={() => setIncludeDividendsInOverview(!includeDividendsInOverview)}
                     disabled={!includePortfolioInOverview}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      includeDividendsInOverview && includePortfolioInOverview ? 'bg-primary' : 'bg-gray-600'
-                    } ${!includePortfolioInOverview ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${includeDividendsInOverview && includePortfolioInOverview ? 'bg-primary' : 'bg-gray-600'
+                      } ${!includePortfolioInOverview ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        includeDividendsInOverview && includePortfolioInOverview ? 'translate-x-6' : 'translate-x-1'
-                      }`}
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${includeDividendsInOverview && includePortfolioInOverview ? 'translate-x-6' : 'translate-x-1'
+                        }`}
                     />
                   </button>
                   <span className={`text-sm font-medium ${includeDividendsInOverview && includePortfolioInOverview ? 'text-primary' : 'text-muted-foreground'}`}>
@@ -1686,11 +1672,10 @@ export default function GoalsPage() {
                     <p className="text-sm text-muted-foreground">out of 100</p>
                   </div>
                 </div>
-                <p className={`mt-4 text-lg font-semibold ${
-                  healthScore >= 80 ? 'text-green-500' : 
-                  healthScore >= 60 ? 'text-yellow-500' : 
-                  'text-red-500'
-                }`}>
+                <p className={`mt-4 text-lg font-semibold ${healthScore >= 80 ? 'text-green-500' :
+                    healthScore >= 60 ? 'text-yellow-500' :
+                      'text-red-500'
+                  }`}>
                   {healthScore >= 80 ? 'Excellent' : healthScore >= 60 ? 'Good' : healthScore >= 40 ? 'Fair' : 'Needs Improvement'}
                 </p>
               </div>
@@ -1778,11 +1763,10 @@ export default function GoalsPage() {
               <div className="mt-6 rounded-lg border border-border bg-secondary/50 p-4">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-foreground">Net Annual Benefit:</span>
-                  <span className={`text-2xl font-bold ${
-                    (portfolioAnnualReturnDollars + dividendIncome - totalAnnualInterest) >= 0 
-                      ? 'text-green-500' 
+                  <span className={`text-2xl font-bold ${(portfolioAnnualReturnDollars + dividendIncome - totalAnnualInterest) >= 0
+                      ? 'text-green-500'
                       : 'text-red-500'
-                  }`}>
+                    }`}>
                     {(portfolioAnnualReturnDollars + dividendIncome - totalAnnualInterest) >= 0 ? '+' : ''}
                     {formatCurrency(portfolioAnnualReturnDollars + dividendIncome - totalAnnualInterest)}
                   </span>
@@ -1810,90 +1794,86 @@ export default function GoalsPage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Debt-to-Income</span>
-                    <span className={`font-bold ${
-                      debtToIncomeRatio > 50 ? 'text-red-500' :
-                      debtToIncomeRatio > 35 ? 'text-orange-500' :
-                      debtToIncomeRatio > 20 ? 'text-yellow-500' :
-                      'text-green-500'
-                    }`}>
+                    <span className={`font-bold ${debtToIncomeRatio > 50 ? 'text-red-500' :
+                        debtToIncomeRatio > 35 ? 'text-orange-500' :
+                          debtToIncomeRatio > 20 ? 'text-yellow-500' :
+                            'text-green-500'
+                      }`}>
                       {debtToIncomeRatio.toFixed(1)}%
                     </span>
                   </div>
-                  <Progress 
-                    value={Math.min(debtToIncomeRatio, 100)} 
+                  <Progress
+                    value={Math.min(debtToIncomeRatio, 100)}
                     className="h-2"
                   />
                   <p className="text-xs text-muted-foreground">
                     {debtToIncomeRatio < 20 ? '✅ Excellent' :
-                     debtToIncomeRatio < 35 ? '⚠️ Moderate' :
-                     debtToIncomeRatio < 50 ? '❌ High Risk' :
-                     '🚨 Danger'}
+                      debtToIncomeRatio < 35 ? '⚠️ Moderate' :
+                        debtToIncomeRatio < 50 ? '❌ High Risk' :
+                          '🚨 Danger'}
                   </p>
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Debt-to-Asset</span>
-                    <span className={`font-bold ${
-                      debtToAssetRatio > 60 ? 'text-red-500' :
-                      debtToAssetRatio > 30 ? 'text-yellow-500' :
-                      'text-green-500'
-                    }`}>
+                    <span className={`font-bold ${debtToAssetRatio > 60 ? 'text-red-500' :
+                        debtToAssetRatio > 30 ? 'text-yellow-500' :
+                          'text-green-500'
+                      }`}>
                       {debtToAssetRatio.toFixed(1)}%
                     </span>
                   </div>
-                  <Progress 
-                    value={Math.min(debtToAssetRatio, 100)} 
+                  <Progress
+                    value={Math.min(debtToAssetRatio, 100)}
                     className="h-2"
                   />
                   <p className="text-xs text-muted-foreground">
                     {debtToAssetRatio < 30 ? '✅ Good' :
-                     debtToAssetRatio < 60 ? '⚠️ Moderate' :
-                     '❌ High'}
+                      debtToAssetRatio < 60 ? '⚠️ Moderate' :
+                        '❌ High'}
                   </p>
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Emergency Fund</span>
-                    <span className={`font-bold ${
-                      emergencyFundMonths < 3 ? 'text-red-500' :
-                      emergencyFundMonths < 6 ? 'text-yellow-500' :
-                      'text-green-500'
-                    }`}>
+                    <span className={`font-bold ${emergencyFundMonths < 3 ? 'text-red-500' :
+                        emergencyFundMonths < 6 ? 'text-yellow-500' :
+                          'text-green-500'
+                      }`}>
                       {emergencyFundMonths.toFixed(1)}mo
                     </span>
                   </div>
-                  <Progress 
-                    value={Math.min((emergencyFundMonths / 6) * 100, 100)} 
+                  <Progress
+                    value={Math.min((emergencyFundMonths / 6) * 100, 100)}
                     className="h-2"
                   />
                   <p className="text-xs text-muted-foreground">
                     {emergencyFundMonths >= 6 ? '✅ Safe' :
-                     emergencyFundMonths >= 3 ? '⚠️ Moderate' :
-                     '❌ Risky'}
+                      emergencyFundMonths >= 3 ? '⚠️ Moderate' :
+                        '❌ Risky'}
                   </p>
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Leverage Ratio</span>
-                    <span className={`font-bold ${
-                      leverageRatio > 2 ? 'text-red-500' :
-                      leverageRatio > 1 ? 'text-yellow-500' :
-                      'text-green-500'
-                    }`}>
+                    <span className={`font-bold ${leverageRatio > 2 ? 'text-red-500' :
+                        leverageRatio > 1 ? 'text-yellow-500' :
+                          'text-green-500'
+                      }`}>
                       {leverageRatio.toFixed(2)}x
                     </span>
                   </div>
-                  <Progress 
-                    value={Math.min((leverageRatio / 3) * 100, 100)} 
+                  <Progress
+                    value={Math.min((leverageRatio / 3) * 100, 100)}
                     className="h-2"
                   />
                   <p className="text-xs text-muted-foreground">
                     {leverageRatio < 1 ? '✅ Conservative' :
-                     leverageRatio < 2 ? '⚠️ Moderate' :
-                     '❌ Aggressive'}
+                      leverageRatio < 2 ? '⚠️ Moderate' :
+                        '❌ Aggressive'}
                   </p>
                 </div>
               </div>

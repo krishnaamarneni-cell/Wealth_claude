@@ -34,24 +34,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Subscription failed' }, { status: 500 })
     }
 
-    // Send beautiful React email
+    // Send beautiful React email  
+    console.log('🔍 RESEND_API_KEY exists:', !!process.env.RESEND_API_KEY)
     if (process.env.RESEND_API_KEY) {
       try {
+        console.log('🔍 Importing Resend...')
         const { Resend } = await import('resend')
         const { WelcomeEmail } = await import('@/emails/welcome')
         const resend = new Resend(process.env.RESEND_API_KEY)
+
+        console.log('🔍 Sending to:', email)
 
         await resend.emails.send({
           from: 'WealthClaude <noreply@wealthclaude.com>',
           to: [email],
           subject: "You're In! 🎯 WealthClaude Daily Brief",
-          react: React.createElement(WelcomeEmail, { email }),  // ✅ Renders your JSX design!
+          react: React.createElement(WelcomeEmail, { email }),
         })
+
         console.log(`✅ Welcome email sent to ${email}`)
       } catch (emailError) {
-        console.warn('Email send failed (non-critical):', emailError)
+        console.error('❌ EMAIL ERROR:', emailError)  // Shows exact problem!
       }
+    } else {
+      console.log('⚠️ No RESEND_API_KEY')
     }
+
 
     return NextResponse.json({ success: true })
   } catch (error) {

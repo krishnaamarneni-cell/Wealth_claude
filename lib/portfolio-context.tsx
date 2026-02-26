@@ -812,6 +812,7 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
         }
       } else {
         hasInitialized.current = true
+        setData(prev => ({ ...prev, isLoading: true }))
         await calculateCoreData(false)
       }
     }

@@ -209,7 +209,7 @@ export default function TradesPage() {
     .sort((a, b) => a.month.localeCompare(b.month))
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 lg:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Trade Analysis</h1>
         <p className="text-muted-foreground">Review your trading activity and patterns</p>

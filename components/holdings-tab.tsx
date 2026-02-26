@@ -100,7 +100,7 @@ const setCachedHoldings = (data: Omit<CachedHoldingsData, 'transactionCount'>, t
   try {
     const cacheData: CachedHoldingsData = {
       ...data,
-      transactionCount: transactionsCount
+      transactionCount: transactionsCount,
     }
     localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData))
     console.log('✓ Holdings cached')

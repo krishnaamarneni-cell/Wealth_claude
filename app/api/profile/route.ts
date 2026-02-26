@@ -24,7 +24,7 @@ export async function GET() {
       bio: data.bio || '',
       timezone: data.timezone || 'UTC',
       currency: data.currency || 'USD',
-      avatar: data.avatar || '',
+      avatar: data.avatar_url || data.avatar || '',
       memberSince: data.created_at || new Date().toISOString(),
     })
   } catch (err) {

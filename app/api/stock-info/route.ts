@@ -145,24 +145,36 @@ export async function GET(request: NextRequest) {
 // ✅ PRIMARY: Finnhub with REAL returns calculation
 async function fetchFromPrimarySource(symbol: string): Promise<StockInfo | null> {
   try {
-    const [profileRes, quoteRes, metricsRes] = await Promise.all([
-      fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${FINNHUB_API_KEY}`),
-      fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`),
-      fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${FINNHUB_API_KEY}`)
-    ])
-
-    // Quote is essential - if it fails, abort
-    if (!quoteRes.ok) {
-      throw new Error(`Finnhub quote failed: ${quoteRes.status}`)
+    const FETCH_TIMEOUT = 8000 // 8 second timeout for each fetch
+    
+    const fetchWithTimeout = (url: string) => {
+      return Promise.race([
+        fetch(url),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Fetch timeout for ${url}`)), FETCH_TIMEOUT)
+        )
+      ])
     }
 
-    const profile = profileRes.ok ? await profileRes.json() : {}
-    const quote = await quoteRes.json()
-    const metrics = metricsRes.ok ? await metricsRes.json() : null
+    const [profileRes, quoteRes, metricsRes] = await Promise.allSettled([
+      fetchWithTimeout(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${FINNHUB_API_KEY}`),
+      fetchWithTimeout(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`),
+      fetchWithTimeout(`https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${FINNHUB_API_KEY}`)
+    ])
 
-    const currentPrice = quote.c || 0
-    const week52High = metrics?.metric?.['52WeekHigh'] || quote.h || 0
-    const week52Low = metrics?.metric?.['52WeekLow'] || quote.l || 0
+    // Extract values from PromiseSettledResult
+    const profile = profileRes.status === 'fulfilled' && profileRes.value.ok ? await profileRes.value.json() : {}
+    const quoteData = quoteRes.status === 'fulfilled' && quoteRes.value.ok ? await quoteRes.value.json() : null
+    const metrics = metricsRes.status === 'fulfilled' && metricsRes.value.ok ? await metricsRes.value.json() : null
+
+    // Quote is essential - if it fails, abort
+    if (!quoteData) {
+      throw new Error(`Finnhub quote failed`)
+    }
+
+    const currentPrice = quoteData.c || 0
+    const week52High = metrics?.metric?.['52WeekHigh'] || quoteData.h || 0
+    const week52Low = metrics?.metric?.['52WeekLow'] || quoteData.l || 0
     const dividendYield = metrics?.metric?.dividendYieldIndicatedAnnual || 0
 
     // ✅ Calculate 1Y return from 52-week data
@@ -176,7 +188,7 @@ async function fetchFromPrimarySource(symbol: string): Promise<StockInfo | null>
 
     // ✅ Estimate other periods based on 1Y return
     const monthlyReturn = yearReturn / 12
-    const dailyReturn = quote.dp || 0
+    const dailyReturn = quoteData.dp || 0
 
     return {
       sector: mapIndustryToSector(profile.finnhubIndustry || 'Unknown'),
@@ -184,7 +196,7 @@ async function fetchFromPrimarySource(symbol: string): Promise<StockInfo | null>
       country: profile.country || 'US',
       name: profile.name || symbol,
       price: currentPrice,
-      change: quote.d || 0,
+      change: quoteData.d || 0,
       changePercent: dailyReturn,
       week52High,
       week52Low,
@@ -200,7 +212,7 @@ async function fetchFromPrimarySource(symbol: string): Promise<StockInfo | null>
       dataSource: 'finnhub'
     }
   } catch (error) {
-    console.error(`Primary source error:`, error)
+    console.error(`Primary source error for ${symbol}:`, error)
     return null
   }
 }
@@ -208,24 +220,36 @@ async function fetchFromPrimarySource(symbol: string): Promise<StockInfo | null>
 // ✅ FALLBACK: Finnhub only with returns
 async function fetchFromFallback(symbol: string): Promise<StockInfo | null> {
   try {
-    const [profileRes, quoteRes, metricsRes] = await Promise.all([
-      fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${FINNHUB_API_KEY}`),
-      fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`),
-      fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${FINNHUB_API_KEY}`)
-    ])
-
-    // Quote is essential
-    if (!quoteRes.ok) {
-      throw new Error('Finnhub fallback failed')
+    const FETCH_TIMEOUT = 8000 // 8 second timeout for each fetch
+    
+    const fetchWithTimeout = (url: string) => {
+      return Promise.race([
+        fetch(url),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Fetch timeout for ${url}`)), FETCH_TIMEOUT)
+        )
+      ])
     }
 
-    const profile = profileRes.ok ? await profileRes.json() : {}
-    const quote = await quoteRes.json()
-    const metrics = metricsRes.ok ? await metricsRes.json() : null
+    const [profileRes, quoteRes, metricsRes] = await Promise.allSettled([
+      fetchWithTimeout(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${FINNHUB_API_KEY}`),
+      fetchWithTimeout(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`),
+      fetchWithTimeout(`https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${FINNHUB_API_KEY}`)
+    ])
 
-    const currentPrice = quote.c || 0
-    const week52High = metrics?.metric?.['52WeekHigh'] || quote.h || 0
-    const week52Low = metrics?.metric?.['52WeekLow'] || quote.l || 0
+    // Extract values from PromiseSettledResult
+    const profile = profileRes.status === 'fulfilled' && profileRes.value.ok ? await profileRes.value.json() : {}
+    const quoteData = quoteRes.status === 'fulfilled' && quoteRes.value.ok ? await quoteRes.value.json() : null
+    const metrics = metricsRes.status === 'fulfilled' && metricsRes.value.ok ? await metricsRes.value.json() : null
+
+    // Quote is essential
+    if (!quoteData) {
+      throw new Error('Finnhub fallback quote failed')
+    }
+
+    const currentPrice = quoteData.c || 0
+    const week52High = metrics?.metric?.['52WeekHigh'] || quoteData.h || 0
+    const week52Low = metrics?.metric?.['52WeekLow'] || quoteData.l || 0
     const dividendYield = metrics?.metric?.dividendYieldIndicatedAnnual || 0
 
     // ✅ Calculate returns
@@ -237,7 +261,7 @@ async function fetchFromFallback(symbol: string): Promise<StockInfo | null> {
     }
 
     const monthlyReturn = yearReturn / 12
-    const dailyReturn = quote.dp || 0
+    const dailyReturn = quoteData.dp || 0
 
     return {
       sector: mapIndustryToSector(profile.finnhubIndustry || 'Unknown'),
@@ -245,7 +269,7 @@ async function fetchFromFallback(symbol: string): Promise<StockInfo | null> {
       country: profile.country || 'US',
       name: profile.name || symbol,
       price: currentPrice,
-      change: quote.d || 0,
+      change: quoteData.d || 0,
       changePercent: dailyReturn,
       week52High,
       week52Low,
@@ -261,6 +285,7 @@ async function fetchFromFallback(symbol: string): Promise<StockInfo | null> {
       dataSource: 'finnhub-only'
     }
   } catch (error) {
+    console.error(`Fallback source error for ${symbol}:`, error)
     return null
   }
 }

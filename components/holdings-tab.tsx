@@ -96,19 +96,6 @@ const getCachedHoldings = async (transactionsCount: number): Promise<CachedHoldi
   }
 }
 
-    if (age < CACHE_DURATION) {
-      console.log(`⚡ Using cached holdings (${Math.floor(age / 1000 / 60)} min old)`)
-      return data
-    } else {
-      console.log('🕐 Cache expired')
-      return null
-    }
-  } catch (error) {
-    console.error('Failed to load holdings cache:', error)
-    return null
-  }
-}
-
 const setCachedHoldings = (data: Omit<CachedHoldingsData, 'transactionCount'>, transactionsCount: number): void => {
   try {
     const cacheData: CachedHoldingsData = {

@@ -12,8 +12,8 @@ import {
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
 import { ArrowDownRight, ArrowUpRight, BarChart3, TrendingUp, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { getTransactionsFromStorage } from "@/lib/transaction-storage"
 import type { Trade } from "@/lib/portfolio-data"
+import { usePortfolio } from "@/lib/portfolio-context"
 
 const CHART_COLORS = ["#3b82f6", "#8b5cf6", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899", "#14b8a6"]
 
@@ -131,45 +131,30 @@ function InteractiveTradeDonut({ trades }: { trades: Trade[] }) {
 }
 
 export default function TradesPage() {
+  const { transactions } = usePortfolio()
   const [tradeHistory, setTradeHistory] = useState<Trade[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
   const [timeRange, setTimeRange] = useState<'1m' | '3m' | '6m' | '1y' | 'all'>('all')
 
   // ✅ FIXED: loadTrades is now async, awaiting getTransactionsFromStorage
   useEffect(() => {
-    const loadTrades = async () => {
-      try {
-        // ✅ FIXED: await the async call — previously this returned a Promise
-        // and .filter() on a Promise silently returned nothing
-        const { transactions } = usePortfolio()
-        console.log('[trades] Loaded transactions:', transactions.length)
+    const trades: Trade[] = transactions
+      .filter((t) => t.type === 'BUY' || t.type === 'SELL')
+      .map((t) => ({
+        date: t.date,
+        symbol: t.symbol,
+        type: t.type as 'BUY' | 'SELL',
+        shares: t.shares,
+        price: t.price,
+        total: t.total,
+        fees: t.fees ?? 0,
+      }))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
-        const trades: Trade[] = transactions
-          .filter((t) => t.type === 'BUY' || t.type === 'SELL')
-          .map((t) => ({
-            date: t.date,
-            symbol: t.symbol,
-            type: t.type as 'BUY' | 'SELL',
-            shares: t.shares,
-            price: t.price,
-            total: t.total,
-            fees: t.fees ?? 0,
-          }))
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-
-        console.log('[trades] BUY:', trades.filter(t => t.type === 'BUY').length, 'SELL:', trades.filter(t => t.type === 'SELL').length)
-        setTradeHistory(trades)
-      } catch (error) {
-        console.error('[trades] Failed to load trades:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    loadTrades()
-  }, [])
+    setTradeHistory(trades)
+  }, [transactions])
 
   const getFilteredTrades = () => {
     if (timeRange === 'all') return tradeHistory

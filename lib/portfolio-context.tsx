@@ -313,7 +313,13 @@ interface PortfolioProviderProps {
 }
 
 export function PortfolioProvider({ children }: PortfolioProviderProps) {
-  return { ...INITIAL_STATE, isLoading: false }
+  const [data, setData] = useState<PortfolioContextData>(() => {
+    const cached = getCachedData()
+    if (cached) {
+      return { ...cached, isLoading: false, isFetchingBatch: false }
+    }
+    return INITIAL_STATE
+  })
 
   const calculateCoreData = useCallback(async (silent = false) => {
     if (!silent) {
@@ -783,34 +789,21 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
 
   // ==================== INITIAL LOAD ====================
 
-  const hasInitialized = React.useRef(false)
-
   useEffect(() => {
+    // Create async wrapper since useEffect can't be async directly
     const loadData = async () => {
       const cached = getCachedData()
 
       if (cached) {
+        console.log('[Portfolio] ⚡ Showing cached data, refreshing in background...')
         setData({ ...cached, isLoading: false, isFetchingBatch: false })
-
-        // Check cache age — skip background refresh if under 30 minutes
-        const cacheAge = Date.now() - (JSON.parse(localStorage.getItem(CACHE_KEY) || '{}').timestamp || 0)
-        const cacheAgeMinutes = cacheAge / 1000 / 60
-
-        if (!hasInitialized.current && cacheAgeMinutes > 30) {
-          hasInitialized.current = true
-          console.log(`[Portfolio] ⚡ Cache ${Math.floor(cacheAgeMinutes)}min old — background refresh`)
-          await calculateCoreData(true)
-        } else {
-          hasInitialized.current = true
-          console.log(`[Portfolio] ⚡ Cache ${Math.floor(cacheAgeMinutes)}min old — skipping refresh`)
-        }
+        await calculateCoreData(true)
       } else {
-        hasInitialized.current = true
-        setData(prev => ({ ...prev, isLoading: true }))
         await calculateCoreData(false)
       }
     }
 
+    // Call the async function
     loadData().catch(err => {
       console.error('[Portfolio] Error loading data:', err)
       setData(prev => ({ ...prev, isLoading: false }))
@@ -847,7 +840,7 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
       window.removeEventListener('storage', handleStorageChange)
       window.removeEventListener('transactionsUpdated', handleLocalUpdate)
     }
-  }, []) // Empty deps - only runs once on mount, not on page switches
+  }, [calculateCoreData])
 
   const refresh = useCallback(async () => {
     console.log('[Portfolio] 🔄 Manual refresh')

@@ -157,9 +157,19 @@ export const addToWatchlist = async (symbol: string, companyName: string, curren
  * Remove stock from watchlist
  */
 export const removeFromWatchlist = async (symbol: string): Promise<void> => {
-  const watchlist = await getWatchlistFromStorage()
-  const updated = watchlist.filter((item) => item.symbol !== symbol)
-  await saveWatchlistToStorage(updated)
+  try {
+    const response = await fetch(`/api/watchlist?symbol=${encodeURIComponent(symbol)}`, {
+      method: 'DELETE',
+    })
+    if (response.ok) {
+      console.log('[watchlist-storage] ✅ Deleted from Supabase:', symbol)
+      window.dispatchEvent(new Event('watchlistUpdated'))
+    } else {
+      console.error('[watchlist-storage] Delete failed:', response.status)
+    }
+  } catch (err) {
+    console.error('[watchlist-storage] Delete error:', err)
+  }
 }
 
 /**

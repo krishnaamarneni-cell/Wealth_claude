@@ -45,7 +45,7 @@ import {
   buildYieldBasedDividends,
   type DividendForecast,
 } from "@/lib/dividend-forecast"
-import { getTransactionsFromStorage } from "@/lib/transaction-storage"
+
 
 type CalendarViewType = "upcoming" | "historical" | "transactions"
 type DividendSubTab = "overview" | "growth"

@@ -28,16 +28,22 @@ export async function POST(request: NextRequest) {
     .upsert({ email }, { onConflict: 'email' })
 
   if (dbError) {
+    console.error('DB error:', dbError)
     return NextResponse.json({ error: 'Subscription failed' }, { status: 500 })
   }
 
-  // Send email
-  await resend.emails.send({
-    from: 'WealthClaude <noreply@wealthclaude.com>',
-    to: [email],
-    subject: "You're In! 🎯 WealthClaude Daily Brief",
-    react: React.createElement(WelcomeEmail, { email }),
-  })
+  // Send email — wrapped so it never breaks subscription
+  try {
+    const result = await resend.emails.send({
+      from: 'WealthClaude <noreply@wealthclaude.com>',
+      to: [email],
+      subject: "You're In! 🎯 WealthClaude Daily Brief",
+      react: React.createElement(WelcomeEmail, { email }),
+    })
+    console.log('✅ Email sent:', result.data?.id)
+  } catch (emailError) {
+    console.error('❌ Email error:', emailError) // ← Shows exact Resend error
+  }
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true }) // ✅ Always succeeds if DB saves
 }

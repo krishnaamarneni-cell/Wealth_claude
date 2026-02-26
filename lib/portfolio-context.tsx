@@ -789,21 +789,28 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
 
   // ==================== INITIAL LOAD ====================
 
+  const hasInitialized = React.useRef(false)
+
   useEffect(() => {
-    // Create async wrapper since useEffect can't be async directly
     const loadData = async () => {
       const cached = getCachedData()
 
       if (cached) {
-        console.log('[Portfolio] ⚡ Showing cached data, refreshing in background...')
         setData({ ...cached, isLoading: false, isFetchingBatch: false })
-        await calculateCoreData(true)
+        // Only do background refresh once per app session, not every page switch
+        if (!hasInitialized.current) {
+          hasInitialized.current = true
+          console.log('[Portfolio] ⚡ Cache hit — background refresh once')
+          await calculateCoreData(true)
+        } else {
+          console.log('[Portfolio] ⚡ Cache hit — skipping background refresh (already initialized)')
+        }
       } else {
+        hasInitialized.current = true
         await calculateCoreData(false)
       }
     }
 
-    // Call the async function
     loadData().catch(err => {
       console.error('[Portfolio] Error loading data:', err)
       setData(prev => ({ ...prev, isLoading: false }))

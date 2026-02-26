@@ -169,7 +169,6 @@ const calcFactors = (holdings: Holding[]) => {
 
 export default function PerformancePage() {
   const { benchmarks, holdings, transactions, isLoading, isRefreshing, refresh } = usePortfolio()
-  const { benchmarks, holdings, transactions, isLoading, isRefreshing, refresh } = usePortfolio()
   console.log('[Performance] isLoading:', isLoading, 'holdings:', holdings?.length, 'transactions:', transactions?.length)
   const [lastUpdate, setLastUpdate] = useState(new Date())
   const [selectedTab, setSelectedTab] = useState("overview")

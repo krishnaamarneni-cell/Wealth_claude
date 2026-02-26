@@ -143,7 +143,7 @@ export default function TradesPage() {
       try {
         // ✅ FIXED: await the async call — previously this returned a Promise
         // and .filter() on a Promise silently returned nothing
-        const transactions = await getTransactionsFromStorage()
+        const { transactions } = usePortfolio()
         console.log('[trades] Loaded transactions:', transactions.length)
 
         const trades: Trade[] = transactions

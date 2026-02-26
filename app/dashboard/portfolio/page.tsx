@@ -95,46 +95,6 @@ const BENCHMARKS = {
   etfAllocation: { min: 20, max: 30, label: "ETFs vs total" },
 }
 
-// Cache helpers
-const CACHE_KEY = 'portfolioPageCache'
-const CACHE_DURATION = 3 * 60 * 60 * 1000
-
-interface CachedData {
-  holdings: Holding[]
-  timestamp: number
-  transactionCount: number
-}
-
-const getCached = async (): Promise<CachedData | null> => {
-  if (typeof window === 'undefined') return null
-  try {
-    const cached = localStorage.getItem(CACHE_KEY)
-    if (!cached) return null
-    const data: CachedData = JSON.parse(cached)
-    const age = Date.now() - data.timestamp
-    const currentTxns = await getTransactionsFromStorage()
-    if (data.transactionCount !== currentTxns.length) {
-      localStorage.removeItem(CACHE_KEY)
-      return null
-    }
-    if (age < CACHE_DURATION) return data
-    return null
-  } catch (error) {
-    return null
-  }
-}
-
-const setCache = async (data: Omit<CachedData, 'transactionCount'>): Promise<void> => {
-  if (typeof window === 'undefined') return
-  try {
-    const txns = await getTransactionsFromStorage()
-    const cacheData: CachedData = { ...data, transactionCount: txns.length }
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData))
-  } catch (error) {
-    console.error('Cache failed:', error)
-  }
-}
-
 // Types
 interface TargetAllocation {
   symbol: string

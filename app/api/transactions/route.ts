@@ -106,3 +106,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+export async function DELETE(request: NextRequest) {
+  try {
+    const cookieStore = await cookies()
+    const supabase = createServerSideClient(cookieStore)
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { error } = await supabase
+      .from('transactions')
+      .delete()
+      .eq('user_id', user.id)
+
+    if (error) {
+      console.error('[/api/transactions DELETE] Error:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (err: any) {
+    console.error('[/api/transactions DELETE] Error:', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}

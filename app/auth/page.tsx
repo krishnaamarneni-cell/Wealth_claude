@@ -45,24 +45,24 @@ export default function AuthPage() {
       })
       if (error) throw error
       
+      // Check if identities array is empty — this means email already exists
+      if (data.user?.identities?.length === 0) {
+        setIsDuplicateEmail(true)
+        setError('An account with this email already exists. Please sign in instead.')
+        return
+      }
+      
       setConfirmationEmail(email)
       setConfirmationSent(true)
       setEmail('')
       setPassword('')
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Signup failed'
-      
-      // Check for duplicate email errors
-      if (
-        errorMessage.includes('already registered') ||
-        errorMessage.includes('already exists') ||
-        errorMessage.includes('User already exists')
-      ) {
-        setIsDuplicateEmail(true)
-        setError('An account with this email already exists. Please sign in instead.')
-      } else {
-        setError(errorMessage)
-      }
+      setError(errorMessage)
+    } finally {
+      setLoading(false)
+    }
+  }
     } finally {
       setLoading(false)
     }

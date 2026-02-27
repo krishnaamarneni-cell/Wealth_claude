@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Mail, Github, Loader2, Check } from 'lucide-react'
+import { Mail, Github, Loader2, Check, LineChart } from 'lucide-react'
 
 const COMPANY_NAME = 'WealthClaude'
 
@@ -137,8 +137,8 @@ export default function AuthPage() {
         <CardHeader className="text-center">
           <Link href="/" className="inline-block hover:opacity-80 transition-opacity">
             <div className="mb-2 flex items-center justify-center gap-2">
-              <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-                W
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+                <LineChart className="h-5 w-5 text-primary-foreground" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold">{COMPANY_NAME}</h1>

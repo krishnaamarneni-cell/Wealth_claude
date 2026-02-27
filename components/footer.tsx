@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { LineChart } from "lucide-react"
 
 export function Footer() {
   return (
@@ -118,8 +119,8 @@ export function Footer() {
           {/* Bottom Bar */}
           <div className="pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">TF</span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+                <LineChart className="h-5 w-5 text-primary-foreground" />
               </div>
               <span className="font-semibold text-foreground">WealthClaude</span>
             </div>

@@ -27,8 +27,11 @@ export default function ProfileSetupPage() {
       // Update profile
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ display_name: displayName, updated_at: new Date().toISOString() })
-        .eq('id', user.id)
+        .upsert({
+          user_id: user.id,
+          full_name: displayName,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' })
 
       if (updateError) {
         console.error('[v0] Profile update error:', updateError)

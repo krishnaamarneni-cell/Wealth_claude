@@ -1,6 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createClient } from '@supabase/supabase-js'
 import { getTransactionsFromStorage } from './transaction-storage'
 import { calculateAndFetchHoldings, type Transaction, type Holding } from './holdings-calculator'
 import { calculatePriorities, getCacheStats, getStocksToFetch } from './smart-stock-cache'
@@ -158,6 +159,7 @@ export function usePortfolio(): PortfolioContextData {
 // ==================== CACHE HELPERS ====================
 
 const CACHE_KEY = 'portfolioContextCache'
+const CURRENT_USER_ID_KEY = 'portfolioContextUserId'
 const CACHE_DURATION = 3 * 60 * 60 * 1000 // 3 hours
 
 interface CachedData {
@@ -196,6 +198,35 @@ function setCachedData(data: PortfolioContextData): void {
     console.log('[Portfolio] ✓ Data cached')
   } catch (error) {
     console.error('[Portfolio] Failed to cache data:', error)
+  }
+}
+
+function clearCacheForNewUser(): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.removeItem(CACHE_KEY)
+    console.log('[Portfolio] 🔄 Cache cleared for new user')
+  } catch (error) {
+    console.error('[Portfolio] Failed to clear cache:', error)
+  }
+}
+
+function setCurrentUserId(userId: string): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(CURRENT_USER_ID_KEY, userId)
+  } catch (error) {
+    console.error('[Portfolio] Failed to store user ID:', error)
+  }
+}
+
+function getCurrentUserId(): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    return localStorage.getItem(CURRENT_USER_ID_KEY)
+  } catch (error) {
+    console.error('[Portfolio] Failed to get user ID:', error)
+    return null
   }
 }
 
@@ -320,6 +351,36 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
     }
     return INITIAL_STATE
   })
+
+  // Check for user session changes and clear cache if needed
+  useEffect(() => {
+    const checkUserSession = async () => {
+      try {
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        )
+        const { data: { session } } = await supabase.auth.getSession()
+        const currentUserId = session?.user?.id
+
+        if (currentUserId) {
+          const cachedUserId = getCurrentUserId()
+          
+          if (cachedUserId !== currentUserId) {
+            console.log(`[Portfolio] 🔐 User changed (${cachedUserId || 'none'} → ${currentUserId})`)
+            clearCacheForNewUser()
+            setCurrentUserId(currentUserId)
+            // Reset data to initial state for new user
+            setData(INITIAL_STATE)
+          }
+        }
+      } catch (error) {
+        console.error('[Portfolio] Error checking user session:', error)
+      }
+    }
+
+    checkUserSession()
+  }, [])
 
   const calculateCoreData = useCallback(async (silent = false) => {
     if (!silent) {

@@ -946,7 +946,7 @@ export default function PortfolioPage() {
 
   const saveScenario = async (name: string) => {
     const newScenario: RebalanceScenario = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       name,
       targetAllocations: [...targetAllocations],
       rebalanceThreshold

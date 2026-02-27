@@ -21,6 +21,10 @@ export default function AuthPage() {
   const [error, setError] = useState<string | null>(null)
   const [confirmationSent, setConfirmationSent] = useState(false)
   const [confirmationEmail, setConfirmationEmail] = useState('')
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('')
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false)
+  const [resetLinkSent, setResetLinkSent] = useState(false)
 
   // Email signup
   const handleEmailSignup = async (e: React.FormEvent) => {
@@ -96,6 +100,27 @@ export default function AuthPage() {
       if (error) throw error
     } catch (err) {
       setError(err instanceof Error ? err.message : 'GitHub login failed')
+    }
+  }
+
+  // Password reset
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setForgotPasswordLoading(true)
+    setError(null)
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotPasswordEmail, {
+        redirectTo: `${window.location.origin}/auth/callback?type=recovery`,
+      })
+      if (error) throw error
+      
+      setResetLinkSent(true)
+      setForgotPasswordEmail('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send reset email')
+    } finally {
+      setForgotPasswordLoading(false)
     }
   }
 
@@ -224,69 +249,136 @@ export default function AuthPage() {
 
             {/* Sign In Tab */}
             <TabsContent value="login" className="space-y-4">
-              <form onSubmit={handleEmailLogin} className="space-y-4">
-                <div>
-                  <Input
-                    type="email"
-                    placeholder="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    disabled={loading}
-                  />
+              {showForgotPassword ? (
+                // Forgot Password Form
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="font-semibold mb-2">Reset Password</h3>
+                    <p className="text-sm text-muted-foreground mb-4">Enter your email to receive a password reset link</p>
+                  </div>
+                  <form onSubmit={handlePasswordReset} className="space-y-4">
+                    <div>
+                      <Input
+                        type="email"
+                        placeholder="Email"
+                        value={forgotPasswordEmail}
+                        onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                        required
+                        disabled={forgotPasswordLoading}
+                      />
+                    </div>
+                    {error && <p className="text-sm text-red-500">{error}</p>}
+                    {resetLinkSent && (
+                      <div className="p-3 rounded-md bg-green-500/10 border border-green-500/20">
+                        <p className="text-sm text-green-600">Check your email for a reset link</p>
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <Button 
+                        className="flex-1" 
+                        disabled={forgotPasswordLoading || resetLinkSent}
+                      >
+                        {forgotPasswordLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Sending...
+                          </>
+                        ) : (
+                          'Send Reset Link'
+                        )}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="flex-1"
+                        type="button"
+                        onClick={() => {
+                          setShowForgotPassword(false)
+                          setResetLinkSent(false)
+                          setError(null)
+                        }}
+                      >
+                        Back
+                      </Button>
+                    </div>
+                  </form>
                 </div>
-                <div>
-                  <Input
-                    type="password"
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    disabled={loading}
-                  />
-                </div>
-                {error && <p className="text-sm text-red-500">{error}</p>}
-                <Button className="w-full" disabled={loading}>
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Signing in...
-                    </>
-                  ) : (
-                    'Sign In'
-                  )}
-                </Button>
-              </form>
+              ) : (
+                // Sign In Form
+                <>
+                  <form onSubmit={handleEmailLogin} className="space-y-4">
+                    <div>
+                      <Input
+                        type="email"
+                        placeholder="Email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        disabled={loading}
+                      />
+                    </div>
+                    <div>
+                      <Input
+                        type="password"
+                        placeholder="Password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        disabled={loading}
+                      />
+                      <div className="mt-2 text-right">
+                        <button
+                          type="button"
+                          onClick={() => setShowForgotPassword(true)}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          Forgot Password?
+                        </button>
+                      </div>
+                    </div>
+                    {error && <p className="text-sm text-red-500">{error}</p>}
+                    <Button className="w-full" disabled={loading}>
+                      {loading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Signing in...
+                        </>
+                      ) : (
+                        'Sign In'
+                      )}
+                    </Button>
+                  </form>
 
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
-                </div>
-              </div>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-border" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <Button 
-                  variant="outline" 
-                  onClick={handleGoogleAuth}
-                  disabled={loading}
-                  className="w-full"
-                >
-                  <Mail className="mr-2 h-4 w-4" />
-                  Google
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={handleGithubAuth}
-                  disabled={loading}
-                  className="w-full"
-                >
-                  <Github className="mr-2 h-4 w-4" />
-                  GitHub
-                </Button>
-              </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={handleGoogleAuth}
+                      disabled={loading}
+                      className="w-full"
+                    >
+                      <Mail className="mr-2 h-4 w-4" />
+                      Google
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={handleGithubAuth}
+                      disabled={loading}
+                      className="w-full"
+                    >
+                      <Github className="mr-2 h-4 w-4" />
+                      GitHub
+                    </Button>
+                  </div>
+                </>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>

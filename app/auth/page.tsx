@@ -63,10 +63,6 @@ export default function AuthPage() {
       setLoading(false)
     }
   }
-    } finally {
-      setLoading(false)
-    }
-  }
 
   // Email login
   const handleEmailLogin = async (e: React.FormEvent) => {

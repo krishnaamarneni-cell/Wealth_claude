@@ -44,14 +44,14 @@ export default function AuthPage() {
         },
       })
       if (error) throw error
-      
+
       // Check if identities array is empty — this means email already exists
       if (data.user?.identities?.length === 0) {
         setIsDuplicateEmail(true)
         setError('An account with this email already exists. Please sign in instead.')
         return
       }
-      
+
       setConfirmationEmail(email)
       setConfirmationSent(true)
       setEmail('')
@@ -122,10 +122,10 @@ export default function AuthPage() {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(forgotPasswordEmail, {
-        redirectTo: `${window.location.origin}/auth/callback?type=recovery`,
+        redirectTo: `${window.location.origin}/auth/reset-password`,
       })
       if (error) throw error
-      
+
       setResetLinkSent(true)
       setForgotPasswordEmail('')
     } catch (err) {
@@ -154,8 +154,8 @@ export default function AuthPage() {
             <p className="text-sm text-muted-foreground">
               Click the link in the email to verify your account and get started with {COMPANY_NAME}.
             </p>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="w-full"
               onClick={() => setConfirmationSent(false)}
             >
@@ -260,8 +260,8 @@ export default function AuthPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={handleGoogleAuth}
                   disabled={loading}
                   className="w-full"
@@ -269,8 +269,8 @@ export default function AuthPage() {
                   <Mail className="mr-2 h-4 w-4" />
                   Google
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={handleGithubAuth}
                   disabled={loading}
                   className="w-full"
@@ -308,8 +308,8 @@ export default function AuthPage() {
                       </div>
                     )}
                     <div className="flex gap-2">
-                      <Button 
-                        className="flex-1" 
+                      <Button
+                        className="flex-1"
                         disabled={forgotPasswordLoading || resetLinkSent}
                       >
                         {forgotPasswordLoading ? (
@@ -321,8 +321,8 @@ export default function AuthPage() {
                           'Send Reset Link'
                         )}
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         className="flex-1"
                         type="button"
                         onClick={() => {
@@ -392,8 +392,8 @@ export default function AuthPage() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       onClick={handleGoogleAuth}
                       disabled={loading}
                       className="w-full"
@@ -401,8 +401,8 @@ export default function AuthPage() {
                       <Mail className="mr-2 h-4 w-4" />
                       Google
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       onClick={handleGithubAuth}
                       disabled={loading}
                       className="w-full"

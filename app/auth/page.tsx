@@ -19,18 +19,21 @@ export default function AuthPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isDuplicateEmail, setIsDuplicateEmail] = useState(false)
   const [confirmationSent, setConfirmationSent] = useState(false)
   const [confirmationEmail, setConfirmationEmail] = useState('')
   const [showForgotPassword, setShowForgotPassword] = useState(false)
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('')
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false)
   const [resetLinkSent, setResetLinkSent] = useState(false)
+  const [activeTab, setActiveTab] = useState('login')
 
   // Email signup
   const handleEmailSignup = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
+    setIsDuplicateEmail(false)
 
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -47,7 +50,19 @@ export default function AuthPage() {
       setEmail('')
       setPassword('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Signup failed')
+      const errorMessage = err instanceof Error ? err.message : 'Signup failed'
+      
+      // Check for duplicate email errors
+      if (
+        errorMessage.includes('already registered') ||
+        errorMessage.includes('already exists') ||
+        errorMessage.includes('User already exists')
+      ) {
+        setIsDuplicateEmail(true)
+        setError('An account with this email already exists. Please sign in instead.')
+      } else {
+        setError(errorMessage)
+      }
     } finally {
       setLoading(false)
     }
@@ -173,7 +188,7 @@ export default function AuthPage() {
           <p className="text-sm text-muted-foreground">Track your portfolio, maximize returns</p>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="signup" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
               <TabsTrigger value="login">Sign In</TabsTrigger>
@@ -203,7 +218,30 @@ export default function AuthPage() {
                     disabled={loading}
                   />
                 </div>
-                {error && <p className="text-sm text-red-500">{error}</p>}
+                {error && (
+                  <div className="text-sm text-red-500">
+                    {isDuplicateEmail ? (
+                      <p>
+                        {error}{' '}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveTab('login')
+                            setError(null)
+                            setIsDuplicateEmail(false)
+                            setEmail('')
+                            setPassword('')
+                          }}
+                          className="text-primary hover:underline font-semibold"
+                        >
+                          Sign In
+                        </button>
+                      </p>
+                    ) : (
+                      <p>{error}</p>
+                    )}
+                  </div>
+                )}
                 <Button className="w-full" disabled={loading}>
                   {loading ? (
                     <>

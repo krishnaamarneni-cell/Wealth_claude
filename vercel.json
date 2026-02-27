@@ -2,15 +2,15 @@
   "crons": [
     {
       "path": "/api/auto-blog",
-      "schedule": "0 12 * * 1-5"
+      "schedule": "0 12 * * *"
     },
     {
       "path": "/api/auto-blog",
-      "schedule": "0 17 * * 1-5"
+      "schedule": "0 17 * * *"
     },
     {
       "path": "/api/auto-blog",
-      "schedule": "0 22 * * 1-5"
+      "schedule": "0 22 * * *"
     }
   ]
 }

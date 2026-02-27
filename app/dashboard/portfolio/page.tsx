@@ -76,7 +76,8 @@ import {
   Target,
   Layers,
   AlertCircle,
-  HelpCircle
+  HelpCircle,
+  Trash
 } from "lucide-react"
 import { getTransactionsFromStorage } from "@/lib/transaction-storage"
 import { calculateAndFetchHoldings, type Holding, type Transaction } from "@/lib/holdings-calculator"
@@ -2371,12 +2372,25 @@ export default function PortfolioPage() {
                                 {scenario.targetAllocations.length} assets • {scenario.rebalanceThreshold}% threshold
                               </p>
                             </div>
-                            <Button
-                              size="sm"
-                              variant={selectedScenario === scenario.id ? "default" : "outline"}
-                            >
-                              {selectedScenario === scenario.id ? "Active" : "Load"}
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant={selectedScenario === scenario.id ? "default" : "outline"}
+                              >
+                                {selectedScenario === scenario.id ? "Active" : "Load"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  deleteScenarioFromStorage(scenario.id)
+                                  setScenarios(prev => prev.filter(s => s.id !== scenario.id))
+                                }}
+                              >
+                                <Trash className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
                           <div className="mt-3 flex flex-wrap gap-2">
                             {scenario.targetAllocations.slice(0, 5).map(t => (

@@ -22,8 +22,8 @@ export async function GET(request: NextRequest) {
   // Check if profile exists
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id')
-    .eq('id', session.user.id)
+    .select('user_id')
+    .eq('user_id', session.user.id)
     .single()
 
   if (!profile) {

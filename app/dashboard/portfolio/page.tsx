@@ -944,7 +944,7 @@ export default function PortfolioPage() {
     )
   }
 
-  const saveScenario = (name: string) => {
+  const saveScenario = async (name: string) => {
     const newScenario: RebalanceScenario = {
       id: Date.now().toString(),
       name,
@@ -953,7 +953,7 @@ export default function PortfolioPage() {
     }
     const updatedScenarios = [...scenarios, newScenario]
     setScenarios(updatedScenarios)
-    localStorage.setItem('rebalanceScenarios', JSON.stringify(updatedScenarios))
+    await saveScenarioToStorage(newScenario)
   }
 
   const loadScenario = (scenarioId: string) => {

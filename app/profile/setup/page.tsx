@@ -21,22 +21,26 @@ export default function ProfileSetupPage() {
     setError(null)
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not logged in')
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) throw new Error('Not logged in')
 
       // Update profile
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ display_name: displayName })
+        .update({ display_name: displayName, updated_at: new Date().toISOString() })
         .eq('id', user.id)
 
-      if (updateError) throw updateError
+      if (updateError) {
+        console.error('[v0] Profile update error:', updateError)
+        throw updateError
+      }
 
-      // Redirect to transactions
-      router.push('/dashboard/transactions')
+      console.log('[v0] Profile updated successfully, redirecting to dashboard')
+      // Redirect to dashboard on success
+      router.push('/dashboard')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Profile setup failed')
-    } finally {
+      console.error('[v0] Profile setup error:', err)
+      setError(err instanceof Error ? err.message : 'Failed to set up profile')
       setLoading(false)
     }
   }

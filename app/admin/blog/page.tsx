@@ -5,7 +5,7 @@ import { BlogAdmin } from '@/components/blog-admin'
 import { AutoBlogStatus } from '@/components/auto-blog-status'
 
 export const metadata = {
-  title: 'Blog Admin — TrackFolio',
+  title: 'Blog Admin — WealthClaude',
   description: 'Create and manage blog posts',
 }
 
@@ -34,7 +34,7 @@ export default async function BlogAdminPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight">Blog Administration</h1>
           <p className="text-muted-foreground mt-1">
-            Manage your TrackFolio blog posts · Logged in as{' '}
+            Manage your WealthClaude blog posts · Logged in as{' '}
             <span className="text-foreground font-medium">{user.email}</span>
           </p>
         </div>

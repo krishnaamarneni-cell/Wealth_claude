@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Mail, Github, Loader2, Check } from 'lucide-react'
 
-const COMPANY_NAME = 'TrackFolio'
+const COMPANY_NAME = 'WealthClaude'
 
 export default function AuthPage() {
   const supabase = createClient()
@@ -137,8 +137,8 @@ export default function AuthPage() {
         <CardHeader className="text-center">
           <Link href="/" className="inline-block hover:opacity-80 transition-opacity">
             <div className="mb-2 flex items-center justify-center gap-2">
-              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-bold text-sm">
-                TF
+              <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+                W
               </div>
               <div>
                 <h1 className="text-2xl font-bold">{COMPANY_NAME}</h1>

@@ -4,7 +4,7 @@ import { NewsHub } from "@/components/news-hub"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "Market Intelligence — TrackFolio",
+  title: "Market Intelligence — WealthClaude",
   description: "AI-powered stock market analysis, trending tickers, crypto moves and financial insights updated 3x daily.",
 }
 

@@ -9,7 +9,7 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'TrackFolio - Track All Investments In One Place',
+  title: 'WealthClaude - Track All Investments In One Place',
   description: 'Stocks, ETFs, and Crypto Investment Tracker with Real-Time Market Heat Maps',
   generator: 'v0.app',
   verification: {

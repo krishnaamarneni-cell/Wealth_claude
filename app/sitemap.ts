@@ -2,7 +2,7 @@ import { MetadataRoute } from 'next'
 import { createServerSideClient } from '@/lib/supabase'
 import { cookies } from 'next/headers'
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://trackfolio.vercel.app'
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.wealthclaude.com'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // ─── Static pages ──────────────────────────────────────────────────────────

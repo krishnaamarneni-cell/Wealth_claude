@@ -95,7 +95,7 @@ export function DashboardSidebar() {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
             <LineChart className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="text-lg font-semibold text-foreground">TrackFolio</span>
+          <span className="text-lg font-semibold text-foreground">WealthClaude</span>
         </Link>
       </SidebarHeader>
       <SidebarSeparator />

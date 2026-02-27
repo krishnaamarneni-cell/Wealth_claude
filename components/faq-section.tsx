@@ -9,24 +9,24 @@ import {
 
 const faqs = [
   {
-    question: "Which assets do TrackFolio support?",
+    question: "Which assets do WealthClaude support?",
     answer:
-      "TrackFolio tracks a wide variety of assets including US, UK, Europe, Canada, Singapore, Australia, Brazil, South Korea and other global stocks from more than 70+ exchanges, 20000+ ETFs, and Cryptocurrencies.",
+      "WealthClaude tracks a wide variety of assets including US, UK, Europe, Canada, Singapore, Australia, Brazil, South Korea and other global stocks from more than 70+ exchanges, 20000+ ETFs, and Cryptocurrencies.",
   },
   {
-    question: "Is TrackFolio available for free?",
+    question: "Is WealthClaude available for free?",
     answer:
-      "You can create a free portfolio on TrackFolio. This will have access to almost all of the functionalities. However, when your number of trades get larger, you will have to upgrade to see the full portfolio.",
+      "You can create a free portfolio on WealthClaude. This will have access to almost all of the functionalities. However, when your number of trades get larger, you will have to upgrade to see the full portfolio.",
   },
   {
     question: "How can I track all my investments?",
     answer:
-      "Simply input the trades you made via our intuitive interface or by uploading a file containing your trade history. Once TrackFolio has data on your past trades, it's ready to track and visualize all your portfolios in various aspects.",
+      "Simply input the trades you made via our intuitive interface or by uploading a file containing your trade history. Once WealthClaude has data on your past trades, it's ready to track and visualize all your portfolios in various aspects.",
   },
   {
     question: "Can I import my trade history from my Brokerage?",
     answer:
-      "Absolutely! TrackFolio supports file formats from major brokerages including Interactive Brokers, TD Ameritrade, Charles Schwab, Fidelity, Robinhood, E*TRADE, and 50+ more brokers worldwide.",
+      "Absolutely! WealthClaude supports file formats from major brokerages including Interactive Brokers, TD Ameritrade, Charles Schwab, Fidelity, Robinhood, E*TRADE, and 50+ more brokers worldwide.",
   },
   {
     question: "How do the market heat maps work?",
@@ -49,7 +49,7 @@ export function FaqSection() {
             Frequently Asked Questions
           </h2>
           <p className="text-muted-foreground">
-            Everything you need to know about TrackFolio
+            Everything you need to know about WealthClaude
           </p>
         </div>
 

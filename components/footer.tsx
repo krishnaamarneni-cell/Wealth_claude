@@ -121,10 +121,10 @@ export function Footer() {
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                 <span className="text-primary-foreground font-bold text-sm">TF</span>
               </div>
-              <span className="font-semibold text-foreground">TrackFolio</span>
+              <span className="font-semibold text-foreground">WealthClaude</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              &copy; {new Date().getFullYear()} TrackFolio. All rights reserved.
+              &copy; {new Date().getFullYear()} WealthClaude. All rights reserved.
             </p>
             <div className="flex items-center gap-4">
               <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">

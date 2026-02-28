@@ -116,9 +116,17 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const body = await request.json()
+    const { fileId } = body
+
+    if (!fileId) {
+      return NextResponse.json({ error: 'Missing fileId' }, { status: 400 })
+    }
+
     const { error } = await supabase
       .from('transactions')
       .delete()
+      .eq('file_id', fileId)
       .eq('user_id', user.id)
 
     if (error) {

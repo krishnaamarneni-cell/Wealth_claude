@@ -310,16 +310,13 @@ export default function TransactionsPage() {
     }
 
     try {
-      // Find all transactions with this fileId
-      const transactionsToDelete = transactions.filter(tx => tx.fileId === fileId)
-
-      // Delete each transaction from Supabase
-      for (const tx of transactionsToDelete) {
-        await fetch(`/api/transactions/${tx.id}`, {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-        })
-      }
+      // Delete all transactions for this file in bulk
+      console.log('[deleteFile] Deleting fileId:', fileId)
+      await fetch('/api/transactions', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId }),
+      })
 
       console.log('[transactions-page] ✅ Deleted', transactionsToDelete.length, 'transactions from Supabase')
 

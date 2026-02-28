@@ -403,14 +403,12 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
     }
 
     if (txns.length === 0) {
-      const emptyState = {
+      setData({
         ...INITIAL_STATE,
         isLoading: false,
         isFetchingBatch: false,
         lastUpdate: new Date(),
-      }
-      setData(emptyState)
-      setCachedData(emptyState)
+      })
       return
     }
 

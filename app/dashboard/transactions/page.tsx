@@ -324,6 +324,7 @@ export default function TransactionsPage() {
       console.log('[transactions-page] ✅ Deleted', transactionsToDelete.length, 'transactions from Supabase')
 
       // Delete file metadata from Supabase
+      console.log('[deleteFile] Deleting fileId:', fileId)
       await fetch('/api/uploaded-files', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -627,7 +628,7 @@ export default function TransactionsPage() {
     })
   }
 
-  // ── TD Ameritrade ───────────────────────────────────────────
+  // ── TD Ameritrade ──��────────────────────────────────────────
   // Columns: DATE, TRANSACTION ID, DESCRIPTION, QUANTITY, SYMBOL,
   //          PRICE, COMMISSION, AMOUNT, REG FEE, ...
 

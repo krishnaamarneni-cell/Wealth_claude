@@ -204,8 +204,13 @@ function setCachedData(data: PortfolioContextData): void {
 function clearCacheForNewUser(): void {
   if (typeof window === 'undefined') return
   try {
+    // Clear all user-specific localStorage keys
     localStorage.removeItem(CACHE_KEY)
-    console.log('[Portfolio] 🔄 Cache cleared for new user')
+    localStorage.removeItem('uploadedFiles')
+    localStorage.removeItem('rebalanceScenarios')
+    localStorage.removeItem('lastRebalanceDate')
+    localStorage.removeItem(CURRENT_USER_ID_KEY)
+    console.log('[Portfolio] 🔄 All cache cleared for new user')
   } catch (error) {
     console.error('[Portfolio] Failed to clear cache:', error)
   }

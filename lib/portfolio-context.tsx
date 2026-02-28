@@ -909,7 +909,7 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
     window.addEventListener('transactionsUpdated', handleLocalUpdate)
 
     // Listen for auth state changes
-    const { data: { subscription } } = await supabase.auth.onAuthStateChange(async (event) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
       if (event === 'SIGNED_IN') {
         console.log('[Portfolio] User signed in — refreshing data')
         await calculateCoreData(false)

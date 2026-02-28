@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { createClient } from "@/lib/supabase"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +18,29 @@ import {
 
 export function DashboardHeader() {
   const router = useRouter()
+  const supabase = createClient()
+
+  const handleLogout = async () => {
+    try {
+      // Clear all user-specific localStorage data
+      localStorage.removeItem('portfolioContextCache')
+      localStorage.removeItem('uploadedFiles')
+      localStorage.removeItem('rebalanceScenarios')
+      localStorage.removeItem('lastRebalanceDate')
+      localStorage.removeItem('portfolioContextUserId')
+      sessionStorage.clear()
+
+      // Sign out from Supabase
+      await supabase.auth.signOut()
+
+      // Redirect to home page
+      router.push('/')
+    } catch (error) {
+      console.error('[v0] Logout error:', error)
+      // Redirect anyway even if signOut fails
+      router.push('/')
+    }
+  }
 
   return (
     <header className="flex h-14 items-center justify-between border-b border-border px-4 lg:px-6">
@@ -64,7 +88,7 @@ export function DashboardHeader() {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="cursor-pointer text-red-500 focus:text-red-600"
-              onClick={() => router.push("/")}
+              onClick={handleLogout}
             >
               Log out
             </DropdownMenuItem>

@@ -17,29 +17,19 @@ export async function GET(request: NextRequest) {
   if (type === 'recovery') {
     return NextResponse.redirect(new URL('/auth/reset-password', request.url))
   }
-  ```
-
-Then update the Supabase email template button URL back to:
-```
-  { { .ConfirmationURL } }
-  ```
-
-And in **Supabase → URL Configuration → Redirect URLs** make sure this is added:
-```
-  https://www.wealthclaude.com/auth/callback
 
   const supabase = await createServerSideClient(cookieStore)
   const { data: { session } } = await supabase.auth.getSession()
 
   if (!session) {
-    return NextResponse.redirect(new URL('/auth/login', request.url))
+    return NextResponse.redirect(new URL('/auth', request.url))
   }
 
   // Check if profile exists
   const { data: profile } = await supabase
     .from('profiles')
-    .select('user_id')
-    .eq('user_id', session.user.id)
+    .select('id')
+    .eq('id', session.user.id)
     .single()
 
   if (!profile) {

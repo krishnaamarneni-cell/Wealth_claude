@@ -3,12 +3,28 @@ import type { Database } from '@/types/database'
 import type { NextRequest, NextResponse } from 'next/server'
 import { NextResponse } from 'next/server'
 
-// Client-side Supabase client
+// Singleton browser client instance
+let browserClientInstance: ReturnType<typeof createBrowserClient> | null = null
+
+// Client-side Supabase client (singleton to avoid multiple GoTrueClient instances)
 export function createClient() {
-  return createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  if (typeof window === 'undefined') {
+    // Server-side - create a new instance (won't be cached)
+    return createBrowserClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+  }
+
+  // Client-side - reuse singleton instance
+  if (!browserClientInstance) {
+    browserClientInstance = createBrowserClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+  }
+
+  return browserClientInstance
 }
 
 // Server-side Supabase client (for Route Handlers and Server Actions)

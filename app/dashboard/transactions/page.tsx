@@ -311,17 +311,16 @@ export default function TransactionsPage() {
 
     try {
       // Delete all transactions for this file in bulk
-      console.log('[deleteFile] Deleting fileId:', fileId)
+      console.log('[deleteFile] Deleting fileId:', fileId, 'with', fileToDelete.transactionCount, 'transactions')
       await fetch('/api/transactions', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileId }),
       })
 
-      console.log('[transactions-page] ✅ Deleted', transactionsToDelete.length, 'transactions from Supabase')
+      console.log('[transactions-page] ✅ Deleted', fileToDelete.transactionCount, 'transactions from Supabase')
 
       // Delete file metadata from Supabase
-      console.log('[deleteFile] Deleting fileId:', fileId)
       await fetch('/api/uploaded-files', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },

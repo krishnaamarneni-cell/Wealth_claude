@@ -117,7 +117,19 @@ export async function DELETE(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { fileId } = body
+    const { fileId, deleteAll } = body
+
+    if (deleteAll) {
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('user_id', user.id)
+      if (error) {
+        console.error('[/api/transactions DELETE] Error:', error)
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+      return NextResponse.json({ success: true })
+    }
 
     if (!fileId) {
       return NextResponse.json({ error: 'Missing fileId' }, { status: 400 })

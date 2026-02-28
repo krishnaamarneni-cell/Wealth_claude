@@ -1111,7 +1111,14 @@ export default function TransactionsPage() {
       window.dispatchEvent(new Event('transactionsUpdated'))
 
       // Refresh all data after upload
-      await loadFiles()
+      const response2 = await fetch('/api/uploaded-files')
+      if (response2.ok) {
+        const files = await response2.json()
+        if (Array.isArray(files)) {
+          setUploadedFiles(files)
+          localStorage.setItem('uploadedFiles', JSON.stringify(files))
+        }
+      }
     } catch (error) {
       console.error('[transactions-page] Error saving transactions:', error)
       setUploadError('Failed to save transactions. Please try again.')

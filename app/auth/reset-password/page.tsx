@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -11,7 +11,7 @@ import { Loader2, Check, LineChart } from 'lucide-react'
 
 const COMPANY_NAME = 'WealthClaude'
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -86,112 +86,116 @@ export default function ResetPasswordPage() {
 
   if (!validToken) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardHeader className="text-center">
-            <CardTitle>Invalid or Expired Link</CardTitle>
-            <CardDescription className="mt-2">
-              This password reset link is invalid or has expired.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Please request a new password reset link from the sign in page.
-            </p>
-            <Link href="/auth">
-              <Button className="w-full">Back to Sign In</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
+      <Card className="max-w-md w-full">
+        <CardHeader className="text-center">
+          <CardTitle>Invalid or Expired Link</CardTitle>
+          <CardDescription className="mt-2">
+            This password reset link is invalid or has expired.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Please request a new password reset link from the sign in page.
+          </p>
+          <Link href="/auth">
+            <Button className="w-full">Back to Sign In</Button>
+          </Link>
+        </CardContent>
+      </Card>
     )
   }
 
   if (success) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardHeader className="text-center">
-            <div className="mb-4 flex justify-center">
-              <div className="p-3 rounded-full bg-green-500/10">
-                <Check className="h-6 w-6 text-green-500" />
-              </div>
+      <Card className="max-w-md w-full">
+        <CardHeader className="text-center">
+          <div className="mb-4 flex justify-center">
+            <div className="p-3 rounded-full bg-green-500/10">
+              <Check className="h-6 w-6 text-green-500" />
             </div>
-            <CardTitle>Password Updated</CardTitle>
-            <CardDescription className="mt-2">
-              Your password has been successfully updated.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Redirecting you to sign in in a moment...
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+          <CardTitle>Password Updated</CardTitle>
+          <CardDescription className="mt-2">
+            Your password has been successfully updated.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Redirecting you to sign in in a moment...
+          </p>
+        </CardContent>
+      </Card>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="max-w-md w-full">
-        <CardHeader className="text-center">
-          <Link href="/" className="inline-block hover:opacity-80 transition-opacity">
-            <div className="mb-2 flex items-center justify-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                <LineChart className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold">{COMPANY_NAME}</h1>
-              </div>
-            </div>
-          </Link>
-          <p className="text-sm text-muted-foreground">Reset your password</p>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleResetPassword} className="space-y-4">
-            <div>
-              <Input
-                type="password"
-                placeholder="New Password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-                minLength={6}
-                disabled={loading}
-              />
+    <Card className="max-w-md w-full">
+      <CardHeader className="text-center">
+        <Link href="/" className="inline-block hover:opacity-80 transition-opacity">
+          <div className="mb-2 flex items-center justify-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+              <LineChart className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
-              <Input
-                type="password"
-                placeholder="Confirm Password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                minLength={6}
-                disabled={loading}
-              />
+              <h1 className="text-2xl font-bold">{COMPANY_NAME}</h1>
             </div>
+          </div>
+        </Link>
+        <p className="text-sm text-muted-foreground">Reset your password</p>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleResetPassword} className="space-y-4">
+          <div>
+            <Input
+              type="password"
+              placeholder="New Password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+              minLength={6}
+              disabled={loading}
+            />
+          </div>
+          <div>
+            <Input
+              type="password"
+              placeholder="Confirm Password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              minLength={6}
+              disabled={loading}
+            />
+          </div>
 
-            {error && (
-              <div className="p-3 rounded-md bg-red-500/10 border border-red-500/20">
-                <p className="text-sm text-red-600">{error}</p>
-              </div>
+          {error && (
+            <div className="p-3 rounded-md bg-red-500/10 border border-red-500/20">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
+
+          <Button className="w-full" disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Updating Password...
+              </>
+            ) : (
+              'Update Password'
             )}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
 
-            <Button className="w-full" disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Updating Password...
-                </>
-              ) : (
-                'Update Password'
-              )}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+export default function ResetPasswordPage() {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Suspense fallback={<div>Loading...</div>}>
+        <ResetPasswordContent />
+      </Suspense>
     </div>
   )
 }

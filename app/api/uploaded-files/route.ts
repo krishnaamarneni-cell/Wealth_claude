@@ -60,7 +60,7 @@ export async function DELETE(request: Request) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { fileId } = await request.json()
-    
+
     if (!fileId) {
       return NextResponse.json({ error: 'Missing fileId' }, { status: 400 })
     }
@@ -68,7 +68,7 @@ export async function DELETE(request: Request) {
     const { error } = await supabase
       .from('uploaded_files')
       .delete()
-      .eq('id', fileId)
+      .eq('file_id', fileId)
       .eq('user_id', user.id)
 
     if (error) throw error

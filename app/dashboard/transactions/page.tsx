@@ -323,6 +323,13 @@ export default function TransactionsPage() {
 
       console.log('[transactions-page] ✅ Deleted', transactionsToDelete.length, 'transactions from Supabase')
 
+      // Delete file metadata from Supabase
+      await fetch('/api/uploaded-files', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId }),
+      })
+
       // Update local state
       const updatedFiles = uploadedFiles.filter(f => f.id !== fileId)
       setUploadedFiles(updatedFiles)

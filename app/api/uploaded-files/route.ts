@@ -52,14 +52,26 @@ export async function POST(request: Request) {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(request: Request) {
   try {
     const cookieStore = await cookies()
     const supabase = createServerSideClient(cookieStore)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    await supabase.from('uploaded_files').delete().eq('user_id', user.id)
+    const { fileId } = await request.json()
+    
+    if (!fileId) {
+      return NextResponse.json({ error: 'Missing fileId' }, { status: 400 })
+    }
+
+    const { error } = await supabase
+      .from('uploaded_files')
+      .delete()
+      .eq('id', fileId)
+      .eq('user_id', user.id)
+
+    if (error) throw error
     return NextResponse.json({ success: true })
   } catch (e) {
     console.error('[uploaded-files] DELETE error:', e)

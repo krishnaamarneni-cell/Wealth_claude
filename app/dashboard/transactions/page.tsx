@@ -330,6 +330,8 @@ export default function TransactionsPage() {
       const updatedTransactions = transactions.filter(tx => tx.fileId !== fileId)
       setTransactions(updatedTransactions)
 
+      localStorage.setItem('uploadedFiles', JSON.stringify(updatedFiles))
+
       setUploadSuccess(`✅ Deleted "${fileToDelete.name}" and ${fileToDelete.transactionCount} transactions`)
       window.dispatchEvent(new Event('transactionsUpdated'))
 

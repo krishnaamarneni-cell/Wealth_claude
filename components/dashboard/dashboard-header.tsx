@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { createClient } from "@/lib/supabase"
+import { clearTransactionCache } from "@/lib/transaction-storage"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +23,9 @@ export function DashboardHeader() {
 
   const handleLogout = async () => {
     try {
+      // Clear transaction in-memory cache
+      clearTransactionCache()
+
       // Clear all user-specific data
       localStorage.removeItem('portfolioContextCache')
       localStorage.removeItem('CURRENT_USER_ID_KEY')

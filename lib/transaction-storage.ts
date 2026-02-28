@@ -28,6 +28,11 @@ export function invalidateTransactionCache(): void {
   console.log('[transaction-storage] 🗑️ In-memory cache invalidated')
 }
 
+export function clearTransactionCache(): void {
+  memoryCache = null
+  memoryCacheTime = 0
+}
+
 export async function getTransactionsFromStorage(): Promise<Transaction[]> {
   if (typeof window === 'undefined') return []
 

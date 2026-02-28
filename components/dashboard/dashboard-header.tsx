@@ -22,12 +22,14 @@ export function DashboardHeader() {
 
   const handleLogout = async () => {
     try {
-      // Clear all user-specific localStorage data
+      // Clear all user-specific data
       localStorage.removeItem('portfolioContextCache')
+      localStorage.removeItem('CURRENT_USER_ID_KEY')
       localStorage.removeItem('uploadedFiles')
       localStorage.removeItem('rebalanceScenarios')
       localStorage.removeItem('lastRebalanceDate')
-      localStorage.removeItem('portfolioContextUserId')
+      localStorage.removeItem('userProfile')
+      localStorage.removeItem('WATCHLIST_CACHE_KEY')
       sessionStorage.clear()
 
       // Sign out from Supabase

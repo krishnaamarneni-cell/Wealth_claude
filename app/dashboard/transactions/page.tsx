@@ -311,44 +311,45 @@ export default function TransactionsPage() {
     }
 
     try {
+      // Delete all transactions for this file in bulk
+      console.log('[deleteFile] Deleting fileId:', fileId, 'with', fileToDelete.transactionCount, 'transactions')
+      await fetch('/api/transactions', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId }),
+      })
+
+      console.log('[transactions-page] ✅ Deleted', fileToDelete.transactionCount, 'transactions from Supabase')
+
+      // Delete file metadata from Supabase
+      await fetch('/api/uploaded-files', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId }),
+      })
+
+      // Update local state
+      const updatedFiles = uploadedFiles.filter(f => f.id !== fileId)
+      setUploadedFiles(updatedFiles)
+
+      const updatedTransactions = transactions.filter(tx => tx.fileId !== fileId)
+      setTransactions(updatedTransactions)
+
+      localStorage.setItem('uploadedFiles', JSON.stringify(updatedFiles))
+
+      // Reload fresh from Supabase
+      const freshFiles = await fetch('/api/uploaded-files').then(r => r.json())
+      if (Array.isArray(freshFiles)) setUploadedFiles(freshFiles)
+
+      setUploadSuccess(`✅ Deleted "${fileToDelete.name}" and ${fileToDelete.transactionCount} transactions`)
+      window.dispatchEvent(new Event('transactionsUpdated'))
+
+      setTimeout(() => setUploadSuccess(''), 3000)
     } catch (error) {
       console.error('[transactions-page] Error deleting file:', error)
       setUploadError('Error deleting transactions')
       setTimeout(() => setUploadError(''), 3000)
     }
-  }
-
-  console.log('[transactions-page] ✅ Deleted', fileToDelete.transactionCount, 'transactions from Supabase')
-
-  // Delete file metadata from Supabase
-  await fetch('/api/uploaded-files', {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fileId }),
-  })
-
-  // Update local state
-  const updatedFiles = uploadedFiles.filter(f => f.id !== fileId)
-  setUploadedFiles(updatedFiles)
-
-  const updatedTransactions = transactions.filter(tx => tx.fileId !== fileId)
-  setTransactions(updatedTransactions)
-
-  localStorage.setItem('uploadedFiles', JSON.stringify(updatedFiles))
-
-  // Reload fresh from Supabase
-  const freshFiles = await fetch('/api/uploaded-files').then(r => r.json())
-  if (Array.isArray(freshFiles)) setUploadedFiles(freshFiles)
-
-  setUploadSuccess(`✅ Deleted "${fileToDelete.name}" and ${fileToDelete.transactionCount} transactions`)
-  window.dispatchEvent(new Event('transactionsUpdated'))
-
-  setTimeout(() => setUploadSuccess(''), 3000)
-} catch (error) {
-  console.error('[transactions-page] Error deleting file:', error)
-  setUploadError('Error deleting transactions')
-  setTimeout(() => setUploadError(''), 3000)
-}
   }
 
 const deleteAllData = async () => {

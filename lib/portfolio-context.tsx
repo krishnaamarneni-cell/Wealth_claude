@@ -7,6 +7,13 @@ import { calculateAndFetchHoldings, type Transaction, type Holding } from './hol
 import { calculatePriorities, getCacheStats, getStocksToFetch } from './smart-stock-cache'
 import { fetchStocksBatch } from './batch-fetcher'
 
+// ==================== SUPABASE CLIENT ====================
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
 // ==================== RATE LIMITING ====================
 
 let lastApiCallTime = 0
@@ -361,10 +368,6 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
   useEffect(() => {
     const checkUserSession = async () => {
       try {
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        )
         const { data: { session } } = await supabase.auth.getSession()
         const currentUserId = session?.user?.id
 

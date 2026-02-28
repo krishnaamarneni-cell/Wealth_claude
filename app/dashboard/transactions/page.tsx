@@ -1110,6 +1110,9 @@ export default function TransactionsPage() {
 
       setUploadSuccess(`✅ Successfully imported ${updatedTransactions.length} transaction${updatedTransactions.length > 1 ? 's' : ''} from "${fileName}"`)
       window.dispatchEvent(new Event('transactionsUpdated'))
+
+      // Refresh all data after upload
+      await loadFiles()
     } catch (error) {
       console.error('[transactions-page] Error saving transactions:', error)
       setUploadError('Failed to save transactions. Please try again.')

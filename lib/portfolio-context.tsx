@@ -908,10 +908,23 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
     window.addEventListener('storage', handleStorageChange)
     window.addEventListener('transactionsUpdated', handleLocalUpdate)
 
+    // Listen for auth state changes
+    const { data: { subscription } } = await supabase.auth.onAuthStateChange(async (event) => {
+      if (event === 'SIGNED_IN') {
+        console.log('[Portfolio] User signed in — refreshing data')
+        await calculateCoreData(false)
+      }
+      if (event === 'SIGNED_OUT') {
+        console.log('[Portfolio] User signed out — clearing data')
+        setData(INITIAL_STATE)
+      }
+    })
+
     return () => {
       clearInterval(refreshInterval)
       window.removeEventListener('storage', handleStorageChange)
       window.removeEventListener('transactionsUpdated', handleLocalUpdate)
+      subscription?.unsubscribe()
     }
   }, [])
 

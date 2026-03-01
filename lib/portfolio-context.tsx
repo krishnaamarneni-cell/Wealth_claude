@@ -9,7 +9,15 @@ import { fetchStocksBatch } from './batch-fetcher'
 
 // ==================== SUPABASE CLIENT ====================
 
-const supabase = createClient()
+// Supabase client is initialized lazily inside the provider to avoid SSR issues
+let supabase: ReturnType<typeof createClient> | null = null
+
+function getSupabaseClient() {
+  if (!supabase) {
+    supabase = createClient()
+  }
+  return supabase
+}
 
 // ==================== RATE LIMITING ====================
 
@@ -360,7 +368,7 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
   useEffect(() => {
     const checkUserSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { session } } = await getSupabaseClient().auth.getSession()
         const currentUserId = session?.user?.id
 
         if (currentUserId) {
@@ -903,7 +911,7 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
     window.addEventListener('transactionsUpdated', handleLocalUpdate)
 
     // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
+    const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange(async (event) => {
       if (event === 'SIGNED_IN') {
         console.log('[Portfolio] User signed in — refreshing data')
         await calculateCoreData(false)

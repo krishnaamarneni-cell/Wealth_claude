@@ -359,7 +359,8 @@ export default function TransactionsPage() {
 
       clearTransactionCache()
       localStorage.removeItem('portfolioContextCache')
-      contextRefresh()
+      await contextRefresh()
+      localStorage.removeItem('portfolioContextCache')
       setUploadSuccess(`✅ Deleted "${fileToDelete.name}" and ${fileToDelete.transactionCount} transactions`)
       window.dispatchEvent(new Event('transactionsUpdated'))
 

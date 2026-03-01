@@ -51,7 +51,8 @@ import {
   RefreshCw
 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { getTransactionsFromStorage } from "@/lib/transaction-storage"
+
+import { getTransactionsFromStorage, clearTransactionCache } from "@/lib/transaction-storage"
 import { usePortfolio } from "@/lib/portfolio-context"
 
 interface Transaction {
@@ -246,6 +247,7 @@ export default function TransactionsPage() {
 
       if (!response.ok) throw new Error('Failed to save')
 
+      clearTransactionCache()
       const freshTransactions = await getTransactionsFromStorage()
       setTransactions(freshTransactions)
       contextRefresh()
@@ -286,7 +288,8 @@ export default function TransactionsPage() {
 
       console.log('[transactions-page] ✅ Deleted from Supabase')
 
-      // Then reload all transactions from Supabase
+      // Clear cache and reload fresh from Supabase
+      clearTransactionCache()
       const updatedTransactions = await getTransactionsFromStorage()
       setTransactions(updatedTransactions)
 

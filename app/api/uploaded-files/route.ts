@@ -59,7 +59,17 @@ export async function DELETE(request: Request) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { fileId } = await request.json()
+    const body = await request.json()
+    const { fileId, deleteAll } = body
+
+    if (deleteAll) {
+      const { error } = await supabase
+        .from('uploaded_files')
+        .delete()
+        .eq('user_id', user.id)
+      if (error) throw error
+      return NextResponse.json({ success: true })
+    }
 
     if (!fileId) {
       return NextResponse.json({ error: 'Missing fileId' }, { status: 400 })

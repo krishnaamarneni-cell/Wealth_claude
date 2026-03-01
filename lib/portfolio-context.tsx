@@ -198,6 +198,7 @@ function getCachedData(): PortfolioContextData | null {
 }
 
 function setCachedData(data: PortfolioContextData): void {
+  if (!data || !data.transactions || data.transactions.length === 0) return
   if (typeof window === 'undefined') return
   try {
     const cached: CachedData = { data, timestamp: Date.now() }

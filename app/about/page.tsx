@@ -1,7 +1,7 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { LineChart, ArrowLeft } from 'lucide-react'
-import { Footer } from '@/components/Footer'
+import { Footer } from '@/components/footer'
 
 export const metadata: Metadata = {
   title: 'About Us | WealthClaude',

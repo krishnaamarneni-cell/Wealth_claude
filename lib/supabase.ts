@@ -3,29 +3,44 @@ import type { Database } from '@/types/database'
 import type { NextRequest, NextResponse } from 'next/server'
 import { NextResponse } from 'next/server'
 
-// Singleton browser client instance - only for client-side
-let browserClientInstance: ReturnType<typeof createBrowserClient> | null = null
+// Global singleton instance - initialized only once
+let supabaseInstance: ReturnType<typeof createBrowserClient> | undefined
 
-// Client-side Supabase client (singleton to avoid multiple GoTrueClient instances)
-export function createClient() {
-  // Only use singleton on client-side to prevent multiple instances
+// Get or create Supabase client (singleton pattern)
+function getSupabaseClient() {
   if (typeof window === 'undefined') {
-    // Server-side - create a temporary instance (SSR only, not cached)
+    throw new Error('getSupabaseClient() can only be called client-side')
+  }
+
+  if (!supabaseInstance) {
+    supabaseInstance = createBrowserClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: false,
+        },
+      }
+    )
+  }
+
+  return supabaseInstance
+}
+
+// Client-side Supabase client (always returns the same instance)
+export function createClient() {
+  if (typeof window === 'undefined') {
+    // Server-side - should not be called from here, but return a temporary instance if needed
+    console.warn('[Supabase] createClient() called server-side, this should not happen')
     return createBrowserClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
   }
 
-  // Client-side - always reuse the same singleton instance
-  if (!browserClientInstance) {
-    browserClientInstance = createBrowserClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-  }
-
-  return browserClientInstance
+  return getSupabaseClient()
 }
 
 // Server-side Supabase client (for Route Handlers and Server Actions)
@@ -92,5 +107,6 @@ export async function updateSession(request: NextRequest) {
 
   return response
 }
+
 
 

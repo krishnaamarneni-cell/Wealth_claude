@@ -65,27 +65,48 @@ Use real current prices and percentages. Be specific.`
 }
 
 // ─── Build blog topics from market data ──────────────────────────────────────
+const EDUCATION_TOPICS = [
+  "How to build an emergency fund: the 3-6 month rule explained",
+  "What is dollar-cost averaging and why it beats timing the market",
+  "How to read a stock's P/E ratio and what it actually means",
+  "The difference between ETFs and mutual funds for beginner investors",
+  "How compound interest works and why starting early matters",
+  "What is portfolio rebalancing and how often should you do it",
+  "Understanding tax-loss harvesting and how to save on capital gains",
+  "How to evaluate a dividend stock: yield, payout ratio and growth",
+  "What is an index fund and why Warren Buffett recommends them",
+  "How to set a personal investment goal based on your risk tolerance",
+  "The basics of asset allocation: stocks, bonds and cash explained",
+  "What is inflation and how does it affect your investments",
+  "How to use a Roth IRA vs traditional IRA for retirement savings",
+  "What are blue chip stocks and why they belong in every portfolio",
+  "How to diversify your portfolio across sectors and asset classes",
+]
+
 function buildTopics(
   market: { gainers: string[]; losers: string[]; premarket: string[]; crypto: string[] },
   timeOfDay: string
 ): string[] {
   const topics: string[] = []
 
-  for (const g of market.gainers.slice(0, 2)) {
-    topics.push(`Why is ${g} — analysis and what investors should do now`)
-  }
-  for (const l of market.losers.slice(0, 1)) {
-    topics.push(`${l} — buying opportunity or time to cut losses?`)
-  }
-  for (const p of market.premarket.slice(0, 2)) {
-    topics.push(`${p} ${timeOfDay} — what traders need to know`)
-  }
-  for (const c of market.crypto.slice(0, 2)) {
-    topics.push(`${c} — price analysis and what comes next`)
+  // 1 market post per run — rotate through gainers/losers/crypto
+  const hour = new Date().getUTCHours()
+  if (hour <= 13 && market.gainers[0]) {
+    topics.push(`Why is ${market.gainers[0]} — analysis and what investors should do now`)
+  } else if (hour <= 17 && market.losers[0]) {
+    topics.push(`${market.losers[0]} — buying opportunity or time to cut losses?`)
+  } else if (market.crypto[0]) {
+    topics.push(`${market.crypto[0]} — price analysis and what comes next`)
+  } else if (market.gainers[0]) {
+    topics.push(`Why is ${market.gainers[0]} — analysis and what investors should do now`)
   }
 
-  // Shuffle and cap at 6
-  return topics.sort(() => Math.random() - 0.5).slice(0, 6)
+  // 1 education post per run — rotate daily
+  const dayOfYear = Math.floor(Date.now() / (1000 * 60 * 60 * 24))
+  const eduIndex = (dayOfYear + hour) % EDUCATION_TOPICS.length
+  topics.push(EDUCATION_TOPICS[eduIndex])
+
+  return topics
 }
 
 // ─── Duplicate check (same topic in last 24h) ─────────────────────────────────
@@ -238,8 +259,8 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      // First 3 = published, rest = drafts
-      const publish = i < 3
+      // All posts published
+      const publish = true
       const now = new Date().toISOString()
 
       const { error } = await supabase.from('blog_posts').insert([{

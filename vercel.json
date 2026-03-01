@@ -6,7 +6,15 @@
     },
     {
       "path": "/api/auto-blog",
+      "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/auto-blog",
       "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/auto-blog",
+      "schedule": "0 20 * * *"
     },
     {
       "path": "/api/auto-blog",

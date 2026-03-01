@@ -4,6 +4,13 @@ import { useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Goal Tracker — WealthClaude | Investment Goals',
+  description: 'Set and track your investment goals. Monitor progress toward financial milestones with AI-powered projections.',
+}
+
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, BarChart, Bar, Cell, PieChart, Pie } from "recharts"
 import { usePortfolio } from "@/lib/portfolio-context"
 import { Target, TrendingUp, Calendar, DollarSign, Pencil, X, CreditCard, AlertTriangle, TrendingDown, PieChart as PieChartIcon, Activity, CheckCircle2, Plus, Trash2, Shield, Zap } from "lucide-react"

@@ -4,8 +4,8 @@ import { NewsHub } from "@/components/news-hub"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "Market Intelligence — WealthClaude",
-  description: "AI-powered stock market analysis, trending tickers, crypto moves and financial insights updated 3x daily.",
+  title: 'Market News — WealthClaude | AI-Powered Finance News',
+  description: 'Stay ahead of the market with AI-powered US stock market news, pre-market previews, geopolitical analysis and finance education updated 6 times daily.',
 }
 
 export default function NewsPage() {

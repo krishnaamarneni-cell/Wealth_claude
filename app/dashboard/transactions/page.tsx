@@ -7,6 +7,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Transactions — WealthClaude | Investment History',
+  description: 'View your complete investment transaction history, trade log and portfolio activity all in one place.',
+}
+
 import {
   Select,
   SelectContent,

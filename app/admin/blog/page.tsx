@@ -7,6 +7,7 @@ import { AutoBlogStatus } from '@/components/auto-blog-status'
 export const metadata = {
   title: 'Blog Admin — WealthClaude',
   description: 'Create and manage blog posts',
+  robots: 'noindex, nofollow',
 }
 
 export default async function BlogAdminPage() {

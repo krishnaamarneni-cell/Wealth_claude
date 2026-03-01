@@ -10,10 +10,24 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: 'WealthClaude - Track All Investments In One Place',
-  description: 'Stocks, ETFs, and Crypto Investment Tracker with Real-Time Market Heat Maps',
+  description: 'WealthClaude — AI-powered portfolio tracker with real-time market intelligence. Track stocks, analyze performance and get AI insights. Free to start.',
+  keywords: 'portfolio tracker, stock portfolio tracker, investment tracker, wealth management, AI portfolio analysis, free portfolio tracker, AI stock tracker',
   verification: {
     google: 'k6ogtZfRjD_sjQ0Rf1XyuB7D9Huce1RopsC2tgCfWzk',
   },
+  openGraph: {
+    title: 'WealthClaude - AI-Powered Portfolio Tracker',
+    description: 'WealthClaude — AI-powered portfolio tracker with real-time market intelligence. Track stocks, analyze performance and get AI insights. Free to start.',
+    url: 'https://wealthclaude.com',
+    siteName: 'WealthClaude',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'WealthClaude - AI-Powered Portfolio Tracker',
+    description: 'WealthClaude — AI-powered portfolio tracker with real-time market intelligence. Track stocks, analyze performance and get AI insights. Free to start.',
+  },
+  robots: 'index, follow',
   icons: {
     icon: [
       { url: '/icon.png', sizes: '512x512', type: 'image/png' },

@@ -1,8 +1,13 @@
 import { MetadataRoute } from 'next'
-import { createServerSideClient } from '@/lib/supabase'
-import { cookies } from 'next/headers'
+import { createClient } from '@supabase/supabase-js'
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.wealthclaude.com'
+
+// Public anon client — no cookies needed, only reads published posts
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // ─── Static pages ──────────────────────────────────────────────────────────
@@ -31,14 +36,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let blogPages: MetadataRoute.Sitemap = []
 
   try {
-    const cookieStore = await cookies()
-    const supabase = createServerSideClient(cookieStore)
-
-    const { data: posts } = await supabase
+    const { data: posts, error } = await supabase
       .from('blog_posts')
       .select('slug, updated_at, published_at')
       .eq('published', true)
       .order('published_at', { ascending: false })
+
+    if (error) throw error
 
     if (posts && posts.length > 0) {
       blogPages = posts.map((post) => ({

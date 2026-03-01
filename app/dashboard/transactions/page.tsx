@@ -359,8 +359,9 @@ export default function TransactionsPage() {
 
       clearTransactionCache()
       localStorage.removeItem('portfolioContextCache')
+      localStorage.removeItem('uploadedFiles')
+      setTransactions([])
       await contextRefresh()
-      localStorage.removeItem('portfolioContextCache')
       setUploadSuccess(`✅ Deleted "${fileToDelete.name}" and ${fileToDelete.transactionCount} transactions`)
       window.dispatchEvent(new Event('transactionsUpdated'))
 
@@ -394,6 +395,8 @@ export default function TransactionsPage() {
 
     localStorage.removeItem('transactions')
     localStorage.removeItem('uploadedFiles')
+    localStorage.removeItem('portfolioContextCache')
+    clearTransactionCache()
 
     setTransactions([])
     setUploadedFiles([])

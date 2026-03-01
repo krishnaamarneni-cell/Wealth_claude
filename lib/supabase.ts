@@ -32,11 +32,18 @@ function getSupabaseClient() {
 // Client-side Supabase client (always returns the same instance)
 export function createClient() {
   if (typeof window === 'undefined') {
-    // Server-side - should not be called from here, but return a temporary instance if needed
-    console.warn('[Supabase] createClient() called server-side, this should not happen')
+    // Server-side during SSR - return a temporary instance silently
+    // This is expected behavior - SSR renders client components on the server first
     return createBrowserClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: false,
+        },
+      }
     )
   }
 

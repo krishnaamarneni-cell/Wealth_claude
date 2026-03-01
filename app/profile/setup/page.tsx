@@ -8,11 +8,6 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2 } from 'lucide-react'
 
-export const metadata = {
-  title: 'Setup Your Profile — WealthClaude',
-  description: 'Complete your WealthClaude profile setup to get personalized portfolio insights and AI recommendations.',
-}
-
 export default function ProfileSetupPage() {
   const supabase = createClient()
   const router = useRouter()

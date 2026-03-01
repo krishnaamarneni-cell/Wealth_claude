@@ -3,13 +3,6 @@
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { Suspense } from "react"
-import type { Metadata } from 'next'
-
-export const metadata: Metadata = {
-  title: 'Settings — WealthClaude | Account Settings',
-  description: 'Customize your WealthClaude experience. Manage notifications, display preferences and account settings.',
-}
-
 import {
   Settings, Bell, Link2, AlertTriangle,
   CheckCircle2, XCircle, ExternalLink

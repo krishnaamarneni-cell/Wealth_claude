@@ -5,13 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import type { Metadata } from 'next'
-
-export const metadata: Metadata = {
-  title: 'Performance Analytics — WealthClaude | Track Investment Returns',
-  description: 'Analyze your portfolio performance over time with detailed charts, benchmarks and AI-powered return analysis.',
-}
-
 import {
   Info,
   RefreshCw,

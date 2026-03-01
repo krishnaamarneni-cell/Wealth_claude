@@ -11,12 +11,6 @@ import {
 import Link from "next/link"
 import Image from "next/image"
 import { Suspense } from "react"
-import type { Metadata } from 'next'
-
-export const metadata: Metadata = {
-  title: 'Dashboard — WealthClaude | AI Portfolio Tracker',
-  description: 'Your AI-powered portfolio dashboard. View holdings, performance, market heatmaps and personalized insights in one place.',
-}
 
 // ── Portfolio Tab Components ──────────────────────────────────────────────
 import PortfolioChart from "@/components/portfolio-chart"

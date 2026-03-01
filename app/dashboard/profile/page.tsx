@@ -7,13 +7,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import type { Metadata } from 'next'
-
-export const metadata: Metadata = {
-  title: 'Profile — WealthClaude | Your Account',
-  description: 'Manage your WealthClaude profile, preferences and account settings.',
-}
-
 import {
   Select,
   SelectContent,

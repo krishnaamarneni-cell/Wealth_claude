@@ -1,13 +1,6 @@
 "use client"
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react"
-import type { Metadata } from 'next'
-
-export const metadata: Metadata = {
-  title: 'Compare Stocks — WealthClaude | Stock Comparison & Price Projections',
-  description: 'Compare US stocks side by side and see future price projections based on fundamental analysis and AI modeling.',
-}
-
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, ReferenceLine,

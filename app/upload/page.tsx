@@ -10,12 +10,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useRouter } from 'next/navigation'
 import { saveTransactionsToStorage } from '@/lib/transaction-storage'
 
-// Metadata for upload page
-export const metadata = {
-  title: 'Upload Transactions — WealthClaude | Import Your Portfolio',
-  description: 'Upload your brokerage CSV files to WealthClaude and instantly track your portfolio performance with AI insights.',
-}
-
 interface Transaction {
   id: string
   date: string

@@ -8,12 +8,6 @@ import { usePortfolio } from "@/lib/portfolio-context"
 import HoldingsTab from "@/components/holdings-tab"
 import DividendsTab from "@/components/dividends-tab"
 import StockDetailModal from "@/components/stock-detail-modal"
-import type { Metadata } from 'next'
-
-export const metadata: Metadata = {
-  title: 'Holdings — WealthClaude | Track Your Stock Positions',
-  description: 'View and analyze all your current stock holdings, position sizes, gains and losses in real time.',
-}
 
 export default function HoldingsPage() {
   const [activeTab, setActiveTab] = useState<"holdings" | "dividends">("holdings")

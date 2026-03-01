@@ -7,13 +7,6 @@ import { useState as useStateTwo, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import type { Metadata } from 'next'
-
-export const metadata: Metadata = {
-  title: 'Data Inspector — WealthClaude | Portfolio Data Analysis',
-  description: 'Inspect and analyze your raw portfolio data, transaction history and investment metrics in detail.',
-}
-
 import { RefreshCw, TrendingUp, TrendingDown, Activity, Target, Shield, DollarSign, Brain, Database, Trash2, Info, CircleDollarSign } from "lucide-react"
 import { usePortfolio } from "@/lib/portfolio-context"
 import { getTransactionsFromStorage } from "@/lib/transaction-storage"

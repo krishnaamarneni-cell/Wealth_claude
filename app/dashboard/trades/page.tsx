@@ -3,13 +3,6 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import type { Metadata } from 'next'
-
-export const metadata: Metadata = {
-  title: 'Trade Analysis — WealthClaude | Analyze Your Trades',
-  description: 'Analyze your trading history, win rate, average returns and get AI insights on your trading patterns.',
-}
-
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"

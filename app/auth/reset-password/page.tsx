@@ -11,12 +11,6 @@ import { Loader2, Check, LineChart } from 'lucide-react'
 
 const COMPANY_NAME = 'WealthClaude'
 
-// Metadata for reset password page
-export const metadata = {
-  title: 'Reset Password — WealthClaude',
-  description: 'Reset your WealthClaude account password.',
-}
-
 function ResetPasswordContent() {
   const supabase = createClient()
   const router = useRouter()

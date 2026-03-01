@@ -7,12 +7,6 @@ import { Button } from "@/components/ui/button"
 import { useSidebar } from "@/components/ui/sidebar"
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { Metadata } from 'next'
-
-export const metadata: Metadata = {
-  title: 'Market Heatmaps — WealthClaude | Real-Time Market Data',
-  description: 'Visualize US stock market performance with real-time heatmaps. See which sectors and stocks are moving today.',
-}
 
 const MARKETS = [
   { label: "S&P 500", dataSource: "SPX500", components: "500 stocks", region: "🇺🇸 US" },

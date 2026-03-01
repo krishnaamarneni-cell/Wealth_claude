@@ -11,13 +11,6 @@ import { Switch } from "@/components/ui/switch"
 import PortfolioAIInsight from "@/components/portfolio-ai-insight"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import type { Metadata } from 'next'
-
-export const metadata: Metadata = {
-  title: 'Portfolio Overview — WealthClaude | Investment Performance',
-  description: 'Get a complete overview of your investment portfolio performance, asset allocation and historical returns.',
-}
-
 import {
   Dialog,
   DialogContent,

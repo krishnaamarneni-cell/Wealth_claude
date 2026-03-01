@@ -12,13 +12,6 @@ import { Mail, Github, Loader2, Check, LineChart } from 'lucide-react'
 
 const COMPANY_NAME = 'WealthClaude'
 
-// This is a client component, so metadata is handled in middleware or parent layout
-// But we can still export it for reference
-export const metadata = {
-  title: 'Sign In — WealthClaude | Free AI Portfolio Tracker',
-  description: 'Sign in to WealthClaude to track your portfolio, view AI insights and stay on top of market news.',
-}
-
 export default function AuthPage() {
   const supabase = createClient()
   const router = useRouter()

@@ -391,6 +391,8 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
   }, [])
 
   const calculateCoreData = useCallback(async (silent = false) => {
+    setData(prev => ({ ...prev, isLoading: true }))
+    
     if (!silent) {
       console.log('[Portfolio] Starting calculation using shared calculator...')
     }

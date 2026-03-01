@@ -69,7 +69,7 @@ const features = [
     tag: 'Trade Analysis',
     title: 'Analyze Every Decision',
     description:
-      'Review every trade you've made and see its impact on your portfolio.Compare decisions against benchmarks to learn from your history and sharpen your strategy.',
+      'Review every trade you have made and see its impact on your portfolio. Compare decisions against benchmarks to learn from your history and sharpen your strategy.',
   },
   {
     tag: 'Goals',

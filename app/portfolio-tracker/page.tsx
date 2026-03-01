@@ -33,7 +33,7 @@ const features = [
     tag: 'AI Insights',
     title: 'AI-Powered Portfolio Analysis',
     description:
-      'Get intelligent insights on your portfolio performance, risk exposure, and opportunities. WealthClaude\'s AI analyzes your holdings and delivers actionable recommendations — something no other free tracker offers.',
+      'Get intelligent insights on your portfolio performance, risk exposure, and opportunities. WealthClaude AI analyzes your holdings and delivers actionable recommendations — something no other free tracker offers.',
   },
   {
     tag: 'Market News',
@@ -45,11 +45,11 @@ const features = [
     tag: 'CSV Upload',
     title: 'Import via CSV — No Bank Linking',
     description:
-      'No need to connect your brokerage account. Simply export a CSV from your broker and upload it to WealthClaude. Your portfolio is set up in minutes, and your credentials stay private.',
+      'No need to connect your brokerage account. Simply export a CSV from your broker and upload it to WealthClaude. Your portfolio is set up in minutes and your credentials stay private.',
   },
   {
     tag: 'Live Heatmaps',
-    title: 'S&P 500 & NASDAQ Live Heatmaps',
+    title: 'S&P 500 and NASDAQ Live Heatmaps',
     description:
       'See the entire market at a glance with real-time heatmaps. Green is up, red is down, size is market cap. Spot sector trends and market momentum instantly without switching tabs.',
   },
@@ -57,7 +57,7 @@ const features = [
     tag: 'Dividend Tracker',
     title: 'Global Dividend Tracking',
     description:
-      'Track dividend income from US, UK, European, Canadian, Australian, and Asian stocks in one place. See historical payouts, forecast future income, and monitor your passive income growth.',
+      'Track dividend income from US, UK, European, Canadian, Australian, and Asian stocks in one place. See historical payouts, forecast future income, and monitor passive income growth.',
   },
   {
     tag: 'Performance',
@@ -69,83 +69,28 @@ const features = [
     tag: 'Trade Analysis',
     title: 'Analyze Every Decision',
     description:
-      'Review every trade you have made and see its impact on your portfolio. Compare decisions against benchmarks to learn from your history and sharpen your strategy.',
+      'Review every trade you have made and see its impact on your portfolio. Compare decisions against benchmarks to learn from history and sharpen your strategy.',
   },
   {
     tag: 'Goals',
     title: 'Investment Goal Setting',
     description:
-      'Set portfolio goals and track your progress over time. Whether you're building toward retirement, a down payment, or financial independence — WealthClaude keeps you on track.',
+      'Set portfolio goals and track your progress over time. Whether you are building toward retirement, a down payment, or financial independence — WealthClaude keeps you on track.',
   },
 ]
 
 const comparison = [
-  {
-    feature: 'AI Portfolio Insights',
-    wealthclaude: true,
-    blossom: false,
-    portseido: false,
-  },
-  {
-    feature: 'Live Market News Feed',
-    wealthclaude: true,
-    blossom: false,
-    portseido: false,
-  },
-  {
-    feature: 'Live Market Heatmaps',
-    wealthclaude: true,
-    blossom: false,
-    portseido: false,
-  },
-  {
-    feature: 'No Bank Account Linking Required',
-    wealthclaude: true,
-    blossom: false,
-    portseido: true,
-  },
-  {
-    feature: 'CSV Import',
-    wealthclaude: true,
-    blossom: false,
-    portseido: true,
-  },
-  {
-    feature: 'Dividend Tracking',
-    wealthclaude: true,
-    blossom: true,
-    portseido: true,
-  },
-  {
-    feature: 'Performance vs Benchmarks',
-    wealthclaude: true,
-    blossom: false,
-    portseido: true,
-  },
-  {
-    feature: 'Goal Setting',
-    wealthclaude: true,
-    blossom: false,
-    portseido: false,
-  },
-  {
-    feature: 'Trade Analysis',
-    wealthclaude: true,
-    blossom: false,
-    portseido: false,
-  },
-  {
-    feature: 'Free Forever',
-    wealthclaude: true,
-    blossom: false,
-    portseido: false,
-  },
-  {
-    feature: 'Web App',
-    wealthclaude: true,
-    blossom: false,
-    portseido: true,
-  },
+  { feature: 'AI Portfolio Insights', wealthclaude: true, blossom: false, portseido: false },
+  { feature: 'Live Market News Feed', wealthclaude: true, blossom: false, portseido: false },
+  { feature: 'Live Market Heatmaps', wealthclaude: true, blossom: false, portseido: false },
+  { feature: 'No Bank Account Linking Required', wealthclaude: true, blossom: false, portseido: true },
+  { feature: 'CSV Import', wealthclaude: true, blossom: false, portseido: true },
+  { feature: 'Dividend Tracking', wealthclaude: true, blossom: true, portseido: true },
+  { feature: 'Performance vs Benchmarks', wealthclaude: true, blossom: false, portseido: true },
+  { feature: 'Goal Setting', wealthclaude: true, blossom: false, portseido: false },
+  { feature: 'Trade Analysis', wealthclaude: true, blossom: false, portseido: false },
+  { feature: 'Free Forever', wealthclaude: true, blossom: false, portseido: false },
+  { feature: 'Web App', wealthclaude: true, blossom: false, portseido: true },
 ]
 
 function Check() {
@@ -164,11 +109,29 @@ function Cross() {
   )
 }
 
+const steps = [
+  {
+    step: '01',
+    title: 'Create a Free Account',
+    desc: 'Sign up in seconds. No credit card required. Your free plan never expires.',
+  },
+  {
+    step: '02',
+    title: 'Upload Your CSV',
+    desc: 'Export a CSV from your broker — Fidelity, Schwab, IBKR, Robinhood, and more. Upload it directly to WealthClaude.',
+  },
+  {
+    step: '03',
+    title: 'Get AI Insights',
+    desc: 'Instantly see your portfolio performance, dividend income, heatmaps, and AI-powered analysis all in one dashboard.',
+  },
+]
+
 export default function PortfolioTrackerPage() {
   return (
     <main className="min-h-screen bg-background">
 
-      {/* ── Hero ─────────────────────────────────────────────────── */}
+      {/* Hero */}
       <section className="relative pt-32 pb-20 px-4 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(74,222,128,0.1),transparent_50%)]" />
         <div className="container mx-auto relative z-10">
@@ -177,18 +140,15 @@ export default function PortfolioTrackerPage() {
               <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
               <span className="text-sm text-muted-foreground">Free AI Portfolio Tracker — No Credit Card Required</span>
             </div>
-
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 text-balance leading-tight">
               The Free Portfolio Tracker{' '}
-              <span className="text-primary">With AI & Market News</span>
+              <span className="text-primary">With AI and Market News</span>
             </h1>
-
-            <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto text-pretty">
+            <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
               WealthClaude is the only free portfolio tracker that combines AI-powered insights,
               a live market news feed, and real-time heatmaps — all without requiring you to
-              link your bank account. Upload a CSV and you're set up in minutes.
+              link your bank account. Upload a CSV and you are set up in minutes.
             </p>
-
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
               <Link
                 href="/auth"
@@ -206,7 +166,6 @@ export default function PortfolioTrackerPage() {
                 See All Features
               </Link>
             </div>
-
             <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
               {['Free forever plan', 'No bank account linking', 'CSV import in minutes', 'AI insights included'].map((item) => (
                 <div key={item} className="flex items-center gap-2">
@@ -222,7 +181,7 @@ export default function PortfolioTrackerPage() {
         </div>
       </section>
 
-      {/* ── Features ─────────────────────────────────────────────── */}
+      {/* Features */}
       <section className="py-20 px-4">
         <div className="container mx-auto">
           <div className="text-center mb-16">
@@ -234,7 +193,6 @@ export default function PortfolioTrackerPage() {
               live news, and market heatmaps — all free, all in one place.
             </p>
           </div>
-
           <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
             {features.map((f) => (
               <div
@@ -252,7 +210,7 @@ export default function PortfolioTrackerPage() {
         </div>
       </section>
 
-      {/* ── Comparison Table ─────────────────────────────────────── */}
+      {/* Comparison Table */}
       <section className="py-20 px-4 bg-secondary/20">
         <div className="container mx-auto">
           <div className="text-center mb-16">
@@ -260,11 +218,9 @@ export default function PortfolioTrackerPage() {
               WealthClaude vs Blossom vs Portseido
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
-              See how WealthClaude compares to other popular portfolio trackers.
               No other free tool gives you AI insights, market news, and heatmaps together.
             </p>
           </div>
-
           <div className="max-w-3xl mx-auto overflow-x-auto">
             <table className="w-full border border-border rounded-2xl overflow-hidden">
               <thead>
@@ -293,7 +249,7 @@ export default function PortfolioTrackerPage() {
         </div>
       </section>
 
-      {/* ── How It Works ─────────────────────────────────────────── */}
+      {/* How It Works */}
       <section className="py-20 px-4">
         <div className="container mx-auto">
           <div className="text-center mb-16">
@@ -304,13 +260,8 @@ export default function PortfolioTrackerPage() {
               No bank linking, no lengthy setup. Go from zero to full portfolio tracking in under 5 minutes.
             </p>
           </div>
-
           <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            {[
-              { step: '01', title: 'Create a Free Account', desc: 'Sign up in seconds. No credit card required. Your free plan never expires.' },
-              { step: '02', title: 'Upload Your CSV', desc: 'Export a CSV from your broker — Fidelity, Schwab, IBKR, Robinhood, and more. Upload it directly to WealthClaude.' },
-              { step: '03', title: 'Get AI Insights', desc: 'Instantly see your portfolio performance, dividend income, heatmaps, and AI-powered analysis all in one dashboard.' },
-            ].map((item) => (
+            {steps.map((item) => (
               <div key={item.step} className="text-center bg-card rounded-2xl border border-border p-8">
                 <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
                   <span className="text-primary font-bold">{item.step}</span>
@@ -323,7 +274,7 @@ export default function PortfolioTrackerPage() {
         </div>
       </section>
 
-      {/* ── CTA ──────────────────────────────────────────────────── */}
+      {/* CTA */}
       <section className="py-20 px-4">
         <div className="container mx-auto">
           <div className="max-w-2xl mx-auto text-center bg-card rounded-2xl border border-border p-12">

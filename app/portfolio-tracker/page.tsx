@@ -63,7 +63,7 @@ const features = [
     tag: 'Performance',
     title: 'Portfolio Performance Analytics',
     description:
-      'Measure performance at customizable time intervals. Compare against benchmarks, track your cost basis, and analyze each holding's contribution to overall returns.',
+      'Measure performance at customizable time intervals. Compare against benchmarks, track your cost basis, and analyze each holding\'s contribution to overall returns.',
   },
   {
     tag: 'Trade Analysis',

@@ -357,13 +357,7 @@ interface PortfolioProviderProps {
 }
 
 export function PortfolioProvider({ children }: PortfolioProviderProps) {
-  const [data, setData] = useState<PortfolioContextData>(() => {
-    const cached = getCachedData()
-    if (cached) {
-      return { ...cached, isLoading: false, isFetchingBatch: false }
-    }
-    return INITIAL_STATE
-  })
+  const [data, setData] = useState<PortfolioContextData>(INITIAL_STATE)
 
   // Check for user session changes and clear cache if needed
   useEffect(() => {
@@ -374,7 +368,7 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
 
         if (currentUserId) {
           const cachedUserId = getCurrentUserId()
-          
+
           if (cachedUserId !== currentUserId) {
             console.log(`[Portfolio] 🔐 User changed (${cachedUserId || 'none'} → ${currentUserId})`)
             clearCacheForNewUser()
@@ -393,7 +387,7 @@ export function PortfolioProvider({ children }: PortfolioProviderProps) {
 
   const calculateCoreData = useCallback(async (silent = false) => {
     setData(prev => ({ ...prev, isLoading: true }))
-    
+
     if (!silent) {
       console.log('[Portfolio] Starting calculation using shared calculator...')
     }

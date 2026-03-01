@@ -180,11 +180,17 @@ async function isDuplicate(supabase: any, title: string): Promise<boolean> {
   return (data?.length ?? 0) > 0
 }
 
-// ─── Generate one full blog post ──────────────────────────────────────────────
+// ─── Generate one full blog post via Gemini (free) ────────────────────────────
 async function generatePost(apiKey: string, topic: string, postType: PostType): Promise<{
   title: string; slug: string; excerpt: string
   content: string; tags: string[]; image_url: string
 } | null> {
+
+  const geminiKey = process.env.GEMINI_API_KEY
+  if (!geminiKey) {
+    console.error('[auto-blog] GEMINI_API_KEY not set')
+    return null
+  }
 
   const typeInstructions: Record<PostType, string> = {
     'premarket': `This is a PRE-MARKET preview post. Focus on: US futures, what catalysts to watch before market opens, key earnings or economic data due today, overnight news affecting US stocks. Write for US traders preparing for the trading day.`,
@@ -200,7 +206,7 @@ ${typeInstructions[postType]}
 
 IMPORTANT: Focus exclusively on US markets, US-listed stocks (NYSE/NASDAQ), and US investors. Do not mention Indian, European or other non-US stocks unless explaining their impact on US markets.
 
-Use real current data, be specific with numbers. 
+Use specific numbers and data. 
 
 Structure:
 1. Hook intro (1 paragraph)
@@ -219,24 +225,28 @@ Respond ONLY with valid JSON, absolutely no markdown or code blocks:
   "image_query": "3-4 word US finance photo search query"
 }`
 
-  const res = await fetch('https://api.perplexity.ai/chat/completions', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'sonar-pro',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7,
-      max_tokens: 3000,
-    }),
-  })
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 3000,
+        },
+      }),
+    }
+  )
 
   if (!res.ok) {
-    console.error(`[auto-blog] Generation failed for "${topic}": ${res.status}`)
+    console.error(`[auto-blog] Gemini generation failed for "${topic}": ${res.status}`)
     return null
   }
 
   const data = await res.json()
-  const raw = data.choices?.[0]?.message?.content ?? ''
+  const raw = data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
 
   try {
     const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim()
@@ -269,7 +279,7 @@ Respond ONLY with valid JSON, absolutely no markdown or code blocks:
       image_url,
     }
   } catch (err) {
-    console.error(`[auto-blog] JSON parse failed for "${topic}"`, err)
+    console.error(`[auto-blog] Gemini JSON parse failed for "${topic}"`, err)
     return null
   }
 }

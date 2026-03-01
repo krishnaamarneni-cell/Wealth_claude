@@ -14,26 +14,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     {
       url: BASE_URL,
       lastModified: new Date(),
-      changeFrequency: 'weekly',
+      changeFrequency: 'weekly' as const,
       priority: 1.0,
     },
     {
       url: `${BASE_URL}/news`,
       lastModified: new Date(),
-      changeFrequency: 'hourly',
+      changeFrequency: 'hourly' as const,
       priority: 0.9,
     },
     {
       url: `${BASE_URL}/portfolio-tracker`,
       lastModified: new Date(),
-      changeFrequency: 'monthly',
+      changeFrequency: 'monthly' as const,
       priority: 0.9,
-    },
-    {
-      url: `${BASE_URL}/auth`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.3,
     },
     {
       url: `${BASE_URL}/free-stock-portfolio-tracker`,
@@ -46,6 +40,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: 'monthly' as const,
       priority: 0.8,
+    },
+    {
+      url: `${BASE_URL}/auth`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly' as const,
+      priority: 0.3,
     },
   ]
 

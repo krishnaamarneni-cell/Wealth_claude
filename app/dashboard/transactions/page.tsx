@@ -153,25 +153,35 @@ export default function TransactionsPage() {
   }, [contextTransactions])
 
   // FIXED: Sync transactions with uploaded files
-  const syncDataWithFiles = () => {
+  const syncDataWithFiles = async () => {
     setIsRefreshing(true)
+    try {
+      // Clear cache and reload fresh from Supabase
+      clearTransactionCache()
+      const freshTransactions = await getTransactionsFromStorage()
+      setTransactions(freshTransactions)
 
-    // Get current file IDs
-    const validFileIds = uploadedFiles.map(f => f.id)
-    validFileIds.push('manual') // Keep manually added transactions
+      // Reload files from Supabase
+      const filesResponse = await fetch('/api/uploaded-files')
+      if (filesResponse.ok) {
+        const files = await filesResponse.json()
+        if (Array.isArray(files)) {
+          setUploadedFiles(files)
+          localStorage.setItem('uploadedFiles', JSON.stringify(files))
+        }
+      }
 
-    // Filter transactions to only keep those from existing files
-    const syncedTransactions = transactions.filter(tx => validFileIds.includes(tx.fileId))
-
-    // Update state and save to storage
-    setTransactions(syncedTransactions)
-    saveTransactionsToStorage(syncedTransactions)
-
-    setUploadSuccess('✅ Data synced successfully')
-    setTimeout(() => {
-      setUploadSuccess('')
-      setIsRefreshing(false)
-    }, 2000)
+      contextRefresh()
+      setUploadSuccess('✅ Data refreshed successfully')
+    } catch (error) {
+      setUploadError('Failed to refresh data')
+      setTimeout(() => setUploadError(''), 3000)
+    } finally {
+      setTimeout(() => {
+        setUploadSuccess('')
+        setIsRefreshing(false)
+      }, 2000)
+    }
   }
 
   const filteredTransactions = transactions.filter(t => {
@@ -1209,7 +1219,7 @@ export default function TransactionsPage() {
           <Button
             variant="outline"
             className="gap-2 bg-transparent"
-            onClick={() => contextRefresh()}
+            onClick={() => syncDataWithFiles()}
             disabled={isRefreshing}
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />

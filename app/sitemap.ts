@@ -35,6 +35,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'monthly',
       priority: 0.3,
     },
+    {
+      url: `${BASE_URL}/free-stock-portfolio-tracker`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly' as const,
+      priority: 0.9,
+    },
+
   ]
 
   // ─── Dynamic blog posts ────────────────────────────────────────────────────

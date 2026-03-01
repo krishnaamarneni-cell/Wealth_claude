@@ -26,6 +26,7 @@ export async function GET() {
       readTime: estimateReadTime(p.content),
       image_url: p.image_url ?? null,
       tags: p.tags ?? [],
+      published_at: p.published_at ?? null,
     }))
 
     return NextResponse.json(posts)

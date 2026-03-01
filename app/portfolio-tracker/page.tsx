@@ -33,7 +33,7 @@ const features = [
     tag: 'AI Insights',
     title: 'AI-Powered Portfolio Analysis',
     description:
-      'Get intelligent insights on your portfolio performance, risk exposure, and opportunities. WealthClaude's AI analyzes your holdings and delivers actionable recommendations — something no other free tracker offers.',
+      'Get intelligent insights on your portfolio performance, risk exposure, and opportunities. WealthClaude\'s AI analyzes your holdings and delivers actionable recommendations — something no other free tracker offers.',
   },
   {
     tag: 'Market News',

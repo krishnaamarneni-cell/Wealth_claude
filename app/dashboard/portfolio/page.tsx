@@ -427,8 +427,13 @@ export default function PortfolioPage() {
 
   // Load data
   useEffect(() => {
-    if (!contextIsLoading && contextHoldings && contextHoldings.length > 0) {
-      loadHoldingsData(contextHoldings, contextTransactions || [])
+    if (!contextIsLoading) {
+      if (contextHoldings && contextHoldings.length > 0) {
+        loadHoldingsData(contextHoldings, contextTransactions || [])
+      } else {
+        setHoldings([])
+        setIsLoading(false)
+      }
     }
   }, [contextHoldings, contextTransactions, contextIsLoading])
 

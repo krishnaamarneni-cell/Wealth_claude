@@ -357,6 +357,8 @@ export default function TransactionsPage() {
         localStorage.setItem('uploadedFiles', JSON.stringify(freshFiles))
       }
 
+      clearTransactionCache()
+      contextRefresh()
       setUploadSuccess(`✅ Deleted "${fileToDelete.name}" and ${fileToDelete.transactionCount} transactions`)
       window.dispatchEvent(new Event('transactionsUpdated'))
 

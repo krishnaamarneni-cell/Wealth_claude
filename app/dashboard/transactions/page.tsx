@@ -335,11 +335,14 @@ export default function TransactionsPage() {
       const updatedTransactions = transactions.filter(tx => tx.fileId !== fileId)
       setTransactions(updatedTransactions)
 
-      localStorage.setItem('uploadedFiles', JSON.stringify(updatedFiles))
+      localStorage.removeItem('uploadedFiles')
 
       // Reload fresh from Supabase
       const freshFiles = await fetch('/api/uploaded-files').then(r => r.json())
-      if (Array.isArray(freshFiles)) setUploadedFiles(freshFiles)
+      if (Array.isArray(freshFiles)) {
+        setUploadedFiles(freshFiles)
+        localStorage.setItem('uploadedFiles', JSON.stringify(freshFiles))
+      }
 
       setUploadSuccess(`✅ Deleted "${fileToDelete.name}" and ${fileToDelete.transactionCount} transactions`)
       window.dispatchEvent(new Event('transactionsUpdated'))

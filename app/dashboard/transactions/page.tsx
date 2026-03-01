@@ -1108,7 +1108,8 @@ export default function TransactionsPage() {
         throw new Error('Failed to save transactions to server')
       }
 
-      // Reload all transactions from Supabase
+      // Clear cache and reload fresh from Supabase
+      clearTransactionCache()
       const freshTransactions = await getTransactionsFromStorage()
       setTransactions(freshTransactions)
 

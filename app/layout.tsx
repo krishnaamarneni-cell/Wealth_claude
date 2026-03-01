@@ -9,16 +9,20 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://www.wealthclaude.com'),
   title: 'WealthClaude - Track All Investments In One Place',
   description: 'WealthClaude — AI-powered portfolio tracker with real-time market intelligence. Track stocks, analyze performance and get AI insights. Free to start.',
   keywords: 'portfolio tracker, stock portfolio tracker, investment tracker, wealth management, AI portfolio analysis, free portfolio tracker, AI stock tracker',
+  alternates: {
+    canonical: 'https://www.wealthclaude.com',
+  },
   verification: {
     google: 'k6ogtZfRjD_sjQ0Rf1XyuB7D9Huce1RopsC2tgCfWzk',
   },
   openGraph: {
     title: 'WealthClaude - AI-Powered Portfolio Tracker',
     description: 'WealthClaude — AI-powered portfolio tracker with real-time market intelligence. Track stocks, analyze performance and get AI insights. Free to start.',
-    url: 'https://wealthclaude.com',
+    url: 'https://www.wealthclaude.com',
     siteName: 'WealthClaude',
     type: 'website',
   },

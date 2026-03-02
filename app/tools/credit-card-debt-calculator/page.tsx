@@ -16,6 +16,29 @@ interface Card {
   minPayment: number
 }
 
+type SpendingType = "impulsive" | "subscription" | "medical" | "lifestyle" | "education" | "home" | "mixed"
+
+const SPENDING_TYPES: Record<SpendingType, { label: string; icon: string; color: string; tip: string; strategy: string }> = {
+  impulsive: { label: "Impulsive Shopping", icon: "🛍️", color: "text-pink-400", tip: "Freeze or cut up this card. Delete saved card details from shopping apps. Use cash envelopes for discretionary spending.", strategy: "Pay off this card first — stopping new charges here gives the fastest relief." },
+  subscription: { label: "Subscription Overload", icon: "📦", color: "text-purple-400", tip: "Audit all recurring charges this week. Cancel anything unused. One subscription audit typically saves $50-150/month.", strategy: "Roll those cancelled subscription dollars directly into your extra monthly payment." },
+  medical: { label: "Medical / Emergency", icon: "🏥", color: "text-blue-400", tip: "Contact the provider about a 0% payment plan — hospitals often offer these. Explore hardship programs or medical credit cards.", strategy: "Avalanche is best here since emergency debt tends to land on the highest APR cards." },
+  lifestyle: { label: "Lifestyle Inflation", icon: "✈️", color: "text-amber-400", tip: "Track every purchase for 2 weeks. Identify your top 3 lifestyle categories and set a hard monthly cap for each.", strategy: "Any month you come in under your lifestyle budget, put the surplus directly toward your balance." },
+  education: { label: "Education / Career", icon: "🎓", color: "text-cyan-400", tip: "Check if your employer offers tuition reimbursement. Consider income-share alternatives for future education costs.", strategy: "This is 'good debt' with a future ROI — but still prioritize paying it down to free up monthly cash flow." },
+  home: { label: "Home & Family", icon: "🏠", color: "text-orange-400", tip: "Separate recurring home costs from one-off emergencies. Build a $1,000 home repair buffer to avoid future card charges.", strategy: "Snowball works well here — clearing smaller home-related balances fast creates breathing room." },
+  mixed: { label: "Mixed / Unknown", icon: "📊", color: "text-white/60", tip: "Pull your last 3 statements and categorize each charge. You likely have one dominant category that can be targeted.", strategy: "Avalanche is the safest default when spending patterns are unclear." },
+}
+
+function detectSpendingType(cardName: string): SpendingType {
+  const n = cardName.toLowerCase()
+  if (/amazon|shop|target|walmart|zara|h&m|fashion|retail|ebay|etsy|wish|shein/.test(n)) return "impulsive"
+  if (/netflix|spotify|hulu|disney|apple|google|subscription|prime|adobe|gym|fitness/.test(n)) return "subscription"
+  if (/medical|health|hospital|doctor|pharmacy|dental|cvs|walgreen|care/.test(n)) return "medical"
+  if (/travel|airline|hotel|uber|lyft|doordash|grubhub|dining|restaurant|delta|marriott/.test(n)) return "lifestyle"
+  if (/student|education|tuition|course|udemy|coursera|school|college|book/.test(n)) return "education"
+  if (/home|depot|lowes|ikea|furniture|family|kids|baby|repair/.test(n)) return "home"
+  return "mixed"
+}
+
 type Strategy = "snowball" | "avalanche" | "custom"
 
 interface PayoffResult {
@@ -836,10 +859,54 @@ export default function CreditCardDebtCalculatorPage() {
               ))}
             </div>
 
-            {/* Pie chart */}
+            {/* Pie chart + Spending Nature */}
             <div className="rounded-2xl border border-white/8 bg-[#111318] p-6">
-              <div className="text-xs font-bold uppercase tracking-widest text-white/40 mb-5">Balance Distribution</div>
-              <PieChart cards={cards} highlighted={highlighted} onHighlight={setHighlighted} />
+              <div className="flex flex-col lg:flex-row gap-6">
+                {/* Left: Pie chart */}
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold uppercase tracking-widest text-white/40 mb-5">Balance Distribution</div>
+                  <PieChart cards={cards} highlighted={highlighted} onHighlight={setHighlighted} />
+                </div>
+                {/* Right: Spending Nature */}
+                <div className="lg:w-64 shrink-0 border-t lg:border-t-0 lg:border-l border-white/8 pt-5 lg:pt-0 lg:pl-6">
+                  <div className="text-xs font-bold uppercase tracking-widest text-white/40 mb-4">Spending Nature</div>
+                  <div className="space-y-2">
+                    {cards.map((c, i) => {
+                      const type = detectSpendingType(c.name)
+                      const info = SPENDING_TYPES[type]
+                      return (
+                        <div key={c.id} className="rounded-xl border border-white/8 bg-white/3 px-3 py-2.5">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: COLORS[i % COLORS.length] }} />
+                            <span className="text-xs text-white/60 truncate flex-1">{c.name}</span>
+                          </div>
+                          <div className={`flex items-center gap-1.5 text-xs font-bold ${info.color}`}>
+                            <span>{info.icon}</span>
+                            <span>{info.label}</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  {/* Dominant type insight */}
+                  {(() => {
+                    const dominant = cards.length > 0 ? detectSpendingType(cards.reduce((a, b) => a.balance > b.balance ? a : b).name) : "mixed"
+                    const info = SPENDING_TYPES[dominant]
+                    return (
+                      <div className="mt-4 rounded-xl border border-white/10 bg-white/2 p-3 space-y-2">
+                        <div className={`text-xs font-bold ${info.color} flex items-center gap-1.5`}>
+                          <span>{info.icon}</span> Primary Pattern
+                        </div>
+                        <p className="text-[11px] text-white/50 leading-relaxed">{info.tip}</p>
+                        <div className="border-t border-white/8 pt-2">
+                          <div className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Strategy Tip</div>
+                          <p className="text-[11px] text-white/50 leading-relaxed">{info.strategy}</p>
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </div>
+              </div>
             </div>
 
             {/* ─────────────────────────────────────────────────────
@@ -993,10 +1060,23 @@ export default function CreditCardDebtCalculatorPage() {
                 <div className="text-[10px] font-bold uppercase tracking-widest text-primary mb-4 flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse inline-block" />Your Action Plan
                 </div>
-                <div className="text-lg sm:text-xl font-extrabold text-white leading-snug mb-5">
-                  Pay <span className="text-primary">{fmtUSD(extra)}</span> extra/month using <span className="text-primary capitalize">{selected.strategy}</span> → <span className="text-primary">debt free in {fmtMo(selected.months)}</span>
-                  {savings > 0 && selected.strategy === "avalanche" && <>, saving <span className="text-primary">{fmtUSD(savings)}</span> vs snowball</>}
-                </div>
+                {(() => {
+                  const dominant = cards.length > 0 ? detectSpendingType(cards.reduce((a, b) => a.balance > b.balance ? a : b).name) : "mixed"
+                  const info = SPENDING_TYPES[dominant]
+                  return (
+                    <div className="mb-5 space-y-2">
+                      <div className="text-lg sm:text-xl font-extrabold text-white leading-snug">
+                        Pay <span className="text-primary">{fmtUSD(extra)}</span> extra/month using <span className="text-primary capitalize">{selected.strategy}</span> → <span className="text-primary">debt free in {fmtMo(selected.months)}</span>
+                        {savings > 0 && selected.strategy === "avalanche" && <>, saving <span className="text-primary">{fmtUSD(savings)}</span> vs snowball</>}
+                      </div>
+                      <div className={`inline-flex items-center gap-2 text-xs font-semibold ${info.color} bg-white/5 border border-white/10 rounded-full px-3 py-1`}>
+                        <span>{info.icon}</span>
+                        <span>{info.label} pattern detected —</span>
+                        <span className="text-white/50 font-normal">{info.strategy}</span>
+                      </div>
+                    </div>
+                  )
+                })()}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
                   {[
                     { label: "Payoff Date", value: (() => { const d = new Date(); d.setMonth(d.getMonth() + selected.months); return d.toLocaleDateString("en-US", { month: "short", year: "numeric" }) })(), color: "text-primary" },

@@ -850,7 +850,7 @@ export default function CreditCardDebtCalculatorPage() {
 
             {/* Summary stats */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {[{ label: "Total Debt", value: fmtK(totalDebt), sub: `${cards.length} card${cards.length > 1 ? "s" : ""}`, color: "text-red-400" }, { label: "Avg APR", value: avgAPR.toFixed(2) + "%", sub: "weighted average", color: "text-amber-400" }, { label: "Monthly Interest", value: fmtK(monthlyInt), sub: "per month", color: "text-red-400" }, { label: "Yearly Interest", value: fmtK(monthlyInt * 12), sub: "annual cost", color: "text-red-400" }].map((s, i) => (
+              {[{ label: "Total Debt", value: fmtK(totalDebt), sub: totalDebt > 10000 ? `At this pace you'll pay ${fmtK(monthlyInt * 12)} in interest this year` : totalDebt > 3000 ? `You're ${fmtK(totalDebt)} away from financial freedom` : `Total outstanding across ${cards.length} card${cards.length > 1 ? "s" : ""}`, color: "text-red-400" }, { label: "Avg APR", value: avgAPR.toFixed(2) + "%", sub: "weighted average", color: "text-amber-400" }, { label: "Monthly Interest", value: fmtK(monthlyInt), sub: "per month", color: "text-red-400" }, { label: "Yearly Interest", value: fmtK(monthlyInt * 12), sub: "annual cost", color: "text-red-400" }].map((s, i) => (
                 <div key={i} className="rounded-2xl border border-white/8 bg-[#111318] px-5 py-4">
                   <div className="text-[10px] font-semibold uppercase tracking-widest text-white/40 mb-1">{s.label}</div>
                   <div className={`text-xl font-extrabold ${s.color}`}>{s.value}</div>

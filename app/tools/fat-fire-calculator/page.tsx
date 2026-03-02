@@ -495,8 +495,8 @@ export default function FatFireCalculatorPage() {
                       key={t}
                       onClick={() => setActiveTab(t)}
                       className={`px-3 py-1 rounded-md text-xs font-medium capitalize transition-all ${activeTab === t
-                          ? "bg-card text-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
                         }`}
                     >
                       {t.charAt(0).toUpperCase() + t.slice(1)}

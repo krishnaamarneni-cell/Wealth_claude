@@ -118,6 +118,11 @@ export function Footer() {
                       Credit Card Debt
                     </Link>
                   </li>
+                  <li>
+                    <Link href="/tools/debt-vs-invest" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+                      Debt vs. Invest
+                    </Link>
+                  </li>
                 </ul>
                 {/* Column 2 */}
                 <ul className="space-y-3">

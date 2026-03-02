@@ -37,7 +37,8 @@ export default function JobPage() {
     setError('')
 
     try {
-      const fileName = `${Date.now()}-${file.name}`
+      const safeName = name.replace(/\s+/g, '-').toLowerCase()
+      const fileName = `${job.id}/${safeName}-${Date.now()}.pdf`
       const { error: uploadError } = await supabase.storage
         .from('resumes')
         .upload(fileName, file)

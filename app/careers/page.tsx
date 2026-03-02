@@ -18,7 +18,7 @@ export const openings = [
     location: 'Remote',
     contract: 'Unpaid Internship',
     description:
-      'Help grow WealthClaude\'s organic search presence. You will research keywords, optimize on-page content, build backlinks, and track rankings across our portfolio tracking and financial tools pages.',
+      "Help grow WealthClaude's organic search presence. You will research keywords, optimize on-page content, build backlinks, and track rankings across our portfolio tracking and financial tools pages.",
     responsibilities: [
       'Research and implement high-value keywords for fintech audiences',
       'Optimize meta titles, descriptions, and on-page content',
@@ -62,6 +62,11 @@ export const openings = [
   },
 ]
 
+type MatchResult = {
+  topMatch: { id: string; title: string; score: number; matchedKeywords: string[] } | null
+  allMatches: { id: string; title: string; score: number }[]
+}
+
 export default function CareersPage() {
   const [titleSearch, setTitleSearch] = useState('')
   const [locationSearch, setLocationSearch] = useState('')
@@ -69,6 +74,7 @@ export default function CareersPage() {
   const [matchLoading, setMatchLoading] = useState(false)
   const [matchSuccess, setMatchSuccess] = useState(false)
   const [matchError, setMatchError] = useState('')
+  const [matchResult, setMatchResult] = useState<MatchResult | null>(null)
 
   const filtered = openings.filter((o) => {
     const matchTitle = o.title.toLowerCase().includes(titleSearch.toLowerCase())
@@ -82,10 +88,25 @@ export default function CareersPage() {
       setMatchError('Please upload your resume.')
       return
     }
+
     setMatchLoading(true)
     setMatchError('')
+    setMatchResult(null)
 
     try {
+      // Send to matching API
+      const formData = new FormData()
+      formData.append('resume', resumeFile)
+
+      const res = await fetch('/api/match-resume', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+
+      // Also save to Supabase storage
       const fileName = `match-${Date.now()}-${resumeFile.name}`
       const { error: uploadError } = await supabase.storage
         .from('resumes')
@@ -97,17 +118,19 @@ export default function CareersPage() {
         .from('resumes')
         .getPublicUrl(fileName)
 
-      const { error: dbError } = await supabase
-        .from('applications')
-        .insert({ name: 'Resume Match', email: 'pending', role: 'auto-match', resume_url: urlData.publicUrl })
+      await supabase.from('applications').insert({
+        name: 'Resume Match',
+        email: 'pending',
+        role: data.topMatch?.id ?? 'auto-match',
+        resume_url: urlData.publicUrl,
+      })
 
-      if (dbError) throw dbError
-
+      setMatchResult(data)
       setMatchSuccess(true)
       setResumeFile(null)
     } catch (err) {
       console.error(err)
-      setMatchError('Upload failed. Please try again.')
+      setMatchError('Failed to process resume. Please upload a PDF file.')
     } finally {
       setMatchLoading(false)
     }
@@ -115,6 +138,7 @@ export default function CareersPage() {
 
   return (
     <>
+      {/* Navbar */}
       <nav className="border-b border-border px-6 py-4 flex items-center justify-between bg-background">
         <Link href="/" className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
@@ -122,7 +146,10 @@ export default function CareersPage() {
           </div>
           <span className="font-semibold text-foreground">WealthClaude</span>
         </Link>
-        <Link href="/" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <Link
+          href="/"
+          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
           <ArrowLeft className="h-4 w-4" />
           Back to Home
         </Link>
@@ -134,28 +161,88 @@ export default function CareersPage() {
         <div className="mb-10">
           <h1 className="text-4xl font-bold text-foreground mb-3">Careers at WealthClaude</h1>
           <p className="text-muted-foreground text-lg max-w-2xl">
-            Join our remote team and build the future of personal finance. All positions are unpaid internships with real-world fintech experience.
+            Join our remote team and build the future of personal finance. All positions are
+            unpaid internships with real-world fintech experience.
           </p>
         </div>
 
         {/* Resume Match Banner */}
         <div className="border border-primary/30 rounded-xl p-6 bg-primary/5 mb-10">
-          <h2 className="text-lg font-semibold text-foreground mb-1">Upload Resume to Find a Match</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-1">
+            Upload Resume to Find a Match
+          </h2>
           <p className="text-muted-foreground text-sm mb-4">
-            Not sure which role fits you? Upload your resume and we will match you to the best opening.
+            Not sure which role fits you? Upload your resume and we will instantly match you
+            to the best opening. PDF recommended for best results.
           </p>
 
-          {matchSuccess ? (
-            <div className="flex items-center gap-3 text-primary">
-              <CheckCircle className="h-5 w-5" />
-              <p className="font-medium">Resume received! We will review and reach out with the best match.</p>
+          {matchSuccess && matchResult ? (
+            <div className="space-y-5">
+              {matchResult.topMatch ? (
+                <>
+                  {/* Top match */}
+                  <div className="flex items-start gap-3 p-4 rounded-lg bg-primary/10 border border-primary/20">
+                    <CheckCircle className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-primary font-medium">
+                        Best match: {matchResult.topMatch.title} — {matchResult.topMatch.score}% match
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Matched keywords: {matchResult.topMatch.matchedKeywords.join(', ')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* All scores bar chart */}
+                  <div className="space-y-3">
+                    {matchResult.allMatches.map((match) => (
+                      <div key={match.id} className="flex items-center gap-3">
+                        <span className="text-sm text-foreground w-56 shrink-0">{match.title}</span>
+                        <div className="flex-1 h-2 rounded-full bg-secondary overflow-hidden">
+                          <div
+                            className="h-2 rounded-full bg-primary transition-all duration-500"
+                            style={{ width: `${match.score}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-muted-foreground w-10 text-right">
+                          {match.score}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* CTA to top match */}
+                  <div className="flex items-center gap-3">
+                    <Link
+                      href={`/careers/${matchResult.topMatch.id}`}
+                      className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+                    >
+                      View Best Match →
+                    </Link>
+                    <button
+                      onClick={() => { setMatchSuccess(false); setMatchResult(null) }}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Try another resume
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center gap-3 text-muted-foreground">
+                  <CheckCircle className="h-5 w-5 shrink-0" />
+                  <p>
+                    Resume uploaded. No strong keyword match found — but we will review it
+                    manually and reach out.
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <form onSubmit={handleResumeMatch} className="flex flex-col sm:flex-row gap-3">
               <label className="flex items-center gap-3 flex-1 px-4 py-2 rounded-lg border border-dashed border-border bg-background hover:border-primary/50 cursor-pointer transition-colors">
                 <Upload className="h-4 w-4 text-muted-foreground shrink-0" />
                 <span className="text-sm text-muted-foreground truncate">
-                  {resumeFile ? resumeFile.name : 'Upload your resume (PDF or DOC)'}
+                  {resumeFile ? resumeFile.name : 'Upload your resume (PDF recommended)'}
                 </span>
                 <input
                   type="file"
@@ -169,10 +256,18 @@ export default function CareersPage() {
                 disabled={matchLoading}
                 className="flex items-center justify-center gap-2 px-6 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-60 shrink-0"
               >
-                {matchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Find My Match'}
+                {matchLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Analyzing...
+                  </>
+                ) : (
+                  'Find My Match'
+                )}
               </button>
             </form>
           )}
+
           {matchError && <p className="text-red-500 text-sm mt-2">{matchError}</p>}
         </div>
 
@@ -246,7 +341,10 @@ export default function CareersPage() {
                 </div>
                 <div className="flex flex-wrap gap-2 mt-4">
                   {job.skills.map((skill) => (
-                    <span key={skill} className="text-xs px-3 py-1 rounded-full bg-secondary text-muted-foreground border border-border">
+                    <span
+                      key={skill}
+                      className="text-xs px-3 py-1 rounded-full bg-secondary text-muted-foreground border border-border"
+                    >
                       {skill}
                     </span>
                   ))}

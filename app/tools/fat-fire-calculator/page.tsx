@@ -1,9 +1,19 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  ReferenceLine,
+} from "recharts"
 
 // ── Types ──────────────────────────────────────────────────
 interface MonthData {
@@ -25,6 +35,12 @@ interface Results {
   fireYear: number | null
 }
 
+interface ChartPoint {
+  year: number
+  portfolio: number
+  target: number
+}
+
 // ── Constants ──────────────────────────────────────────────
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -44,31 +60,31 @@ const RELATED_TOOLS = [
 const FAQS = [
   {
     q: "What is Fat FIRE (Financial Independence, Retire Early)?",
-    a: "Fat FIRE is an acronym for \"Financial Independence, Retire Early\" — specifically the version that allows for a more comfortable and lavish approach to early retirement. Unlike Lean FIRE, the Fat FIRE goal is to amass substantial wealth that allows for a higher standard of living during retirement — typically targeting $100,000 or more in annual retirement spending. This approach provides more flexibility, fewer financial constraints, and the ability to enjoy life without worrying about money.",
+    a: 'Fat FIRE is an acronym for "Financial Independence, Retire Early" — specifically the version that allows for a more comfortable and lavish approach to early retirement. Unlike Lean FIRE, the Fat FIRE goal is to amass substantial wealth that allows for a higher standard of living during retirement — typically targeting $100,000 or more in annual retirement spending.',
   },
   {
     q: "How does Fat FIRE differ from Lean FIRE or Barista FIRE?",
-    a: "Lean FIRE targets a frugal lifestyle, often under $40,000/year. Barista FIRE is semi-retirement where part-time income supplements a smaller portfolio. Fat FIRE is the most ambitious — targeting $100,000–$300,000+ per year in retirement spending, which means you need a much larger nest egg, typically $2.5M–$10M+ depending on your withdrawal rate.",
+    a: "Lean FIRE targets a frugal lifestyle, often under $40,000/year. Barista FIRE is semi-retirement where part-time income supplements a smaller portfolio. Fat FIRE is the most ambitious — targeting $100,000–$300,000+ per year in retirement spending, requiring a nest egg of typically $2.5M–$10M+.",
   },
   {
     q: "What is a Safe Withdrawal Rate (SWR) and why does it matter?",
-    a: "The Safe Withdrawal Rate is the percentage of your portfolio you can withdraw annually without running out of money. The classic '4% rule' from the Trinity Study suggests withdrawing 4% of your initial portfolio per year. For Fat FIRE, many advisors recommend a more conservative 3–3.5% rate given longer retirement horizons. A lower SWR requires a larger portfolio, but significantly reduces the risk of running out of money over a 40–60 year retirement.",
+    a: "The Safe Withdrawal Rate is the percentage of your portfolio you can withdraw annually without running out of money. The classic '4% rule' suggests withdrawing 4% per year. For Fat FIRE, many advisors recommend a more conservative 3–3.5% given longer retirement horizons.",
   },
   {
     q: "How do I use the WealthClaude Fat FIRE calculator?",
-    a: "Enter your current net worth and expected annual investment return. Then input your additional contributions and whether they grow over time. On the right, enter your current age and planned retirement spending. Set your withdrawal rate (we recommend 3.5% for Fat FIRE). Hit Calculate to see your required FIRE number, projected portfolio value, and a full month-by-month breakdown of when you'll hit your Fat FIRE goal.",
+    a: "Enter your current net worth, expected return, and monthly contributions on the left. On the right, enter your age, planned retirement spending, and withdrawal rate. Hit Calculate to see your FIRE number and a full month-by-month projection.",
   },
   {
     q: "How is the required retirement wealth calculated?",
-    a: "The formula is: Required Wealth = Annual Spending ÷ Withdrawal Rate. For example, $200,000 annual spending at 4% = $5,000,000 required ($200,000 ÷ 0.04). The calculator then projects how your current savings and ongoing contributions — with compound interest — grow to reach this target.",
+    a: "Required Wealth = Annual Spending ÷ Withdrawal Rate. For example, $200,000 spending at 4% = $5,000,000 required. The calculator then projects how your savings and contributions grow to reach this target.",
   },
   {
     q: "What does the portfolio projection chart show?",
-    a: "The green line shows your portfolio growing over time. The red dashed line shows your Fat FIRE target. Where they intersect is when you achieve Fat FIRE. The table below breaks this down month by month so you can see exactly how much you'll have at any point along the journey.",
+    a: "The green line shows your portfolio growing over time. The red dashed line shows your Fat FIRE target. Where they intersect is when you achieve Fat FIRE. A vertical marker shows the exact year.",
   },
   {
     q: "Should I account for inflation in my Fat FIRE planning?",
-    a: "Yes — inflation is critical in long-term retirement planning. Over 30 years at 3% inflation, $200,000 today requires ~$485,000 to maintain the same purchasing power. Our calculator adjusts your required retirement spending for inflation, helping you plan a more realistic and resilient Fat FIRE target.",
+    a: "Yes — over 30 years at 3% inflation, $200,000 today requires ~$485,000 to maintain the same purchasing power. Our calculator adjusts your required retirement spending for inflation.",
   },
 ]
 
@@ -84,9 +100,25 @@ function fmtFull(n: number): string {
   return "$" + Math.round(n).toLocaleString("en-US")
 }
 
+// ── Custom Recharts Tooltip ────────────────────────────────
+function CustomTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="bg-card border border-border rounded-xl px-4 py-3 shadow-xl text-xs">
+      <div className="text-muted-foreground font-semibold mb-2">{label}</div>
+      {payload.map((p: any) => (
+        <div key={p.dataKey} className="flex items-center gap-2 mb-1">
+          <span className="w-2 h-2 rounded-full inline-block" style={{ background: p.color }} />
+          <span className="text-muted-foreground">{p.name}:</span>
+          <span className="font-semibold text-foreground">{fmt(p.value)}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── Main Component ─────────────────────────────────────────
 export default function FatFireCalculatorPage() {
-  // Inputs
   const [netWorth, setNetWorth] = useState(500000)
   const [annualReturn, setAnnualReturn] = useState(7)
   const [contribution, setContribution] = useState(3000)
@@ -98,16 +130,12 @@ export default function FatFireCalculatorPage() {
   const [withdrawalRate, setWithdrawalRate] = useState(4)
   const [inflation, setInflation] = useState(3)
 
-  // Outputs
   const [results, setResults] = useState<Results | null>(null)
   const [yearData, setYearData] = useState<YearMap>({})
+  const [chartData, setChartData] = useState<ChartPoint[]>([])
   const [activeTab, setActiveTab] = useState<"value" | "contribution" | "return">("value")
   const [openFaq, setOpenFaq] = useState<number | null>(null)
 
-  const chartRef = useRef<HTMLCanvasElement>(null)
-  const chartInstanceRef = useRef<any>(null)
-
-  // ── Calculation ──
   function calculate() {
     const monthlyReturn = (annualReturn / 100) / 12
     const fireTarget = annualSpend / (withdrawalRate / 100)
@@ -122,14 +150,12 @@ export default function FatFireCalculatorPage() {
     const now = new Date()
     const startYear = now.getFullYear()
     const startMonth = now.getMonth()
-
     const map: YearMap = {}
 
     for (let m = 0; m <= maxMonths + 60; m++) {
       const calYear = startYear + Math.floor((startMonth + m) / 12)
       const calMonth = (startMonth + m) % 12
       const yearIdx = Math.floor(m / 12)
-
       const contrib = monthlyContrib * Math.pow(1 + contribGrowth / 100, yearIdx)
       const gain = portfolio * monthlyReturn
       portfolio += gain + contrib
@@ -143,226 +169,81 @@ export default function FatFireCalculatorPage() {
       }
     }
 
-    // Projected value at target retirement age
     const tgtYear = startYear + yearsToTarget
-    const projRow = map[tgtYear]?.[startMonth]
-    const projected = projRow?.portfolio ?? 0
+    const projected = map[tgtYear]?.[startMonth]?.portfolio ?? 0
+    const fireAge = fireAchievedYear !== null ? currentAge + (fireAchievedYear - startYear) : null
+    const yearsUntil = fireAchievedYear !== null ? fireAchievedYear - startYear : null
 
-    const fireAge = fireAchievedYear !== null
-      ? currentAge + (fireAchievedYear - startYear)
-      : null
-    const yearsUntil = fireAchievedYear !== null
-      ? fireAchievedYear - startYear
-      : null
+    const points: ChartPoint[] = Object.keys(map)
+      .map(Number).sort()
+      .map((y) => {
+        const dec = map[y][11] ?? map[y].find(Boolean)
+        return { year: y, portfolio: dec ? Math.round(dec.portfolio) : 0, target: Math.round(fireTarget) }
+      })
 
-    setResults({
-      fireTarget,
-      projectedAtTarget: projected,
-      fireAge,
-      yearsUntil,
-      fireMonth: fireAchievedMonth,
-      fireYear: fireAchievedYear,
-    })
+    setResults({ fireTarget, projectedAtTarget: projected, fireAge, yearsUntil, fireMonth: fireAchievedMonth, fireYear: fireAchievedYear })
     setYearData(map)
+    setChartData(points)
   }
 
-  // Auto-calculate on mount
-  useEffect(() => { calculate() }, [])  // eslint-disable-line
+  useEffect(() => { calculate() }, []) // eslint-disable-line
 
-  // ── Chart (vanilla Chart.js via dynamic import) ──
-  useEffect(() => {
-    if (!results || !chartRef.current || Object.keys(yearData).length === 0) return
-
-    async function drawChart() {
-      const { Chart, registerables } = await import("chart.js")
-      Chart.register(...registerables)
-
-      if (chartInstanceRef.current) {
-        chartInstanceRef.current.destroy()
-      }
-
-      const years = Object.keys(yearData).map(Number).sort()
-      const labels = years.map(String)
-      const values = years.map((y) => {
-        const dec = yearData[y][11] ?? yearData[y].find(Boolean)
-        return dec ? Math.round(dec.portfolio) : 0
-      })
-      const target = years.map(() => Math.round(results!.fireTarget))
-
-      const ctx = chartRef.current!.getContext("2d")!
-      const gradient = ctx.createLinearGradient(0, 0, 0, 300)
-      gradient.addColorStop(0, "rgba(74,222,128,0.22)")
-      gradient.addColorStop(1, "rgba(74,222,128,0.01)")
-
-      chartInstanceRef.current = new Chart(ctx, {
-        type: "line",
-        data: {
-          labels,
-          datasets: [
-            {
-              label: "Portfolio Value",
-              data: values,
-              borderColor: "#4ade80",
-              backgroundColor: gradient,
-              borderWidth: 2.5,
-              pointRadius: 0,
-              pointHoverRadius: 5,
-              pointHoverBackgroundColor: "#4ade80",
-              fill: true,
-              tension: 0.4,
-            },
-            {
-              label: "Fat FIRE Target",
-              data: target,
-              borderColor: "#f87171",
-              backgroundColor: "transparent",
-              borderWidth: 1.5,
-              borderDash: [6, 4],
-              pointRadius: 0,
-              fill: false,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          interaction: { mode: "index", intersect: false },
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              backgroundColor: "#1a1a1a",
-              borderColor: "#2c2c2c",
-              borderWidth: 1,
-              titleColor: "#9ba89b",
-              bodyColor: "#f0f4f0",
-              padding: 12,
-              callbacks: {
-                label: (c) => ` ${c.dataset.label}: $${(c.parsed.y as number).toLocaleString()}`,
-              },
-            },
-          },
-          scales: {
-            x: {
-              grid: { color: "rgba(255,255,255,0.03)" },
-              ticks: { color: "#71717a", font: { size: 11 } },
-              border: { color: "transparent" },
-            },
-            y: {
-              grid: { color: "rgba(255,255,255,0.04)" },
-              ticks: {
-                color: "#71717a",
-                font: { size: 11 },
-                callback: (v) => {
-                  const n = Number(v)
-                  if (n >= 1e6) return "$" + (n / 1e6).toFixed(1) + "M"
-                  if (n >= 1e3) return "$" + (n / 1e3).toFixed(0) + "K"
-                  return "$" + n
-                },
-              },
-              border: { color: "transparent" },
-            },
-          },
-        },
-      })
-    }
-
-    drawChart()
-  }, [results, yearData])
-
-  // ── Input field helper ──
-  const Field = ({
-    label, value, onChange, prefix, suffix, type = "number", min, max, step, children
-  }: {
-    label: string
-    value: number | string
-    onChange: (v: number) => void
-    prefix?: string
-    suffix?: string
-    type?: string
-    min?: number
-    max?: number
-    step?: number
-    children?: React.ReactNode
-  }) => (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-medium text-muted-foreground">{label}</label>
-      {children ?? (
-        <div className="relative flex items-center">
-          {prefix && (
-            <span className="absolute left-3 text-sm text-muted-foreground pointer-events-none">{prefix}</span>
-          )}
-          <input
-            type={type}
-            value={value}
-            min={min}
-            max={max}
-            step={step}
-            onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-            className={`
-              w-full bg-background border border-border rounded-lg py-2.5 text-sm text-foreground
-              outline-none focus:border-primary/50 transition-colors
-              ${prefix ? "pl-7" : "px-3"}
-              ${suffix ? "pr-8" : "pr-3"}
-            `}
-          />
-          {suffix && (
-            <span className="absolute right-3 text-sm text-muted-foreground pointer-events-none">{suffix}</span>
-          )}
-        </div>
-      )}
-    </div>
-  )
+  const inputCls = "w-full bg-background border border-border rounded-lg py-2.5 text-sm text-foreground outline-none focus:border-primary/50 transition-colors"
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
 
       <main className="pt-16 flex-1">
-
-        {/* ── Page Header ── */}
+        {/* Page Header */}
         <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-12 pb-8 text-center">
-          <div className="text-xs font-bold tracking-widest uppercase text-primary mb-3">
-            Free Tools
-          </div>
+          <div className="text-xs font-bold tracking-widest uppercase text-primary mb-3">Free Tools</div>
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground mb-3">
             Fat FIRE Calculator
           </h1>
           <p className="text-muted-foreground text-sm max-w-md mx-auto leading-relaxed">
-            Calculate and plan your Fat FIRE progress. See exactly when you can retire
-            in luxury — with full projections, charts, and insights.
+            Calculate and plan your Fat FIRE progress. See exactly when you can retire in luxury — with full projections, charts, and insights.
           </p>
         </div>
 
         <div className="max-w-5xl mx-auto px-4 sm:px-6 pb-20 space-y-4">
 
-          {/* ── Calculator Card ── */}
+          {/* Calculator Card */}
           <div className="rounded-2xl border border-border bg-card overflow-hidden">
-
-            {/* Two-column inputs */}
             <div className="grid grid-cols-1 md:grid-cols-2">
 
-              {/* Left — Investment Inputs */}
+              {/* Left */}
               <div className="p-6 space-y-4">
-                <div className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground mb-4">
-                  Your Investment Inputs
-                </div>
+                <div className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground">Your Investment Inputs</div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="Current Net Worth" value={netWorth} onChange={setNetWorth} prefix="$" min={0} />
-                  <Field label="Expected Annual Return" value={annualReturn} onChange={setAnnualReturn} suffix="%" min={0} max={30} step={0.1} />
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Current Net Worth</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                      <input type="number" value={netWorth} min={0} onChange={(e) => setNetWorth(+e.target.value || 0)} className={inputCls + " pl-7"} />
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Expected Annual Return</label>
+                    <div className="relative">
+                      <input type="number" value={annualReturn} min={0} max={30} step={0.1} onChange={(e) => setAnnualReturn(+e.target.value || 0)} className={inputCls + " px-3 pr-8"} />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-2">
-                    <Field label="Additional Contribution" value={contribution} onChange={setContribution} prefix="$" min={0} />
+                  <div className="col-span-2 flex flex-col gap-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Additional Contribution</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                      <input type="number" value={contribution} min={0} onChange={(e) => setContribution(+e.target.value || 0)} className={inputCls + " pl-7"} />
+                    </div>
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-medium text-muted-foreground">Frequency</label>
-                    <select
-                      value={frequency}
-                      onChange={(e) => setFrequency(parseInt(e.target.value))}
-                      className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50 transition-colors"
-                    >
+                    <select value={frequency} onChange={(e) => setFrequency(+e.target.value)} className={inputCls + " px-3"}>
                       <option value={12}>Monthly</option>
                       <option value={4}>Quarterly</option>
                       <option value={1}>Yearly</option>
@@ -371,10 +252,16 @@ export default function FatFireCalculatorPage() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="Contribution Growth" value={contribGrowth} onChange={setContribGrowth} suffix="%" min={0} max={20} step={0.5} />
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Contribution Growth</label>
+                    <div className="relative">
+                      <input type="number" value={contribGrowth} min={0} max={20} step={0.5} onChange={(e) => setContribGrowth(+e.target.value || 0)} className={inputCls + " px-3 pr-8"} />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
+                    </div>
+                  </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-medium text-muted-foreground">Growth Period</label>
-                    <select className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50 transition-colors">
+                    <select className={inputCls + " px-3"}>
                       <option>Year over Year</option>
                       <option>Month over Month</option>
                     </select>
@@ -382,41 +269,63 @@ export default function FatFireCalculatorPage() {
                 </div>
               </div>
 
-              {/* Right — Fat FIRE Inputs */}
+              {/* Right */}
               <div className="p-6 space-y-4 border-t md:border-t-0 md:border-l border-border">
-                <div className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground mb-4">
-                  Your Fat FIRE Number Inputs
+                <div className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground">Your Fat FIRE Number Inputs</div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Current Age</label>
+                    <input type="number" value={currentAge} min={18} max={80} onChange={(e) => setCurrentAge(+e.target.value || 0)} className={inputCls + " px-3"} />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Target Retirement Age</label>
+                    <input type="number" value={targetAge} min={30} max={90} onChange={(e) => setTargetAge(+e.target.value || 0)} className={inputCls + " px-3"} />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="Current Age" value={currentAge} onChange={setCurrentAge} min={18} max={80} />
-                  <Field label="Target Retirement Age" value={targetAge} onChange={setTargetAge} min={30} max={90} />
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Retirement Annual Spending</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                      <input type="number" value={annualSpend} min={0} onChange={(e) => setAnnualSpend(+e.target.value || 0)} className={inputCls + " pl-7"} />
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Withdrawal Rate</label>
+                    <div className="relative">
+                      <input type="number" value={withdrawalRate} min={1} max={10} step={0.1} onChange={(e) => setWithdrawalRate(+e.target.value || 0)} className={inputCls + " px-3 pr-8"} />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="Retirement Annual Spending" value={annualSpend} onChange={setAnnualSpend} prefix="$" min={0} />
-                  <Field label="Withdrawal Rate" value={withdrawalRate} onChange={setWithdrawalRate} suffix="%" min={1} max={10} step={0.1} />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Life Expectancy" value={90} onChange={() => { }} min={60} max={110} />
-                  <Field label="Inflation Rate" value={inflation} onChange={setInflation} suffix="%" min={0} max={15} step={0.1} />
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Life Expectancy</label>
+                    <input type="number" defaultValue={90} min={60} max={110} className={inputCls + " px-3"} />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Inflation Rate</label>
+                    <div className="relative">
+                      <input type="number" value={inflation} min={0} max={15} step={0.1} onChange={(e) => setInflation(+e.target.value || 0)} className={inputCls + " px-3 pr-8"} />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Submit */}
             <div className="px-6 py-4 border-t border-border">
-              <button
-                onClick={calculate}
-                className="w-full bg-primary text-black font-bold rounded-xl py-3 text-sm tracking-wide hover:opacity-90 active:scale-[0.99] transition-all"
-              >
+              <button onClick={calculate} className="w-full bg-primary text-primary-foreground font-bold rounded-xl py-3 text-sm tracking-wide hover:opacity-90 active:scale-[0.99] transition-all">
                 🔥 Calculate My Fat FIRE Number
               </button>
             </div>
           </div>
 
-          {/* ── Results Banner ── */}
+          {/* Results Banner */}
           {results && (
             <div className="rounded-2xl border border-primary/20 bg-primary/5 p-6">
               <div className="flex items-center gap-2 text-[10px] font-bold tracking-widest uppercase text-primary mb-5">
@@ -426,79 +335,83 @@ export default function FatFireCalculatorPage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                 <div>
                   <div className="text-xs text-muted-foreground mb-1">Required Wealth for Retirement</div>
-                  <div className="text-xl sm:text-2xl font-extrabold text-primary tracking-tight">
-                    {fmtFull(results.fireTarget)}
-                  </div>
+                  <div className="text-xl sm:text-2xl font-extrabold text-primary tracking-tight">{fmtFull(results.fireTarget)}</div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground mb-1">Projected Wealth at Retirement</div>
-                  <div className="text-lg font-bold text-foreground">
-                    {results.projectedAtTarget > 0 ? fmtFull(results.projectedAtTarget) : "—"}
-                  </div>
+                  <div className="text-lg font-bold text-foreground">{results.projectedAtTarget > 0 ? fmtFull(results.projectedAtTarget) : "—"}</div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground mb-1">Retirement Age</div>
-                  <div className="text-lg font-bold text-foreground">
-                    {results.fireAge !== null ? results.fireAge + " yrs" : ">" + targetAge}
-                  </div>
+                  <div className="text-lg font-bold text-foreground">{results.fireAge !== null ? results.fireAge + " yrs" : ">" + targetAge}</div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground mb-1">Years Until Retirement</div>
-                  <div className="text-lg font-bold text-foreground">
-                    {results.yearsUntil !== null ? results.yearsUntil + " years" : "—"}
-                  </div>
+                  <div className="text-lg font-bold text-foreground">{results.yearsUntil !== null ? results.yearsUntil + " years" : "—"}</div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground mb-1">Retirement Month</div>
                   <div className="text-lg font-bold text-foreground">
-                    {results.fireMonth !== null && results.fireYear !== null
-                      ? MONTH_NAMES[results.fireMonth] + " " + results.fireYear
-                      : "—"}
+                    {results.fireMonth !== null && results.fireYear !== null ? MONTH_NAMES[results.fireMonth] + " " + results.fireYear : "—"}
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* ── Chart ── */}
-          {results && (
+          {/* Chart */}
+          {results && chartData.length > 0 && (
             <div className="rounded-2xl border border-border bg-card overflow-hidden">
               <div className="flex items-center justify-between px-6 py-4 border-b border-border">
                 <div className="text-sm font-bold text-foreground">Portfolio Growth Projection</div>
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1.5">
-                    <span className="w-5 h-0.5 bg-primary inline-block rounded" />
+                    <span className="w-4 h-0.5 bg-primary inline-block rounded" />
                     Portfolio Value
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="w-5 h-0.5 bg-red-400 inline-block rounded border-t-2 border-dashed border-red-400" />
+                    <span className="w-4 h-0.5 bg-red-400 inline-block rounded" />
                     FIRE Target
                   </span>
                 </div>
               </div>
               <div className="p-6">
-                <div className="h-72 relative">
-                  <canvas ref={chartRef} />
-                </div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                    <XAxis dataKey="year" tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis
+                      tick={{ fill: "#71717a", fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={72}
+                      tickFormatter={(v) => {
+                        if (v >= 1e6) return "$" + (v / 1e6).toFixed(1) + "M"
+                        if (v >= 1e3) return "$" + (v / 1e3).toFixed(0) + "K"
+                        return "$" + v
+                      }}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Line type="monotone" dataKey="portfolio" name="Portfolio Value" stroke="#4ade80" strokeWidth={2.5} dot={false} activeDot={{ r: 5, fill: "#4ade80" }} />
+                    <Line type="monotone" dataKey="target" name="Fat FIRE Target" stroke="#f87171" strokeWidth={1.5} strokeDasharray="6 4" dot={false} activeDot={{ r: 4, fill: "#f87171" }} />
+                    {results.fireYear && (
+                      <ReferenceLine x={results.fireYear} stroke="#4ade80" strokeDasharray="4 4" strokeOpacity={0.4} label={{ value: "🔥 FIRE!", position: "top", fill: "#4ade80", fontSize: 11 }} />
+                    )}
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
             </div>
           )}
 
-          {/* ── Table ── */}
+          {/* Table */}
           {results && Object.keys(yearData).length > 0 && (
             <div className="rounded-2xl border border-border bg-card overflow-hidden">
               <div className="flex items-center justify-between px-6 py-4 border-b border-border">
                 <div className="text-sm font-bold text-foreground">Year-by-Year Projection</div>
                 <div className="flex gap-1 bg-muted/20 rounded-lg p-1">
                   {(["value", "contribution", "return"] as const).map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setActiveTab(t)}
-                      className={`px-3 py-1 rounded-md text-xs font-medium capitalize transition-all ${activeTab === t
-                        ? "bg-card text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                        }`}
-                    >
+                    <button key={t} onClick={() => setActiveTab(t)}
+                      className={`px-3 py-1 rounded-md text-xs font-medium capitalize transition-all ${activeTab === t ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
                       {t.charAt(0).toUpperCase() + t.slice(1)}
                     </button>
                   ))}
@@ -515,85 +428,64 @@ export default function FatFireCalculatorPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.keys(yearData)
-                      .map(Number)
-                      .sort()
-                      .map((y) => {
-                        const isFireYear = y === results.fireYear
-                        return (
-                          <tr
-                            key={y}
-                            className={`border-t border-border hover:bg-muted/10 transition-colors ${isFireYear ? "text-primary" : ""
-                              }`}
-                          >
-                            <td className={`px-4 py-2 font-semibold whitespace-nowrap ${isFireYear ? "text-primary" : "text-foreground"}`}>
-                              {y}{isFireYear ? " 🔥" : ""}
-                            </td>
-                            {yearData[y].map((d, mi) => {
-                              let val = "—"
-                              if (d) {
-                                if (activeTab === "value") val = fmt(d.portfolio)
-                                else if (activeTab === "contribution") val = fmt(d.contrib)
-                                else val = fmt(d.gain)
-                              }
-                              return (
-                                <td key={mi} className={`px-3 py-2 text-right tabular-nums ${isFireYear ? "text-primary" : "text-muted-foreground"}`}>
-                                  {val}
-                                </td>
-                              )
-                            })}
-                          </tr>
-                        )
-                      })}
+                    {Object.keys(yearData).map(Number).sort().map((y) => {
+                      const isFireYear = y === results.fireYear
+                      return (
+                        <tr key={y} className="border-t border-border hover:bg-muted/10 transition-colors">
+                          <td className={`px-4 py-2 font-semibold whitespace-nowrap ${isFireYear ? "text-primary" : "text-foreground"}`}>
+                            {y}{isFireYear ? " 🔥" : ""}
+                          </td>
+                          {yearData[y].map((d, mi) => {
+                            let val = "—"
+                            if (d) {
+                              if (activeTab === "value") val = fmt(d.portfolio)
+                              else if (activeTab === "contribution") val = fmt(d.contrib)
+                              else val = fmt(d.gain)
+                            }
+                            return (
+                              <td key={mi} className={`px-3 py-2 text-right tabular-nums ${isFireYear ? "text-primary" : "text-muted-foreground"}`}>
+                                {val}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
             </div>
           )}
 
-          {/* ── FAQ ── */}
+          {/* FAQ */}
           <div className="rounded-2xl border border-border bg-card overflow-hidden">
             <div className="px-6 py-4 border-b border-border">
               <div className="text-sm font-bold text-foreground">Frequently Asked Questions</div>
             </div>
             <div className="p-4 space-y-2">
               {FAQS.map((faq, i) => (
-                <div
-                  key={i}
-                  className="rounded-xl border border-border overflow-hidden"
-                >
-                  <button
-                    onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                    className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left text-sm font-medium text-foreground hover:text-primary transition-colors"
-                  >
+                <div key={i} className="rounded-xl border border-border overflow-hidden">
+                  <button onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                    className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left text-sm font-medium text-foreground hover:text-primary transition-colors">
                     {faq.q}
-                    <span className={`text-muted-foreground text-lg shrink-0 transition-transform duration-200 ${openFaq === i ? "rotate-45 text-primary" : ""}`}>
-                      +
-                    </span>
+                    <span className={`text-muted-foreground text-lg shrink-0 transition-transform duration-200 ${openFaq === i ? "rotate-45 text-primary" : ""}`}>+</span>
                   </button>
                   {openFaq === i && (
-                    <div className="px-5 pb-4 text-sm text-muted-foreground leading-relaxed">
-                      {faq.a}
-                    </div>
+                    <div className="px-5 pb-4 text-sm text-muted-foreground leading-relaxed">{faq.a}</div>
                   )}
                 </div>
               ))}
             </div>
           </div>
 
-          {/* ── Related Tools ── */}
+          {/* Related Tools */}
           <div>
             <div className="text-base font-bold text-foreground mb-4">Other Related Tools</div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               {RELATED_TOOLS.map((t) => (
-                <Link
-                  key={t.href}
-                  href={t.href}
-                  className="group flex items-center gap-2.5 bg-card border border-border rounded-xl px-4 py-3 hover:border-primary/30 hover:bg-card/80 transition-all"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-base shrink-0">
-                    {t.icon}
-                  </div>
+                <Link key={t.href} href={t.href}
+                  className="group flex items-center gap-2.5 bg-card border border-border rounded-xl px-4 py-3 hover:border-primary/30 hover:bg-card/80 transition-all">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-base shrink-0">{t.icon}</div>
                   <span className="text-xs font-semibold text-foreground leading-tight">{t.name}</span>
                 </Link>
               ))}

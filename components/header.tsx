@@ -26,7 +26,7 @@ export function Header() {
           <Link href="/#features" className="text-muted-foreground hover:text-foreground transition-colors">
             Features
           </Link>
-          <Link href="/#heatmaps" className="text-muted-foreground hover:text-foreground transition-colors">
+          <Link href="/market-heatmaps" className="text-muted-foreground hover:text-foreground transition-colors">
             Heat Maps
           </Link>
           <Link href="/news" className="text-muted-foreground hover:text-foreground transition-colors">
@@ -72,7 +72,7 @@ export function Header() {
               Features
             </Link>
             <Link
-              href="/#heatmaps"
+              href="/market-heatmaps"
               className="text-muted-foreground hover:text-foreground transition-colors py-2"
               onClick={() => setIsMenuOpen(false)}
             >

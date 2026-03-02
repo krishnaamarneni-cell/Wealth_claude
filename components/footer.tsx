@@ -35,7 +35,7 @@ export function Footer() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/#heatmaps" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+                  <Link href="/market-heatmaps" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
                     Heat Maps
                   </Link>
                 </li>

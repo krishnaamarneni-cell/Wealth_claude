@@ -69,10 +69,19 @@ export function Footer() {
               </ul>
             </div>
 
-            {/* Free Tools — NEW */}
+            {/* Free Tools — header links to /tools index page */}
             <div className="col-span-2 md:col-span-1">
-              <h3 className="font-semibold text-foreground mb-4">Free Tools</h3>
+              <h3 className="font-semibold text-foreground mb-4">
+                <Link
+                  href="/tools"
+                  className="hover:text-primary transition-colors inline-flex items-center gap-1 group"
+                >
+                  Free Tools
+                  <span className="text-primary opacity-60 group-hover:opacity-100 transition-opacity text-xs">↗</span>
+                </Link>
+              </h3>
               <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                {/* Column 1 */}
                 <ul className="space-y-3">
                   <li>
                     <Link href="/tools/fat-fire-calculator" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
@@ -104,7 +113,13 @@ export function Footer() {
                       Dividend Calculator
                     </Link>
                   </li>
+                  <li>
+                    <Link href="/tools/credit-card-debt-calculator" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+                      Credit Card Debt
+                    </Link>
+                  </li>
                 </ul>
+                {/* Column 2 */}
                 <ul className="space-y-3">
                   <li>
                     <Link href="/tools/time-weighted-return" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
@@ -134,6 +149,14 @@ export function Footer() {
                   <li>
                     <Link href="/tools/stock-profit-calculator" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
                       Stock Profit Calculator
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/tools"
+                      className="text-primary hover:text-primary/80 transition-colors text-sm font-semibold"
+                    >
+                      View all tools →
                     </Link>
                   </li>
                 </ul>

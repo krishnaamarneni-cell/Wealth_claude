@@ -61,6 +61,33 @@ const ALL_TOOLS = [
     href: "/tools/dividend-calculator",
   },
   {
+    id: "dca",
+    icon: "🔄",
+    name: "DCA Calculator",
+    desc: "Model dollar-cost averaging returns over time and see the power of consistent investing.",
+    tag: "Investing",
+    category: "investing",
+    href: "/tools/dca-calculator",
+  },
+  {
+    id: "stock-profit",
+    icon: "💵",
+    name: "Stock Profit Calculator",
+    desc: "Quickly calculate your profit, loss, and return percentage on any stock trade.",
+    tag: "Investing",
+    category: "investing",
+    href: "/tools/stock-profit-calculator",
+  },
+  {
+    id: "credit-card-debt",
+    icon: "💳",
+    name: "Credit Card Debt Calculator",
+    desc: "Upload statements or enter manually. Get your debt breakdown, interest costs, and fastest payoff strategies.",
+    tag: "Debt",
+    category: "debt",
+    href: "/tools/credit-card-debt-calculator",
+  },
+  {
     id: "twr",
     icon: "📈",
     name: "Time-Weighted Return",
@@ -96,24 +123,6 @@ const ALL_TOOLS = [
     category: "portfolio",
     href: "/tools/portfolio-weight",
   },
-  {
-    id: "dca",
-    icon: "🔄",
-    name: "DCA Calculator",
-    desc: "Model dollar-cost averaging returns over time and see the power of consistent investing.",
-    tag: "Investing",
-    category: "investing",
-    href: "/tools/dca-calculator",
-  },
-  {
-    id: "stock-profit",
-    icon: "💵",
-    name: "Stock Profit Calculator",
-    desc: "Quickly calculate your profit, loss, and return percentage on any stock trade.",
-    tag: "Investing",
-    category: "investing",
-    href: "/tools/stock-profit-calculator",
-  },
 ]
 
 const FILTERS = [
@@ -122,6 +131,7 @@ const FILTERS = [
   { label: "Portfolio", value: "portfolio" },
   { label: "Returns", value: "returns" },
   { label: "Investing", value: "investing" },
+  { label: "Debt", value: "debt" },
 ]
 
 export default function ToolsPage() {
@@ -150,8 +160,8 @@ export default function ToolsPage() {
 
           <p className="text-muted-foreground text-base max-w-xl mx-auto leading-relaxed mb-8">
             Powerful, free calculators built by WealthClaude — plan retirement,
-            analyze returns, and manage your portfolio smarter. Start free, unlock
-            everything with Pro.
+            analyze returns, manage your portfolio, and crush your debt. Start free,
+            unlock everything with Pro.
           </p>
 
           {/* Trust badges */}
@@ -189,6 +199,9 @@ export default function ToolsPage() {
                 {f.label}
               </button>
             ))}
+            <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+              {filtered.length} tool{filtered.length !== 1 ? "s" : ""}
+            </span>
           </div>
 
           {/* Grid */}
@@ -221,6 +234,13 @@ export default function ToolsPage() {
               </Link>
             ))}
           </div>
+
+          {/* Empty state */}
+          {filtered.length === 0 && (
+            <div className="text-center py-16 text-muted-foreground text-sm">
+              No tools match this filter.
+            </div>
+          )}
         </section>
       </main>
 

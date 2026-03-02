@@ -29,7 +29,7 @@ export default function JobPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!file || !name || !email) {
-      setError('Please fill in all fields and attach your resume.')
+      setError('All fields are required and a resume file must be attached.')
       return
     }
 
@@ -38,7 +38,9 @@ export default function JobPage() {
 
     try {
       const safeName = name.replace(/\s+/g, '-').toLowerCase()
-      const fileName = `${job.id}/${safeName}-${Date.now()}.pdf`
+      const ext = file.name.split('.').pop() || 'pdf'
+      const fileName = `${job.id}/${safeName}-${Date.now()}.${ext}`
+
       const { error: uploadError } = await supabase.storage
         .from('resumes')
         .upload(fileName, file)
@@ -61,7 +63,7 @@ export default function JobPage() {
       setFile(null)
     } catch (err) {
       console.error(err)
-      setError('Something went wrong. Please try again.')
+      setError('Could not submit application. Please try again in a moment.')
     } finally {
       setLoading(false)
     }
@@ -172,12 +174,13 @@ export default function JobPage() {
 
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">
-                  Resume (PDF or DOC)
+                  Resume (PDF, DOC, or DOCX)
                 </label>
+
                 <label className="flex items-center gap-3 px-4 py-3 rounded-lg border border-dashed border-border bg-background hover:border-primary/50 cursor-pointer transition-colors">
                   <Upload className="h-4 w-4 text-muted-foreground shrink-0" />
                   <span className="text-sm text-muted-foreground truncate">
-                    {file ? file.name : 'Click to upload your resume'}
+                    {file ? file.name : 'Upload your resume (PDF, DOC, DOCX)'}
                   </span>
                   <input
                     type="file"

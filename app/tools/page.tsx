@@ -88,6 +88,15 @@ const ALL_TOOLS = [
     href: "/tools/credit-card-debt-calculator",
   },
   {
+    id: "debt-vs-invest",
+    icon: "⚖️",
+    name: "Debt vs. Invest Calculator",
+    desc: "Should you pay off debt or invest? Get a financial health score A–F, 10-year net worth projection, and personalized recommendation.",
+    tag: "Debt",
+    category: "debt",
+    href: "/tools/debt-vs-invest",
+  },
+  {
     id: "twr",
     icon: "📈",
     name: "Time-Weighted Return",
@@ -192,8 +201,8 @@ export default function ToolsPage() {
                 key={f.value}
                 onClick={() => setActiveFilter(f.value)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all duration-150 ${activeFilter === f.value
-                    ? "bg-primary border-primary text-black font-semibold"
-                    : "bg-card border-border text-muted-foreground hover:text-foreground hover:border-border/80"
+                  ? "bg-primary border-primary text-black font-semibold"
+                  : "bg-card border-border text-muted-foreground hover:text-foreground hover:border-border/80"
                   }`}
               >
                 {f.label}

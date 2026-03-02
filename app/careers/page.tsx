@@ -107,7 +107,7 @@ export default function CareersPage() {
       if (!res.ok) throw new Error(data.error)
 
       // Also save to Supabase storage
-      const fileName = `match-${Date.now()}-${resumeFile.name}`
+      const fileName = `auto-match/${Date.now()}-${resumeFile.name}`
       const { error: uploadError } = await supabase.storage
         .from('resumes')
         .upload(fileName, resumeFile)
@@ -130,7 +130,7 @@ export default function CareersPage() {
       setResumeFile(null)
     } catch (err) {
       console.error(err)
-      setMatchError('Failed to process resume. Please upload a PDF file.')
+      setMatchError('Failed to process resume. Please upload a PDF or DOC file.')
     } finally {
       setMatchLoading(false)
     }

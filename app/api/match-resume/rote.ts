@@ -7,27 +7,72 @@ const jobs = [
     id: 'seo-specialist',
     title: 'SEO Specialist',
     keywords: [
-      'seo', 'search engine', 'keyword research', 'backlinks', 'google search console',
-      'on-page', 'content strategy', 'rankings', 'organic', 'meta', 'analytics',
-      'content', 'blog', 'writing', 'marketing', 'traffic',
+      'seo',
+      'search engine',
+      'keyword research',
+      'backlinks',
+      'google search console',
+      'on-page',
+      'content strategy',
+      'rankings',
+      'organic',
+      'meta',
+      'analytics',
+      'content',
+      'blog',
+      'writing',
+      'marketing',
+      'traffic',
     ],
   },
   {
     id: 'backend-nodejs',
     title: 'Backend Developer (Node.js)',
     keywords: [
-      'node', 'nodejs', 'node.js', 'typescript', 'javascript', 'rest api', 'api',
-      'postgresql', 'supabase', 'backend', 'server', 'express', 'database', 'sql',
-      'next.js', 'react', 'web development', 'developer', 'software',
+      'node',
+      'nodejs',
+      'node.js',
+      'typescript',
+      'javascript',
+      'rest api',
+      'api',
+      'postgresql',
+      'supabase',
+      'backend',
+      'server',
+      'express',
+      'database',
+      'sql',
+      'next.js',
+      'react',
+      'web development',
+      'developer',
+      'software',
     ],
   },
   {
     id: 'ai-agent-specialist',
     title: 'AI Agent Specialist',
     keywords: [
-      'ai', 'llm', 'openai', 'gpt', 'prompt', 'langchain', 'machine learning',
-      'python', 'agent', 'automation', 'nlp', 'anthropic', 'fine-tuning', 'vector',
-      'data science', 'deep learning', 'neural', 'tensorflow', 'pytorch',
+      'ai',
+      'llm',
+      'openai',
+      'gpt',
+      'prompt',
+      'langchain',
+      'machine learning',
+      'python',
+      'agent',
+      'automation',
+      'nlp',
+      'anthropic',
+      'fine-tuning',
+      'vector',
+      'data science',
+      'deep learning',
+      'neural',
+      'tensorflow',
+      'pytorch',
     ],
   },
 ]
@@ -63,7 +108,10 @@ export async function POST(req: NextRequest) {
     const resumeText = await extractText(buffer, file.name)
 
     if (!resumeText || resumeText.trim().length < 10) {
-      return NextResponse.json({ error: 'Could not read file content.' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Could not read file content.' },
+        { status: 400 }
+      )
     }
 
     const scores = jobs.map((job) => {
@@ -75,7 +123,9 @@ export async function POST(req: NextRequest) {
         }
       })
 
-      const score = Math.round((matchedKeywords.length / job.keywords.length) * 100)
+      const score = Math.round(
+        (matchedKeywords.length / job.keywords.length) * 100
+      )
 
       return {
         id: job.id,
@@ -87,6 +137,7 @@ export async function POST(req: NextRequest) {
     })
 
     scores.sort((a, b) => b.score - a.score)
+
     const topMatch = scores[0].score > 0 ? scores[0] : null
 
     return NextResponse.json({
@@ -98,7 +149,7 @@ export async function POST(req: NextRequest) {
     console.error('[match-resume]', err)
     return NextResponse.json(
       { error: err?.message ?? 'Failed to process resume' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

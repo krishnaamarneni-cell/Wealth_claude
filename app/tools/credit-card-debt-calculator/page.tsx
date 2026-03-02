@@ -224,140 +224,335 @@ async function loadJsPDF() {
 async function generatePDF(cards: Card[], payoffs: PayoffResult[], extra: number, goalInsights: GoalInsight[], totalDebt: number, monthlyInt: number, avgAPR: number) {
   const JsPDF = await loadJsPDF()
   const doc = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" })
-  const W = 210, margin = 18
-  let y = 0
+  const W = 210, M = 16, now = new Date()
+  const contentW = W - M * 2
 
-  // ── Brand header ────────────────────────────────────────────
-  doc.setFillColor(10, 12, 16)
-  doc.rect(0, 0, W, 28, "F")
-  doc.setFillColor(74, 222, 128)
-  doc.rect(0, 0, 4, 28, "F")
-  doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.setTextColor(255, 255, 255)
-  doc.text("WealthClaude", margin, 12)
-  doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(150, 150, 150)
-  doc.text("Credit Card Debt Payoff Plan", margin, 19)
-  const now = new Date()
-  doc.text(`Generated: ${now.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`, W - margin, 12, { align: "right" })
-  doc.text("wealthclaude.com", W - margin, 19, { align: "right" })
-  y = 36
-
-  // ── Summary row ──────────────────────────────────────────────
-  const summaryItems = [
-    { label: "Total Debt", value: fmtK(totalDebt) },
-    { label: "Avg APR", value: avgAPR.toFixed(2) + "%" },
-    { label: "Monthly Interest", value: fmtUSD(monthlyInt) },
-    { label: "Annual Interest", value: fmtK(monthlyInt * 12) },
-  ]
-  const boxW = (W - margin * 2 - 9) / 4
-  summaryItems.forEach((item, i) => {
-    const x = margin + i * (boxW + 3)
-    doc.setFillColor(17, 19, 24); doc.roundedRect(x, y, boxW, 16, 2, 2, "F")
-    doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.setTextColor(120, 120, 120)
-    doc.text(item.label.toUpperCase(), x + boxW / 2, y + 5.5, { align: "center" })
-    doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(248, 113, 113)
-    doc.text(item.value, x + boxW / 2, y + 12, { align: "center" })
-  })
-  y += 22
-
-  // ── Cards table ──────────────────────────────────────────────
-  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(74, 222, 128)
-  doc.text("Your Credit Cards", margin, y); y += 5
-  doc.setFillColor(20, 22, 28); doc.rect(margin, y, W - margin * 2, 7, "F")
-  doc.setFont("helvetica", "bold"); doc.setFontSize(7.5); doc.setTextColor(100, 100, 100)
-  const colX = [margin + 2, margin + 62, margin + 98, margin + 124, margin + 150]
-  const colH = ["CARD NAME", "BALANCE", "APR", "MIN PAYMENT", "INTEREST/MO"]
-  colH.forEach((h, i) => doc.text(h, colX[i], y + 4.8))
-  y += 7
-  cards.forEach((c, idx) => {
-    doc.setFillColor(idx % 2 === 0 ? 15 : 13, idx % 2 === 0 ? 17 : 15, idx % 2 === 0 ? 22 : 19)
-    doc.rect(margin, y, W - margin * 2, 7, "F")
-    doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(220, 220, 220)
-    doc.text(c.name.slice(0, 28), colX[0], y + 4.8)
-    doc.setTextColor(248, 113, 113); doc.text(fmtUSD(c.balance), colX[1], y + 4.8)
-    doc.setTextColor(251, 191, 36); doc.text(c.apr.toFixed(2) + "%", colX[2], y + 4.8)
-    doc.setTextColor(220, 220, 220); doc.text(fmtUSD(c.minPayment), colX[3], y + 4.8)
-    doc.setTextColor(248, 113, 113); doc.text(fmtUSD((c.apr / 100 / 12) * c.balance), colX[4], y + 4.8)
-    y += 7
-  })
-  y += 8
-
-  // ── Payoff strategies table ──────────────────────────────────
-  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(74, 222, 128)
-  doc.text("Payoff Strategy Comparison", margin, y); y += 5
-  doc.setFillColor(20, 22, 28); doc.rect(margin, y, W - margin * 2, 7, "F")
-  doc.setFont("helvetica", "bold"); doc.setFontSize(7.5); doc.setTextColor(100, 100, 100)
-  const sColX = [margin + 2, margin + 48, margin + 82, margin + 118, margin + 152]
-  const sColH = ["STRATEGY", "EXTRA/MO", "PAYOFF TIME", "TOTAL INTEREST", "TOTAL COST"]
-  sColH.forEach((h, i) => doc.text(h, sColX[i], y + 4.8)); y += 7
-  payoffs.forEach((p, idx) => {
-    doc.setFillColor(idx % 2 === 0 ? 15 : 13, idx % 2 === 0 ? 17 : 15, idx % 2 === 0 ? 22 : 19)
-    doc.rect(margin, y, W - margin * 2, 7, "F")
-    doc.setFont("helvetica", "normal"); doc.setFontSize(8)
-    const label = p.strategy === "snowball" ? "Snowball (smallest first)" : p.strategy === "avalanche" ? "Avalanche (highest APR first)" : "Custom"
-    doc.setTextColor(220, 220, 220); doc.text(label, sColX[0], y + 4.8)
-    doc.setTextColor(74, 222, 128); doc.text(fmtUSD(extra), sColX[1], y + 4.8)
-    doc.setTextColor(220, 220, 220); doc.text(fmtMo(p.months), sColX[2], y + 4.8)
-    doc.setTextColor(248, 113, 113); doc.text(fmtUSD(p.totalInterest), sColX[3], y + 4.8)
-    doc.setTextColor(220, 220, 220); doc.text(fmtUSD(p.totalCost), sColX[4], y + 4.8)
-    y += 7
-  })
-  y += 8
-
-  // ── Debt-free goal insights ──────────────────────────────────
-  if (goalInsights.length) {
-    doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(74, 222, 128)
-    doc.text("Debt-Free Goal Scenarios", margin, y); y += 5
-    doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(150, 150, 150)
-    doc.text("How much you need to pay each month to hit each debt-free target:", margin, y); y += 6
-    goalInsights.forEach((g, idx) => {
-      doc.setFillColor(idx % 2 === 0 ? 15 : 13, idx % 2 === 0 ? 17 : 15, idx % 2 === 0 ? 22 : 19)
-      doc.rect(margin, y, W - margin * 2, 7, "F")
-      doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.setTextColor(255, 255, 255)
-      doc.text(g.label, margin + 3, y + 4.8)
-      doc.setFont("helvetica", "normal"); doc.setTextColor(74, 222, 128)
-      doc.text(`Pay ${fmtUSD(g.totalMonthly)}/mo (${fmtUSD(g.extra)} extra)`, margin + 40, y + 4.8)
-      doc.setTextColor(150, 150, 150)
-      doc.text(`→ Done in ${fmtMo(g.actualMonths)} · Save ${fmtUSD(g.interestSaved)} in interest`, margin + 110, y + 4.8)
-      y += 7
-    })
-    y += 8
+  // ── Color palette ────────────────────────────────────────────
+  const C = {
+    navy: [15, 40, 70] as [number, number, number],
+    green: [22, 163, 74] as [number, number, number],
+    greenL: [220, 252, 231] as [number, number, number],
+    red: [185, 28, 28] as [number, number, number],
+    redL: [254, 226, 226] as [number, number, number],
+    amber: [146, 100, 0] as [number, number, number],
+    amberL: [254, 243, 199] as [number, number, number],
+    gray1: [248, 249, 250] as [number, number, number],
+    gray2: [241, 243, 245] as [number, number, number],
+    gray3: [206, 212, 218] as [number, number, number],
+    gray5: [108, 117, 125] as [number, number, number],
+    gray7: [52, 58, 64] as [number, number, number],
+    black: [17, 17, 17] as [number, number, number],
+    white: [255, 255, 255] as [number, number, number],
+    border: [220, 225, 230] as [number, number, number],
   }
 
-  // ── Balance over time mini chart ────────────────────────────
+  // ── Helpers ──────────────────────────────────────────────────
+  const setFill = (c: [number, number, number]) => doc.setFillColor(c[0], c[1], c[2])
+  const setTxt = (c: [number, number, number]) => doc.setTextColor(c[0], c[1], c[2])
+  const setDraw = (c: [number, number, number]) => doc.setDrawColor(c[0], c[1], c[2])
+  const bold = (size: number) => { doc.setFont("helvetica", "bold"); doc.setFontSize(size) }
+  const normal = (size: number) => { doc.setFont("helvetica", "normal"); doc.setFontSize(size) }
+  const italic = (size: number) => { doc.setFont("helvetica", "italic"); doc.setFontSize(size) }
+
+  // Horizontal rule
+  const hr = (y: number, color = C.border) => { setDraw(color); doc.setLineWidth(0.25); doc.line(M, y, W - M, y) }
+
+  // Section heading with green left bar
+  const sectionHead = (text: string, y: number): number => {
+    setFill(C.green); doc.rect(M, y, 3, 6, "F")
+    bold(11); setTxt(C.navy)
+    doc.text(text, M + 6, y + 5)
+    return y + 10
+  }
+
+  // Table header row
+  const tableHead = (cols: { label: string; x: number; align?: "left" | "right" | "center" }[], y: number, rowH = 7): number => {
+    setFill(C.navy); doc.rect(M, y, contentW, rowH, "F")
+    bold(7.5); setTxt(C.white)
+    cols.forEach(c => doc.text(c.label, c.x, y + rowH * 0.68, { align: c.align || "left" }))
+    return y + rowH
+  }
+
+  // Table data row
+  const tableRow = (cols: { text: string; x: number; color?: [number, number, number]; bold?: boolean; align?: "left" | "right" | "center" }[], y: number, rowH = 7, shade = false): number => {
+    if (shade) { setFill(C.gray1); doc.rect(M, y, contentW, rowH, "F") }
+    setDraw(C.border); doc.setLineWidth(0.1); doc.line(M, y + rowH, W - M, y + rowH)
+    cols.forEach(c => {
+      if (c.bold) bold(8.5); else normal(8.5)
+      setTxt(c.color || C.gray7)
+      doc.text(c.text, c.x, y + rowH * 0.68, { align: c.align || "left" })
+    })
+    return y + rowH
+  }
+
+  // Page check — add new page if needed
+  const checkPage = (y: number, need = 30): number => {
+    if (y + need > 272) { doc.addPage(); addPageBg(); return 24 }
+    return y
+  }
+
+  // White background on each page
+  const addPageBg = () => { setFill(C.white); doc.rect(0, 0, W, 297, "F") }
+  addPageBg()
+
+  // ════════════════════════════════════════════════════════════
+  // PAGE 1 — HEADER
+  // ════════════════════════════════════════════════════════════
+
+  // Top navy bar
+  setFill(C.navy); doc.rect(0, 0, W, 38, "F")
+  // Green accent strip
+  setFill(C.green); doc.rect(0, 0, 5, 38, "F")
+
+  // Company name
+  bold(20); setTxt(C.white)
+  doc.text("WealthClaude", M + 4, 16)
+  normal(9); setTxt(C.greenL)
+  doc.text("Credit Card Debt Payoff Plan", M + 4, 24)
+
+  // Right side meta
+  normal(8); setTxt([160, 185, 210] as [number, number, number])
+  doc.text(`Generated: ${now.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`, W - M, 13, { align: "right" })
+  doc.text("wealthclaude.com", W - M, 21, { align: "right" })
+  doc.text("Confidential — For Personal Use Only", W - M, 29, { align: "right" })
+
+  let y = 46
+
+  // ── Summary stat boxes ───────────────────────────────────────
+  const stats = [
+    { label: "Total Debt", value: fmtK(totalDebt), valueColor: C.red },
+    { label: "Weighted Avg APR", value: avgAPR.toFixed(2) + "%", valueColor: C.amber },
+    { label: "Monthly Interest", value: fmtUSD(monthlyInt), valueColor: C.red },
+    { label: "Annual Interest", value: fmtK(monthlyInt * 12), valueColor: C.red },
+  ]
+  const bw = (contentW - 9) / 4
+  stats.forEach((s, i) => {
+    const x = M + i * (bw + 3)
+    setFill(C.gray1); doc.rect(x, y, bw, 18, "F")
+    setDraw(C.border); doc.setLineWidth(0.3); doc.rect(x, y, bw, 18, "S")
+    // colored top accent
+    setFill(i === 1 ? C.amber : C.red); doc.rect(x, y, bw, 1.2, "F")
+    normal(7); setTxt(C.gray5)
+    doc.text(s.label.toUpperCase(), x + bw / 2, y + 6.5, { align: "center" })
+    bold(11); setTxt(s.valueColor)
+    doc.text(s.value, x + bw / 2, y + 14, { align: "center" })
+  })
+  y += 24
+
+  // ════════════════════════════════════════════════════════════
+  // SECTION 1 — YOUR CREDIT CARDS
+  // ════════════════════════════════════════════════════════════
+  y = sectionHead("Your Credit Cards", y)
+
+  const cc = [M + 2, M + 66, M + 102, M + 132, M + 158]
+  y = tableHead([
+    { label: "CARD NAME", x: cc[0] },
+    { label: "BALANCE", x: cc[1] },
+    { label: "APR", x: cc[2] },
+    { label: "MIN PAYMENT", x: cc[3] },
+    { label: "INTEREST / MO", x: cc[4] },
+  ], y)
+
+  cards.forEach((c, i) => {
+    y = tableRow([
+      { text: c.name.slice(0, 30), x: cc[0], color: C.black, bold: true },
+      { text: fmtUSD(c.balance), x: cc[1], color: C.red },
+      { text: c.apr.toFixed(2) + "%", x: cc[2], color: C.amber },
+      { text: fmtUSD(c.minPayment), x: cc[3], color: C.gray7 },
+      { text: fmtUSD((c.apr / 100 / 12) * c.balance), x: cc[4], color: C.red },
+    ], y, 8, i % 2 === 1)
+  })
+  y += 10
+
+  // ════════════════════════════════════════════════════════════
+  // SECTION 2 — PAYOFF STRATEGY COMPARISON
+  // ════════════════════════════════════════════════════════════
+  y = checkPage(y, 50)
+  y = sectionHead("Payoff Strategy Comparison", y)
+
+  normal(8.5); setTxt(C.gray5)
+  doc.text(`Monthly extra payment applied: ${fmtUSD(extra)}`, M, y); y += 7
+
+  const sc = [M + 2, M + 58, M + 96, M + 130, M + 163]
+  y = tableHead([
+    { label: "STRATEGY", x: sc[0] },
+    { label: "PAYOFF TIME", x: sc[1] },
+    { label: "TOTAL INTEREST", x: sc[2] },
+    { label: "TOTAL COST", x: sc[3] },
+    { label: "MONTHLY PAYMENT", x: sc[4] },
+  ], y)
+
+  const totalMin = cards.reduce((s, c) => s + c.minPayment, 0)
+  payoffs.forEach((p, i) => {
+    const label = p.strategy === "snowball" ? "Snowball  (smallest balance first)" : p.strategy === "avalanche" ? "Avalanche  (highest APR first)" : "Custom"
+    y = tableRow([
+      { text: label, x: sc[0], color: C.navy, bold: true },
+      { text: fmtMo(p.months), x: sc[1], color: C.green, bold: true },
+      { text: fmtUSD(p.totalInterest), x: sc[2], color: C.red },
+      { text: fmtUSD(p.totalCost), x: sc[3], color: C.gray7 },
+      { text: fmtUSD(totalMin + extra), x: sc[4], color: C.gray7 },
+    ], y, 8.5, i % 2 === 1)
+  })
+
+  // Tip box
+  y += 5
+  setFill(C.greenL); doc.rect(M, y, contentW, 12, "F")
+  setDraw(C.green); doc.setLineWidth(0.4); doc.rect(M, y, contentW, 12, "S")
+  setFill(C.green); doc.rect(M, y, 3, 12, "F")
+  bold(8.5); setTxt(C.green); doc.text("Recommendation:", M + 7, y + 5)
+  normal(8.5); setTxt(C.gray7)
+  const av = payoffs.find(p => p.strategy === "avalanche"), sb = payoffs.find(p => p.strategy === "snowball")
+  const savingsTip = av && sb ? `Avalanche saves you ${fmtUSD(sb.totalInterest - av.totalInterest)} in interest vs Snowball and pays off ${sb.months - av.months} month(s) faster.` : "Use Avalanche strategy to minimize total interest paid."
+  doc.text(savingsTip, M + 43, y + 5)
+  normal(8); setTxt(C.gray5)
+  doc.text("Paying even a small amount extra each month dramatically reduces your payoff timeline.", M + 7, y + 9.5)
+  y += 18
+
+  // ════════════════════════════════════════════════════════════
+  // SECTION 3 — DEBT-FREE GOAL SCENARIOS
+  // ════════════════════════════════════════════════════════════
+  if (goalInsights.length) {
+    y = checkPage(y, 60)
+    y = sectionHead("Debt-Free Goal Scenarios", y)
+    normal(8.5); setTxt(C.gray5)
+    doc.text("The table below shows exactly how much you need to pay each month to become debt-free by each target date (Avalanche strategy).", M, y, { maxWidth: contentW })
+    y += 10
+
+    const gc = [M + 2, M + 30, M + 68, M + 106, M + 140, M + 172]
+    y = tableHead([
+      { label: "TARGET", x: gc[0] },
+      { label: "EXTRA / MO", x: gc[1] },
+      { label: "TOTAL MONTHLY", x: gc[2] },
+      { label: "PAYOFF TIME", x: gc[3] },
+      { label: "TOTAL INTEREST", x: gc[4] },
+      { label: "INTEREST SAVED", x: gc[5] },
+    ], y)
+
+    goalInsights.forEach((g, i) => {
+      y = tableRow([
+        { text: g.label, x: gc[0], color: C.navy, bold: true },
+        { text: "+" + fmtUSD(g.extra), x: gc[1], color: C.green, bold: true },
+        { text: fmtUSD(g.totalMonthly), x: gc[2], color: C.gray7 },
+        { text: fmtMo(g.actualMonths), x: gc[3], color: C.green },
+        { text: fmtUSD(g.totalInterest), x: gc[4], color: C.red },
+        { text: "Save " + fmtUSD(g.interestSaved), x: gc[5], color: C.green },
+      ], y, 8.5, i % 2 === 1)
+    })
+    y += 10
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // SECTION 4 — BALANCE OVER TIME CHART
+  // ════════════════════════════════════════════════════════════
   const avalanche = payoffs.find(p => p.strategy === "avalanche")
   if (avalanche && avalanche.schedule.length > 0) {
-    if (y > 240) { doc.addPage(); y = 18 }
-    doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(74, 222, 128)
-    doc.text("Balance Over Time (Avalanche Strategy)", margin, y); y += 4
-    const chartH = 24, chartW = W - margin * 2
-    doc.setFillColor(15, 17, 22); doc.rect(margin, y, chartW, chartH, "F")
+    y = checkPage(y, 55)
+    y = sectionHead("Balance Over Time  (Avalanche Strategy)", y)
+
+    const chartH = 38, chartW = contentW
+    const cx = M, cy = y
+
+    // Chart background
+    setFill(C.gray1); doc.rect(cx, cy, chartW, chartH, "F")
+    setDraw(C.border); doc.setLineWidth(0.2); doc.rect(cx, cy, chartW, chartH, "S")
+
+    // Y-axis grid lines (4 levels)
+    normal(6.5); setTxt(C.gray5)
+    for (let lvl = 0; lvl <= 4; lvl++) {
+      const gy = cy + chartH - (lvl / 4) * chartH
+      setDraw(C.border); doc.setLineWidth(0.15); doc.line(cx, gy, cx + chartW, gy)
+      doc.text(fmtK(totalDebt * (lvl / 4)), cx - 1, gy + 1.5, { align: "right" })
+    }
+
+    // Area fill (light green gradient approximation using thin rects)
     const sched = avalanche.schedule
-    const step = Math.max(1, Math.floor(sched.length / 80))
+    const step = Math.max(1, Math.floor(sched.length / 100))
     const pts = sched.filter((_, i) => i % step === 0 || i === sched.length - 1)
-    const maxBal = totalDebt
     pts.forEach((pt, i) => {
       if (i === pts.length - 1) return
-      const x1 = margin + i * (chartW / (pts.length - 1)), x2 = margin + (i + 1) * (chartW / (pts.length - 1))
-      const pct1 = pt.balance / maxBal, pct2 = pts[i + 1].balance / maxBal
-      const y1 = y + chartH - pct1 * chartH, y2 = y + chartH - pct2 * chartH
-      const g = Math.round(80 + pct1 * 175), r = Math.round(220 - pct1 * 180)
-      doc.setDrawColor(r, g, 74); doc.setLineWidth(0.6); doc.line(x1, y1, x2, y2)
+      const x1 = cx + (i / (pts.length - 1)) * chartW
+      const x2 = cx + ((i + 1) / (pts.length - 1)) * chartW
+      const pct1 = Math.max(0, pt.balance / totalDebt)
+      const pct2 = Math.max(0, pts[i + 1].balance / totalDebt)
+      const y1 = cy + chartH - pct1 * chartH
+      const y2 = cy + chartH - pct2 * chartH
+      // Filled area under line
+      setFill([220, 242, 230] as [number, number, number])
+      doc.triangle(x1, y1, x2, y2, x2, cy + chartH, "F")
+      doc.triangle(x1, y1, x1, cy + chartH, x2, cy + chartH, "F")
+      // Line
+      const r = Math.round(200 - pct1 * 160), g = Math.round(140 + pct1 * 50)
+      setDraw([r, g, 60] as [number, number, number]); doc.setLineWidth(0.7)
+      doc.line(x1, y1, x2, y2)
     })
-    y += chartH + 3
-    doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.setTextColor(100, 100, 100)
-    doc.text(`Today — ${fmtK(totalDebt)}`, margin, y)
-    doc.text("Debt Free 🎉", W - margin, y, { align: "right" })
-    y += 8
+
+    // X-axis labels
+    normal(6.5); setTxt(C.gray5)
+    doc.text("Today  " + fmtK(totalDebt), cx + 1, cy + chartH + 4)
+    doc.text("Debt Free!", cx + chartW, cy + chartH + 4, { align: "right" })
+    const midPt = pts[Math.floor(pts.length / 2)]
+    if (midPt) doc.text(fmtK(midPt.balance), cx + chartW / 2, cy + chartH + 4, { align: "center" })
+
+    y = cy + chartH + 10
   }
 
-  // ── Footer ───────────────────────────────────────────────────
-  const pageCount = doc.getNumberOfPages()
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i)
-    doc.setFillColor(10, 12, 16); doc.rect(0, 287, W, 10, "F")
-    doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.setTextColor(80, 80, 80)
-    doc.text("© WealthClaude — This report is for informational purposes only. Not financial advice.", margin, 293)
-    doc.text(`Page ${i} of ${pageCount}`, W - margin, 293, { align: "right" })
+  // ════════════════════════════════════════════════════════════
+  // SECTION 5 — RECOMMENDED ACTION PLAN
+  // ════════════════════════════════════════════════════════════
+  y = checkPage(y, 50)
+  y = sectionHead("Recommended Action Plan", y)
+
+  const av2 = payoffs.find(p => p.strategy === "avalanche")
+  if (av2) {
+    const payDate = new Date(); payDate.setMonth(payDate.getMonth() + av2.months)
+    const plan = [
+      { step: "1", action: "List all cards by APR — highest to lowest", detail: "Focus every extra dollar on the highest-rate card first while paying minimums on the rest." },
+      { step: "2", action: `Pay ${fmtUSD(totalMin + extra)}/month total  (${fmtUSD(extra)} extra)`, detail: `At this rate you will be debt-free in ${fmtMo(av2.months)} by ${payDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}.` },
+      { step: "3", action: "Roll over payments as each card is paid off", detail: "When a card reaches $0, add its minimum payment to the next card on your list." },
+      { step: "4", action: "Avoid new charges on high-APR cards", detail: "New purchases at 25-30% APR immediately offset your progress. Use a debit card or low-APR card instead." },
+      { step: "5", action: "Set up autopay for at least the minimum", detail: "Late payments trigger penalty APRs up to 29.99% and damage your credit score." },
+    ]
+    plan.forEach((p, i) => {
+      y = checkPage(y, 16)
+      setFill(i % 2 === 0 ? C.gray1 : C.white); doc.rect(M, y, contentW, 14, "F")
+      setDraw(C.border); doc.setLineWidth(0.15); doc.line(M, y + 14, W - M, y + 14)
+      // Step circle
+      setFill(C.navy); doc.circle(M + 5, y + 7, 4, "F")
+      bold(8); setTxt(C.white); doc.text(p.step, M + 5, y + 9.5, { align: "center" })
+      bold(8.5); setTxt(C.navy); doc.text(p.action, M + 12, y + 5.5)
+      normal(8); setTxt(C.gray5); doc.text(p.detail, M + 12, y + 11, { maxWidth: contentW - 14 })
+      y += 14
+    })
+  }
+  y += 8
+
+  // ════════════════════════════════════════════════════════════
+  // DISCLAIMER BOX
+  // ════════════════════════════════════════════════════════════
+  y = checkPage(y, 22)
+  setFill([255, 250, 235] as [number, number, number]); doc.rect(M, y, contentW, 16, "F")
+  setDraw([203, 145, 0] as [number, number, number]); doc.setLineWidth(0.4); doc.rect(M, y, contentW, 16, "S")
+  setFill([203, 145, 0] as [number, number, number]); doc.rect(M, y, 3, 16, "F")
+  bold(8.5); setTxt([146, 100, 0] as [number, number, number])
+  doc.text("Disclaimer", M + 7, y + 5.5)
+  normal(7.5); setTxt(C.gray7)
+  doc.text("This report is generated by WealthClaude and is for informational purposes only. It does not constitute financial, legal, or credit advice.", M + 7, y + 10, { maxWidth: contentW - 10 })
+  doc.text("Calculations are estimates based on fixed APR assumptions. Actual results may vary. Please consult a certified financial advisor for personalized guidance.", M + 7, y + 14.5, { maxWidth: contentW - 10 })
+  y += 22
+
+  // ════════════════════════════════════════════════════════════
+  // FOOTER on every page
+  // ════════════════════════════════════════════════════════════
+  const totalPages = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p)
+    // Footer bar
+    setFill(C.navy); doc.rect(0, 283, W, 14, "F")
+    setFill(C.green); doc.rect(0, 283, W, 1.5, "F")
+    bold(8); setTxt(C.white); doc.text("WealthClaude", M, 291)
+    normal(7.5); setTxt([140, 165, 190] as [number, number, number])
+    doc.text("Credit Card Debt Payoff Plan  |  wealthclaude.com", W / 2, 291, { align: "center" })
+    doc.text(`Page ${p} of ${totalPages}`, W - M, 291, { align: "right" })
   }
 
   doc.save(`WealthClaude-DebtPlan-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}.pdf`)

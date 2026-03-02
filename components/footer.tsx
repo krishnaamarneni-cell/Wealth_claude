@@ -23,9 +23,9 @@ export function Footer() {
       {/* Footer Links */}
       <div className="py-12 px-4 bg-card">
         <div className="container mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8 mb-12">
 
-            {/* Product — removed Changelog */}
+            {/* Product */}
             <div>
               <h3 className="font-semibold text-foreground mb-4">Product</h3>
               <ul className="space-y-3">
@@ -47,7 +47,7 @@ export function Footer() {
               </ul>
             </div>
 
-            {/* Resources — removed Help Center, Blog points to /news */}
+            {/* Resources */}
             <div>
               <h3 className="font-semibold text-foreground mb-4">Resources</h3>
               <ul className="space-y-3">
@@ -67,6 +67,77 @@ export function Footer() {
                   </Link>
                 </li>
               </ul>
+            </div>
+
+            {/* Free Tools — NEW */}
+            <div className="col-span-2 md:col-span-1">
+              <h3 className="font-semibold text-foreground mb-4">Free Tools</h3>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                <ul className="space-y-3">
+                  <li>
+                    <Link href="/tools/fat-fire-calculator" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+                      Fat FIRE Calculator
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/tools/barista-fire-calculator" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+                      Barista FIRE Calculator
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/tools/lean-fire-calculator" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+                      Lean FIRE Calculator
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/tools/coast-fire-calculator" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+                      Coast FIRE Calculator
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/tools/early-retirement-calculator" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+                      Early Retirement
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/tools/dividend-calculator" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+                      Dividend Calculator
+                    </Link>
+                  </li>
+                </ul>
+                <ul className="space-y-3">
+                  <li>
+                    <Link href="/tools/time-weighted-return" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+                      Time-Weighted Return
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/tools/money-weighted-return" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+                      Money-Weighted Return
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/tools/portfolio-rebalancing" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+                      Portfolio Rebalancing
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/tools/portfolio-weight" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+                      Portfolio Weight
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/tools/dca-calculator" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+                      DCA Calculator
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/tools/stock-profit-calculator" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+                      Stock Profit Calculator
+                    </Link>
+                  </li>
+                </ul>
+              </div>
             </div>
 
             {/* Company */}
@@ -112,6 +183,7 @@ export function Footer() {
                 </li>
               </ul>
             </div>
+
           </div>
 
           {/* Bottom Bar */}
@@ -147,4 +219,3 @@ export function Footer() {
     </footer>
   )
 }
-

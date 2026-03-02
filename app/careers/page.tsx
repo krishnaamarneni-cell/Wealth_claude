@@ -133,7 +133,7 @@ export default function CareersPage() {
       })
 
       scores.sort((a, b) => b.score - a.score)
-      const topMatch = scores[0].score > 0 ? scores[0] : null
+      const topMatch = scores[0].score >= 25 ? scores[0] : null
 
       const fileName = `auto-match/${Date.now()}-${resumeFile.name}`
       const { error: uploadError } = await supabase.storage
@@ -256,13 +256,26 @@ export default function CareersPage() {
                   </div>
                 </>
               ) : (
-                <div className="flex items-center gap-3 text-muted-foreground">
-                  <CheckCircle className="h-5 w-5 shrink-0" />
-                  <p>
-                    Resume uploaded. No strong keyword match found — but we will review it
-                    manually and reach out.
+                <div className="flex flex-col gap-3 p-4 rounded-lg bg-secondary/50 border border-border">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-muted-foreground shrink-0" />
+                    <p className="text-foreground font-medium">
+                      No suitable openings at the moment.
+                    </p>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Your resume did not match any of our current openings closely enough.
+                    We do not have a suitable role for you right now — but we will keep
+                    your resume on file and reach out when something opens up.
                   </p>
+                  <button
+                    onClick={() => { setMatchSuccess(false); setMatchResult(null) }}
+                    className="self-start text-sm text-primary hover:underline transition-colors"
+                  >
+                    Try with a different resume
+                  </button>
                 </div>
+
               )}
             </div>
           ) : (

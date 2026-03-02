@@ -25,7 +25,7 @@ export function Footer() {
         <div className="container mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
 
-            {/* Product */}
+            {/* Product — removed Changelog */}
             <div>
               <h3 className="font-semibold text-foreground mb-4">Product</h3>
               <ul className="space-y-3">
@@ -44,23 +44,13 @@ export function Footer() {
                     Pricing
                   </Link>
                 </li>
-                <li>
-                  <Link href="/changelog" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
-                    Changelog
-                  </Link>
-                </li>
               </ul>
             </div>
 
-            {/* Resources */}
+            {/* Resources — removed Help Center, Blog points to /news */}
             <div>
               <h3 className="font-semibold text-foreground mb-4">Resources</h3>
               <ul className="space-y-3">
-                <li>
-                  <Link href="/help-center" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
-                    Help Center
-                  </Link>
-                </li>
                 <li>
                   <Link href="/#faq" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
                     FAQ
@@ -72,7 +62,7 @@ export function Footer() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/blog" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+                  <Link href="/news" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
                     Blog
                   </Link>
                 </li>
@@ -164,3 +154,4 @@ export function Footer() {
     </footer>
   )
 }
+

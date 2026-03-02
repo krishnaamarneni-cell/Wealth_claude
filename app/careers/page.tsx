@@ -94,19 +94,47 @@ export default function CareersPage() {
     setMatchResult(null)
 
     try {
-      // Send to matching API
-      const formData = new FormData()
-      formData.append('resume', resumeFile)
+      const text = await resumeFile.text()
+      const resumeText = text.toLowerCase()
 
-      const res = await fetch('/api/match-resume', {
-        method: 'POST',
-        body: formData,
+      if (resumeText.trim().length < 10) {
+        throw new Error('Could not read file content.')
+      }
+
+      const jobKeywords = [
+        {
+          id: 'seo-specialist',
+          title: 'SEO Specialist',
+          keywords: ['seo', 'search engine', 'keyword', 'backlinks', 'google search console',
+            'on-page', 'content strategy', 'rankings', 'organic', 'meta', 'analytics',
+            'content', 'blog', 'writing', 'marketing', 'traffic'],
+        },
+        {
+          id: 'backend-nodejs',
+          title: 'Backend Developer (Node.js)',
+          keywords: ['node', 'nodejs', 'typescript', 'javascript', 'rest api', 'api',
+            'postgresql', 'supabase', 'backend', 'server', 'express', 'database', 'sql',
+            'react', 'developer', 'software'],
+        },
+        {
+          id: 'ai-agent-specialist',
+          title: 'AI Agent Specialist',
+          keywords: ['ai', 'llm', 'openai', 'gpt', 'prompt', 'langchain', 'machine learning',
+            'python', 'agent', 'automation', 'nlp', 'anthropic', 'deep learning', 'neural'],
+        },
+      ]
+
+      const scores = jobKeywords.map((job) => {
+        const matchedKeywords = job.keywords.filter((kw) =>
+          resumeText.includes(kw.toLowerCase())
+        )
+        const score = Math.round((matchedKeywords.length / job.keywords.length) * 100)
+        return { id: job.id, title: job.title, score, matchedKeywords }
       })
 
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      scores.sort((a, b) => b.score - a.score)
+      const topMatch = scores[0].score > 0 ? scores[0] : null
 
-      // Also save to Supabase storage
       const fileName = `auto-match/${Date.now()}-${resumeFile.name}`
       const { error: uploadError } = await supabase.storage
         .from('resumes')
@@ -121,16 +149,16 @@ export default function CareersPage() {
       await supabase.from('applications').insert({
         name: 'Resume Match',
         email: 'pending',
-        role: data.topMatch?.id ?? 'auto-match',
+        role: topMatch?.id ?? 'auto-match',
         resume_url: urlData.publicUrl,
       })
 
-      setMatchResult(data)
+      setMatchResult({ topMatch, allMatches: scores })
       setMatchSuccess(true)
       setResumeFile(null)
-    } catch (err) {
+    } catch (err: any) {
       console.error(err)
-      setMatchError('Failed to process resume. Please upload a PDF or DOC file.')
+      setMatchError(err?.message || 'Failed to process resume. Please try again.')
     } finally {
       setMatchLoading(false)
     }

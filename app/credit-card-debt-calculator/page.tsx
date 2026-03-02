@@ -81,4 +81,5 @@ export default function DebtCalculatorPage() {
   }
 
   const addCard = () => {
-    setCards([...cards, { name: '', balance
+    setCards([...cards, { name: '', balance: 0, apr: 0, minPayment: 0 }])
+  }

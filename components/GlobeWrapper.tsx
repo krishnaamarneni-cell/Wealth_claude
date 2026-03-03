@@ -311,6 +311,7 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
           if (scene && (window as any).THREE) {
             addStars(scene)
             addPlanets(scene)
+            addOrbiters(scene)
           }
         } catch (_) { }
       }, 500)
@@ -558,6 +559,189 @@ function addPlanets(scene: any) {
 
   } catch (e) {
     console.error("Planets error:", e)
+  }
+}
+
+// ── ISS + SATELLITES ─────────────────────────────────────────
+function addOrbiters(scene: any) {
+  try {
+    const THREE = (window as any).THREE
+    if (!THREE) return
+
+    const EARTH_RADIUS = 100 // globe.gl earth radius in scene units
+    const orbiters: any[] = []
+
+    // ── BUILD ISS ──────────────────────────────────────────
+    const issGroup = new THREE.Group()
+
+    // Main body
+    const bodyGeo = new THREE.BoxGeometry(8, 2, 2)
+    const metalMat = new THREE.MeshPhongMaterial({
+      color: 0xd0d8e8, emissive: 0x3a4a6a, shininess: 80,
+    })
+    issGroup.add(new THREE.Mesh(bodyGeo, metalMat))
+
+    // Solar panel left
+    const panelGeo = new THREE.BoxGeometry(14, 0.3, 4)
+    const panelMat = new THREE.MeshPhongMaterial({
+      color: 0x1a3a6a, emissive: 0x0a1a3a, shininess: 120,
+    })
+    const panelL = new THREE.Mesh(panelGeo, panelMat)
+    panelL.position.set(-11, 0, 0)
+    issGroup.add(panelL)
+
+    // Solar panel right
+    const panelR = new THREE.Mesh(panelGeo, panelMat)
+    panelR.position.set(11, 0, 0)
+    issGroup.add(panelR)
+
+    // Connecting truss
+    const trussGeo = new THREE.BoxGeometry(30, 0.5, 0.5)
+    const trussMat = new THREE.MeshPhongMaterial({
+      color: 0xb0b8c8, emissive: 0x2a3a4a, shininess: 60,
+    })
+    issGroup.add(new THREE.Mesh(trussGeo, trussMat))
+
+    // Small module nodes
+    for (const x of [-3, 0, 3]) {
+      const nodeGeo = new THREE.CylinderGeometry(1, 1, 3, 8)
+      const node = new THREE.Mesh(nodeGeo, metalMat)
+      node.rotation.x = Math.PI / 2
+      node.position.set(x, 0, 0)
+      issGroup.add(node)
+    }
+
+    scene.add(issGroup)
+
+    // ISS orbit params
+    const ISS_ORBIT = EARTH_RADIUS + 12
+    const ISS_SPEED = 0.0035
+    const ISS_TILT = Math.PI / 7
+    let issAngle = 0
+
+    orbiters.push({
+      group: issGroup,
+      orbit: ISS_ORBIT,
+      speed: ISS_SPEED,
+      tilt: ISS_TILT,
+      angle: () => issAngle,
+      setAngle: (a: number) => { issAngle = a },
+    })
+
+    // ── BUILD SATELLITE 1 ──────────────────────────────────
+    const sat1Group = new THREE.Group()
+    const sat1Mat = new THREE.MeshPhongMaterial({
+      color: 0xc8d0d8, emissive: 0x2a3040, shininess: 100,
+    })
+
+    // Body
+    sat1Group.add(new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 1.5), sat1Mat))
+
+    // Dish
+    const dishGeo = new THREE.CylinderGeometry(1.2, 0.3, 0.4, 12)
+    const dish = new THREE.Mesh(dishGeo, sat1Mat)
+    dish.position.set(0, 1.2, 0)
+    sat1Group.add(dish)
+
+    // Solar wings
+    const wingGeo = new THREE.BoxGeometry(6, 0.15, 1.5)
+    const wingMat = new THREE.MeshPhongMaterial({
+      color: 0x1a3060, emissive: 0x0a1030, shininess: 120,
+    })
+    sat1Group.add(new THREE.Mesh(wingGeo, wingMat))
+
+    scene.add(sat1Group)
+
+    const SAT1_ORBIT = EARTH_RADIUS + 18
+    const SAT1_SPEED = 0.005
+    const SAT1_TILT = -Math.PI / 5
+    let sat1Angle = Math.PI / 2
+
+    orbiters.push({
+      group: sat1Group,
+      orbit: SAT1_ORBIT,
+      speed: SAT1_SPEED,
+      tilt: SAT1_TILT,
+      angle: () => sat1Angle,
+      setAngle: (a: number) => { sat1Angle = a },
+    })
+
+    // ── BUILD SATELLITE 2 ──────────────────────────────────
+    const sat2Group = new THREE.Group()
+    const sat2Mat = new THREE.MeshPhongMaterial({
+      color: 0xe0e8f0, emissive: 0x203040, shininess: 90,
+    })
+
+    // Hexagonal body
+    sat2Group.add(new THREE.Mesh(
+      new THREE.CylinderGeometry(1, 1, 2, 6), sat2Mat
+    ))
+
+    // Antenna rod
+    const antGeo = new THREE.CylinderGeometry(0.1, 0.1, 3, 6)
+    const ant = new THREE.Mesh(antGeo, sat2Mat)
+    ant.position.set(0, 2.2, 0)
+    sat2Group.add(ant)
+
+    // Solar panel pair
+    const sp2Geo = new THREE.BoxGeometry(7, 0.15, 2)
+    const sp2Mat = new THREE.MeshPhongMaterial({
+      color: 0x0a2050, emissive: 0x050f28, shininess: 140,
+    })
+    sat2Group.add(new THREE.Mesh(sp2Geo, sp2Mat))
+
+    scene.add(sat2Group)
+
+    const SAT2_ORBIT = EARTH_RADIUS + 22
+    const SAT2_SPEED = 0.0028
+    const SAT2_TILT = Math.PI / 3
+    let sat2Angle = Math.PI
+
+    orbiters.push({
+      group: sat2Group,
+      orbit: SAT2_ORBIT,
+      speed: SAT2_SPEED,
+      tilt: SAT2_TILT,
+      angle: () => sat2Angle,
+      setAngle: (a: number) => { sat2Angle = a },
+    })
+
+    // ── ANIMATE ORBITS ─────────────────────────────────────
+    const animateOrbiters = () => {
+      requestAnimationFrame(animateOrbiters)
+
+      // ISS
+      issAngle += ISS_SPEED
+      issGroup.position.set(
+        ISS_ORBIT * Math.cos(issAngle),
+        ISS_ORBIT * Math.sin(issAngle) * Math.sin(ISS_TILT),
+        ISS_ORBIT * Math.sin(issAngle) * Math.cos(ISS_TILT)
+      )
+      issGroup.rotation.y += 0.01
+
+      // Satellite 1
+      sat1Angle += SAT1_SPEED
+      sat1Group.position.set(
+        SAT1_ORBIT * Math.cos(sat1Angle) * Math.cos(SAT1_TILT),
+        SAT1_ORBIT * Math.sin(sat1Angle),
+        SAT1_ORBIT * Math.cos(sat1Angle) * Math.sin(SAT1_TILT)
+      )
+      sat1Group.rotation.y += 0.008
+
+      // Satellite 2
+      sat2Angle += SAT2_SPEED
+      sat2Group.position.set(
+        SAT2_ORBIT * Math.cos(sat2Angle) * Math.sin(SAT2_TILT),
+        SAT2_ORBIT * Math.sin(sat2Angle) * Math.cos(SAT2_TILT),
+        SAT2_ORBIT * Math.cos(sat2Angle)
+      )
+      sat2Group.rotation.z += 0.006
+    }
+
+    animateOrbiters()
+
+  } catch (e) {
+    console.error("Orbiters error:", e)
   }
 }
 

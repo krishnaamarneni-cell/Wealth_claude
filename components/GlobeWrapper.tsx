@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import * as THREE from "three"
 import { MarketDataMap } from "@/lib/mockData"
 import { pctToColor } from "@/lib/colorScale"
 import { NO_EXCHANGE_COUNTRIES } from "@/lib/countryIndexMap"
@@ -43,6 +42,7 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
 
         // ── 2. Import Globe.gl ───────────────────────────
         const GlobeGL = (await import("globe.gl")).default
+        const THREE = await import("three")
 
         const W = containerRef.current!.clientWidth || window.innerWidth
         const H = containerRef.current!.clientHeight || window.innerHeight

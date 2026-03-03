@@ -4,17 +4,62 @@ export const runtime = "nodejs"
 export const maxDuration = 30
 
 const TICKER_MAP: Record<string, string> = {
-  "^GSPC": "USA", "^FTSE": "GBR", "^GDAXI": "DEU", "^FCHI": "FRA",
-  "^N225": "JPN", "^HSI": "HKG", "000001.SS": "CHN", "^BSESN": "IND",
-  "^AXJO": "AUS", "^BVSP": "BRA", "^MXX": "MEX", "^GSPTSE": "CAN",
-  "^KS11": "KOR", "^TWII": "TWN", "^STI": "SGP", "^KLSE": "MYS",
-  "^JKSE": "IDN", "^SET": "THA", "^NZ50": "NZL", "^IBEX": "ESP",
-  "^AEX": "NLD", "^BFX": "BEL", "^SMI": "CHE", "^OSEAX": "NOR",
-  "^OMXS30": "SWE", "^OMXC25": "DNK", "^OMXH25": "FIN", "^ATX": "AUT",
-  "^WIG20": "POL", "^XU100": "TUR", "^TA125": "ISR", "^TASI": "SAU",
-  "^CASE30": "EGY", "^MASI": "MAR", "^NSEI": "IND", "^MERV": "ARG",
-  "^IPSA": "CHL", "^COLCAP": "COL", "^VNINDEX": "VNM", "^PSEI": "PHL",
-  "^PSX": "PAK", "^JSE40": "ZAF",
+  // Americas
+  "^GSPC": "USA", // S&P 500
+  "^GSPTSE": "CAN", // TSX
+  "^BVSP": "BRA", // Bovespa
+  "^MXX": "MEX", // IPC
+  "^MERV": "ARG", // MERVAL
+  "^IPSA": "CHL", // IPSA
+  "^COLCAP": "COL", // COLCAP
+
+  // Europe
+  "^FTSE": "GBR", // FTSE 100
+  "^GDAXI": "DEU", // DAX
+  "^FCHI": "FRA", // CAC 40
+  "^IBEX": "ESP", // IBEX 35
+  "^AEX": "NLD", // AEX
+  "^BFX": "BEL", // BEL 20
+  "^SMI": "CHE", // SMI
+  "^OSEAX": "NOR", // Oslo
+  "^OMXS30": "SWE", // OMX Stockholm
+  "^OMXC25": "DNK", // OMX Copenhagen
+  "^OMXH25": "FIN", // OMX Helsinki
+  "^ATX": "AUT", // ATX
+  "^WIG20": "POL", // WIG20 — may return 0, known Yahoo issue
+  "^PX": "CZE", // Prague
+  "^BUX": "HUN", // Budapest
+
+  // Middle East & Africa
+  "^TA125": "ISR", // Tel Aviv 125
+  "^TASI": "SAU", // Tadawul
+  "^ADX": "ARE", // Abu Dhabi
+  "^QSI": "QAT", // Qatar
+  "^CASE30": "EGY", // EGX 30
+  "^MASI": "MAR", // Casablanca — may return 0
+  "^NGSEINDEX": "NGA", // Nigeria
+  "^JSE": "ZAF", // JSE South Africa
+  "^KWS": "KWT", // Kuwait
+
+  // Asia Pacific
+  "^N225": "JPN", // Nikkei 225
+  "^HSI": "HKG", // Hang Seng
+  "000001.SS": "CHN", // Shanghai
+  "^BSESN": "IND", // BSE Sensex
+  "^AXJO": "AUS", // ASX 200
+  "^KS11": "KOR", // KOSPI
+  "^TWII": "TWN", // TAIEX
+  "^STI": "SGP", // STI
+  "^KLSE": "MYS", // KLCI
+  "^JKSE": "IDN", // IDX
+  "^VNINDEX": "VNM", // VN-Index
+  "^PSEI": "PHL", // PSEi
+  "^NZ50": "NZL", // NZX 50
+  "^PSI20": "PRT", // PSI 20 Portugal
+  "^NSEI": "IND", // Nifty 50 — will overwrite Sensex with same ISO, keep one
+  "^KSE100": "PAK", // KSE 100 — correct Pakistan ticker
+  "^CSEALL": "LKA", // Colombo
+  "^DSEX": "BGD", // Dhaka
 }
 
 async function fetchQuote(ticker: string) {

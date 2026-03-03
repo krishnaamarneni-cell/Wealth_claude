@@ -1,12 +1,9 @@
 import React from "react"
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
-import dynamic from 'next/dynamic'
 import { ThemeProvider } from '@/components/theme-provider'
+import { AnalyticsWrapper } from '@/components/analytics-wrapper'
 import './globals.css'
-
-// Dynamically import Analytics to prevent hydration issues
-const Analytics = dynamic(() => import('@vercel/analytics/react').then(mod => ({ default: mod.Analytics })), { ssr: false })
 
 const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
@@ -71,7 +68,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
-          <Analytics />
+          <AnalyticsWrapper />
         </ThemeProvider>
       </body>
     </html>

@@ -33,7 +33,8 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
       if (!(window as any).Globe) {
         await new Promise<void>((res, rej) => {
           const s = document.createElement("script")
-          s.src = "https://cdnjs.cloudflare.com/ajax/libs/globe.gl/2.30.0/globe.gl.min.js"
+          // Use jsDelivr instead of cdnjs for better reliability
+          s.src = "https://cdn.jsdelivr.net/npm/globe.gl@2.30.0/dist/globe.gl.min.js"
           s.onload = () => res()
           s.onerror = () => rej(new Error("Globe.gl CDN load failed"))
           document.head.appendChild(s)

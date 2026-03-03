@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import dynamic from "next/dynamic"
 import { getMockMarketData } from "@/lib/mockData"
 import { COUNTRY_INDEX_MAP } from "@/lib/countryIndexMap"
@@ -23,22 +23,11 @@ export default function GlobePage() {
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
   const [selectedName, setSelectedName] = useState<string | null>(null)
   const [showLegend, setShowLegend] = useState(true)
+  const [today, setToday] = useState("")
 
-  const marketData = useMemo(() => getMockMarketData(), [])
-  const selectedData = selectedCountry ? marketData[selectedCountry] ?? null : null
-
-  const handleCountrySelect = (iso: string | null, name: string | null) => {
-    setSelectedCountry(iso)
-    setSelectedName(name)
-  }
-
-  // Summary stats
-  const countries = Object.values(marketData)
-  const gainers = countries.filter(c => c.changePct > 0).length
-  const losers = countries.filter(c => c.changePct < 0).length
-  const topGainer = countries.sort((a, b) => b.changePct - a.changePct)[0]
-  const topLoser = [...countries].sort((a, b) => a.changePct - b.changePct)[0]
-  const today = new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })
+  useEffect(() => {
+    setToday(new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }))
+  }, [])
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-[#060a10] select-none">

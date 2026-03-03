@@ -22,11 +22,11 @@ export function GlobeWrapper({ marketData, onCountrySelect, selectedCountry }: G
   useEffect(() => {
     if (!containerRef.current || isInitialized) return
 
-    // Fetch geojson data
-    fetch("https://cdn.jsdelivr.net/npm/natural-earth-110m@2/countries-110m.json")
+    // Fetch geojson data from reliable source
+    fetch("https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson")
       .then(res => res.json())
       .then(data => {
-        const countries = data.objects.countries.geometries
+        const countries = data.features
         setGeoData(countries)
 
         // Delay initialization to ensure DOM is mounted with dimensions

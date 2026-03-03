@@ -307,29 +307,7 @@ function addStars(scene: any) {
     stars.name = "wc_stars"
     scene.add(stars)
 
-    // ── Nebula glow ──
-    const canvas = document.createElement("canvas")
-    canvas.width = 512; canvas.height = 512
-    const ctx = canvas.getContext("2d")!
-    const g1 = ctx.createRadialGradient(256, 256, 0, 256, 256, 256)
-    g1.addColorStop(0, "rgba(8,40,130,0.40)")
-    g1.addColorStop(0.35, "rgba(4,22,80,0.22)")
-    g1.addColorStop(0.65, "rgba(2,10,45,0.10)")
-    g1.addColorStop(1, "rgba(0,0,0,0)")
-    ctx.fillStyle = g1; ctx.fillRect(0, 0, 512, 512)
-    const g2 = ctx.createRadialGradient(340, 180, 0, 340, 180, 200)
-    g2.addColorStop(0, "rgba(0,80,160,0.18)")
-    g2.addColorStop(0.5, "rgba(0,40,90,0.08)")
-    g2.addColorStop(1, "rgba(0,0,0,0)")
-    ctx.fillStyle = g2; ctx.fillRect(0, 0, 512, 512)
 
-    const tex = new THREE.CanvasTexture(canvas)
-    const smat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })
-    const sprite = new THREE.Sprite(smat)
-    sprite.name = "wc_nebula"
-    sprite.scale.set(2200, 2200, 1)
-    sprite.position.set(0, 0, -800)
-    scene.add(sprite)
 
   } catch (_) { }
 }

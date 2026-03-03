@@ -30,10 +30,19 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
     if (typeof window === "undefined") return
 
     const loadGlobe = async () => {
+      // Load Three.js first so window.THREE is available for stars
+      if (!(window as any).THREE) {
+        await new Promise<void>((res, rej) => {
+          const s = document.createElement("script")
+          s.src = "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"
+          s.onload = () => res()
+          s.onerror = () => rej(new Error("Three.js CDN load failed"))
+          document.head.appendChild(s)
+        })
+      }
       if (!(window as any).Globe) {
         await new Promise<void>((res, rej) => {
           const s = document.createElement("script")
-          // Use jsDelivr instead of cdnjs for better reliability
           s.src = "https://cdn.jsdelivr.net/npm/globe.gl@2.30.0/dist/globe.gl.min.js"
           s.onload = () => res()
           s.onerror = () => rej(new Error("Globe.gl CDN load failed"))
@@ -74,13 +83,13 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
         .width(W)
         .height(H)
         // Background
-        .backgroundColor("rgba(0,0,0,0)")
+        .backgroundColor("#020c1b")
         // Globe texture
-        .globeImageUrl("https://unpkg.com/three-globe/example/img/earth-dark.jpg")
+        .globeImageUrl("https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg")
         .bumpImageUrl("https://unpkg.com/three-globe/example/img/earth-topology.png")
         // Atmosphere
-        .atmosphereColor("#1e3a5f")
-        .atmosphereAltitude(0.18)
+        .atmosphereColor("#2389da")
+        .atmosphereAltitude(0.22)
         // Countries polygon layer
         .polygonsData(geoData.features ?? [])
         .polygonAltitude((feat: any) => {
@@ -223,32 +232,61 @@ function addStars(scene: any) {
     const THREE = (window as any).THREE
     if (!THREE) return
 
-    const geometry = new THREE.BufferGeometry()
-    const count = 6000
+    // ── Stars ──
+    const count = 9000
     const positions = new Float32Array(count * 3)
-    const sizes = new Float32Array(count)
+    const colors = new Float32Array(count * 3)
 
     for (let i = 0; i < count; i++) {
       const theta = Math.random() * Math.PI * 2
       const phi = Math.acos(2 * Math.random() - 1)
-      const r = 400 + Math.random() * 200
+      const r = 900 + Math.random() * 500
       positions[i * 3] = r * Math.sin(phi) * Math.cos(theta)
       positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta)
       positions[i * 3 + 2] = r * Math.cos(phi)
-      sizes[i] = Math.random() * 1.5 + 0.3
+      // Star color variety: white, ice blue, warm yellow
+      const t = Math.random()
+      if (t < 0.55) { colors[i * 3] = 1; colors[i * 3 + 1] = 1; colors[i * 3 + 2] = 1 } // white
+      else if (t < 0.75) { colors[i * 3] = 0.68; colors[i * 3 + 1] = 0.85; colors[i * 3 + 2] = 1 } // ice blue
+      else if (t < 0.90) { colors[i * 3] = 1; colors[i * 3 + 1] = 0.94; colors[i * 3 + 2] = 0.65 } // warm yellow
+      else { colors[i * 3] = 0.82; colors[i * 3 + 1] = 0.90; colors[i * 3 + 2] = 1 } // blue-white
     }
 
-    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3))
-    geometry.setAttribute("size", new THREE.BufferAttribute(sizes, 1))
+    const geo = new THREE.BufferGeometry()
+    geo.setAttribute("position", new THREE.BufferAttribute(positions, 3))
+    geo.setAttribute("color", new THREE.BufferAttribute(colors, 3))
 
-    const material = new THREE.PointsMaterial({
-      color: 0xffffff,
-      size: 0.8,
-      sizeAttenuation: true,
-      transparent: true,
-      opacity: 0.75,
+    const mat = new THREE.PointsMaterial({
+      size: 1.4, sizeAttenuation: true, vertexColors: true,
+      transparent: true, opacity: 0.88, depthWrite: false,
     })
+    const stars = new THREE.Points(geo, mat)
+    stars.name = "wc_stars"
+    scene.add(stars)
 
-    scene.add(new THREE.Points(geometry, material))
+    // ── Nebula glow ──
+    const canvas = document.createElement("canvas")
+    canvas.width = 512; canvas.height = 512
+    const ctx = canvas.getContext("2d")!
+    const g1 = ctx.createRadialGradient(256, 256, 0, 256, 256, 256)
+    g1.addColorStop(0, "rgba(8,40,130,0.40)")
+    g1.addColorStop(0.35, "rgba(4,22,80,0.22)")
+    g1.addColorStop(0.65, "rgba(2,10,45,0.10)")
+    g1.addColorStop(1, "rgba(0,0,0,0)")
+    ctx.fillStyle = g1; ctx.fillRect(0, 0, 512, 512)
+    const g2 = ctx.createRadialGradient(340, 180, 0, 340, 180, 200)
+    g2.addColorStop(0, "rgba(0,80,160,0.18)")
+    g2.addColorStop(0.5, "rgba(0,40,90,0.08)")
+    g2.addColorStop(1, "rgba(0,0,0,0)")
+    ctx.fillStyle = g2; ctx.fillRect(0, 0, 512, 512)
+
+    const tex = new THREE.CanvasTexture(canvas)
+    const smat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })
+    const sprite = new THREE.Sprite(smat)
+    sprite.name = "wc_nebula"
+    sprite.scale.set(2200, 2200, 1)
+    sprite.position.set(0, 0, -800)
+    scene.add(sprite)
+
   } catch (_) { }
 }

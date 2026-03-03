@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useEffect } from "react"
 import dynamic from "next/dynamic"
 import { getMockMarketData, type MarketDataMap } from "@/lib/mockData"
 import { COUNTRY_INDEX_MAP } from "@/lib/countryIndexMap"

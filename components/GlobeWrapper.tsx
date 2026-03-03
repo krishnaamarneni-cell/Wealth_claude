@@ -241,7 +241,7 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
         if (introRef.current) return
         introRef.current = true
 
-        const DURATION = 15000 // 15 seconds
+        const DURATION = 7000 // 7 seconds
         const start = performance.now()
 
         // Keyframes: [time 0-1, lat, lng, altitude]

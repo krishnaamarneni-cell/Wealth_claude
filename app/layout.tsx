@@ -6,8 +6,8 @@ import AnalyticsWrapper from "@/components/Analytics"
 import './globals.css'
 
 // Font initialization
-const _geist = Geist({ subsets: ["latin"] });
-const _geistMono = Geist_Mono({ subsets: ["latin"] });
+const _geist = Geist({ subsets: ["latin"] })
+const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.wealthclaude.com'),

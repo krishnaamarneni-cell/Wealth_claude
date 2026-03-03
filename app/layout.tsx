@@ -10,7 +10,7 @@ const geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.wealthclaude.com"),
-  title: "WealthClaude - Track All Investments In One Place",
+  title: "WealthClaude - AI-Powered Portfolio Tracker",
   description:
     "WealthClaude — AI-powered portfolio tracker with real-time market intelligence. Track stocks, analyze performance and get AI insights. Free to start.",
   keywords:

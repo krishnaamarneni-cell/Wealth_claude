@@ -83,7 +83,7 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
         .width(W)
         .height(H)
         // Background
-        .backgroundColor("#020c1b")
+        .backgroundColor("#000000")
         // Globe texture
         .globeImageUrl("https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg")
         .bumpImageUrl("https://unpkg.com/three-globe/example/img/earth-topology.png")
@@ -252,7 +252,7 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
   }
 
   return (
-    <div className="w-full h-full relative">
+    <div className="w-full h-full relative bg-black">
       {/* Loading overlay */}
       {!isReady && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-10 bg-[#060a10]">

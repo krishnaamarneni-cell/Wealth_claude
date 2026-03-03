@@ -11,7 +11,7 @@ const TICKER_MAP: Record<string, string> = {
   "^MXX": "MEX", // IPC
   "^MERV": "ARG", // MERVAL
   "^IPSA": "CHL", // IPSA
-  "COLCAP.CL": "COL", // COLCAP Colombia
+  "^COLCAP": "COL", // COLCAP Colombia
 
   // Europe
   "^FTSE": "GBR", // FTSE 100
@@ -52,8 +52,8 @@ const TICKER_MAP: Record<string, string> = {
   "^VNINDEX.VN": "VNM", // VN-Index Vietnam ✅
   "PSEI.PS": "PHL", // PSEi Philippines ✅
   "^NZ50": "NZL", // NZX 50
-  "^PSI20": "PRT", // PSI 20 Portugal
-  "^KSE100.KA": "PAK", // KSE 100 Pakistan ✅
+  "^PSI20.LS": "PRT", // Portugal PSI 20
+  "^KSE100": "PAK", // KSE 100 Pakistan
   "^NSEI": "IND", // Nifty 50
 }
 

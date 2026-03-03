@@ -1,4 +1,16 @@
-import { getMockMarketData, MarketDataMap } from "./mockData"
+export type MarketDataMap = Record<string, {
+  ticker: string
+  countryCode: string
+  indexName: string
+  exchange: string
+  currency: string
+  price: number
+  change: number
+  changePct: number
+  previousClose: number
+  lastUpdated: string
+  isOpen: boolean
+}>
 
 // ── TYPES ────────────────────────────────────────────────────
 export interface FetchState {
@@ -70,7 +82,7 @@ export async function fetchMarketData(): Promise<FetchState> {
   } catch (e: any) {
     // Fall back to mock data
     return {
-      data: getMockMarketData(),
+      data: {},
       fetchedAt: null,
       isLoading: false,
       isLive: false,

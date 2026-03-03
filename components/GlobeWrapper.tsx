@@ -68,12 +68,16 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
         const res = await fetch("https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson")
         geoData = await res.json()
       } catch {
-        // Fallback to simple world geojson
         const res = await fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json")
         const topo = await res.json()
-        // Basic fallback — globe still works with empty features
         geoData = { type: "FeatureCollection", features: [] }
       }
+
+      // Store features for later use (labels shown after intro)
+      const marketFeatures = (geoData.features ?? []).filter((feat: any) => {
+        const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3 ?? ""
+        return marketData[iso] !== undefined
+      })
 
       const GlobeGL = (window as any).Globe
       if (!GlobeGL || !containerRef.current) return
@@ -273,12 +277,7 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
               controls.autoRotateSpeed = 0.35
             }
             // Show country labels now that intro is done
-            globe.htmlElementsData(
-              (geoData.features ?? []).filter((feat: any) => {
-                const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3 ?? ""
-                return marketData[iso] !== undefined
-              })
-            )
+            globe.htmlElementsData(marketFeatures)
             setIntroPlaying(false)
           }
         }

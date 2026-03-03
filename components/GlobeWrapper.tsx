@@ -199,74 +199,236 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
         }
       }, 100)
 
-      // Stars background via Three.js scene
+      // Stars + planets via Three.js scene
       setTimeout(() => {
         try {
           const scene = globe.scene()
           if (scene && (window as any).THREE) {
             addStars(scene)
+            addPlanets(scene)
           }
         } catch (_) { }
-      }, 500)
-    }
+      }, 500))
+}
 
-    init().catch(console.error)
+init().catch(console.error)
   }, [isReady, marketData])
 
-  // Update selected country altitude
-  useEffect(() => {
-    if (!globeRef.current) return
-    globeRef.current.polygonAltitude((feat: any) => {
-      const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3
-      return iso === selectedCountry ? 0.08 : 0.006
-    })
-    // Fly to selected country
-    if (selectedCountry && globeRef.current) {
-      const globe = globeRef.current
-      const controls = globe.controls()
-      if (controls) {
-        controls.autoRotate = false
-      }
+// Update selected country altitude
+useEffect(() => {
+  if (!globeRef.current) return
+  globeRef.current.polygonAltitude((feat: any) => {
+    const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3
+    return iso === selectedCountry ? 0.08 : 0.006
+  })
+  // Fly to selected country
+  if (selectedCountry && globeRef.current) {
+    const globe = globeRef.current
+    const controls = globe.controls()
+    if (controls) {
+      controls.autoRotate = false
     }
-  }, [selectedCountry])
-
-  // Resize handler
-  useEffect(() => {
-    const handleResize = () => {
-      if (globeRef.current && containerRef.current) {
-        globeRef.current
-          .width(containerRef.current.clientWidth)
-          .height(containerRef.current.clientHeight)
-      }
-    }
-    window.addEventListener("resize", handleResize)
-    return () => window.removeEventListener("resize", handleResize)
-  }, [])
-
-  if (loadError) {
-    return (
-      <div className="w-full h-full flex items-center justify-center text-white/30 text-sm">
-        Failed to load globe: {loadError}
-      </div>
-    )
   }
+}, [selectedCountry])
 
+// Resize handler
+useEffect(() => {
+  const handleResize = () => {
+    if (globeRef.current && containerRef.current) {
+      globeRef.current
+        .width(containerRef.current.clientWidth)
+        .height(containerRef.current.clientHeight)
+    }
+  }
+  window.addEventListener("resize", handleResize)
+  return () => window.removeEventListener("resize", handleResize)
+}, [])
+
+if (loadError) {
   return (
-    <div className="w-full h-full relative bg-black">
-      {/* Loading overlay */}
-      {!isReady && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-10 bg-[#060a10]">
-          <div className="relative w-16 h-16">
-            <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-ping" />
-            <div className="absolute inset-2 rounded-full border-2 border-primary/40 animate-spin" style={{ animationDuration: "2s" }} />
-            <div className="absolute inset-4 rounded-full bg-primary/20 animate-pulse" />
-          </div>
-          <div className="text-white/40 text-sm font-medium tracking-widest uppercase">Loading Globe</div>
-        </div>
-      )}
-      <div ref={containerRef} className="w-full h-full" />
+    <div className="w-full h-full flex items-center justify-center text-white/30 text-sm">
+      Failed to load globe: {loadError}
     </div>
   )
+}
+
+return (
+  <div className="w-full h-full relative bg-black">
+    {/* Loading overlay */}
+    {!isReady && (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-10 bg-[#060a10]">
+        <div className="relative w-16 h-16">
+          <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-ping" />
+          <div className="absolute inset-2 rounded-full border-2 border-primary/40 animate-spin" style={{ animationDuration: "2s" }} />
+          <div className="absolute inset-4 rounded-full bg-primary/20 animate-pulse" />
+        </div>
+        <div className="text-white/40 text-sm font-medium tracking-widest uppercase">Loading Globe</div>
+      </div>
+    )}
+    <div ref={containerRef} className="w-full h-full" />
+  </div>
+)
+}
+
+// ── PLANETS ─────────────────────────────────────────────────
+function addPlanets(scene: any) {
+  try {
+    const THREE = (window as any).THREE
+    if (!THREE) return
+
+    // Planet definitions — position is relative to Earth (globe center = 0,0,0)
+    // Earth radius in globe.gl scene is ~100 units
+    const PLANETS = [
+      {
+        name: "mercury",
+        radius: 3.5,
+        color: 0x9ca3af,  // gray
+        x: 220, y: -60, z: -180,
+        rotSpeed: 0.003,
+        emissive: 0x4b5563,
+        rings: false,
+      },
+      {
+        name: "venus",
+        radius: 6,
+        color: 0xe8c97e,  // pale yellow
+        x: -260, y: 40, z: -220,
+        rotSpeed: 0.002,
+        emissive: 0x92691a,
+        rings: false,
+      },
+      {
+        name: "mars",
+        radius: 5,
+        color: 0xc1440e,  // red-orange
+        x: 300, y: 80, z: -260,
+        rotSpeed: 0.004,
+        emissive: 0x7a1a00,
+        rings: false,
+      },
+      {
+        name: "jupiter",
+        radius: 28,
+        color: 0xc88b3a,  // golden brown
+        x: -380, y: -100, z: -400,
+        rotSpeed: 0.007,
+        emissive: 0x7a4a10,
+        rings: false,
+      },
+      {
+        name: "saturn",
+        radius: 22,
+        color: 0xe4d090,  // pale gold
+        x: 420, y: 120, z: -480,
+        rotSpeed: 0.005,
+        emissive: 0x8a7030,
+        rings: true,
+      },
+      {
+        name: "uranus",
+        radius: 14,
+        color: 0x7de8e8,  // pale cyan
+        x: -480, y: 60, z: -560,
+        rotSpeed: 0.003,
+        emissive: 0x1a8080,
+        rings: false,
+      },
+      {
+        name: "neptune",
+        radius: 13,
+        color: 0x3f54ba,  // deep blue
+        x: 500, y: -80, z: -620,
+        rotSpeed: 0.003,
+        emissive: 0x1a2560,
+        rings: false,
+      },
+      {
+        name: "moon",
+        radius: 3,
+        color: 0xd1d5db,  // light gray
+        x: 130, y: 30, z: -160,
+        rotSpeed: 0.001,
+        emissive: 0x4b5563,
+        rings: false,
+      },
+    ]
+
+    const planetMeshes: any[] = []
+
+    for (const p of PLANETS) {
+      // Planet sphere
+      const geo = new THREE.SphereGeometry(p.radius, 32, 32)
+      const mat = new THREE.MeshPhongMaterial({
+        color: p.color,
+        emissive: p.emissive,
+        shininess: 15,
+      })
+      const mesh = new THREE.Mesh(geo, mat)
+      mesh.position.set(p.x, p.y, p.z)
+      mesh.name = p.name
+      scene.add(mesh)
+      planetMeshes.push({ mesh, rotSpeed: p.rotSpeed })
+
+      // Saturn rings
+      if (p.rings) {
+        const ringGeo = new THREE.TorusGeometry(p.radius * 1.9, p.radius * 0.55, 2, 80)
+        const ringMat = new THREE.MeshPhongMaterial({
+          color: 0xc8a95a,
+          emissive: 0x5a3e10,
+          transparent: true,
+          opacity: 0.82,
+          side: THREE.DoubleSide,
+        })
+        const ring = new THREE.Mesh(ringGeo, ringMat)
+        ring.rotation.x = Math.PI / 2.8
+        ring.position.set(p.x, p.y, p.z)
+        scene.add(ring)
+        planetMeshes.push({ mesh: ring, rotSpeed: p.rotSpeed * 0.4 })
+      }
+
+      // Subtle glow sprite behind each planet
+      const glowCanvas = document.createElement("canvas")
+      glowCanvas.width = 128
+      glowCanvas.height = 128
+      const gCtx = glowCanvas.getContext("2d")!
+      const gGrad = gCtx.createRadialGradient(64, 64, 0, 64, 64, 64)
+      const glowHex = "#" + p.color.toString(16).padStart(6, "0")
+      gGrad.addColorStop(0, glowHex + "33")
+      gGrad.addColorStop(0.4, glowHex + "11")
+      gGrad.addColorStop(1, "rgba(0,0,0,0)")
+      gCtx.fillStyle = gGrad
+      gCtx.fillRect(0, 0, 128, 128)
+      const glowTex = new THREE.CanvasTexture(glowCanvas)
+      const glowMat = new THREE.SpriteMaterial({
+        map: glowTex, transparent: true,
+        depthWrite: false, blending: THREE.AdditiveBlending,
+      })
+      const glow = new THREE.Sprite(glowMat)
+      glow.scale.set(p.radius * 6, p.radius * 6, 1)
+      glow.position.set(p.x, p.y, p.z)
+      scene.add(glow)
+    }
+
+    // Add ambient + directional light for planets
+    const ambient = new THREE.AmbientLight(0xffffff, 0.15)
+    scene.add(ambient)
+
+    const sun = new THREE.DirectionalLight(0xfff4e0, 1.8)
+    sun.position.set(-600, 200, 400)
+    scene.add(sun)
+
+    // Animate planet rotations every frame
+    const animate = () => {
+      requestAnimationFrame(animate)
+      for (const { mesh, rotSpeed } of planetMeshes) {
+        mesh.rotation.y += rotSpeed
+      }
+    }
+    animate()
+
+  } catch (e) {
+    console.error("Planets error:", e)
+  }
 }
 
 // Add procedural star field to Three.js scene

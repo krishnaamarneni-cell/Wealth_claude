@@ -22,8 +22,25 @@ export interface FetchState {
 }
 
 // ── IN-MEMORY CACHE ──────────────────────────────────────────
-let cache: { data: MarketDataMap; fetchedAt: string } | null = null
+let memCache: { data: MarketDataMap; fetchedAt: string } | null = null
 const CACHE_MS = 60 * 60 * 1000 // 1 hour
+
+function loadFromStorage(): { data: MarketDataMap; fetchedAt: string } | null {
+  try {
+    const raw = localStorage.getItem("wc_market_cache")
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    const age = Date.now() - new Date(parsed.fetchedAt).getTime()
+    if (age < CACHE_MS) return parsed
+    return null
+  } catch { return null }
+}
+
+function saveToStorage(data: MarketDataMap, fetchedAt: string) {
+  try {
+    localStorage.setItem("wc_market_cache", JSON.stringify({ data, fetchedAt }))
+  } catch { /* silent */ }
+}
 
 // ── ET MARKET CLOSE CHECK ───────────────────────────────────
 function msUntilNextMarketClose(): number {
@@ -43,16 +60,30 @@ function msUntilNextMarketClose(): number {
 // ── MAIN FETCH ───────────────────────────────────────────────
 export async function fetchMarketData(): Promise<FetchState> {
   // Return cache if fresh
-  if (cache) {
-    const age = Date.now() - new Date(cache.fetchedAt).getTime()
+  // Check memory cache first
+  if (memCache) {
+    const age = Date.now() - new Date(memCache.fetchedAt).getTime()
     if (age < CACHE_MS) {
       return {
-        data: cache.data,
-        fetchedAt: cache.fetchedAt,
+        data: memCache.data,
+        fetchedAt: memCache.fetchedAt,
         isLoading: false,
         isLive: true,
         error: null,
       }
+    }
+  }
+
+  // Check localStorage cache
+  const stored = loadFromStorage()
+  if (stored) {
+    memCache = stored
+    return {
+      data: stored.data,
+      fetchedAt: stored.fetchedAt,
+      isLoading: false,
+      isLive: true,
+      error: null,
     }
   }
 
@@ -69,7 +100,8 @@ export async function fetchMarketData(): Promise<FetchState> {
       throw new Error("No data returned")
     }
 
-    cache = { data: json.data, fetchedAt: json.fetchedAt }
+    memCache = { data: json.data, fetchedAt: json.fetchedAt }
+    saveToStorage(json.data, json.fetchedAt)
 
     return {
       data: json.data,

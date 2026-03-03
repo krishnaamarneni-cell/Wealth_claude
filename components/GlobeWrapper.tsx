@@ -32,8 +32,15 @@ export function GlobeWrapper({ marketData, onCountrySelect, selectedCountry }: G
         const initTimeout = setTimeout(() => {
           if (!containerRef.current) return
 
-          const width = containerRef.current.clientWidth
-          const height = containerRef.current.clientHeight
+          let width = containerRef.current.clientWidth
+          let height = containerRef.current.clientHeight
+
+          // Fallback to window dimensions if container has 0 dimensions
+          if (width === 0 || height === 0) {
+            width = window.innerWidth
+            height = window.innerHeight
+            console.log("[v0] Container was 0x0, using window dimensions:", { width, height })
+          }
 
           console.log("[v0] Container dimensions:", { width, height })
 
@@ -86,7 +93,17 @@ export function GlobeWrapper({ marketData, onCountrySelect, selectedCountry }: G
           globe(containerRef.current)
           globeRef.current = globe
 
-          console.log("[v0] Globe initialized", { globe: !!globe, width, height })
+          console.log("[v0] Globe initialized successfully", { 
+            hasGlobe: !!globe, 
+            containerWidth: containerRef.current?.clientWidth,
+            containerHeight: containerRef.current?.clientHeight,
+            setWidth: width,
+            setHeight: height
+          })
+          
+          // Auto-rotate
+          globe.controls().autoRotate = true
+          globe.controls().autoRotateSpeed = 0.5
 
           // Handle window resize
           const handleResize = () => {
@@ -104,7 +121,7 @@ export function GlobeWrapper({ marketData, onCountrySelect, selectedCountry }: G
           setIsInitialized(true)
 
           return () => window.removeEventListener("resize", handleResize)
-        }, 100) // 100ms delay for DOM to fully mount
+        }, 500) // 500ms delay for DOM to fully mount and layout to settle
 
         return () => clearTimeout(initTimeout)
       })

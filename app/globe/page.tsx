@@ -43,7 +43,7 @@ export default function GlobePage() {
   }, [])
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-[#060a10] select-none">
+    <div className="relative w-screen h-screen overflow-hidden bg-black select-none">
 
       {/* ── SPACE BACKGROUND ── */}
       <div className="absolute inset-0 pointer-events-none z-0">

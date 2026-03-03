@@ -132,7 +132,7 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
           const lngs = ring.map((c: number[]) => c[0])
           return lngs.reduce((a: number, b: number) => a + b, 0) / lngs.length
         })
-        .htmlAltitude((feat: any) => introRef.current && introPlaying ? -1 : 0.04)
+        .htmlAltitude(0.04)
         .htmlTransitionDuration(0)
         // Countries polygon layer
         .polygonsData(geoData.features ?? [])
@@ -277,7 +277,26 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
               controls.autoRotateSpeed = 0.35
             }
             // Show country labels now that intro is done
-            globe.htmlElementsData(marketFeatures)
+            globe
+              .htmlElementsData(marketFeatures)
+              .htmlElement((feat: any) => {
+                const name = feat.properties?.ADMIN ?? feat.properties?.NAME ?? ""
+                const el = document.createElement("div")
+                el.style.cssText = `
+                  color: rgba(255,255,255,0.75);
+                  font-size: 10px;
+                  font-family: system-ui, sans-serif;
+                  font-weight: 600;
+                  letter-spacing: 0.08em;
+                  text-transform: uppercase;
+                  text-shadow: 0 0 6px rgba(0,0,0,0.9), 0 0 12px rgba(0,0,0,0.7);
+                  pointer-events: none;
+                  white-space: nowrap;
+                  user-select: none;
+                `
+                el.textContent = name
+                return el
+              })
             setIntroPlaying(false)
           }
         }

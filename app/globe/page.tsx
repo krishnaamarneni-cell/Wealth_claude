@@ -28,6 +28,16 @@ export default function GlobePage() {
   const marketData = useMemo(() => getMockMarketData(), [])
   const selectedData = selectedCountry ? marketData[selectedCountry] ?? null : null
 
+  const handleCountrySelect = (iso: string | null, name: string | null) => {
+    setSelectedCountry(iso)
+    setSelectedName(name)
+  }
+  const countries = Object.values(marketData)
+  const gainers = countries.filter(c => c.changePct > 0).length
+  const losers = countries.filter(c => c.changePct < 0).length
+  const topGainer = [...countries].sort((a, b) => b.changePct - a.changePct)[0]
+  const topLoser = [...countries].sort((a, b) => a.changePct - b.changePct)[0]
+
   useEffect(() => {
     setToday(new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }))
   }, [])

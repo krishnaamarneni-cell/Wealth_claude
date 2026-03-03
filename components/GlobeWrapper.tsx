@@ -171,7 +171,10 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
     // Fly to selected country
     if (selectedCountry && globeRef.current) {
       const globe = globeRef.current
-      globe.controls().autoRotate = false
+      const controls = globe.controls()
+      if (controls) {
+        controls.autoRotate = false
+      }
     }
   }, [selectedCountry])
 

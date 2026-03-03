@@ -23,6 +23,54 @@
     {
       "path": "/api/auto-blog",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/ships?region=0",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/ships?region=1",
+      "schedule": "5 * * * *"
+    },
+    {
+      "path": "/api/cron/ships?region=2",
+      "schedule": "10 * * * *"
+    },
+    {
+      "path": "/api/cron/ships?region=3",
+      "schedule": "15 * * * *"
+    },
+    {
+      "path": "/api/cron/ships?region=4",
+      "schedule": "20 * * * *"
+    },
+    {
+      "path": "/api/cron/ships?region=5",
+      "schedule": "25 * * * *"
+    },
+    {
+      "path": "/api/cron/ships?region=6",
+      "schedule": "30 * * * *"
+    },
+    {
+      "path": "/api/cron/ships?region=7",
+      "schedule": "35 * * * *"
+    },
+    {
+      "path": "/api/cron/ships?region=8",
+      "schedule": "40 * * * *"
+    },
+    {
+      "path": "/api/cron/ships?region=9",
+      "schedule": "45 * * * *"
+    },
+    {
+      "path": "/api/cron/ships?region=10",
+      "schedule": "50 * * * *"
+    },
+    {
+      "path": "/api/cron/ships?region=11",
+      "schedule": "55 * * * *"
     }
   ]
 }

@@ -1,0 +1,244 @@
+"use client"
+
+import { useEffect, useRef, useState, useCallback } from "react"
+import { MarketDataMap } from "@/lib/mockData"
+import { pctToColor, pctToGlow } from "@/lib/colorScale"
+import { COUNTRY_INDEX_MAP, NO_EXCHANGE_COUNTRIES } from "@/lib/countryIndexMap"
+
+interface GlobeWrapperProps {
+  marketData: MarketDataMap
+  selectedCountry: string | null
+  onCountrySelect: (isoA3: string | null, name: string | null) => void
+}
+
+// Minimal type shim for Globe.gl
+declare global {
+  interface Window {
+    Globe: any
+  }
+}
+
+export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: GlobeWrapperProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const globeRef     = useRef<any>(null)
+  const [isReady, setIsReady]     = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [hoveredCountry, setHoveredCountry] = useState<string | null>(null)
+
+  // Load Globe.gl from CDN
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const loadGlobe = async () => {
+      if (!(window as any).Globe) {
+        await new Promise<void>((res, rej) => {
+          const s = document.createElement("script")
+          s.src = "https://cdnjs.cloudflare.com/ajax/libs/globe.gl/2.30.0/globe.gl.min.js"
+          s.onload = () => res()
+          s.onerror = () => rej(new Error("Globe.gl CDN load failed"))
+          document.head.appendChild(s)
+        })
+      }
+      setIsReady(true)
+    }
+
+    loadGlobe().catch(e => setLoadError(e.message))
+  }, [])
+
+  // Load GeoJSON + init globe
+  useEffect(() => {
+    if (!isReady || !containerRef.current || globeRef.current) return
+
+    const init = async () => {
+      // Fetch GeoJSON
+      let geoData: any
+      try {
+        const res = await fetch("https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson")
+        geoData = await res.json()
+      } catch {
+        // Fallback to simple world geojson
+        const res = await fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json")
+        const topo = await res.json()
+        // Basic fallback — globe still works with empty features
+        geoData = { type: "FeatureCollection", features: [] }
+      }
+
+      const GlobeGL = (window as any).Globe
+      if (!GlobeGL || !containerRef.current) return
+
+      const W = containerRef.current.clientWidth
+      const H = containerRef.current.clientHeight
+
+      const globe = GlobeGL()
+        .width(W)
+        .height(H)
+        // Background
+        .backgroundColor("rgba(0,0,0,0)")
+        // Globe texture
+        .globeImageUrl("https://unpkg.com/three-globe/example/img/earth-dark.jpg")
+        .bumpImageUrl("https://unpkg.com/three-globe/example/img/earth-topology.png")
+        // Atmosphere
+        .atmosphereColor("#1e3a5f")
+        .atmosphereAltitude(0.18)
+        // Countries polygon layer
+        .polygonsData(geoData.features ?? [])
+        .polygonAltitude((feat: any) => {
+          const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3
+          return iso === selectedCountry ? 0.08 : 0.006
+        })
+        .polygonCapColor((feat: any) => {
+          const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3 ?? ""
+          if (NO_EXCHANGE_COUNTRIES.has(iso)) return "rgba(45,55,72,0.7)"
+          const d = marketData[iso]
+          return pctToColor(d?.changePct)
+        })
+        .polygonSideColor(() => "rgba(10,15,25,0.8)")
+        .polygonStrokeColor(() => "rgba(255,255,255,0.15)")
+        .polygonLabel((feat: any) => {
+          const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3 ?? ""
+          const name = feat.properties?.ADMIN ?? feat.properties?.NAME ?? iso
+          const d = marketData[iso]
+          if (!d) return `<div style="background:#1a2030;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:8px 12px;font-family:sans-serif;min-width:140px"><div style="color:rgba(255,255,255,0.5);font-size:10px;text-transform:uppercase;letter-spacing:1px">${name}</div><div style="color:rgba(255,255,255,0.3);font-size:11px;margin-top:2px">No exchange data</div></div>`
+          const pct = d.changePct
+          const col = pctToColor(pct)
+          const sign = pct >= 0 ? "+" : ""
+          return `<div style="background:#0d1117;border:1px solid ${col}40;border-radius:10px;padding:10px 14px;font-family:sans-serif;min-width:160px;box-shadow:0 4px 20px ${col}30"><div style="color:rgba(255,255,255,0.45);font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">${name}</div><div style="color:white;font-size:13px;font-weight:700;margin-bottom:2px">${d.indexName}</div><div style="color:${col};font-size:15px;font-weight:800">${sign}${pct.toFixed(2)}%</div></div>`
+        })
+        .onPolygonClick((feat: any) => {
+          const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3 ?? ""
+          const name = feat.properties?.ADMIN ?? feat.properties?.NAME ?? iso
+          if (NO_EXCHANGE_COUNTRIES.has(iso) || !marketData[iso]) {
+            onCountrySelect(null, null)
+          } else {
+            onCountrySelect(iso, name)
+          }
+        })
+        .onPolygonHover((feat: any) => {
+          if (feat) {
+            const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3 ?? ""
+            setHoveredCountry(iso)
+          } else {
+            setHoveredCountry(null)
+          }
+          // Update altitude for hover
+          globe.polygonAltitude((f: any) => {
+            const iso2 = f.properties?.ADM0_A3 ?? f.properties?.ISO_A3
+            if (iso2 === selectedCountry) return 0.08
+            if (feat && (feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3) === iso2) return 0.04
+            return 0.006
+          })
+        })
+
+      // Initial position — center over Atlantic for best first view
+      globe.pointOfView({ lat: 20, lng: 10, altitude: 2.2 })
+
+      // Auto-rotate slowly
+      globe.controls().autoRotate = true
+      globe.controls().autoRotateSpeed = 0.35
+      globe.controls().enableDamping = true
+
+      globe(containerRef.current)
+      globeRef.current = globe
+
+      // Stars background via Three.js scene
+      setTimeout(() => {
+        try {
+          const scene = globe.scene()
+          if (scene && (window as any).THREE) {
+            addStars(scene)
+          }
+        } catch (_) {}
+      }, 500)
+    }
+
+    init().catch(console.error)
+  }, [isReady, marketData])
+
+  // Update selected country altitude
+  useEffect(() => {
+    if (!globeRef.current) return
+    globeRef.current.polygonAltitude((feat: any) => {
+      const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3
+      return iso === selectedCountry ? 0.08 : 0.006
+    })
+    // Fly to selected country
+    if (selectedCountry && globeRef.current) {
+      const globe = globeRef.current
+      globe.controls().autoRotate = false
+    }
+  }, [selectedCountry])
+
+  // Resize handler
+  useEffect(() => {
+    const handleResize = () => {
+      if (globeRef.current && containerRef.current) {
+        globeRef.current
+          .width(containerRef.current.clientWidth)
+          .height(containerRef.current.clientHeight)
+      }
+    }
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
+
+  if (loadError) {
+    return (
+      <div className="w-full h-full flex items-center justify-center text-white/30 text-sm">
+        Failed to load globe: {loadError}
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-full h-full relative">
+      {/* Loading overlay */}
+      {!isReady && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-10 bg-[#060a10]">
+          <div className="relative w-16 h-16">
+            <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-ping" />
+            <div className="absolute inset-2 rounded-full border-2 border-primary/40 animate-spin" style={{ animationDuration: "2s" }} />
+            <div className="absolute inset-4 rounded-full bg-primary/20 animate-pulse" />
+          </div>
+          <div className="text-white/40 text-sm font-medium tracking-widest uppercase">Loading Globe</div>
+        </div>
+      )}
+      <div ref={containerRef} className="w-full h-full" />
+    </div>
+  )
+}
+
+// Add procedural star field to Three.js scene
+function addStars(scene: any) {
+  try {
+    const THREE = (window as any).THREE
+    if (!THREE) return
+
+    const geometry = new THREE.BufferGeometry()
+    const count = 6000
+    const positions = new Float32Array(count * 3)
+    const sizes = new Float32Array(count)
+
+    for (let i = 0; i < count; i++) {
+      const theta = Math.random() * Math.PI * 2
+      const phi   = Math.acos(2 * Math.random() - 1)
+      const r     = 400 + Math.random() * 200
+      positions[i * 3]     = r * Math.sin(phi) * Math.cos(theta)
+      positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta)
+      positions[i * 3 + 2] = r * Math.cos(phi)
+      sizes[i] = Math.random() * 1.5 + 0.3
+    }
+
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3))
+    geometry.setAttribute("size",     new THREE.BufferAttribute(sizes, 1))
+
+    const material = new THREE.PointsMaterial({
+      color: 0xffffff,
+      size: 0.8,
+      sizeAttenuation: true,
+      transparent: true,
+      opacity: 0.75,
+    })
+
+    scene.add(new THREE.Points(geometry, material))
+  } catch (_) {}
+}

@@ -31,18 +31,29 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
           "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson",
           "https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson",
         ]
-        for (const url of URLS) {
-          try {
-            const res = await fetch(url)
-            if (!res.ok) throw new Error(`${res.status}`)
-            const data = await res.json()
-            if (data?.features?.length) { geoFeatures = data.features; break }
-          } catch { continue }
-        }
+        const geoPromise = (async () => {
+          for (const url of URLS) {
+            try {
+              const res = await fetch(url)
+              if (!res.ok) continue
+              const data = await res.json()
+              if (data?.features?.length) return data.features
+            } catch { continue }
+          }
+          return []
+        })()
+
+        // Initialize globe immediately — don't wait for GeoJSON
+        // Countries will load in after
 
         // ── 2. Import Globe.gl ───────────────────────────
-        const GlobeGL = (await import("globe.gl")).default
-        const THREE = await import("three")
+        const [GlobeGL_mod, THREE, geoResult] = await Promise.all([
+          import("globe.gl"),
+          import("three"),
+          geoPromise,
+        ])
+        const GlobeGL = GlobeGL_mod.default
+        geoFeatures = geoResult
 
         const W = containerRef.current!.clientWidth || window.innerWidth
         const H = containerRef.current!.clientHeight || window.innerHeight

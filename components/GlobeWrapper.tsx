@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import * as THREE from "three"
 import GlobeGL from "globe.gl"
 import { COUNTRY_INDEX_MAP } from "@/lib/countryIndexMap"
 import { pctToColor } from "@/lib/colorScale"
@@ -43,6 +44,9 @@ export function GlobeWrapper({ marketData, onCountrySelect, selectedCountry }: G
           }
 
           console.log("[v0] Container dimensions:", { width, height })
+
+          // Make Three.js available globally for globe.gl
+          (window as any).THREE = THREE
 
           // Initialize globe
           const globe = GlobeGL()

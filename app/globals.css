@@ -230,3 +230,9 @@
   font-size: 1rem;
   margin-bottom: 0;
 }
+
+/* ── Globe country labels ─────────────────────────────────── */
+.globe-label {
+  opacity: 0;
+  transition: opacity 1s ease;
+}

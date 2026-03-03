@@ -155,7 +155,7 @@ export default function GlobePage() {
       )}
 
       {/* ── BOTTOM RIGHT CONTROLS ── */}
-      <div className="absolute bottom-6 right-4 z-20 flex flex-col gap-2 pointer-events-auto">
+      <div style={{ position: "fixed", bottom: "24px", right: "16px", zIndex: 9999 }} className="flex flex-col gap-2 pointer-events-auto">
         {!showLegend && (
           <button
             onClick={() => setShowLegend(true)}
@@ -170,6 +170,15 @@ export default function GlobePage() {
         >
           ← WealthClaude
         </a>
+        <button
+          onClick={() => {
+            const iframe = document.querySelector("canvas")
+            window.dispatchEvent(new CustomEvent("skipGlobeIntro"))
+          }}
+          className="rounded-xl border border-white/20 bg-black/60 backdrop-blur-sm px-3 py-2 text-[10px] text-white/50 hover:text-white hover:border-white/40 transition-all tracking-widest uppercase"
+        >
+          Skip Intro →
+        </button>
       </div>
 
       {/* ── MOBILE HINT ── */}

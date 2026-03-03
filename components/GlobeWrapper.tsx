@@ -93,12 +93,7 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
         .atmosphereColor("#2389da")
         .atmosphereAltitude(0.22)
         // Country name labels — market countries only
-        .htmlElementsData(
-          (geoData.features ?? []).filter((feat: any) => {
-            const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3 ?? ""
-            return marketData[iso] !== undefined
-          })
-        )
+        .htmlElementsData([])
         .htmlElement((feat: any) => {
           const name = feat.properties?.ADMIN ?? feat.properties?.NAME ?? ""
           const el = document.createElement("div")
@@ -133,7 +128,7 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
           const lngs = ring.map((c: number[]) => c[0])
           return lngs.reduce((a: number, b: number) => a + b, 0) / lngs.length
         })
-        .htmlAltitude(0.04)
+        .htmlAltitude((feat: any) => introRef.current && introPlaying ? -1 : 0.04)
         .htmlTransitionDuration(0)
         // Countries polygon layer
         .polygonsData(geoData.features ?? [])
@@ -277,6 +272,13 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
               controls.autoRotate = true
               controls.autoRotateSpeed = 0.35
             }
+            // Show country labels now that intro is done
+            globe.htmlElementsData(
+              (geoData.features ?? []).filter((feat: any) => {
+                const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3 ?? ""
+                return marketData[iso] !== undefined
+              })
+            )
             setIntroPlaying(false)
           }
         }

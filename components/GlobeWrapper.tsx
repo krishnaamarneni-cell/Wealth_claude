@@ -208,66 +208,66 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
             addPlanets(scene)
           }
         } catch (_) { }
-      }, 500))
-}
+      }, 500)
+    }
 
-init().catch(console.error)
+    init().catch(console.error)
   }, [isReady, marketData])
 
-// Update selected country altitude
-useEffect(() => {
-  if (!globeRef.current) return
-  globeRef.current.polygonAltitude((feat: any) => {
-    const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3
-    return iso === selectedCountry ? 0.08 : 0.006
-  })
-  // Fly to selected country
-  if (selectedCountry && globeRef.current) {
-    const globe = globeRef.current
-    const controls = globe.controls()
-    if (controls) {
-      controls.autoRotate = false
+  // Update selected country altitude
+  useEffect(() => {
+    if (!globeRef.current) return
+    globeRef.current.polygonAltitude((feat: any) => {
+      const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3
+      return iso === selectedCountry ? 0.08 : 0.006
+    })
+    // Fly to selected country
+    if (selectedCountry && globeRef.current) {
+      const globe = globeRef.current
+      const controls = globe.controls()
+      if (controls) {
+        controls.autoRotate = false
+      }
     }
-  }
-}, [selectedCountry])
+  }, [selectedCountry])
 
-// Resize handler
-useEffect(() => {
-  const handleResize = () => {
-    if (globeRef.current && containerRef.current) {
-      globeRef.current
-        .width(containerRef.current.clientWidth)
-        .height(containerRef.current.clientHeight)
+  // Resize handler
+  useEffect(() => {
+    const handleResize = () => {
+      if (globeRef.current && containerRef.current) {
+        globeRef.current
+          .width(containerRef.current.clientWidth)
+          .height(containerRef.current.clientHeight)
+      }
     }
-  }
-  window.addEventListener("resize", handleResize)
-  return () => window.removeEventListener("resize", handleResize)
-}, [])
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
 
-if (loadError) {
+  if (loadError) {
+    return (
+      <div className="w-full h-full flex items-center justify-center text-white/30 text-sm">
+        Failed to load globe: {loadError}
+      </div>
+    )
+  }
+
   return (
-    <div className="w-full h-full flex items-center justify-center text-white/30 text-sm">
-      Failed to load globe: {loadError}
+    <div className="w-full h-full relative bg-black">
+      {/* Loading overlay */}
+      {!isReady && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-10 bg-[#060a10]">
+          <div className="relative w-16 h-16">
+            <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-ping" />
+            <div className="absolute inset-2 rounded-full border-2 border-primary/40 animate-spin" style={{ animationDuration: "2s" }} />
+            <div className="absolute inset-4 rounded-full bg-primary/20 animate-pulse" />
+          </div>
+          <div className="text-white/40 text-sm font-medium tracking-widest uppercase">Loading Globe</div>
+        </div>
+      )}
+      <div ref={containerRef} className="w-full h-full" />
     </div>
   )
-}
-
-return (
-  <div className="w-full h-full relative bg-black">
-    {/* Loading overlay */}
-    {!isReady && (
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-10 bg-[#060a10]">
-        <div className="relative w-16 h-16">
-          <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-ping" />
-          <div className="absolute inset-2 rounded-full border-2 border-primary/40 animate-spin" style={{ animationDuration: "2s" }} />
-          <div className="absolute inset-4 rounded-full bg-primary/20 animate-pulse" />
-        </div>
-        <div className="text-white/40 text-sm font-medium tracking-widest uppercase">Loading Globe</div>
-      </div>
-    )}
-    <div ref={containerRef} className="w-full h-full" />
-  </div>
-)
 }
 
 // ── PLANETS ─────────────────────────────────────────────────

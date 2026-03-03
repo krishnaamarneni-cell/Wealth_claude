@@ -1,0 +1,61 @@
+// Maps a daily % change to a hex color
+// Red (-5%+) → Gray (0%) → Green (+5%+)
+
+export function pctToColor(pct: number | null | undefined): string {
+  if (pct == null) return "#374151" // neutral gray — no data
+
+  const clamped = Math.max(-5, Math.min(5, pct))
+
+  if (clamped === 0) return "#4B5563"
+
+  if (clamped < 0) {
+    // 0 → gray, -5 → deep red
+    const t = Math.abs(clamped) / 5
+    return interpolateHex("#4B5563", "#DC2626", t)
+  } else {
+    // 0 → gray, +5 → deep green
+    const t = clamped / 5
+    return interpolateHex("#4B5563", "#16A34A", t)
+  }
+}
+
+// Glow color (more saturated than fill)
+export function pctToGlow(pct: number | null | undefined): string {
+  if (pct == null) return "rgba(75,85,99,0.4)"
+  if (pct > 0.5)  return `rgba(34,197,94,${Math.min(0.9, 0.3 + pct/5 * 0.6)})`
+  if (pct < -0.5) return `rgba(239,68,68,${Math.min(0.9, 0.3 + Math.abs(pct)/5 * 0.6)})`
+  return "rgba(75,85,99,0.3)"
+}
+
+// Side panel color class based on pct
+export function pctToTextClass(pct: number | null | undefined): string {
+  if (pct == null) return "text-gray-400"
+  if (pct > 0) return "text-emerald-400"
+  if (pct < 0) return "text-red-400"
+  return "text-gray-400"
+}
+
+function interpolateHex(hex1: string, hex2: string, t: number): string {
+  const c1 = hexToRgb(hex1)
+  const c2 = hexToRgb(hex2)
+  const r = Math.round(c1.r + (c2.r - c1.r) * t)
+  const g = Math.round(c1.g + (c2.g - c1.g) * t)
+  const b = Math.round(c1.b + (c2.b - c1.b) * t)
+  return `#${r.toString(16).padStart(2,"0")}${g.toString(16).padStart(2,"0")}${b.toString(16).padStart(2,"0")}`
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+  return result
+    ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) }
+    : { r: 75, g: 85, b: 99 }
+}
+
+// Legend gradient stops for the UI legend bar
+export const LEGEND_STOPS = [
+  { pct: -5,  color: "#DC2626", label: "-5%" },
+  { pct: -2,  color: "#EF4444", label: "-2%" },
+  { pct:  0,  color: "#4B5563", label: "0%"  },
+  { pct:  2,  color: "#22C55E", label: "+2%" },
+  { pct:  5,  color: "#16A34A", label: "+5%" },
+]

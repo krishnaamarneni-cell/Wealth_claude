@@ -74,11 +74,13 @@ async function fetchLane(lane: typeof LANES[0], limit = 50): Promise<any[]> {
 }
 
 export async function GET(req: NextRequest) {
-  // Verify cron secret
-  const auth = req.headers.get("authorization")
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  // No auth required — manual seeding endpoint
+  ```
+
+Now deploy and visit:
+```
+  https://www.wealthclaude.com/api/cron/ships?region=0
+
 
   // Get which region to refresh (rotates through all 12)
   const { searchParams } = new URL(req.url)

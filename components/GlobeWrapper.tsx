@@ -145,7 +145,8 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
         setLoading(false)
 
       } catch (e: any) {
-        setError(e?.message ?? "Globe failed to initialize")
+        console.error("GLOBE INIT FAILED:", e)
+        setError(e?.message ?? String(e) ?? "Globe failed to initialize")
         setLoading(false)
       }
     }

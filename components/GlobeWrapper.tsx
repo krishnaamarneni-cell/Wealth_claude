@@ -201,6 +201,19 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
         }
       }, 100)
 
+      // Listen for skip event from page
+      window.addEventListener("skipGlobeIntro", () => {
+        introRef.current = true
+        globeRef.current?.pointOfView({ lat: 38, lng: -97, altitude: 1.5 })
+        const controls = globeRef.current?.controls()
+        if (controls) {
+          controls.enabled = true
+          controls.autoRotate = true
+          controls.autoRotateSpeed = 0.35
+        }
+        setIntroPlaying(false)
+      }, { once: true })
+
       // ── CINEMATIC INTRO ──────────────────────────────────
       setTimeout(() => {
         if (introRef.current) return
@@ -339,18 +352,7 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
   return (
     <div className="w-full h-full relative bg-black">
 
-      {/* Skip intro button */}
-      {introPlaying && isReady && (
-        <div className="absolute bottom-8 right-6 z-50 pointer-events-auto">
-          <button
-            onClick={skipIntro}
-            className="flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 bg-black/50 backdrop-blur-sm text-white/50 hover:text-white hover:border-white/40 transition-all text-xs font-medium tracking-widest uppercase"
-          >
-            Skip Intro
-            <span className="text-white/30">→</span>
-          </button>
-        </div>
-      )}
+
 
       {/* Intro text overlay */}
       {introPlaying && isReady && (

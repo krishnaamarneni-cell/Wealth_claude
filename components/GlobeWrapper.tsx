@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import { MarketDataMap } from "@/lib/mockData"
 import { pctToColor, pctToGlow } from "@/lib/colorScale"
-import { COUNTRY_INDEX_MAP, NO_EXCHANGE_COUNTRIES } from "@/lib/countryIndexMap"
+import { NO_EXCHANGE_COUNTRIES } from "@/lib/countryIndexMap"
 
 interface GlobeWrapperProps {
   marketData: MarketDataMap
@@ -90,6 +90,33 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
         // Atmosphere
         .atmosphereColor("#2389da")
         .atmosphereAltitude(0.22)
+        // Country name labels — market countries only
+        .htmlElementsData(
+          (geoData.features ?? []).filter((feat: any) => {
+            const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3 ?? ""
+            return marketData[iso] !== undefined
+          })
+        )
+        .htmlElement((feat: any) => {
+          const name = feat.properties?.ADMIN ?? feat.properties?.NAME ?? ""
+          const el = document.createElement("div")
+          el.style.cssText = `
+            color: rgba(255,255,255,0.75);
+            font-size: 10px;
+            font-family: system-ui, sans-serif;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            text-shadow: 0 0 6px rgba(0,0,0,0.9), 0 0 12px rgba(0,0,0,0.7);
+            pointer-events: none;
+            white-space: nowrap;
+            user-select: none;
+          `
+          el.textContent = name
+          return el
+        })
+        .htmlAltitude(0.04)
+        .htmlTransitionDuration(0)
         // Countries polygon layer
         .polygonsData(geoData.features ?? [])
         .polygonAltitude((feat: any) => {

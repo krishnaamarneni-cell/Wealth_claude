@@ -2,7 +2,7 @@ import React from "react"
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { ThemeProvider } from '@/components/theme-provider'
-import { AnalyticsWrapper } from '@/components/analytics-wrapper'
+import AnalyticsWrapper from "@/components/Analytics"
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -19,11 +19,6 @@ export const metadata: Metadata = {
   verification: {
     google: 'k6ogtZfRjD_sjQ0Rf1XyuB7D9Huce1RopsC2tgCfWzk',
   },
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'black-translucent',
-    title: 'WealthClaude',
-  },
   openGraph: {
     title: 'WealthClaude - AI-Powered Portfolio Tracker',
     description: 'WealthClaude — AI-powered portfolio tracker with real-time market intelligence. Track stocks, analyze performance and get AI insights. Free to start.',
@@ -39,17 +34,13 @@ export const metadata: Metadata = {
   robots: 'index, follow',
   icons: {
     icon: [
-      { url: '/favicon.ico', sizes: 'any' },
-      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
-      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
       { url: '/icon.png', sizes: '512x512', type: 'image/png' },
       { url: '/icon-light-32x32.png', media: '(prefers-color-scheme: light)' },
       { url: '/icon-dark-32x32.png', media: '(prefers-color-scheme: dark)' },
       { url: '/icon.svg', type: 'image/svg+xml' },
     ],
-    apple: '/apple-touch-icon.png',
+    apple: '/apple-icon.png',
   },
-  manifest: '/site.webmanifest',
 }
 
 export default function RootLayout({

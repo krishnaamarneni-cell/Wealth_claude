@@ -133,13 +133,19 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
       // Initial position — center over Atlantic for best first view
       globe.pointOfView({ lat: 20, lng: 10, altitude: 2.2 })
 
-      // Auto-rotate slowly
-      globe.controls().autoRotate = true
-      globe.controls().autoRotateSpeed = 0.35
-      globe.controls().enableDamping = true
-
+      // Render globe to DOM FIRST
       globe(containerRef.current)
       globeRef.current = globe
+
+      // THEN set up controls (they're only available after rendering)
+      setTimeout(() => {
+        const controls = globe.controls()
+        if (controls) {
+          controls.autoRotate = true
+          controls.autoRotateSpeed = 0.35
+          controls.enableDamping = true
+        }
+      }, 100)
 
       // Stars background via Three.js scene
       setTimeout(() => {

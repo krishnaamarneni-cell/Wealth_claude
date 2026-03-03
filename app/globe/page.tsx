@@ -102,6 +102,24 @@ export default function GlobePage() {
           {/* Date + refresh badge */}
           <div className="flex items-center gap-3 pointer-events-auto">
             <button
+              onClick={() => {
+                if (globeRef.current) {
+                  const controls = (globeRef.current as any).controls?.()
+                  if (controls) controls.dollyIn(1.3)
+                }
+              }}
+              className="hidden sm:flex items-center justify-center w-7 h-7 text-white/40 bg-white/5 border border-white/8 rounded-full hover:text-white/70 hover:bg-white/10 transition-all text-sm"
+            >+</button>
+            <button
+              onClick={() => {
+                if (globeRef.current) {
+                  const controls = (globeRef.current as any).controls?.()
+                  if (controls) controls.dollyOut(1.3)
+                }
+              }}
+              className="hidden sm:flex items-center justify-center w-7 h-7 text-white/40 bg-white/5 border border-white/8 rounded-full hover:text-white/70 hover:bg-white/10 transition-all text-sm"
+            >−</button>
+            <button
               onClick={() => setShowShips(s => !s)}
               className={`hidden sm:flex items-center gap-1.5 text-[10px] rounded-full px-3 py-1.5 border transition-all ${showShips ? "bg-blue-500/20 border-blue-400/40 text-blue-300" : "bg-white/5 border-white/8 text-white/30 hover:text-white/50"}`}
             >

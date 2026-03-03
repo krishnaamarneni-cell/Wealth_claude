@@ -26,20 +26,17 @@ const TICKER_MAP: Record<string, string> = {
   "^OMXC25": "DNK", // OMX Copenhagen
   "^OMXH25": "FIN", // OMX Helsinki
   "^ATX": "AUT", // ATX
-  "^WIG20": "POL", // WIG20 — may return 0, known Yahoo issue
+  "^WIG20": "POL", // WIG20
   "^PX": "CZE", // Prague
   "^BUX": "HUN", // Budapest
 
   // Middle East & Africa
-  "^TA125": "ISR", // Tel Aviv 125
-  "^TASI": "SAU", // Tadawul
-  "^ADX": "ARE", // Abu Dhabi
-  "^QSI": "QAT", // Qatar
+  "TA35.TA": "ISR", // Tel Aviv 35
+  "^TASI.SR": "SAU", // Tadawul Saudi
+  "^DFMGI": "ARE", // Dubai
   "^CASE30": "EGY", // EGX 30
-  "^MASI": "MAR", // Casablanca — may return 0
-  "^NGSEINDEX": "NGA", // Nigeria
-  "^JSE": "ZAF", // JSE South Africa
-  "^KWS": "KWT", // Kuwait
+  "^J200.JO": "ZAF", // JSE Top 40
+  "^SPLK20LP": "LKA", // S&P Sri Lanka 20
 
   // Asia Pacific
   "^N225": "JPN", // Nikkei 225
@@ -56,10 +53,8 @@ const TICKER_MAP: Record<string, string> = {
   "^PSEI": "PHL", // PSEi
   "^NZ50": "NZL", // NZX 50
   "^PSI20": "PRT", // PSI 20 Portugal
-  "^NSEI": "IND", // Nifty 50 — will overwrite Sensex with same ISO, keep one
-  "^KSE100": "PAK", // KSE 100 — correct Pakistan ticker
-  "^CSEALL": "LKA", // Colombo
-  "^DSEX": "BGD", // Dhaka
+  "^KSE100": "PAK", // KSE 100 Pakistan
+  "^NSEI": "IND", // Nifty 50
 }
 
 async function fetchQuote(ticker: string) {

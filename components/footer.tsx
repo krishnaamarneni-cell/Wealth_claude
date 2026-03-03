@@ -35,6 +35,11 @@ export function Footer() {
                   </Link>
                 </li>
                 <li>
+                  <Link href="/globe" className="text-muted-foreground hover:text-foreground transition-colors text-sm flex items-center gap-1.5">
+                    🌍 Stock Globe
+                  </Link>
+                </li>
+                <li>
                   <Link href="/market-heatmaps" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
                     Heat Maps
                   </Link>

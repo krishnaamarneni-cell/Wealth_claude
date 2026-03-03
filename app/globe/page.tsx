@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react"
 import dynamic from "next/dynamic"
 import { getMockMarketData } from "@/lib/mockData"
+import type { MarketDataMap } from "@/lib/mockData"
 import { COUNTRY_INDEX_MAP } from "@/lib/countryIndexMap"
 import { pctToColor, pctToTextClass, LEGEND_STOPS } from "@/lib/colorScale"
 import { CountryPanel } from "@/components/CountryPanel"

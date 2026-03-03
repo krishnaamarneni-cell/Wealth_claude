@@ -53,7 +53,7 @@ export default function GlobePage() {
       </div>
 
       {/* ── GLOBE (full screen) ── */}
-      <div className="absolute inset-0 z-10">
+      <div className="absolute inset-0 z-10" style={{ height: "100vh", width: "100vw" }}>
         <GlobeWrapper
           marketData={marketData}
           selectedCountry={selectedCountry}

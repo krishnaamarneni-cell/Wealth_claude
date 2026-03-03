@@ -24,6 +24,16 @@ const TICKER_MAP: Record<string, string> = {
 export async function GET() {
   try {
     const yahooFinance = (await import("yahoo-finance2")).default
+    console.log("yahoo-finance2 loaded:", !!yahooFinance)
+
+    // Test with just one ticker first
+    try {
+      const test = await yahooFinance.quote("^GSPC")
+      console.log("Test quote result:", JSON.stringify(test?.regularMarketPrice))
+    } catch (testErr: any) {
+      console.error("Test quote failed:", testErr?.message)
+      return NextResponse.json({ error: testErr?.message, data: {}, fetchedAt: new Date().toISOString(), count: 0 })
+    }
 
     const tickers = Object.keys(TICKER_MAP)
     const results: Record<string, any> = {}

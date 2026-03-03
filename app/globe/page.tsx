@@ -25,6 +25,9 @@ export default function GlobePage() {
   const [showLegend, setShowLegend] = useState(true)
   const [today, setToday] = useState("")
 
+  const marketData = useMemo(() => getMockMarketData(), [])
+  const selectedData = selectedCountry ? marketData[selectedCountry] ?? null : null
+
   useEffect(() => {
     setToday(new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }))
   }, [])

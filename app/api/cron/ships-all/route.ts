@@ -74,11 +74,6 @@ async function fetchLane(lane: typeof LANES[0], limit = 50): Promise<any[]> {
 }
 
 export async function GET(req: NextRequest) {
-  const auth = req.headers.get("authorization")
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
   const results: Record<string, number> = {}
 
   // Process all lanes sequentially to avoid overwhelming AISstream

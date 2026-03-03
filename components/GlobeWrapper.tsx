@@ -24,6 +24,8 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
   const [isReady, setIsReady] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [hoveredCountry, setHoveredCountry] = useState<string | null>(null)
+  const [introPlaying, setIntroPlaying] = useState(true)
+  const introRef = useRef(false)
 
   // Load Globe.gl from CDN
   useEffect(() => {
@@ -189,15 +191,85 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
       globe(containerRef.current)
       globeRef.current = globe
 
-      // THEN set up controls (they're only available after rendering)
+      // THEN set up controls
       setTimeout(() => {
         const controls = globe.controls()
         if (controls) {
-          controls.autoRotate = true
-          controls.autoRotateSpeed = 0.35
+          controls.autoRotate = false
           controls.enableDamping = true
+          controls.enabled = false // disable user control during intro
         }
       }, 100)
+
+      // ── CINEMATIC INTRO ──────────────────────────────────
+      setTimeout(() => {
+        if (introRef.current) return
+        introRef.current = true
+
+        const DURATION = 15000 // 15 seconds
+        const start = performance.now()
+
+        // Keyframes: [time 0-1, lat, lng, altitude]
+        const KEYFRAMES = [
+          { t: 0.00, lat: 10, lng: 20, alt: 12.0 }, // far out — full solar system view
+          { t: 0.15, lat: 15, lng: 10, alt: 10.0 }, // begin approach
+          { t: 0.30, lat: 20, lng: 5, alt: 7.5 }, // flying through space
+          { t: 0.45, lat: 25, lng: -5, alt: 5.5 }, // planets drifting past
+          { t: 0.60, lat: 30, lng: -15, alt: 4.0 }, // Earth growing larger
+          { t: 0.72, lat: 35, lng: -30, alt: 3.0 }, // atmosphere visible
+          { t: 0.82, lat: 40, lng: -50, alt: 2.2 }, // approaching North America
+          { t: 0.90, lat: 42, lng: -80, alt: 1.8 }, // slowing down
+          { t: 0.96, lat: 40, lng: -95, alt: 1.6 }, // final approach USA
+          { t: 1.00, lat: 38, lng: -97, alt: 1.5 }, // locked on USA
+        ]
+
+        const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+
+        // Easing — ease in-out cubic
+        const ease = (t: number) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+
+        const tick = (now: number) => {
+          const elapsed = now - start
+          const rawT = Math.min(elapsed / DURATION, 1)
+          const t = ease(rawT)
+
+          // Find surrounding keyframes
+          let k0 = KEYFRAMES[0]
+          let k1 = KEYFRAMES[KEYFRAMES.length - 1]
+          for (let i = 0; i < KEYFRAMES.length - 1; i++) {
+            if (t >= KEYFRAMES[i].t && t <= KEYFRAMES[i + 1].t) {
+              k0 = KEYFRAMES[i]
+              k1 = KEYFRAMES[i + 1]
+              break
+            }
+          }
+
+          // Local t between the two keyframes
+          const span = k1.t - k0.t || 0.001
+          const localT = Math.min((t - k0.t) / span, 1)
+
+          const lat = lerp(k0.lat, k1.lat, localT)
+          const lng = lerp(k0.lng, k1.lng, localT)
+          const alt = lerp(k0.alt, k1.alt, localT)
+
+          globe.pointOfView({ lat, lng, altitude: alt })
+
+          if (rawT < 1) {
+            requestAnimationFrame(tick)
+          } else {
+            // Intro complete — hand control back to user
+            const controls = globe.controls()
+            if (controls) {
+              controls.enabled = true
+              controls.autoRotate = true
+              controls.autoRotateSpeed = 0.35
+            }
+            setIntroPlaying(false)
+          }
+        }
+
+        requestAnimationFrame(tick)
+      }, 800) // small delay after mount
 
       // Stars + planets via Three.js scene
       setTimeout(() => {
@@ -252,8 +324,44 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
     )
   }
 
+  const skipIntro = () => {
+    introRef.current = true
+    globeRef.current?.pointOfView({ lat: 38, lng: -97, altitude: 1.5 })
+    const controls = globeRef.current?.controls()
+    if (controls) {
+      controls.enabled = true
+      controls.autoRotate = true
+      controls.autoRotateSpeed = 0.35
+    }
+    setIntroPlaying(false)
+  }
+
   return (
     <div className="w-full h-full relative bg-black">
+
+      {/* Skip intro button */}
+      {introPlaying && isReady && (
+        <div className="absolute bottom-8 right-6 z-50 pointer-events-auto">
+          <button
+            onClick={skipIntro}
+            className="flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 bg-black/50 backdrop-blur-sm text-white/50 hover:text-white hover:border-white/40 transition-all text-xs font-medium tracking-widest uppercase"
+          >
+            Skip Intro
+            <span className="text-white/30">→</span>
+          </button>
+        </div>
+      )}
+
+      {/* Intro text overlay */}
+      {introPlaying && isReady && (
+        <div className="absolute inset-0 z-40 pointer-events-none flex flex-col items-center justify-end pb-24">
+          <div className="text-center animate-pulse">
+            <div className="text-white/20 text-[10px] tracking-[0.4em] uppercase mb-1">WealthClaude</div>
+            <div className="text-white/10 text-xs tracking-widest">Global Stock Markets</div>
+          </div>
+        </div>
+      )}
+
       {/* Loading overlay */}
       {!isReady && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-10 bg-[#060a10]">

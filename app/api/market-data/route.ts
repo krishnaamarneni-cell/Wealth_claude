@@ -49,8 +49,8 @@ export async function GET() {
                 isOpen: quote.marketState === "REGULAR",
               }
             }
-          } catch {
-            // Skip failed tickers silently
+          } catch (err: any) {
+            console.error(`Failed ticker ${ticker}:`, err?.message)
           }
         })
       )

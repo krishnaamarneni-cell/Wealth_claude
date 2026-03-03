@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
 
+export const runtime = "nodejs"
+export const maxDuration = 30
+
 // All 56 tickers mapped to country ISO codes
 const TICKER_MAP: Record<string, string> = {
   "^GSPC": "USA", "^FTSE": "GBR", "^GDAXI": "DEU", "^FCHI": "FRA",

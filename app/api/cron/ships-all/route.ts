@@ -30,7 +30,7 @@ async function fetchLane(lane: typeof LANES[0], limit = 50): Promise<any[]> {
     const collected: any[] = []
     const seen = new Set<number>()
     const ws = new WebSocket("wss://stream.aisstream.io/v0/stream")
-    const timeout = setTimeout(() => { ws.terminate(); resolve(collected) }, 25000)
+    const timeout = setTimeout(() => { ws.terminate(); resolve(collected) }, 8000)
 
     ws.on("open", () => {
       ws.send(JSON.stringify({
@@ -77,17 +77,21 @@ export async function GET(req: NextRequest) {
   const results: Record<string, number> = {}
 
   // Process all lanes sequentially to avoid overwhelming AISstream
-  for (const lane of LANES) {
-    const ships = await fetchLane(lane, 50)
-    await supabase
-      .from("ship_cache")
-      .upsert({
-        region: lane.name,
-        ships: ships,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "region" })
-    results[lane.name] = ships.length
-  }
+  // Process all lanes in parallel, 8 second timeout per lane
+  const laneResults = await Promise.all(
+    LANES.map(async (lane) => {
+      const ships = await fetchLane(lane, 40)
+      await supabase
+        .from("ship_cache")
+        .upsert({
+          region: lane.name,
+          ships: ships,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "region" })
+      return { name: lane.name, count: ships.length }
+    })
+  )
+  laneResults.forEach(r => { results[r.name] = r.count })
 
   const total = Object.values(results).reduce((a, b) => a + b, 0)
 

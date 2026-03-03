@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 import AnalyticsWrapper from "@/components/Analytics"
 import './globals.css'
 
+// Font initialization
 const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 

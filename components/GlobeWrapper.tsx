@@ -170,24 +170,23 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
             onCountrySelect(iso, name)
           }
         })
-        // Ships layer
+        // Ships layer — using custom HTML icons
         .pointsData([])
         .pointLat((s: any) => s.lat)
         .pointLng((s: any) => s.lng)
         .pointAltitude(0.005)
-        .pointRadius(0.25)
+        .pointRadius(0.4)
+        .pointResolution(4)
         .pointColor((s: any) => {
-          // Color by navigational status/type
           const t = s.type
-          if (t === 1 || t === 2 || t === 3) return "#22d3ee" // underway
-          if (t === 5) return "#f97316"                        // moored
-          if (t === 8) return "#a855f7"                        // fishing
-          return "#60a5fa"                                      // default blue
+          if (t === 1 || t === 2 || t === 3) return "#22d3ee"
+          if (t === 5) return "#f97316"
+          if (t === 8) return "#a855f7"
+          return "#60a5fa"
         })
         .pointLabel((s: any) => `
           <div style="background:rgba(2,12,27,0.95);border:1px solid rgba(100,160,220,0.3);border-radius:8px;padding:8px 12px;font-family:system-ui,sans-serif;min-width:140px">
             <div style="color:rgba(255,255,255,0.9);font-size:11px;font-weight:700">${s.name}</div>
-            <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:2px">${s.lane}</div>
             <div style="color:#60a5fa;font-size:10px">Speed: ${s.speed?.toFixed(1)} kn</div>
           </div>
         `)
@@ -361,15 +360,26 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
     }
   }, [selectedCountry])
 
+  const renderShips = (shipList: any[]) => {
+    if (!globeRef.current) return
+    // Remove old ship markers
+    document.querySelectorAll(".ship-marker").forEach(el => el.remove())
+    if (!shipList.length) return
+    // Use htmlElementsData for ship icons
+    globeRef.current.htmlElementsData(
+      [...(introPlaying ? [] : marketFeatures), ...shipList.map(s => ({ ...s, _isShip: true }))]
+    )
+  }
+
   // Fetch ships when toggled on
   useEffect(() => {
     if (!isReady) return
     if (!showShips) {
-      globeRef.current?.pointsData([])
+      renderShips([])
       return
     }
     if (shipsLoadedRef.current && ships.length > 0) {
-      globeRef.current?.pointsData(ships)
+      renderShips(ships)
       return
     }
     const fetchShips = async () => {
@@ -379,7 +389,7 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
         if (json.ships?.length) {
           shipsLoadedRef.current = true
           setShips(json.ships)
-          globeRef.current?.pointsData(json.ships)
+          renderShips(json.ships)
         }
       } catch { /* silent */ }
     }
@@ -447,6 +457,25 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
         </div>
       )}
       <div ref={containerRef} className="w-full h-full" />
+      {/* Zoom controls */}
+      {isReady && (
+        <div style={{ position: "absolute", bottom: "24px", right: "16px", display: "flex", flexDirection: "column", gap: "8px", zIndex: 20 }}>
+          <button
+            onClick={() => {
+              const controls = (globeRef.current as any)?.controls?.()
+              if (controls) { controls.dollyIn(1.3); controls.update() }
+            }}
+            style={{ width: "36px", height: "36px", borderRadius: "50%", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.7)", fontSize: "20px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+          >+</button>
+          <button
+            onClick={() => {
+              const controls = (globeRef.current as any)?.controls?.()
+              if (controls) { controls.dollyOut(1.3); controls.update() }
+            }}
+            style={{ width: "36px", height: "36px", borderRadius: "50%", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.7)", fontSize: "20px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+          >−</button>
+        </div>
+      )}
     </div>
   )
 }

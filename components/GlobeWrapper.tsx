@@ -115,6 +115,22 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
           el.textContent = name
           return el
         })
+        .htmlLat((feat: any) => {
+          const coords = feat.geometry?.coordinates
+          if (!coords) return 0
+          // Handle both Polygon and MultiPolygon
+          const ring = feat.geometry.type === "MultiPolygon" ? coords[0][0] : coords[0]
+          const lats = ring.map((c: number[]) => c[1])
+          const lngs = ring.map((c: number[]) => c[0])
+          return lats.reduce((a: number, b: number) => a + b, 0) / lats.length
+        })
+        .htmlLng((feat: any) => {
+          const coords = feat.geometry?.coordinates
+          if (!coords) return 0
+          const ring = feat.geometry.type === "MultiPolygon" ? coords[0][0] : coords[0]
+          const lngs = ring.map((c: number[]) => c[0])
+          return lngs.reduce((a: number, b: number) => a + b, 0) / lngs.length
+        })
         .htmlAltitude(0.04)
         .htmlTransitionDuration(0)
         // Countries polygon layer

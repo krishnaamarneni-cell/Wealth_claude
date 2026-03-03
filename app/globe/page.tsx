@@ -25,7 +25,35 @@ export default function GlobePage() {
   const [showLegend, setShowLegend] = useState(true)
   const [today, setToday] = useState("")
 
-  const marketData = useMemo(() => getMockMarketData(), [])
+  const [marketState, setMarketState] = useState<{
+    data: MarketDataMap
+    fetchedAt: string | null
+    isLive: boolean
+    isLoading: boolean
+  }>({
+    data: getMockMarketData(),
+    fetchedAt: null,
+    isLive: false,
+    isLoading: true,
+  })
+
+  const marketData = marketState.data
+
+  useEffect(() => {
+    const load = async () => {
+      const { fetchMarketData } = await import("@/lib/marketDataFetcher")
+      const result = await fetchMarketData()
+      setMarketState({
+        data: result.data,
+        fetchedAt: result.fetchedAt,
+        isLive: result.isLive,
+        isLoading: false,
+      })
+    }
+    load()
+    const interval = setInterval(load, 60 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [])
   const selectedData = selectedCountry ? marketData[selectedCountry] ?? null : null
 
   const handleCountrySelect = (iso: string | null, name: string | null) => {
@@ -72,9 +100,14 @@ export default function GlobePage() {
           {/* Date + refresh badge */}
           <div className="flex items-center gap-3 pointer-events-auto">
             <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-white/30 bg-white/5 border border-white/8 rounded-full px-3 py-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block" />
-              MOCK DATA — Step 1
+              <span className={`w-1.5 h-1.5 rounded-full inline-block ${marketState.isLoading ? "bg-amber-400 animate-pulse" : marketState.isLive ? "bg-emerald-400" : "bg-amber-400"}`} />
+              {marketState.isLoading ? "Loading Data…" : marketState.isLive ? "Live Data" : "Mock Data"}
             </div>
+            {marketState.fetchedAt && (
+              <div className="text-[10px] text-white/20 hidden md:block">
+                Updated {new Date(marketState.fetchedAt).toLocaleTimeString()}
+              </div>
+            )}
             <div className="text-[10px] text-white/25 hidden md:block">{today}</div>
           </div>
         </div>

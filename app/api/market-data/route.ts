@@ -1,69 +1,71 @@
 import { NextResponse } from "next/server"
+import { createClient } from "@supabase/supabase-js"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+const CACHE_MS = 60 * 60 * 1000 // 1 hour
+
 const TICKER_MAP: Record<string, string> = {
   // Americas
-  "^GSPC": "USA", // S&P 500
-  "^GSPTSE": "CAN", // TSX
-  "^BVSP": "BRA", // Bovespa
-  "^MXX": "MEX", // IPC
-  "^MERV": "ARG", // MERVAL
-  "^IPSA": "CHL", // IPSA
-  "^COLCAP": "COL", // COLCAP Colombia
+  "^GSPC": "USA",
+  "^GSPTSE": "CAN",
+  "^BVSP": "BRA",
+  "^MXX": "MEX",
+  "^MERV": "ARG",
+  "^IPSA": "CHL",
 
   // Europe
-  "^FTSE": "GBR", // FTSE 100
-  "^GDAXI": "DEU", // DAX
-  "^FCHI": "FRA", // CAC 40
-  "^IBEX": "ESP", // IBEX 35
-  "^AEX": "NLD", // AEX
-  "^BFX": "BEL", // BEL 20
-  "^SSMI": "CHE", // SMI Switzerland ✅
-  "^OSEAX": "NOR", // Oslo
-  "^OMXS30": "SWE", // OMX Stockholm
-  "^OMXC25": "DNK", // OMX Copenhagen
-  "^OMXH25": "FIN", // OMX Helsinki
-  "^ATX": "AUT", // ATX
-  "^WIG20": "POL", // WIG20
-  "^PX": "CZE", // Prague
-  "^BUX": "HUN", // Budapest
+  "^FTSE": "GBR",
+  "^GDAXI": "DEU",
+  "^FCHI": "FRA",
+  "^IBEX": "ESP",
+  "^AEX": "NLD",
+  "^BFX": "BEL",
+  "^SSMI": "CHE",
+  "^OSEAX": "NOR",
+  "^OMXS30": "SWE",
+  "^OMXC25": "DNK",
+  "^OMXH25": "FIN",
+  "^ATX": "AUT",
+  "^WIG20": "POL",
+  "^PX": "CZE",
+  "^BUX": "HUN",
 
   // Middle East & Africa
-  "TA35.TA": "ISR", // Tel Aviv 35
-  "^TASI.SR": "SAU", // Tadawul Saudi
-  "^DFMGI": "ARE", // Dubai
-  "^CASE30": "EGY", // EGX 30
-  "^J200.JO": "ZAF", // JSE Top 40
-  "^SPLK20LP": "LKA", // S&P Sri Lanka 20
+  "TA35.TA": "ISR",
+  "^TASI.SR": "SAU",
+  "^DFMGI": "ARE",
+  "^CASE30": "EGY",
+  "^J200.JO": "ZAF",
+  "^SPLK20LP": "LKA",
 
   // Asia Pacific
-  "^N225": "JPN", // Nikkei 225
-  "^HSI": "HKG", // Hang Seng
-  "000001.SS": "CHN", // Shanghai
-  "^BSESN": "IND", // BSE Sensex
-  "^AXJO": "AUS", // ASX 200
-  "^KS11": "KOR", // KOSPI
-  "^TWII": "TWN", // TAIEX
-  "^STI": "SGP", // STI
-  "^KLSE": "MYS", // KLCI
-  "^JKSE": "IDN", // IDX
-  "^VNINDEX.VN": "VNM", // VN-Index Vietnam ✅
-  "PSEI.PS": "PHL", // PSEi Philippines ✅
-  "^NZ50": "NZL", // NZX 50
-  "^PSI20.LS": "PRT", // Portugal PSI 20
-  "^KSE100": "PAK", // KSE 100 Pakistan
-  "^NSEI": "IND", // Nifty 50
+  "^N225": "JPN",
+  "^HSI": "HKG",
+  "000001.SS": "CHN",
+  "^BSESN": "IND",
+  "^AXJO": "AUS",
+  "^KS11": "KOR",
+  "^TWII": "TWN",
+  "^STI": "SGP",
+  "^KLSE": "MYS",
+  "^JKSE": "IDN",
+  "^VNINDEX.VN": "VNM",
+  "PSEI.PS": "PHL",
+  "^NZ50": "NZL",
+  "^NSEI": "IND",
 }
 
 async function fetchQuote(ticker: string) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`
   const res = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0",
-      "Accept": "application/json",
-    },
+    headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/json" },
     signal: AbortSignal.timeout(8000),
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -79,7 +81,7 @@ async function fetchQuote(ticker: string) {
   }
 }
 
-export async function GET() {
+async function fetchFreshData() {
   const results: Record<string, any> = {}
   const tickers = Object.keys(TICKER_MAP)
 
@@ -106,12 +108,47 @@ export async function GET() {
       } catch { /* skip */ }
     })
   )
+  return results
+}
+
+export async function GET() {
+  // 1. Check Supabase cache first
+  const { data: cached } = await supabase
+    .from("market_cache")
+    .select("data, fetched_at")
+    .eq("id", 1)
+    .single()
+
+  if (cached?.fetched_at) {
+    const age = Date.now() - new Date(cached.fetched_at).getTime()
+    if (age < CACHE_MS && Object.keys(cached.data).length > 0) {
+      // Return cached data instantly
+      return NextResponse.json({
+        data: cached.data,
+        fetchedAt: cached.fetched_at,
+        count: Object.keys(cached.data).length,
+        cached: true,
+      }, {
+        headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" }
+      })
+    }
+  }
+
+  // 2. Cache stale or empty — fetch fresh from Yahoo
+  const data = await fetchFreshData()
+  const fetchedAt = new Date().toISOString()
+
+  // 3. Save to Supabase
+  await supabase
+    .from("market_cache")
+    .upsert({ id: 1, data, fetched_at: fetchedAt })
 
   return NextResponse.json({
-    data: results,
-    fetchedAt: new Date().toISOString(),
-    count: Object.keys(results).length,
+    data,
+    fetchedAt,
+    count: Object.keys(data).length,
+    cached: false,
   }, {
-    headers: { "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=3600" }
+    headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" }
   })
 }

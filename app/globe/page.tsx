@@ -22,6 +22,7 @@ const GlobeWrapper = dynamic(
 export default function GlobePage() {
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
   const [selectedName, setSelectedName] = useState<string | null>(null)
+  const [showShips, setShowShips] = useState(false)
   const [showLegend, setShowLegend] = useState(true)
   const [today, setToday] = useState("")
 
@@ -82,6 +83,7 @@ export default function GlobePage() {
           marketData={marketData}
           selectedCountry={selectedCountry}
           onCountrySelect={handleCountrySelect}
+          showShips={showShips}
         />
       </div>
 
@@ -99,6 +101,13 @@ export default function GlobePage() {
 
           {/* Date + refresh badge */}
           <div className="flex items-center gap-3 pointer-events-auto">
+            <button
+              onClick={() => setShowShips(s => !s)}
+              className={`hidden sm:flex items-center gap-1.5 text-[10px] rounded-full px-3 py-1.5 border transition-all ${showShips ? "bg-blue-500/20 border-blue-400/40 text-blue-300" : "bg-white/5 border-white/8 text-white/30 hover:text-white/50"}`}
+            >
+              <span className="text-sm">🚢</span>
+              Ships
+            </button>
             <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-white/30 bg-white/5 border border-white/8 rounded-full px-3 py-1.5">
               <span className={`w-1.5 h-1.5 rounded-full inline-block ${marketState.isLoading ? "bg-amber-400 animate-pulse" : marketState.isLive ? "bg-emerald-400" : "bg-amber-400"}`} />
               {marketState.isLoading ? "Loading Data…" : marketState.isLive ? "Live Data" : "Mock Data"}

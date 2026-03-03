@@ -387,66 +387,68 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
     const interval = setInterval(fetchShips, 60000)
     return () => clearInterval(interval)
   }, [showShips, isReady])
-  const handleResize = () => {
-    if (globeRef.current && containerRef.current) {
-      globeRef.current
-        .width(containerRef.current.clientWidth)
-        .height(containerRef.current.clientHeight)
-    }
-  }
-  window.addEventListener("resize", handleResize)
-  return () => window.removeEventListener("resize", handleResize)
-}, [])
 
-if (loadError) {
+  useEffect(() => {
+    const handleResize = () => {
+      if (globeRef.current && containerRef.current) {
+        globeRef.current
+          .width(containerRef.current.clientWidth)
+          .height(containerRef.current.clientHeight)
+      }
+    }
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
+
+  if (loadError) {
+    return (
+      <div className="w-full h-full flex items-center justify-center text-white/30 text-sm">
+        Failed to load globe: {loadError}
+      </div>
+    )
+  }
+
+  const skipIntro = () => {
+    introRef.current = true
+    globeRef.current?.pointOfView({ lat: 38, lng: -97, altitude: 1.5 })
+    const controls = globeRef.current?.controls()
+    if (controls) {
+      controls.enabled = true
+      controls.autoRotate = true
+      controls.autoRotateSpeed = 0.35
+    }
+    setIntroPlaying(false)
+  }
+
   return (
-    <div className="w-full h-full flex items-center justify-center text-white/30 text-sm">
-      Failed to load globe: {loadError}
+    <div className="w-full h-full relative bg-black">
+
+
+
+      {/* Intro text overlay */}
+      {introPlaying && isReady && (
+        <div className="absolute inset-0 z-40 pointer-events-none flex flex-col items-center justify-end pb-24">
+          <div className="text-center animate-pulse">
+            <div className="text-white/20 text-[10px] tracking-[0.4em] uppercase mb-1">WealthClaude</div>
+            <div className="text-white/10 text-xs tracking-widest">Global Stock Markets</div>
+          </div>
+        </div>
+      )}
+
+      {/* Loading overlay */}
+      {!isReady && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-10 bg-[#060a10]">
+          <div className="relative w-16 h-16">
+            <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-ping" />
+            <div className="absolute inset-2 rounded-full border-2 border-primary/40 animate-spin" style={{ animationDuration: "2s" }} />
+            <div className="absolute inset-4 rounded-full bg-primary/20 animate-pulse" />
+          </div>
+          <div className="text-white/40 text-sm font-medium tracking-widest uppercase">Loading Globe</div>
+        </div>
+      )}
+      <div ref={containerRef} className="w-full h-full" />
     </div>
   )
-}
-
-const skipIntro = () => {
-  introRef.current = true
-  globeRef.current?.pointOfView({ lat: 38, lng: -97, altitude: 1.5 })
-  const controls = globeRef.current?.controls()
-  if (controls) {
-    controls.enabled = true
-    controls.autoRotate = true
-    controls.autoRotateSpeed = 0.35
-  }
-  setIntroPlaying(false)
-}
-
-return (
-  <div className="w-full h-full relative bg-black">
-
-
-
-    {/* Intro text overlay */}
-    {introPlaying && isReady && (
-      <div className="absolute inset-0 z-40 pointer-events-none flex flex-col items-center justify-end pb-24">
-        <div className="text-center animate-pulse">
-          <div className="text-white/20 text-[10px] tracking-[0.4em] uppercase mb-1">WealthClaude</div>
-          <div className="text-white/10 text-xs tracking-widest">Global Stock Markets</div>
-        </div>
-      </div>
-    )}
-
-    {/* Loading overlay */}
-    {!isReady && (
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-10 bg-[#060a10]">
-        <div className="relative w-16 h-16">
-          <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-ping" />
-          <div className="absolute inset-2 rounded-full border-2 border-primary/40 animate-spin" style={{ animationDuration: "2s" }} />
-          <div className="absolute inset-4 rounded-full bg-primary/20 animate-pulse" />
-        </div>
-        <div className="text-white/40 text-sm font-medium tracking-widest uppercase">Loading Globe</div>
-      </div>
-    )}
-    <div ref={containerRef} className="w-full h-full" />
-  </div>
-)
 }
 
 // ── PLANETS ─────────────────────────────────────────────────

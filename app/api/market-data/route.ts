@@ -11,7 +11,7 @@ const TICKER_MAP: Record<string, string> = {
   "^MXX": "MEX", // IPC
   "^MERV": "ARG", // MERVAL
   "^IPSA": "CHL", // IPSA
-  "^COLCAP": "COL", // COLCAP
+  "COLCAP.CL": "COL", // COLCAP Colombia
 
   // Europe
   "^FTSE": "GBR", // FTSE 100
@@ -20,7 +20,7 @@ const TICKER_MAP: Record<string, string> = {
   "^IBEX": "ESP", // IBEX 35
   "^AEX": "NLD", // AEX
   "^BFX": "BEL", // BEL 20
-  "^SMI": "CHE", // SMI
+  "^SSMI": "CHE", // SMI Switzerland ✅
   "^OSEAX": "NOR", // Oslo
   "^OMXS30": "SWE", // OMX Stockholm
   "^OMXC25": "DNK", // OMX Copenhagen
@@ -49,11 +49,11 @@ const TICKER_MAP: Record<string, string> = {
   "^STI": "SGP", // STI
   "^KLSE": "MYS", // KLCI
   "^JKSE": "IDN", // IDX
-  "^VNINDEX": "VNM", // VN-Index
-  "^PSEI": "PHL", // PSEi
+  "^VNINDEX.VN": "VNM", // VN-Index Vietnam ✅
+  "PSEI.PS": "PHL", // PSEi Philippines ✅
   "^NZ50": "NZL", // NZX 50
   "^PSI20": "PRT", // PSI 20 Portugal
-  "^KSE100": "PAK", // KSE 100 Pakistan
+  "^KSE100.KA": "PAK", // KSE 100 Pakistan ✅
   "^NSEI": "IND", // Nifty 50
 }
 

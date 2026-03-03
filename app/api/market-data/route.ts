@@ -23,9 +23,9 @@ const TICKER_MAP: Record<string, string> = {
 
 export async function GET() {
   try {
-    const { YahooFinance } = await import("yahoo-finance2")
+    const yf = await import("yahoo-finance2")
+    const YahooFinance = yf.YahooFinance ?? yf.default?.YahooFinance
     const yahooFinance = new YahooFinance()
-
     const tickers = Object.keys(TICKER_MAP)
     const results: Record<string, any> = {}
 

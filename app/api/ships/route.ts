@@ -51,11 +51,6 @@ export async function GET() {
               type: p.NavigationalStatus ?? 0,
             })
           }
-          if (ships.length >= 400) {
-            clearTimeout(timeout)
-            ws.terminate()
-            resolve()
-          }
         }
       } catch { /* skip */ }
     })

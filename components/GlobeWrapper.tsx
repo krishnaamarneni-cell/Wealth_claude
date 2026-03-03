@@ -9,6 +9,7 @@ interface GlobeWrapperProps {
   marketData: MarketDataMap
   selectedCountry: string | null
   onCountrySelect: (isoA3: string | null, name: string | null) => void
+  showShips?: boolean
 }
 
 // Minimal type shim for Globe.gl
@@ -18,7 +19,7 @@ declare global {
   }
 }
 
-export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: GlobeWrapperProps) {
+export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, showShips = false }: GlobeWrapperProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const globeRef = useRef<any>(null)
   const [isReady, setIsReady] = useState(false)
@@ -26,6 +27,8 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
   const [hoveredCountry, setHoveredCountry] = useState<string | null>(null)
   const [introPlaying, setIntroPlaying] = useState(true)
   const introRef = useRef(false)
+  const [ships, setShips] = useState<any[]>([])
+  const shipsLoadedRef = useRef(false)
 
   // Load Globe.gl from CDN
   useEffect(() => {
@@ -167,6 +170,27 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
             onCountrySelect(iso, name)
           }
         })
+        // Ships layer
+        .pointsData([])
+        .pointLat((s: any) => s.lat)
+        .pointLng((s: any) => s.lng)
+        .pointAltitude(0.005)
+        .pointRadius(0.25)
+        .pointColor((s: any) => {
+          // Color by navigational status/type
+          const t = s.type
+          if (t === 1 || t === 2 || t === 3) return "#22d3ee" // underway
+          if (t === 5) return "#f97316"                        // moored
+          if (t === 8) return "#a855f7"                        // fishing
+          return "#60a5fa"                                      // default blue
+        })
+        .pointLabel((s: any) => `
+          <div style="background:rgba(2,12,27,0.95);border:1px solid rgba(100,160,220,0.3);border-radius:8px;padding:8px 12px;font-family:system-ui,sans-serif;min-width:140px">
+            <div style="color:rgba(255,255,255,0.9);font-size:11px;font-weight:700">${s.name}</div>
+            <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:2px">${s.lane}</div>
+            <div style="color:#60a5fa;font-size:10px">Speed: ${s.speed?.toFixed(1)} kn</div>
+          </div>
+        `)
         .onPolygonHover((feat: any) => {
           if (feat) {
             const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3 ?? ""
@@ -337,68 +361,92 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect }: G
     }
   }, [selectedCountry])
 
-  // Resize handler
+  // Fetch ships when toggled on
   useEffect(() => {
-    const handleResize = () => {
-      if (globeRef.current && containerRef.current) {
-        globeRef.current
-          .width(containerRef.current.clientWidth)
-          .height(containerRef.current.clientHeight)
-      }
+    if (!isReady) return
+    if (!showShips) {
+      globeRef.current?.pointsData([])
+      return
     }
-    window.addEventListener("resize", handleResize)
-    return () => window.removeEventListener("resize", handleResize)
-  }, [])
-
-  if (loadError) {
-    return (
-      <div className="w-full h-full flex items-center justify-center text-white/30 text-sm">
-        Failed to load globe: {loadError}
-      </div>
-    )
-  }
-
-  const skipIntro = () => {
-    introRef.current = true
-    globeRef.current?.pointOfView({ lat: 38, lng: -97, altitude: 1.5 })
-    const controls = globeRef.current?.controls()
-    if (controls) {
-      controls.enabled = true
-      controls.autoRotate = true
-      controls.autoRotateSpeed = 0.35
+    if (shipsLoadedRef.current && ships.length > 0) {
+      globeRef.current?.pointsData(ships)
+      return
     }
-    setIntroPlaying(false)
+    const fetchShips = async () => {
+      try {
+        const res = await fetch("/api/ships")
+        const json = await res.json()
+        if (json.ships?.length) {
+          shipsLoadedRef.current = true
+          setShips(json.ships)
+          globeRef.current?.pointsData(json.ships)
+        }
+      } catch { /* silent */ }
+    }
+    fetchShips()
+    const interval = setInterval(fetchShips, 60000)
+    return () => clearInterval(interval)
+  }, [showShips, isReady])
+  const handleResize = () => {
+    if (globeRef.current && containerRef.current) {
+      globeRef.current
+        .width(containerRef.current.clientWidth)
+        .height(containerRef.current.clientHeight)
+    }
   }
+  window.addEventListener("resize", handleResize)
+  return () => window.removeEventListener("resize", handleResize)
+}, [])
 
+if (loadError) {
   return (
-    <div className="w-full h-full relative bg-black">
-
-
-
-      {/* Intro text overlay */}
-      {introPlaying && isReady && (
-        <div className="absolute inset-0 z-40 pointer-events-none flex flex-col items-center justify-end pb-24">
-          <div className="text-center animate-pulse">
-            <div className="text-white/20 text-[10px] tracking-[0.4em] uppercase mb-1">WealthClaude</div>
-            <div className="text-white/10 text-xs tracking-widest">Global Stock Markets</div>
-          </div>
-        </div>
-      )}
-
-      {/* Loading overlay */}
-      {!isReady && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-10 bg-[#060a10]">
-          <div className="relative w-16 h-16">
-            <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-ping" />
-            <div className="absolute inset-2 rounded-full border-2 border-primary/40 animate-spin" style={{ animationDuration: "2s" }} />
-            <div className="absolute inset-4 rounded-full bg-primary/20 animate-pulse" />
-          </div>
-          <div className="text-white/40 text-sm font-medium tracking-widest uppercase">Loading Globe</div>
-        </div>
-      )}
-      <div ref={containerRef} className="w-full h-full" />
+    <div className="w-full h-full flex items-center justify-center text-white/30 text-sm">
+      Failed to load globe: {loadError}
     </div>
   )
+}
+
+const skipIntro = () => {
+  introRef.current = true
+  globeRef.current?.pointOfView({ lat: 38, lng: -97, altitude: 1.5 })
+  const controls = globeRef.current?.controls()
+  if (controls) {
+    controls.enabled = true
+    controls.autoRotate = true
+    controls.autoRotateSpeed = 0.35
+  }
+  setIntroPlaying(false)
+}
+
+return (
+  <div className="w-full h-full relative bg-black">
+
+
+
+    {/* Intro text overlay */}
+    {introPlaying && isReady && (
+      <div className="absolute inset-0 z-40 pointer-events-none flex flex-col items-center justify-end pb-24">
+        <div className="text-center animate-pulse">
+          <div className="text-white/20 text-[10px] tracking-[0.4em] uppercase mb-1">WealthClaude</div>
+          <div className="text-white/10 text-xs tracking-widest">Global Stock Markets</div>
+        </div>
+      </div>
+    )}
+
+    {/* Loading overlay */}
+    {!isReady && (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-10 bg-[#060a10]">
+        <div className="relative w-16 h-16">
+          <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-ping" />
+          <div className="absolute inset-2 rounded-full border-2 border-primary/40 animate-spin" style={{ animationDuration: "2s" }} />
+          <div className="absolute inset-4 rounded-full bg-primary/20 animate-pulse" />
+        </div>
+        <div className="text-white/40 text-sm font-medium tracking-widest uppercase">Loading Globe</div>
+      </div>
+    )}
+    <div ref={containerRef} className="w-full h-full" />
+  </div>
+)
 }
 
 // ── PLANETS ─────────────────────────────────────────────────

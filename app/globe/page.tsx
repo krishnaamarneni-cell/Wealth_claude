@@ -46,13 +46,7 @@ export default function GlobePage() {
     <div className="relative w-screen h-screen overflow-hidden bg-black select-none">
 
       {/* ── SPACE BACKGROUND ── */}
-      <div className="absolute inset-0 pointer-events-none z-0">
-        {/* Galaxy glow */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] rounded-full"
-          style={{ background: "radial-gradient(ellipse at center, rgba(30,58,95,0.15) 0%, rgba(6,10,16,0) 70%)" }} />
-        <div className="absolute top-1/4 right-1/4 w-96 h-96 rounded-full"
-          style={{ background: "radial-gradient(ellipse at center, rgba(16,185,129,0.03) 0%, transparent 70%)" }} />
-      </div>
+      <div className="absolute inset-0 pointer-events-none z-0 bg-black" />
 
       {/* ── GLOBE (full screen) ── */}
       <div className="absolute inset-0 z-10" style={{ height: "100vh", width: "100vw" }}>

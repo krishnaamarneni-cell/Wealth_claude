@@ -48,7 +48,11 @@ Respond with ONLY a valid JSON object — no markdown, no code blocks, no explan
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { temperature: 0.7, maxOutputTokens: 3000 },
+                generationConfig: {
+                  temperature: 0.7,
+                  maxOutputTokens: 3000,
+                  thinkingConfig: { thinkingBudget: 0 }
+                },
               }),
             }
           )
@@ -109,6 +113,8 @@ Respond with ONLY a valid JSON object — no markdown, no code blocks, no explan
       const cleaned = rawContent
         .replace(/^```(?:json)?\s*/i, '')
         .replace(/\s*```\s*$/, '')
+        .replace(/\[\d+\]/g, '')
+        .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
         .trim()
       const match = cleaned.match(/\{[\s\S]*\}/)
       if (!match) throw new Error('No JSON object found')

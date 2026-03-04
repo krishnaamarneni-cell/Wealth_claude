@@ -171,25 +171,24 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
           }
         })
         // Ships layer — using custom HTML icons
-        .pointsData([])
-        .pointLat((s: any) => s.lat)
-        .pointLng((s: any) => s.lng)
-        .pointAltitude(0.005)
-        .pointRadius(0.4)
-        .pointResolution(4)
-        .pointColor((s: any) => {
-          const t = s.type
-          if (t === 1 || t === 2 || t === 3) return "#22d3ee"
-          if (t === 5) return "#f97316"
-          if (t === 8) return "#a855f7"
-          return "#60a5fa"
-        })
-        .pointLabel((s: any) => `
-          <div style="background:rgba(2,12,27,0.95);border:1px solid rgba(100,160,220,0.3);border-radius:8px;padding:8px 12px;font-family:system-ui,sans-serif;min-width:140px">
-            <div style="color:rgba(255,255,255,0.9);font-size:11px;font-weight:700">${s.name}</div>
-            <div style="color:#60a5fa;font-size:10px">Speed: ${s.speed?.toFixed(1)} kn</div>
+        // Shipping route arcs
+        .arcsData([])
+        .arcStartLat((r: any) => r.startLat)
+        .arcStartLng((r: any) => r.startLng)
+        .arcEndLat((r: any) => r.endLat)
+        .arcEndLng((r: any) => r.endLng)
+        .arcAltitudeAutoScale(0.3)
+        .arcColor(() => ["rgba(34,211,238,0)", "rgba(34,211,238,0.6)", "rgba(34,211,238,0)"])
+        .arcDashLength(0.4)
+        .arcDashGap(0.2)
+        .arcDashAnimateTime(3000)
+        .arcStroke(0.5)
+        .arcLabel((r: any) => `
+          <div style="background:rgba(2,12,27,0.95);border:1px solid rgba(100,160,220,0.3);border-radius:8px;padding:8px 12px;font-family:system-ui,sans-serif">
+            <div style="color:rgba(255,255,255,0.9);font-size:11px;font-weight:700">🚢 ${r.name}</div>
           </div>
         `)
+        .pointsData([])
         .onPolygonHover((feat: any) => {
           if (feat) {
             const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3 ?? ""

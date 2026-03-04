@@ -5,7 +5,7 @@ export async function POST(req: NextRequest) {
     // Verify CRON_SECRET
     const authHeader = req.headers.get('authorization')
     const expectedSecret = `Bearer ${process.env.CRON_SECRET}`
-    
+
     if (authHeader !== expectedSecret) {
       return NextResponse.json(
         { error: 'Unauthorized' },

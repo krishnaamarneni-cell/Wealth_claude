@@ -227,35 +227,48 @@ Respond ONLY with valid JSON, absolutely no markdown or code blocks:
 
   let raw = ''
 
-  // ── Try Gemini first (free) ──────────────────────────────────────────────
+  // ── Try Gemini models in order (all free) ────────────────────────────────
   const geminiKey = process.env.GEMINI_API_KEY
+  const geminiModels = [
+    'gemini-2.5-flash',      // best quality
+    'gemini-2.0-flash',      // stable fallback
+    'gemini-2.0-flash-lite', // lightweight fallback
+  ]
+
   if (geminiKey) {
-    try {
-      const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 3000 },
-          }),
+    for (const model of geminiModels) {
+      if (raw) break
+      try {
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { temperature: 0.7, maxOutputTokens: 3000 },
+            }),
+          }
+        )
+        if (geminiRes.ok) {
+          const geminiData = await geminiRes.json()
+          const candidate = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+          if (candidate) {
+            raw = candidate
+            console.log(`[auto-blog] Used ${model} ✅`)
+          }
+        } else {
+          console.warn(`[auto-blog] ${model} failed (${geminiRes.status}), trying next...`)
         }
-      )
-      if (geminiRes.ok) {
-        const geminiData = await geminiRes.json()
-        raw = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
-        console.log('[auto-blog] Used Gemini for generation ✅')
-      } else {
-        console.warn(`[auto-blog] Gemini failed (${geminiRes.status}), falling back...`)
+      } catch (e) {
+        console.warn(`[auto-blog] ${model} threw error, trying next...`, e)
       }
-    } catch (e) {
-      console.warn('[auto-blog] Gemini threw error, falling back...', e)
     }
   }
 
-  // ── Fallback to Perplexity sonar ─────────────────────────────────────────
+  // ── Final fallback: Perplexity sonar ─────────────────────────────────────
   if (!raw) {
+    console.warn('[auto-blog] All Gemini models failed, falling back to Perplexity sonar...')
     const perplexityRes = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
       headers: {
@@ -270,13 +283,14 @@ Respond ONLY with valid JSON, absolutely no markdown or code blocks:
       }),
     })
     if (!perplexityRes.ok) {
-      console.error(`[auto-blog] Both Gemini and Perplexity failed for "${topic}": ${perplexityRes.status}`)
+      console.error(`[auto-blog] All models failed for "${topic}": ${perplexityRes.status}`)
       return null
     }
     const perplexityData = await perplexityRes.json()
     raw = perplexityData.choices?.[0]?.message?.content ?? ''
-    console.log('[auto-blog] Used Perplexity sonar as fallback ✅')
+    console.log('[auto-blog] Used Perplexity sonar as final fallback ✅')
   }
+
 
 
   try {

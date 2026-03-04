@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from "react"
+import * as THREE from "three"
 import { MarketDataMap } from "@/lib/mockData"
 import { pctToColor, pctToGlow } from "@/lib/colorScale"
 import { NO_EXCHANGE_COUNTRIES } from "@/lib/countryIndexMap"
@@ -10,13 +11,6 @@ interface GlobeWrapperProps {
   selectedCountry: string | null
   onCountrySelect: (isoA3: string | null, name: string | null) => void
   showShips?: boolean
-}
-
-// Minimal type shim for Globe.gl
-declare global {
-  interface Window {
-    Globe: any
-  }
 }
 
 export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, showShips = false }: GlobeWrapperProps) {
@@ -30,25 +24,10 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
   const [routes, setRoutes] = useState<any[]>([])
   const routesLoadedRef = useRef(false)
 
-  // Load Globe.gl from CDN
+  // Just set ready — globe.gl loaded via npm dynamic import
   useEffect(() => {
     if (typeof window === "undefined") return
-
-    const loadGlobe = async () => {
-      // globe.gl bundles Three.js, so it will be available on window.THREE after loading
-      if (!(window as any).Globe) {
-        await new Promise<void>((res, rej) => {
-          const s = document.createElement("script")
-          s.src = "https://cdn.jsdelivr.net/npm/globe.gl@2.30.0/dist/globe.gl.min.js"
-          s.onload = () => res()
-          s.onerror = () => rej(new Error("Globe.gl CDN load failed"))
-          document.head.appendChild(s)
-        })
-      }
-      setIsReady(true)
-    }
-
-    loadGlobe().catch(e => setLoadError(e.message))
+    setIsReady(true)
   }, [])
 
   // Load GeoJSON + init globe
@@ -62,18 +41,15 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
         const res = await fetch("https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson")
         geoData = await res.json()
       } catch {
-        const res = await fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json")
-        const topo = await res.json()
         geoData = { type: "FeatureCollection", features: [] }
       }
 
-      // Store features for later use (labels shown after intro)
       const marketFeatures = (geoData.features ?? []).filter((feat: any) => {
         const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3 ?? ""
         return marketData[iso] !== undefined
       })
 
-      const GlobeGL = (window as any).Globe
+      const { default: GlobeGL } = await import("globe.gl")
       if (!GlobeGL || !containerRef.current) return
 
       const W = containerRef.current.clientWidth
@@ -82,15 +58,11 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
       const globe = GlobeGL()
         .width(W)
         .height(H)
-        // Background
         .backgroundColor("#000000")
-        // Globe texture
         .globeImageUrl("https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg")
         .bumpImageUrl("https://unpkg.com/three-globe/example/img/earth-topology.png")
-        // Atmosphere
         .atmosphereColor("#2389da")
         .atmosphereAltitude(0.22)
-        // Country name labels — market countries only
         .htmlElementsData([])
         .htmlElement((feat: any) => {
           const name = feat.properties?.ADMIN ?? feat.properties?.NAME ?? ""
@@ -113,10 +85,8 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
         .htmlLat((feat: any) => {
           const coords = feat.geometry?.coordinates
           if (!coords) return 0
-          // Handle both Polygon and MultiPolygon
           const ring = feat.geometry.type === "MultiPolygon" ? coords[0][0] : coords[0]
           const lats = ring.map((c: number[]) => c[1])
-          const lngs = ring.map((c: number[]) => c[0])
           return lats.reduce((a: number, b: number) => a + b, 0) / lats.length
         })
         .htmlLng((feat: any) => {
@@ -128,7 +98,6 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
         })
         .htmlAltitude(0.04)
         .htmlTransitionDuration(0)
-        // Countries polygon layer
         .polygonsData(geoData.features ?? [])
         .polygonAltitude((feat: any) => {
           const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3
@@ -161,25 +130,25 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
             onCountrySelect(iso, name)
           }
         })
-        // Ships layer — using custom HTML icons
-        // Shipping route arcs
-        .arcsData([])
-        .arcStartLat((r: any) => r.startLat)
-        .arcStartLng((r: any) => r.startLng)
-        .arcEndLat((r: any) => r.endLat)
-        .arcEndLng((r: any) => r.endLng)
-        .arcAltitudeAutoScale(0.3)
-        .arcColor(() => ["rgba(34,211,238,0)", "rgba(34,211,238,0.6)", "rgba(34,211,238,0)"])
-        .arcDashLength(0.4)
-        .arcDashGap(0.2)
-        .arcDashAnimateTime(3000)
-        .arcStroke(0.5)
-        .arcLabel((r: any) => `
-          <div style="background:rgba(2,12,27,0.95);border:1px solid rgba(100,160,220,0.3);border-radius:8px;padding:8px 12px;font-family:system-ui,sans-serif">
-            <div style="color:rgba(255,255,255,0.9);font-size:11px;font-weight:700">🚢 ${r.name}</div>
+        .pointsData([])
+        .pointLat((s: any) => s.lat)
+        .pointLng((s: any) => s.lng)
+        .pointAltitude(0.005)
+        .pointRadius(0.4)
+        .pointResolution(4)
+        .pointColor((s: any) => {
+          const t = s.type
+          if (t === 1 || t === 2 || t === 3) return "#22d3ee"
+          if (t === 5) return "#f97316"
+          if (t === 8) return "#a855f7"
+          return "#60a5fa"
+        })
+        .pointLabel((s: any) => `
+          <div style="background:rgba(2,12,27,0.95);border:1px solid rgba(100,160,220,0.3);border-radius:8px;padding:8px 12px;font-family:system-ui,sans-serif;min-width:140px">
+            <div style="color:rgba(255,255,255,0.9);font-size:11px;font-weight:700">${s.name}</div>
+            <div style="color:#60a5fa;font-size:10px">Speed: ${s.speed?.toFixed(1)} kn</div>
           </div>
         `)
-        .pointsData([])
         .onPolygonHover((feat: any) => {
           if (feat) {
             const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3 ?? ""
@@ -187,7 +156,6 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
           } else {
             setHoveredCountry(null)
           }
-          // Update altitude for hover
           globe.polygonAltitude((f: any) => {
             const iso2 = f.properties?.ADM0_A3 ?? f.properties?.ISO_A3
             if (iso2 === selectedCountry) return 0.08
@@ -196,24 +164,19 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
           })
         })
 
-      // Initial position — center over Atlantic for best first view
       globe.pointOfView({ lat: 20, lng: 10, altitude: 2.2 })
-
-      // Render globe to DOM FIRST
       globe(containerRef.current)
       globeRef.current = globe
 
-      // THEN set up controls
       setTimeout(() => {
         const controls = globe.controls()
         if (controls) {
           controls.autoRotate = false
           controls.enableDamping = true
-          controls.enabled = false // disable user control during intro
+          controls.enabled = false
         }
       }, 100)
 
-      // Listen for skip event from page
       window.addEventListener("skipGlobeIntro", () => {
         introRef.current = true
         globeRef.current?.pointOfView({ lat: 38, lng: -97, altitude: 1.5 })
@@ -231,26 +194,23 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
         if (introRef.current) return
         introRef.current = true
 
-        const DURATION = 7000 // 7 seconds
+        const DURATION = 7000
         const start = performance.now()
 
-        // Keyframes: [time 0-1, lat, lng, altitude]
         const KEYFRAMES = [
-          { t: 0.00, lat: 10, lng: 20, alt: 12.0 }, // far out — full solar system view
-          { t: 0.15, lat: 15, lng: 10, alt: 10.0 }, // begin approach
-          { t: 0.30, lat: 20, lng: 5, alt: 7.5 }, // flying through space
-          { t: 0.45, lat: 25, lng: -5, alt: 5.5 }, // planets drifting past
-          { t: 0.60, lat: 30, lng: -15, alt: 4.0 }, // Earth growing larger
-          { t: 0.72, lat: 35, lng: -30, alt: 3.0 }, // atmosphere visible
-          { t: 0.82, lat: 40, lng: -50, alt: 2.2 }, // approaching North America
-          { t: 0.90, lat: 42, lng: -80, alt: 1.8 }, // slowing down
-          { t: 0.96, lat: 40, lng: -95, alt: 1.6 }, // final approach USA
-          { t: 1.00, lat: 38, lng: -97, alt: 1.5 }, // locked on USA
+          { t: 0.00, lat: 10, lng: 20, alt: 12.0 },
+          { t: 0.15, lat: 15, lng: 10, alt: 10.0 },
+          { t: 0.30, lat: 20, lng: 5, alt: 7.5 },
+          { t: 0.45, lat: 25, lng: -5, alt: 5.5 },
+          { t: 0.60, lat: 30, lng: -15, alt: 4.0 },
+          { t: 0.72, lat: 35, lng: -30, alt: 3.0 },
+          { t: 0.82, lat: 40, lng: -50, alt: 2.2 },
+          { t: 0.90, lat: 42, lng: -80, alt: 1.8 },
+          { t: 0.96, lat: 40, lng: -95, alt: 1.6 },
+          { t: 1.00, lat: 38, lng: -97, alt: 1.5 },
         ]
 
         const lerp = (a: number, b: number, t: number) => a + (b - a) * t
-
-        // Easing — ease in-out cubic
         const ease = (t: number) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
 
         const tick = (now: number) => {
@@ -258,38 +218,31 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
           const rawT = Math.min(elapsed / DURATION, 1)
           const t = ease(rawT)
 
-          // Find surrounding keyframes
           let k0 = KEYFRAMES[0]
           let k1 = KEYFRAMES[KEYFRAMES.length - 1]
           for (let i = 0; i < KEYFRAMES.length - 1; i++) {
             if (t >= KEYFRAMES[i].t && t <= KEYFRAMES[i + 1].t) {
-              k0 = KEYFRAMES[i]
-              k1 = KEYFRAMES[i + 1]
-              break
+              k0 = KEYFRAMES[i]; k1 = KEYFRAMES[i + 1]; break
             }
           }
 
-          // Local t between the two keyframes
           const span = k1.t - k0.t || 0.001
           const localT = Math.min((t - k0.t) / span, 1)
-
-          const lat = lerp(k0.lat, k1.lat, localT)
-          const lng = lerp(k0.lng, k1.lng, localT)
-          const alt = lerp(k0.alt, k1.alt, localT)
-
-          globe.pointOfView({ lat, lng, altitude: alt })
+          globe.pointOfView({
+            lat: lerp(k0.lat, k1.lat, localT),
+            lng: lerp(k0.lng, k1.lng, localT),
+            altitude: lerp(k0.alt, k1.alt, localT),
+          })
 
           if (rawT < 1) {
             requestAnimationFrame(tick)
           } else {
-            // Intro complete — hand control back to user
             const controls = globe.controls()
             if (controls) {
               controls.enabled = true
               controls.autoRotate = true
               controls.autoRotateSpeed = 0.35
             }
-            // Show country labels now that intro is done
             globe
               .htmlElementsData(marketFeatures)
               .htmlElement((feat: any) => {
@@ -315,18 +268,20 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
         }
 
         requestAnimationFrame(tick)
-      }, 800) // small delay after mount
+      }, 800)
 
-      // Stars + planets via Three.js scene
+      // ── Stars + planets + orbiters ── KEY FIX: no window.THREE check
       setTimeout(() => {
         try {
           const scene = globe.scene()
-          if (scene && (window as any).THREE) {
+          if (scene) {
             addStars(scene)
             addPlanets(scene)
             addOrbiters(scene)
           }
-        } catch (_) { }
+        } catch (e) {
+          console.error("Scene setup error:", e)
+        }
       }, 500)
     }
 
@@ -340,51 +295,35 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
       const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3
       return iso === selectedCountry ? 0.08 : 0.006
     })
-    // Fly to selected country
-    if (selectedCountry && globeRef.current) {
-      const globe = globeRef.current
-      const controls = globe.controls()
-      if (controls) {
-        controls.autoRotate = false
-      }
+    if (selectedCountry) {
+      const controls = globeRef.current.controls()
+      if (controls) controls.autoRotate = false
     }
   }, [selectedCountry])
 
-  const renderShips = (shipList: any[]) => {
-    if (!globeRef.current) return
-    // Remove old ship markers
-    document.querySelectorAll(".ship-marker").forEach(el => el.remove())
-    if (!shipList.length) return
-    // Use htmlElementsData for ship icons
-    globeRef.current.htmlElementsData(
-      [...(introPlaying ? [] : marketFeatures), ...shipList.map(s => ({ ...s, _isShip: true }))]
-    )
-  }
-
-  // Fetch shipping routes when toggled on
+  // Ships toggle
   useEffect(() => {
     if (!isReady) return
     if (!showShips) {
-      globeRef.current?.arcsData([])
       globeRef.current?.pointsData([])
       return
     }
     if (routesLoadedRef.current && routes.length > 0) {
-      globeRef.current?.arcsData(routes)
+      globeRef.current?.pointsData(routes)
       return
     }
-    const fetchRoutes = async () => {
+    const fetchShips = async () => {
       try {
         const res = await fetch("/api/ships")
         const json = await res.json()
-        if (json.routes?.length) {
+        if (json.ships?.length) {
           routesLoadedRef.current = true
-          setRoutes(json.routes)
-          globeRef.current?.arcsData(json.routes)
+          setRoutes(json.ships)
+          globeRef.current?.pointsData(json.ships)
         }
       } catch { /* silent */ }
     }
-    fetchRoutes()
+    fetchShips()
   }, [showShips, isReady])
 
   useEffect(() => {
@@ -422,9 +361,6 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
   return (
     <div className="w-full h-full relative bg-black">
 
-
-
-      {/* Intro text overlay */}
       {introPlaying && isReady && (
         <div className="absolute inset-0 z-40 pointer-events-none flex flex-col items-center justify-end pb-24">
           <div className="text-center animate-pulse">
@@ -434,7 +370,6 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
         </div>
       )}
 
-      {/* Loading overlay */}
       {!isReady && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-10 bg-[#060a10]">
           <div className="relative w-16 h-16">
@@ -445,20 +380,22 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
           <div className="text-white/40 text-sm font-medium tracking-widest uppercase">Loading Globe</div>
         </div>
       )}
+
       <div ref={containerRef} className="w-full h-full" />
+
       {/* Zoom controls */}
       {isReady && (
         <div style={{ position: "absolute", bottom: "24px", right: "16px", display: "flex", flexDirection: "column", gap: "8px", zIndex: 20 }}>
           <button
             onClick={() => {
-              const controls = (globeRef.current as any)?.controls?.()
+              const controls = globeRef.current?.controls?.()
               if (controls) { controls.dollyIn(1.3); controls.update() }
             }}
             style={{ width: "36px", height: "36px", borderRadius: "50%", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.7)", fontSize: "20px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
           >+</button>
           <button
             onClick={() => {
-              const controls = (globeRef.current as any)?.controls?.()
+              const controls = globeRef.current?.controls?.()
               if (controls) { controls.dollyOut(1.3); controls.update() }
             }}
             style={{ width: "36px", height: "36px", borderRadius: "50%", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.7)", fontSize: "20px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
@@ -469,357 +406,116 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
   )
 }
 
-// ── PLANETS ─────────────────────────────────────────────────
-function addPlanets(scene: any) {
+// ── PLANETS ──────────────────────────────────────────────────────────
+function addPlanets(scene: THREE.Scene) {
   try {
-    const THREE = (window as any).THREE
-    if (!THREE) return
-
-    // Planet definitions — position is relative to Earth (globe center = 0,0,0)
-    // Earth radius in globe.gl scene is ~100 units
     const PLANETS = [
-      {
-        name: "mercury",
-        radius: 3.5,
-        color: 0x9ca3af,  // gray
-        x: 220, y: -60, z: -180,
-        rotSpeed: 0.003,
-        emissive: 0x4b5563,
-        rings: false,
-      },
-      {
-        name: "venus",
-        radius: 6,
-        color: 0xe8c97e,  // pale yellow
-        x: -260, y: 40, z: -220,
-        rotSpeed: 0.002,
-        emissive: 0x92691a,
-        rings: false,
-      },
-      {
-        name: "mars",
-        radius: 5,
-        color: 0xc1440e,  // red-orange
-        x: 300, y: 80, z: -260,
-        rotSpeed: 0.004,
-        emissive: 0x7a1a00,
-        rings: false,
-      },
-      {
-        name: "jupiter",
-        radius: 28,
-        color: 0xc88b3a,  // golden brown
-        x: -380, y: -100, z: -400,
-        rotSpeed: 0.007,
-        emissive: 0x7a4a10,
-        rings: false,
-      },
-      {
-        name: "saturn",
-        radius: 22,
-        color: 0xe4d090,  // pale gold
-        x: 420, y: 120, z: -480,
-        rotSpeed: 0.005,
-        emissive: 0x8a7030,
-        rings: true,
-      },
-      {
-        name: "uranus",
-        radius: 14,
-        color: 0x7de8e8,  // pale cyan
-        x: -480, y: 60, z: -560,
-        rotSpeed: 0.003,
-        emissive: 0x1a8080,
-        rings: false,
-      },
-      {
-        name: "neptune",
-        radius: 13,
-        color: 0x3f54ba,  // deep blue
-        x: 500, y: -80, z: -620,
-        rotSpeed: 0.003,
-        emissive: 0x1a2560,
-        rings: false,
-      },
-      {
-        name: "moon",
-        radius: 3,
-        color: 0xd1d5db,  // light gray
-        x: 130, y: 30, z: -160,
-        rotSpeed: 0.001,
-        emissive: 0x4b5563,
-        rings: false,
-      },
+      { name: "mercury", radius: 3.5, color: 0x9ca3af, x: 220, y: -60, z: -180, rotSpeed: 0.003, emissive: 0x4b5563, rings: false },
+      { name: "venus", radius: 6, color: 0xe8c97e, x: -260, y: 40, z: -220, rotSpeed: 0.002, emissive: 0x92691a, rings: false },
+      { name: "mars", radius: 5, color: 0xc1440e, x: 300, y: 80, z: -260, rotSpeed: 0.004, emissive: 0x7a1a00, rings: false },
+      { name: "jupiter", radius: 28, color: 0xc88b3a, x: -380, y: -100, z: -400, rotSpeed: 0.007, emissive: 0x7a4a10, rings: false },
+      { name: "saturn", radius: 22, color: 0xe4d090, x: 420, y: 120, z: -480, rotSpeed: 0.005, emissive: 0x8a7030, rings: true },
+      { name: "uranus", radius: 14, color: 0x7de8e8, x: -480, y: 60, z: -560, rotSpeed: 0.003, emissive: 0x1a8080, rings: false },
+      { name: "neptune", radius: 13, color: 0x3f54ba, x: 500, y: -80, z: -620, rotSpeed: 0.003, emissive: 0x1a2560, rings: false },
+      { name: "moon", radius: 3, color: 0xd1d5db, x: 130, y: 30, z: -160, rotSpeed: 0.001, emissive: 0x4b5563, rings: false },
     ]
 
-    const planetMeshes: any[] = []
+    const meshes: { mesh: THREE.Object3D, rotSpeed: number }[] = []
 
     for (const p of PLANETS) {
-      // Planet sphere
-      const geo = new THREE.SphereGeometry(p.radius, 32, 32)
-      const mat = new THREE.MeshPhongMaterial({
-        color: p.color,
-        emissive: p.emissive,
-        shininess: 15,
-      })
-      const mesh = new THREE.Mesh(geo, mat)
+      const mat = new THREE.MeshPhongMaterial({ color: p.color, emissive: p.emissive, shininess: 15 })
+      const mesh = new THREE.Mesh(new THREE.SphereGeometry(p.radius, 32, 32), mat)
       mesh.position.set(p.x, p.y, p.z)
       mesh.name = p.name
       scene.add(mesh)
-      planetMeshes.push({ mesh, rotSpeed: p.rotSpeed })
+      meshes.push({ mesh, rotSpeed: p.rotSpeed })
 
-      // Saturn rings
       if (p.rings) {
-        const ringGeo = new THREE.TorusGeometry(p.radius * 1.9, p.radius * 0.55, 2, 80)
-        const ringMat = new THREE.MeshPhongMaterial({
-          color: 0xc8a95a,
-          emissive: 0x5a3e10,
-          transparent: true,
-          opacity: 0.82,
-          side: THREE.DoubleSide,
-        })
-        const ring = new THREE.Mesh(ringGeo, ringMat)
+        const rMat = new THREE.MeshPhongMaterial({ color: 0xc8a95a, emissive: 0x5a3e10, transparent: true, opacity: 0.82, side: THREE.DoubleSide })
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(p.radius * 1.9, p.radius * 0.55, 2, 80), rMat)
         ring.rotation.x = Math.PI / 2.8
         ring.position.set(p.x, p.y, p.z)
         scene.add(ring)
-        planetMeshes.push({ mesh: ring, rotSpeed: p.rotSpeed * 0.4 })
+        meshes.push({ mesh: ring, rotSpeed: p.rotSpeed * 0.4 })
       }
 
-      // Subtle glow sprite behind each planet
-      const glowCanvas = document.createElement("canvas")
-      glowCanvas.width = 128
-      glowCanvas.height = 128
-      const gCtx = glowCanvas.getContext("2d")!
-      const gGrad = gCtx.createRadialGradient(64, 64, 0, 64, 64, 64)
-      const glowHex = "#" + p.color.toString(16).padStart(6, "0")
-      gGrad.addColorStop(0, glowHex + "33")
-      gGrad.addColorStop(0.4, glowHex + "11")
-      gGrad.addColorStop(1, "rgba(0,0,0,0)")
-      gCtx.fillStyle = gGrad
-      gCtx.fillRect(0, 0, 128, 128)
-      const glowTex = new THREE.CanvasTexture(glowCanvas)
-      const glowMat = new THREE.SpriteMaterial({
-        map: glowTex, transparent: true,
-        depthWrite: false, blending: THREE.AdditiveBlending,
-      })
-      const glow = new THREE.Sprite(glowMat)
+      // Glow sprite
+      const gc = document.createElement("canvas"); gc.width = 128; gc.height = 128
+      const gx = gc.getContext("2d")!
+      const gg = gx.createRadialGradient(64, 64, 0, 64, 64, 64)
+      const gh = "#" + p.color.toString(16).padStart(6, "0")
+      gg.addColorStop(0, gh + "33")
+      gg.addColorStop(0.4, gh + "11")
+      gg.addColorStop(1, "rgba(0,0,0,0)")
+      gx.fillStyle = gg; gx.fillRect(0, 0, 128, 128)
+      const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(gc), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }))
       glow.scale.set(p.radius * 6, p.radius * 6, 1)
       glow.position.set(p.x, p.y, p.z)
       scene.add(glow)
     }
 
-    // Add ambient + directional light for planets
-    const ambient = new THREE.AmbientLight(0xffffff, 0.15)
-    scene.add(ambient)
-
+    scene.add(new THREE.AmbientLight(0xffffff, 0.15))
     const sun = new THREE.DirectionalLight(0xfff4e0, 1.8)
     sun.position.set(-600, 200, 400)
     scene.add(sun)
 
-    // Animate planet rotations every frame
     const animate = () => {
       requestAnimationFrame(animate)
-      for (const { mesh, rotSpeed } of planetMeshes) {
-        mesh.rotation.y += rotSpeed
-      }
+      meshes.forEach(({ mesh, rotSpeed }) => { mesh.rotation.y += rotSpeed })
     }
     animate()
-
-  } catch (e) {
-    console.error("Planets error:", e)
-  }
+  } catch (e) { console.error("Planets error:", e) }
 }
 
-// ── ISS + SATELLITES ─────────────────────────────────────────
-function addOrbiters(scene: any) {
+// ── ISS + SATELLITES ──────────────────────────────────────────────────
+function addOrbiters(scene: THREE.Scene) {
   try {
-    const THREE = (window as any).THREE
-    if (!THREE) return
+    const R = 100
 
-    const EARTH_RADIUS = 100 // globe.gl earth radius in scene units
-    const orbiters: any[] = []
-
-    // ── BUILD ISS ──────────────────────────────────────────
+    // ISS
     const issGroup = new THREE.Group()
-
-    // Main body
-    const bodyGeo = new THREE.BoxGeometry(8, 2, 2)
-    const metalMat = new THREE.MeshPhongMaterial({
-      color: 0xd0d8e8, emissive: 0x3a4a6a, shininess: 80,
-    })
-    issGroup.add(new THREE.Mesh(bodyGeo, metalMat))
-
-    // Solar panel left
-    const panelGeo = new THREE.BoxGeometry(14, 0.3, 4)
-    const panelMat = new THREE.MeshPhongMaterial({
-      color: 0x1a3a6a, emissive: 0x0a1a3a, shininess: 120,
-    })
-    const panelL = new THREE.Mesh(panelGeo, panelMat)
-    panelL.position.set(-11, 0, 0)
-    issGroup.add(panelL)
-
-    // Solar panel right
-    const panelR = new THREE.Mesh(panelGeo, panelMat)
-    panelR.position.set(11, 0, 0)
-    issGroup.add(panelR)
-
-    // Connecting truss
-    const trussGeo = new THREE.BoxGeometry(30, 0.5, 0.5)
-    const trussMat = new THREE.MeshPhongMaterial({
-      color: 0xb0b8c8, emissive: 0x2a3a4a, shininess: 60,
-    })
-    issGroup.add(new THREE.Mesh(trussGeo, trussMat))
-
-    // Small module nodes
-    for (const x of [-3, 0, 3]) {
-      const nodeGeo = new THREE.CylinderGeometry(1, 1, 3, 8)
-      const node = new THREE.Mesh(nodeGeo, metalMat)
-      node.rotation.x = Math.PI / 2
-      node.position.set(x, 0, 0)
-      issGroup.add(node)
-    }
-
+    const metal = new THREE.MeshPhongMaterial({ color: 0xd0d8e8, emissive: 0x3a4a6a, shininess: 80 })
+    issGroup.add(new THREE.Mesh(new THREE.BoxGeometry(8, 2, 2), metal))
+    const panel = new THREE.MeshPhongMaterial({ color: 0x1a3a6a, emissive: 0x0a1a3a, shininess: 120 })
+    const pL = new THREE.Mesh(new THREE.BoxGeometry(14, 0.3, 4), panel); pL.position.set(-11, 0, 0); issGroup.add(pL)
+    const pR = new THREE.Mesh(new THREE.BoxGeometry(14, 0.3, 4), panel); pR.position.set(11, 0, 0); issGroup.add(pR)
+    issGroup.add(new THREE.Mesh(new THREE.BoxGeometry(30, 0.5, 0.5), new THREE.MeshPhongMaterial({ color: 0xb0b8c8, emissive: 0x2a3a4a })))
     scene.add(issGroup)
 
-    // ISS orbit params
-    const ISS_ORBIT = EARTH_RADIUS + 12
-    const ISS_SPEED = 0.0035
-    const ISS_TILT = Math.PI / 7
-    let issAngle = 0
+    // Satellite 1
+    const s1 = new THREE.Group()
+    s1.add(new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 1.5), new THREE.MeshPhongMaterial({ color: 0xc8d0d8, emissive: 0x2a3040, shininess: 100 })))
+    s1.add(new THREE.Mesh(new THREE.BoxGeometry(6, 0.15, 1.5), new THREE.MeshPhongMaterial({ color: 0x1a3060, emissive: 0x0a1030 })))
+    scene.add(s1)
 
-    orbiters.push({
-      group: issGroup,
-      orbit: ISS_ORBIT,
-      speed: ISS_SPEED,
-      tilt: ISS_TILT,
-      angle: () => issAngle,
-      setAngle: (a: number) => { issAngle = a },
-    })
+    // Satellite 2
+    const s2 = new THREE.Group()
+    s2.add(new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 2, 6), new THREE.MeshPhongMaterial({ color: 0xe0e8f0, emissive: 0x203040 })))
+    s2.add(new THREE.Mesh(new THREE.BoxGeometry(7, 0.15, 2), new THREE.MeshPhongMaterial({ color: 0x0a2050, emissive: 0x050f28 })))
+    scene.add(s2)
 
-    // ── BUILD SATELLITE 1 ──────────────────────────────────
-    const sat1Group = new THREE.Group()
-    const sat1Mat = new THREE.MeshPhongMaterial({
-      color: 0xc8d0d8, emissive: 0x2a3040, shininess: 100,
-    })
+    let ia = 0, s1a = Math.PI / 2, s2a = Math.PI
+    const IO = R + 12, S1O = R + 18, S2O = R + 22
 
-    // Body
-    sat1Group.add(new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 1.5), sat1Mat))
-
-    // Dish
-    const dishGeo = new THREE.CylinderGeometry(1.2, 0.3, 0.4, 12)
-    const dish = new THREE.Mesh(dishGeo, sat1Mat)
-    dish.position.set(0, 1.2, 0)
-    sat1Group.add(dish)
-
-    // Solar wings
-    const wingGeo = new THREE.BoxGeometry(6, 0.15, 1.5)
-    const wingMat = new THREE.MeshPhongMaterial({
-      color: 0x1a3060, emissive: 0x0a1030, shininess: 120,
-    })
-    sat1Group.add(new THREE.Mesh(wingGeo, wingMat))
-
-    scene.add(sat1Group)
-
-    const SAT1_ORBIT = EARTH_RADIUS + 18
-    const SAT1_SPEED = 0.005
-    const SAT1_TILT = -Math.PI / 5
-    let sat1Angle = Math.PI / 2
-
-    orbiters.push({
-      group: sat1Group,
-      orbit: SAT1_ORBIT,
-      speed: SAT1_SPEED,
-      tilt: SAT1_TILT,
-      angle: () => sat1Angle,
-      setAngle: (a: number) => { sat1Angle = a },
-    })
-
-    // ── BUILD SATELLITE 2 ──────────────────────────────────
-    const sat2Group = new THREE.Group()
-    const sat2Mat = new THREE.MeshPhongMaterial({
-      color: 0xe0e8f0, emissive: 0x203040, shininess: 90,
-    })
-
-    // Hexagonal body
-    sat2Group.add(new THREE.Mesh(
-      new THREE.CylinderGeometry(1, 1, 2, 6), sat2Mat
-    ))
-
-    // Antenna rod
-    const antGeo = new THREE.CylinderGeometry(0.1, 0.1, 3, 6)
-    const ant = new THREE.Mesh(antGeo, sat2Mat)
-    ant.position.set(0, 2.2, 0)
-    sat2Group.add(ant)
-
-    // Solar panel pair
-    const sp2Geo = new THREE.BoxGeometry(7, 0.15, 2)
-    const sp2Mat = new THREE.MeshPhongMaterial({
-      color: 0x0a2050, emissive: 0x050f28, shininess: 140,
-    })
-    sat2Group.add(new THREE.Mesh(sp2Geo, sp2Mat))
-
-    scene.add(sat2Group)
-
-    const SAT2_ORBIT = EARTH_RADIUS + 22
-    const SAT2_SPEED = 0.0028
-    const SAT2_TILT = Math.PI / 3
-    let sat2Angle = Math.PI
-
-    orbiters.push({
-      group: sat2Group,
-      orbit: SAT2_ORBIT,
-      speed: SAT2_SPEED,
-      tilt: SAT2_TILT,
-      angle: () => sat2Angle,
-      setAngle: (a: number) => { sat2Angle = a },
-    })
-
-    // ── ANIMATE ORBITS ─────────────────────────────────────
-    const animateOrbiters = () => {
-      requestAnimationFrame(animateOrbiters)
-
-      // ISS
-      issAngle += ISS_SPEED
-      issGroup.position.set(
-        ISS_ORBIT * Math.cos(issAngle),
-        ISS_ORBIT * Math.sin(issAngle) * Math.sin(ISS_TILT),
-        ISS_ORBIT * Math.sin(issAngle) * Math.cos(ISS_TILT)
-      )
+    const anim = () => {
+      requestAnimationFrame(anim)
+      ia += 0.0035
+      s1a += 0.005
+      s2a += 0.0028
+      issGroup.position.set(IO * Math.cos(ia), IO * Math.sin(ia) * Math.sin(Math.PI / 7), IO * Math.sin(ia) * Math.cos(Math.PI / 7))
       issGroup.rotation.y += 0.01
-
-      // Satellite 1
-      sat1Angle += SAT1_SPEED
-      sat1Group.position.set(
-        SAT1_ORBIT * Math.cos(sat1Angle) * Math.cos(SAT1_TILT),
-        SAT1_ORBIT * Math.sin(sat1Angle),
-        SAT1_ORBIT * Math.cos(sat1Angle) * Math.sin(SAT1_TILT)
-      )
-      sat1Group.rotation.y += 0.008
-
-      // Satellite 2
-      sat2Angle += SAT2_SPEED
-      sat2Group.position.set(
-        SAT2_ORBIT * Math.cos(sat2Angle) * Math.sin(SAT2_TILT),
-        SAT2_ORBIT * Math.sin(sat2Angle) * Math.cos(SAT2_TILT),
-        SAT2_ORBIT * Math.cos(sat2Angle)
-      )
-      sat2Group.rotation.z += 0.006
+      s1.position.set(S1O * Math.cos(s1a) * Math.cos(-Math.PI / 5), S1O * Math.sin(s1a), S1O * Math.cos(s1a) * Math.sin(-Math.PI / 5))
+      s1.rotation.y += 0.008
+      s2.position.set(S2O * Math.cos(s2a) * Math.sin(Math.PI / 3), S2O * Math.sin(s2a) * Math.cos(Math.PI / 3), S2O * Math.cos(s2a))
+      s2.rotation.z += 0.006
     }
-
-    animateOrbiters()
-
-  } catch (e) {
-    console.error("Orbiters error:", e)
-  }
+    anim()
+  } catch (e) { console.error("Orbiters error:", e) }
 }
 
-// Add procedural star field to Three.js scene
-function addStars(scene: any) {
+// ── STAR FIELD ────────────────────────────────────────────────────────
+function addStars(scene: THREE.Scene) {
   try {
-    const THREE = (window as any).THREE
-    if (!THREE) return
-
-    // ── Stars ──
     const count = 9000
     const positions = new Float32Array(count * 3)
     const colors = new Float32Array(count * 3)
@@ -831,7 +527,6 @@ function addStars(scene: any) {
       positions[i * 3] = r * Math.sin(phi) * Math.cos(theta)
       positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta)
       positions[i * 3 + 2] = r * Math.cos(phi)
-      // Star color variety: white, ice blue, warm yellow
       const t = Math.random()
       if (t < 0.55) { colors[i * 3] = 1; colors[i * 3 + 1] = 1; colors[i * 3 + 2] = 1 } // white
       else if (t < 0.75) { colors[i * 3] = 0.68; colors[i * 3 + 1] = 0.85; colors[i * 3 + 2] = 1 } // ice blue
@@ -843,15 +538,31 @@ function addStars(scene: any) {
     geo.setAttribute("position", new THREE.BufferAttribute(positions, 3))
     geo.setAttribute("color", new THREE.BufferAttribute(colors, 3))
 
-    const mat = new THREE.PointsMaterial({
+    const stars = new THREE.Points(geo, new THREE.PointsMaterial({
       size: 1.4, sizeAttenuation: true, vertexColors: true,
       transparent: true, opacity: 0.88, depthWrite: false,
-    })
-    const stars = new THREE.Points(geo, mat)
+    }))
     stars.name = "wc_stars"
     scene.add(stars)
 
-
-
-  } catch (_) { }
+    // Nebula glow
+    const canvas = document.createElement("canvas"); canvas.width = 512; canvas.height = 512
+    const ctx = canvas.getContext("2d")!
+    const g1 = ctx.createRadialGradient(256, 256, 0, 256, 256, 256)
+    g1.addColorStop(0, "rgba(8,40,130,0.40)")
+    g1.addColorStop(0.35, "rgba(4,22,80,0.22)")
+    g1.addColorStop(0.65, "rgba(2,10,45,0.10)")
+    g1.addColorStop(1, "rgba(0,0,0,0)")
+    ctx.fillStyle = g1; ctx.fillRect(0, 0, 512, 512)
+    const g2 = ctx.createRadialGradient(340, 180, 0, 340, 180, 200)
+    g2.addColorStop(0, "rgba(0,80,160,0.18)")
+    g2.addColorStop(0.5, "rgba(0,40,90,0.08)")
+    g2.addColorStop(1, "rgba(0,0,0,0)")
+    ctx.fillStyle = g2; ctx.fillRect(0, 0, 512, 512)
+    const nebula = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }))
+    nebula.name = "wc_nebula"
+    nebula.scale.set(2200, 2200, 1)
+    nebula.position.set(0, 0, -800)
+    scene.add(nebula)
+  } catch (e) { console.error("Stars error:", e) }
 }

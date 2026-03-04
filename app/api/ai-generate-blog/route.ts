@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'PERPLEXITY_API_KEY not set' }, { status: 500 })
     }
 
-    // ─── Call Perplexity ───────────────────────────────────────────────────
+    // ─── Prompt ───────────────────────────────────────────────────────────
     const prompt = `You are a finance blog writer. Generate a blog post about: "${topic}"
 
 Respond with ONLY a valid JSON object — no markdown, no code blocks, no explanation. Just the raw JSON:
@@ -26,30 +26,77 @@ Respond with ONLY a valid JSON object — no markdown, no code blocks, no explan
   "image_query": "3-4 word Unsplash search query for a relevant finance/business photo"
 }`
 
-    const perplexityRes = await fetch('https://api.perplexity.ai/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'sonar-pro',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
-        max_tokens: 2500,
-      }),
-    })
+    let rawContent = ''
+    let usedModel = 'unknown'
 
-    if (!perplexityRes.ok) {
-      const err = await perplexityRes.text()
-      console.error('[blog-gen] Perplexity error:', err)
-      return NextResponse.json({ error: 'Perplexity API failed' }, { status: 502 })
+    // ── Try Gemini models first (free) ──────────────────────────────────
+    const geminiKey = process.env.GEMINI_API_KEY
+    const geminiModels = [
+      'gemini-2.5-flash',
+      'gemini-2.0-flash',
+      'gemini-2.0-flash-lite',
+    ]
+
+    if (geminiKey) {
+      for (const model of geminiModels) {
+        if (rawContent) break
+        try {
+          const geminiRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { temperature: 0.7, maxOutputTokens: 3000 },
+              }),
+            }
+          )
+          if (geminiRes.ok) {
+            const geminiData = await geminiRes.json()
+            const candidate = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+            if (candidate) {
+              rawContent = candidate
+              usedModel = model
+              console.log(`[blog-gen] Used ${model} ✅`)
+            }
+          } else {
+            console.warn(`[blog-gen] ${model} failed (${geminiRes.status}), trying next...`)
+          }
+        } catch (e) {
+          console.warn(`[blog-gen] ${model} threw error, trying next...`, e)
+        }
+      }
     }
 
-    const perplexityData = await perplexityRes.json()
-    const rawContent = perplexityData.choices?.[0]?.message?.content ?? ''
+    // ── Fallback to Perplexity sonar-pro ────────────────────────────────
+    if (!rawContent) {
+      console.warn('[blog-gen] All Gemini models failed, falling back to Perplexity sonar-pro...')
+      const perplexityRes = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'sonar-pro',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.7,
+          max_tokens: 2500,
+        }),
+      })
+      if (!perplexityRes.ok) {
+        const err = await perplexityRes.text()
+        console.error('[blog-gen] All models failed:', err)
+        return NextResponse.json({ error: 'All AI models failed' }, { status: 502 })
+      }
+      const perplexityData = await perplexityRes.json()
+      rawContent = perplexityData.choices?.[0]?.message?.content ?? ''
+      usedModel = 'perplexity-sonar-pro'
+      console.log('[blog-gen] Used Perplexity sonar-pro as fallback ✅')
+    }
 
-    // ─── Parse JSON from response (strip markdown fences if present) ───────
+    // ─── Parse JSON ───────────────────────────────────────────────────────
     let blogData: {
       title: string
       excerpt: string
@@ -63,7 +110,6 @@ Respond with ONLY a valid JSON object — no markdown, no code blocks, no explan
         .replace(/^```(?:json)?\s*/i, '')
         .replace(/\s*```\s*$/, '')
         .trim()
-
       const match = cleaned.match(/\{[\s\S]*\}/)
       if (!match) throw new Error('No JSON object found')
       blogData = JSON.parse(match[0])
@@ -72,7 +118,7 @@ Respond with ONLY a valid JSON object — no markdown, no code blocks, no explan
       return NextResponse.json({ error: 'Failed to parse AI response as JSON' }, { status: 500 })
     }
 
-    // ─── Fetch image from Unsplash ─────────────────────────────────────────
+    // ─── Fetch Unsplash image ─────────────────────────────────────────────
     let image_url = ''
     const unsplashKey = process.env.UNSPLASH_ACCESS_KEY
 
@@ -97,7 +143,9 @@ Respond with ONLY a valid JSON object — no markdown, no code blocks, no explan
       content: blogData.content,
       tags: Array.isArray(blogData.tags) ? blogData.tags : [],
       image_url,
+      ai_model: usedModel,
     })
+
   } catch (error) {
     console.error('[blog-gen] Unexpected error:', error)
     return NextResponse.json({ error: 'Unexpected server error' }, { status: 500 })

@@ -35,16 +35,7 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
     if (typeof window === "undefined") return
 
     const loadGlobe = async () => {
-      // Load Three.js first so window.THREE is available for stars
-      if (!(window as any).THREE) {
-        await new Promise<void>((res, rej) => {
-          const s = document.createElement("script")
-          s.src = "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"
-          s.onload = () => res()
-          s.onerror = () => rej(new Error("Three.js CDN load failed"))
-          document.head.appendChild(s)
-        })
-      }
+      // globe.gl bundles Three.js, so it will be available on window.THREE after loading
       if (!(window as any).Globe) {
         await new Promise<void>((res, rej) => {
           const s = document.createElement("script")

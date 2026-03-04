@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from "react"
-import * as THREE from "three"
 import { MarketDataMap } from "@/lib/mockData"
 import { pctToColor, pctToGlow } from "@/lib/colorScale"
 import { NO_EXCHANGE_COUNTRIES } from "@/lib/countryIndexMap"

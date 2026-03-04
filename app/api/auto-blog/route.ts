@@ -231,7 +231,6 @@ Respond ONLY with valid JSON, absolutely no markdown or code blocks:
   // ── Try Gemini models in order (all free) ────────────────────────────────
   const geminiKey = process.env.GEMINI_API_KEY
   const geminiModels = [
-    'gemini-2.5-flash',      // best quality
     'gemini-2.0-flash',      // stable fallback
     'gemini-2.0-flash-lite', // lightweight fallback
   ]

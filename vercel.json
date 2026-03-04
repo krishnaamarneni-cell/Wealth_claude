@@ -11,24 +11,22 @@
     {
       "path": "/api/cron/run?job=blog",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/run?job=blog",
+      "schedule": "0 21 * * *"
+    },
+    {
+      "path": "/api/cron/run?job=blog",
+      "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/cron/run?job=blog",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/run?job=ships",
+      "schedule": "0 3 * * *"
     }
- "schedule": "0 0 * * *"
-  },
-  {
-    "path": "/api/cron/run?job=blog",
-    "schedule": "0 21 * * *"
-  },
-  {
-    "path": "/api/cron/run?job=blog",
-    "schedule": "0 23 * * *"
-  },
-  {
-    "path": "/api/cron/run?job=blog",
-    "schedule": "0 2 * * *"
-  },
-  {
-    "path": "/api/cron/run?job=ships",
-    "schedule": "0 3 * * *"
-  }
-]
+  ]
 }

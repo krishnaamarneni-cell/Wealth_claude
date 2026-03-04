@@ -226,6 +226,7 @@ Respond ONLY with valid JSON, absolutely no markdown or code blocks:
 }`
 
   let raw = ''
+  let usedModel = 'unknown'
 
   // ── Try Gemini models in order (all free) ────────────────────────────────
   const geminiKey = process.env.GEMINI_API_KEY
@@ -255,8 +256,10 @@ Respond ONLY with valid JSON, absolutely no markdown or code blocks:
           const candidate = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
           if (candidate) {
             raw = candidate
+            usedModel = model
             console.log(`[auto-blog] Used ${model} ✅`)
           }
+
         } else {
           console.warn(`[auto-blog] ${model} failed (${geminiRes.status}), trying next...`)
         }
@@ -286,8 +289,8 @@ Respond ONLY with valid JSON, absolutely no markdown or code blocks:
       console.error(`[auto-blog] All models failed for "${topic}": ${perplexityRes.status}`)
       return null
     }
-    const perplexityData = await perplexityRes.json()
     raw = perplexityData.choices?.[0]?.message?.content ?? ''
+    usedModel = 'perplexity-sonar'
     console.log('[auto-blog] Used Perplexity sonar as final fallback ✅')
   }
 
@@ -322,6 +325,7 @@ Respond ONLY with valid JSON, absolutely no markdown or code blocks:
       content: parsed.content ?? '',
       tags: Array.isArray(parsed.tags) ? parsed.tags : [],
       image_url,
+      ai_model: usedModel,
     }
   } catch (err) {
     console.error(`[auto-blog] Gemini JSON parse failed for "${topic}"`, err)
@@ -383,7 +387,7 @@ export async function POST(request: NextRequest) {
           excerpt: post.excerpt,
           content: post.content,
           tags: post.tags,
-          image_url: post.image_url || null,
+          ai_model: post.ai_model || null,
           published: true,
           published_at: now,
           author_id: null,

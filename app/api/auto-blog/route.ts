@@ -225,28 +225,59 @@ Respond ONLY with valid JSON, absolutely no markdown or code blocks:
   "image_query": "3-4 word US finance photo search query"
 }`
 
-  const res = await fetch('https://api.perplexity.ai/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'sonar',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7,
-      max_tokens: 3000,
-    }),
-  })
+  let raw = ''
 
-
-  if (!res.ok) {
-    console.error(`[auto-blog] Gemini generation failed for "${topic}": ${res.status}`)
-    return null
+  // ── Try Gemini first (free) ──────────────────────────────────────────────
+  const geminiKey = process.env.GEMINI_API_KEY
+  if (geminiKey) {
+    try {
+      const geminiRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.7, maxOutputTokens: 3000 },
+          }),
+        }
+      )
+      if (geminiRes.ok) {
+        const geminiData = await geminiRes.json()
+        raw = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+        console.log('[auto-blog] Used Gemini for generation ✅')
+      } else {
+        console.warn(`[auto-blog] Gemini failed (${geminiRes.status}), falling back...`)
+      }
+    } catch (e) {
+      console.warn('[auto-blog] Gemini threw error, falling back...', e)
+    }
   }
 
-  const data = await res.json()
-  const raw = data.choices?.[0]?.message?.content ?? ''
+  // ── Fallback to Perplexity sonar ─────────────────────────────────────────
+  if (!raw) {
+    const perplexityRes = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'sonar',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        max_tokens: 3000,
+      }),
+    })
+    if (!perplexityRes.ok) {
+      console.error(`[auto-blog] Both Gemini and Perplexity failed for "${topic}": ${perplexityRes.status}`)
+      return null
+    }
+    const perplexityData = await perplexityRes.json()
+    raw = perplexityData.choices?.[0]?.message?.content ?? ''
+    console.log('[auto-blog] Used Perplexity sonar as fallback ✅')
+  }
+
 
   try {
     const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim()

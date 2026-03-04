@@ -406,8 +406,11 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
 }
 
 // ── PLANETS ──────────────────────────────────────────────────────────
-function addPlanets(scene: THREE.Scene) {
+function addPlanets(scene: any) {
   try {
+    const THREE = (window as any).THREE
+    if (!THREE) { console.warn("THREE not available"); return }
+    
     const PLANETS = [
       { name: "mercury", radius: 3.5, color: 0x9ca3af, x: 220, y: -60, z: -180, rotSpeed: 0.003, emissive: 0x4b5563, rings: false },
       { name: "venus", radius: 6, color: 0xe8c97e, x: -260, y: 40, z: -220, rotSpeed: 0.002, emissive: 0x92691a, rings: false },
@@ -467,8 +470,11 @@ function addPlanets(scene: THREE.Scene) {
 }
 
 // ── ISS + SATELLITES ──────────────────────────────────────────────────
-function addOrbiters(scene: THREE.Scene) {
+function addOrbiters(scene: any) {
   try {
+    const THREE = (window as any).THREE
+    if (!THREE) { console.warn("THREE not available"); return }
+    
     const R = 100
 
     // ISS
@@ -513,8 +519,11 @@ function addOrbiters(scene: THREE.Scene) {
 }
 
 // ── STAR FIELD ────────────────────────────────────────────────────────
-function addStars(scene: THREE.Scene) {
+function addStars(scene: any) {
   try {
+    const THREE = (window as any).THREE
+    if (!THREE) { console.warn("THREE not available"); return }
+    
     const count = 9000
     const positions = new Float32Array(count * 3)
     const colors = new Float32Array(count * 3)

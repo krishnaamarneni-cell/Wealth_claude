@@ -27,8 +27,8 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
   const [hoveredCountry, setHoveredCountry] = useState<string | null>(null)
   const [introPlaying, setIntroPlaying] = useState(true)
   const introRef = useRef(false)
-  const [ships, setShips] = useState<any[]>([])
-  const shipsLoadedRef = useRef(false)
+  const [routes, setRoutes] = useState<any[]>([])
+  const routesLoadedRef = useRef(false)
 
   // Load Globe.gl from CDN
   useEffect(() => {
@@ -371,31 +371,30 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
     )
   }
 
-  // Fetch ships when toggled on
+  // Fetch shipping routes when toggled on
   useEffect(() => {
     if (!isReady) return
     if (!showShips) {
-      renderShips([])
+      globeRef.current?.arcsData([])
+      globeRef.current?.pointsData([])
       return
     }
-    if (shipsLoadedRef.current && ships.length > 0) {
-      renderShips(ships)
+    if (routesLoadedRef.current && routes.length > 0) {
+      globeRef.current?.arcsData(routes)
       return
     }
-    const fetchShips = async () => {
+    const fetchRoutes = async () => {
       try {
         const res = await fetch("/api/ships")
         const json = await res.json()
-        if (json.ships?.length) {
-          shipsLoadedRef.current = true
-          setShips(json.ships)
-          renderShips(json.ships)
+        if (json.routes?.length) {
+          routesLoadedRef.current = true
+          setRoutes(json.routes)
+          globeRef.current?.arcsData(json.routes)
         }
       } catch { /* silent */ }
     }
-    fetchShips()
-    const interval = setInterval(fetchShips, 60000)
-    return () => clearInterval(interval)
+    fetchRoutes()
   }, [showShips, isReady])
 
   useEffect(() => {

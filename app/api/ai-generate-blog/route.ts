@@ -32,7 +32,6 @@ Respond with ONLY a valid JSON object — no markdown, no code blocks, no explan
     // ── Try Gemini models first (free) ──────────────────────────────────
     const geminiKey = process.env.GEMINI_API_KEY
     const geminiModels = [
-      'gemini-2.5-flash',
       'gemini-2.0-flash',
       'gemini-2.0-flash-lite',
     ]

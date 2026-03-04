@@ -3,11 +3,14 @@ import { createServerSideClient } from '@/lib/supabase'
 import { cookies } from 'next/headers'
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
-function isAuthorized(request: NextRequest): boolean {
+async function isAuthorized(request: NextRequest): Promise<boolean> {
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret) return true
-  return authHeader === `Bearer ${cronSecret}`
+  if (cronSecret && authHeader === `Bearer ${cronSecret}`) return true
+  const cookieStore = await cookies()
+  const supabase = createServerSideClient(cookieStore)
+  const { data: { user } } = await supabase.auth.getUser()
+  return !!user
 }
 
 // ─── Slug generator ───────────────────────────────────────────────────────────
@@ -286,7 +289,7 @@ Respond ONLY with valid JSON, absolutely no markdown or code blocks:
 
 // ─── Main handler ─────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  if (!(await isAuthorized(request))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -373,5 +376,9 @@ export async function POST(request: NextRequest) {
 
 // GET for manual test trigger
 export async function GET(request: NextRequest) {
+  const cookieStore = await cookies()
+  const supabase = createServerSideClient(cookieStore)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Login to test' }, { status: 401 })
   return POST(request)
 }

@@ -117,7 +117,8 @@ Only include US stocks like AAPL, NVDA, TSLA, AMZN, MSFT, META etc. Use real cur
   try {
     const match = raw.match(/\{[\s\S]*\}/)
     if (!match) throw new Error('No JSON in market data response')
-    return JSON.parse(match[0])
+    const cleaned = match[0].replace(/\[\d+\]/g, '').trim()
+    return JSON.parse(cleaned)
   } catch {
     return { gainers: [], losers: [], premarket: [], crypto: [], geopolitical: '' }
   }
@@ -189,11 +190,7 @@ async function generatePost(apiKey: string, topic: string, postType: PostType): 
   content: string; tags: string[]; image_url: string
 } | null> {
 
-  const geminiKey = process.env.GEMINI_API_KEY
-  if (!geminiKey) {
-    console.error('[auto-blog] GEMINI_API_KEY not set')
-    return null
-  }
+
 
   const typeInstructions: Record<PostType, string> = {
     'premarket': `This is a PRE-MARKET preview post. Focus on: US futures, what catalysts to watch before market opens, key earnings or economic data due today, overnight news affecting US stocks. Write for US traders preparing for the trading day.`,
@@ -228,20 +225,20 @@ Respond ONLY with valid JSON, absolutely no markdown or code blocks:
   "image_query": "3-4 word US finance photo search query"
 }`
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 3000,
-        },
-      }),
-    }
-  )
+  const res = await fetch('https://api.perplexity.ai/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'sonar',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.7,
+      max_tokens: 3000,
+    }),
+  })
+
 
   if (!res.ok) {
     console.error(`[auto-blog] Gemini generation failed for "${topic}": ${res.status}`)
@@ -249,7 +246,7 @@ Respond ONLY with valid JSON, absolutely no markdown or code blocks:
   }
 
   const data = await res.json()
-  const raw = data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+  const raw = data.choices?.[0]?.message?.content ?? ''
 
   try {
     const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim()

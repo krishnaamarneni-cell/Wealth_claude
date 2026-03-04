@@ -187,7 +187,7 @@ async function isDuplicate(supabase: any, title: string): Promise<boolean> {
 // ─── Generate one full blog post via Gemini (free) ────────────────────────────
 async function generatePost(apiKey: string, topic: string, postType: PostType): Promise<{
   title: string; slug: string; excerpt: string
-  content: string; tags: string[]; image_url: string
+  content: string; tags: string[]; image_url: string; ai_model: string
 } | null> {
 
 
@@ -289,6 +289,7 @@ Respond ONLY with valid JSON, absolutely no markdown or code blocks:
       console.error(`[auto-blog] All models failed for "${topic}": ${perplexityRes.status}`)
       return null
     }
+    const perplexityData = await perplexityRes.json()
     raw = perplexityData.choices?.[0]?.message?.content ?? ''
     usedModel = 'perplexity-sonar'
     console.log('[auto-blog] Used Perplexity sonar as final fallback ✅')

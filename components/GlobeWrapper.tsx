@@ -410,6 +410,24 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
     return () => window.removeEventListener("resize", handleResize)
   }, [])
 
+  // Listen for zoom events from page buttons
+  useEffect(() => {
+    const zoomIn = () => {
+      const controls = (globeRef.current as any)?.controls?.()
+      if (controls) { controls.dollyIn(1.3); controls.update() }
+    }
+    const zoomOut = () => {
+      const controls = (globeRef.current as any)?.controls?.()
+      if (controls) { controls.dollyOut(1.3); controls.update() }
+    }
+    window.addEventListener("globeZoomIn", zoomIn)
+    window.addEventListener("globeZoomOut", zoomOut)
+    return () => {
+      window.removeEventListener("globeZoomIn", zoomIn)
+      window.removeEventListener("globeZoomOut", zoomOut)
+    }
+  }, [])
+
   if (loadError) {
     return (
       <div className="w-full h-full flex items-center justify-center text-white/30 text-sm">

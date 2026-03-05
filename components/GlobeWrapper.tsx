@@ -10,7 +10,6 @@ interface GlobeWrapperProps {
   selectedCountry: string | null
   onCountrySelect: (isoA3: string | null, name: string | null) => void
   showShips?: boolean
-  zoomTick?: { dir: number; ts: number }
 }
 
 // Minimal type shim for Globe.gl
@@ -20,7 +19,7 @@ declare global {
   }
 }
 
-export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, showShips = false, zoomTick }: GlobeWrapperProps) {
+export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, showShips = false }: GlobeWrapperProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const globeRef = useRef<any>(null)
   const [isReady, setIsReady] = useState(false)
@@ -410,17 +409,6 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
     window.addEventListener("resize", handleResize)
     return () => window.removeEventListener("resize", handleResize)
   }, [])
-
-  // Zoom when page buttons are clicked
-  useEffect(() => {
-    if (!zoomTick?.ts || !globeRef.current) return
-    const camera = globeRef.current.camera()
-    if (!camera) return
-    const factor = zoomTick.dir > 0 ? 0.8 : 1.25
-    camera.position.x *= factor
-    camera.position.y *= factor
-    camera.position.z *= factor
-  }, [zoomTick])
 
   if (loadError) {
     return (

@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, BarChart, Bar, Cell, PieChart, Pie } from "recharts"
 import { usePortfolio } from "@/lib/portfolio-context"
-import { Target, TrendingUp, Calendar, DollarSign, Pencil, X, CreditCard, AlertTriangle, TrendingDown, PieChart as PieChartIcon, Activity, CheckCircle2, Plus, Trash2, Shield, Zap } from "lucide-react"
+import { Target, TrendingUp, Calendar, DollarSign, Pencil, X, CreditCard, AlertTriangle, TrendingDown, PieChart as PieChartIcon, Activity, CheckCircle2, Plus, Trash2, Shield, Zap, FileText, ChevronDown, ChevronUp, Snowflake, Flame, Upload } from "lucide-react""
 
 // ==================== TYPES ====================
 
@@ -201,20 +201,22 @@ export default function GoalsPage() {
   const [newAssetValue, setNewAssetValue] = useState("")
   const [newAssetReturn, setNewAssetReturn] = useState("8")
 
-  // Debt Tracker State
-  const [debts, setDebts] = useState<Debt[]>([])
+  // Debt Tracker - Supabase Integration
+  const {
+    debts, csvFiles, loading: debtLoading, saving: debtSaving,
+    addDebt, deleteDebt, uploadCsvFile, deleteCsvFile
+  } = useDebtData()
+
   const [showAddDebt, setShowAddDebt] = useState(false)
-  const [payoffStrategy, setPayoffStrategy] = useState<PayoffStrategy>('avalanche')
+  const [payoffStrategy, setPayoffStrategy] = useState<'avalanche' | 'snowball'>('avalanche')
   const [extraDebtPayment, setExtraDebtPayment] = useState(0)
-  const [newDebt, setNewDebt] = useState<Partial<Debt>>({
-    name: '',
-    type: 'Credit Card',
-    balance: 0,
-    apr: 0,
-    monthlyPayment: 0,
-    minimumPayment: 0,
-    loanTerm: undefined
+  const [expandedDebtId, setExpandedDebtId] = useState<string | null>(null)
+  const [showResults, setShowResults] = useState(false)
+  const [newDebt, setNewDebt] = useState({
+    name: '', type: 'Credit Card' as const,
+    balance: 0, apr: 0, min_payment: 0
   })
+
 
   // Financial Overview State
   const [includePortfolioInOverview, setIncludePortfolioInOverview] = useState(true)
@@ -343,6 +345,30 @@ export default function GoalsPage() {
   }
 
   const healthScore = calculateHealthScore()
+
+  // PDF Export Function
+  const exportDebtPDF = () => {
+    const doc = new jsPDF()
+    doc.setFontSize(18)
+    doc.text('Debt Payoff Plan', 14, 22)
+    doc.setFontSize(11)
+    doc.text(`Strategy: ${payoffStrategy.charAt(0).toUpperCase() + payoffStrategy.slice(1)}`, 14, 32)
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 39)
+
+    autoTable(doc, {
+      startY: 46,
+      head: [['Card/Debt Name', 'Type', 'Balance', 'APR', 'Min Payment']],
+      body: debts.map(d => [d.name, d.type, `$${d.balance.toLocaleString()}`, `${d.apr}%`, `$${d.min_payment.toLocaleString()}`]),
+      foot: [['TOTAL', '', `$${debts.reduce((s, d) => s + d.balance, 0).toLocaleString()}`, `${(debts.reduce((s, d) => s + d.apr, 0) / (debts.length || 1)).toFixed(2)}% avg`, `$${debts.reduce((s, d) => s + d.min_payment, 0).toLocaleString()}`]],
+    })
+
+    const schedule = calculateDebtPayoffSchedule(debts.map(d => ({ id: d.id, name: d.name, type: d.type as any, balance: d.balance, apr: d.apr, monthlyPayment: d.min_payment, minimumPayment: d.min_payment })), payoffStrategy, extraDebtPayment)
+    const lastY = (doc as any).lastAutoTable.finalY + 10
+    doc.text(`Payoff Timeline: ${schedule.length} months`, 14, lastY)
+    doc.text(`Total Interest Paid: $${schedule[schedule.length - 1]?.totalInterestPaid.toFixed(2) || '0'}`, 14, lastY + 7)
+    doc.save('debt-payoff-plan.pdf')
+  }
+
 
   // ==================== HANDLERS ====================
 
@@ -676,8 +702,8 @@ export default function GoalsPage() {
                       <button
                         onClick={() => setContributionType("monthly")}
                         className={`px-1.5 py-0.5 text-xs rounded transition-colors ${contributionType === "monthly"
-                            ? "bg-primary text-primary-foreground"
-                            : "text-muted-foreground hover:text-foreground"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground"
                           }`}
                       >
                         Mo.
@@ -685,8 +711,8 @@ export default function GoalsPage() {
                       <button
                         onClick={() => setContributionType("yearly")}
                         className={`px-1.5 py-0.5 text-xs rounded transition-colors ${contributionType === "yearly"
-                            ? "bg-primary text-primary-foreground"
-                            : "text-muted-foreground hover:text-foreground"
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground"
                           }`}
                       >
                         Yr.
@@ -1090,484 +1116,415 @@ export default function GoalsPage() {
 
         {/* ==================== TAB 2: DEBT TRACKER ==================== */}
         <TabsContent value="debts" className="space-y-6">
-          {/* Debt Summary Cards */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-border bg-card">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                  <CreditCard className="h-4 w-4" />
-                  Total Debt
-                </div>
-                <p className="text-2xl font-bold text-red-500">{formatCurrency(totalDebt)}</p>
-                <p className="text-xs text-muted-foreground mt-1">{debts.length} debt{debts.length !== 1 ? 's' : ''}</p>
-              </CardContent>
-            </Card>
+          {debtLoading ? (
+            <div className="flex items-center justify-center py-20 text-muted-foreground">
+              Loading your debt data...
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-3 gap-6">
 
-            <Card className="border-border bg-card">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                  <DollarSign className="h-4 w-4" />
-                  Monthly Payment
-                </div>
-                <p className="text-2xl font-bold text-foreground">{formatCurrency(totalMonthlyDebtPayment)}</p>
-                <p className="text-xs text-muted-foreground mt-1">Minimum payments</p>
-              </CardContent>
-            </Card>
+              {/* LEFT COLUMN */}
+              <div className="md:col-span-2 space-y-6">
 
-            <Card className="border-border bg-card">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                  <TrendingDown className="h-4 w-4" />
-                  Annual Interest
-                </div>
-                <p className="text-2xl font-bold text-orange-500">{formatCurrency(totalAnnualInterest)}</p>
-                <p className="text-xs text-muted-foreground mt-1">{formatCurrency(totalMonthlyInterest)}/month</p>
-              </CardContent>
-            </Card>
+                {/* Debt Cards */}
+                <Card className="border-border bg-card">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <CreditCard className="h-5 w-5 text-primary" />
+                        Your Debts
+                      </CardTitle>
+                      <button
+                        onClick={() => setShowAddDebt(!showAddDebt)}
+                        className="rounded bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90"
+                      >
+                        + Add Debt
+                      </button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
 
-            <Card className="border-border bg-card">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                  <Activity className="h-4 w-4" />
-                  Avg APR
-                </div>
-                <p className="text-2xl font-bold text-foreground">{weightedAvgAPR.toFixed(2)}%</p>
-                <p className="text-xs text-muted-foreground mt-1">Weighted average</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Add Debt Section */}
-          <Card className="border-border bg-card">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base">Your Debts</CardTitle>
-                  <p className="text-xs text-muted-foreground mt-1">Track all your debts in one place (Max 20)</p>
-                </div>
-                <button
-                  onClick={() => setShowAddDebt(!showAddDebt)}
-                  disabled={debts.length >= 20}
-                  className="rounded bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
-                >
-                  <Plus className="h-4 w-4" /> Add Debt
-                </button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {showAddDebt && (
-                <div className="rounded-lg border border-border bg-secondary/50 p-4 space-y-3">
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    <input
-                      type="text"
-                      placeholder="Debt name (e.g., Chase Sapphire)"
-                      value={newDebt.name}
-                      onChange={(e) => setNewDebt({ ...newDebt, name: e.target.value })}
-                      className="rounded border border-border bg-secondary px-3 py-2 text-sm"
-                    />
-                    <select
-                      value={newDebt.type}
-                      onChange={(e) => setNewDebt({ ...newDebt, type: e.target.value as Debt['type'] })}
-                      className="rounded border border-border bg-secondary px-3 py-2 text-sm"
-                    >
-                      <option value="Credit Card">Credit Card</option>
-                      <option value="Auto Loan">Auto Loan</option>
-                      <option value="Mortgage">Mortgage</option>
-                      <option value="Student Loan">Student Loan</option>
-                      <option value="Personal Loan">Personal Loan</option>
-                      <option value="Other">Other</option>
-                    </select>
-                    <input
-                      type="number"
-                      placeholder="Balance ($)"
-                      value={newDebt.balance || ''}
-                      onChange={(e) => setNewDebt({ ...newDebt, balance: Number(e.target.value) })}
-                      className="rounded border border-border bg-secondary px-3 py-2 text-sm"
-                    />
-                    <input
-                      type="number"
-                      placeholder="APR (%)"
-                      value={newDebt.apr || ''}
-                      onChange={(e) => setNewDebt({ ...newDebt, apr: Number(e.target.value) })}
-                      step="0.01"
-                      className="rounded border border-border bg-secondary px-3 py-2 text-sm"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Monthly payment ($)"
-                      value={newDebt.monthlyPayment || ''}
-                      onChange={(e) => setNewDebt({ ...newDebt, monthlyPayment: Number(e.target.value) })}
-                      className="rounded border border-border bg-secondary px-3 py-2 text-sm"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Minimum payment ($)"
-                      value={newDebt.minimumPayment || ''}
-                      onChange={(e) => setNewDebt({ ...newDebt, minimumPayment: Number(e.target.value) })}
-                      className="rounded border border-border bg-secondary px-3 py-2 text-sm"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Loan term (months, optional)"
-                      value={newDebt.loanTerm || ''}
-                      onChange={(e) => setNewDebt({ ...newDebt, loanTerm: e.target.value ? Number(e.target.value) : undefined })}
-                      className="rounded border border-border bg-secondary px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleAddDebt}
-                      className="rounded bg-primary px-4 py-1.5 text-sm text-primary-foreground hover:bg-primary/90"
-                    >
-                      Save Debt
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowAddDebt(false)
-                        setNewDebt({
-                          name: '',
-                          type: 'Credit Card',
-                          balance: 0,
-                          apr: 0,
-                          monthlyPayment: 0,
-                          minimumPayment: 0,
-                          loanTerm: undefined
-                        })
-                      }}
-                      className="rounded bg-secondary px-4 py-1.5 text-sm text-foreground hover:bg-secondary/80"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {debts.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <CreditCard className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p className="text-sm">No debts tracked yet. Click "Add Debt" to get started.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {debts.sort((a, b) => b.apr - a.apr).map((debt) => {
-                    const monthlyInterest = calculateMonthlyInterest(debt)
-                    const annualInterest = calculateAnnualInterest(debt)
-
-                    return (
-                      <div key={debt.id} className="rounded-lg border border-border bg-secondary/30 p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <h4 className="font-semibold text-foreground">{debt.name}</h4>
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
-                                {debt.type}
-                              </span>
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${debt.apr > 15 ? 'bg-red-500/20 text-red-500' :
-                                  debt.apr > 8 ? 'bg-orange-500/20 text-orange-500' :
-                                    'bg-green-500/20 text-green-500'
-                                }`}>
-                                {debt.apr}% APR
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
-                              <div>
-                                <p className="text-muted-foreground text-xs">Balance</p>
-                                <p className="font-medium text-foreground">{formatCurrency(debt.balance)}</p>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground text-xs">Monthly Payment</p>
-                                <p className="font-medium text-foreground">{formatCurrency(debt.monthlyPayment)}</p>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground text-xs">Interest/Month</p>
-                                <p className="font-medium text-orange-500">{formatCurrency(monthlyInterest)}</p>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground text-xs">Interest/Year</p>
-                                <p className="font-medium text-red-500">{formatCurrency(annualInterest)}</p>
-                              </div>
-                            </div>
-                            {debt.loanTerm && (
-                              <p className="text-xs text-muted-foreground mt-2">
-                                Loan Term: {debt.loanTerm} months ({(debt.loanTerm / 12).toFixed(1)} years)
-                              </p>
-                            )}
+                    {/* Add Debt Form */}
+                    {showAddDebt && (
+                      <div className="rounded-lg border border-border bg-secondary/50 p-4 space-y-3">
+                        <p className="text-sm font-medium">New Debt Entry</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs text-muted-foreground">Name</label>
+                            <input
+                              type="text"
+                              placeholder="e.g., Chase Sapphire"
+                              value={newDebt.name}
+                              onChange={e => setNewDebt(p => ({ ...p, name: e.target.value }))}
+                              className="w-full mt-1 rounded border border-border bg-secondary px-3 py-2 text-sm"
+                            />
                           </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Type</label>
+                            <select
+                              value={newDebt.type}
+                              onChange={e => setNewDebt(p => ({ ...p, type: e.target.value as any }))}
+                              className="w-full mt-1 rounded border border-border bg-secondary px-3 py-2 text-sm"
+                            >
+                              <option>Credit Card</option>
+                              <option>Car Loan</option>
+                              <option>Housing Loan</option>
+                              <option>Personal Loan</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Balance ($)</label>
+                            <input
+                              type="number"
+                              placeholder="0.00"
+                              value={newDebt.balance || ''}
+                              onChange={e => setNewDebt(p => ({ ...p, balance: parseFloat(e.target.value) || 0 }))}
+                              className="w-full mt-1 rounded border border-border bg-secondary px-3 py-2 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">APR (%)</label>
+                            <input
+                              type="number"
+                              placeholder="0.00"
+                              value={newDebt.apr || ''}
+                              onChange={e => setNewDebt(p => ({ ...p, apr: parseFloat(e.target.value) || 0 }))}
+                              className="w-full mt-1 rounded border border-border bg-secondary px-3 py-2 text-sm"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <label className="text-xs text-muted-foreground">Minimum Payment ($)</label>
+                            <input
+                              type="number"
+                              placeholder="0.00"
+                              value={newDebt.min_payment || ''}
+                              onChange={e => setNewDebt(p => ({ ...p, min_payment: parseFloat(e.target.value) || 0 }))}
+                              className="w-full mt-1 rounded border border-border bg-secondary px-3 py-2 text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
                           <button
-                            onClick={() => handleDeleteDebt(debt.id)}
-                            className="ml-4 p-2 rounded hover:bg-red-500/10 text-red-500"
-                            aria-label="Delete debt"
+                            disabled={debtSaving || !newDebt.name || !newDebt.balance}
+                            onClick={async () => {
+                              const result = await addDebt(newDebt)
+                              if (result) {
+                                setNewDebt({ name: '', type: 'Credit Card', balance: 0, apr: 0, min_payment: 0 })
+                                setShowAddDebt(false)
+                              }
+                            }}
+                            className="rounded bg-primary px-4 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            {debtSaving ? 'Saving...' : 'Save Debt'}
+                          </button>
+                          <button
+                            onClick={() => setShowAddDebt(false)}
+                            className="rounded bg-secondary px-4 py-1.5 text-sm hover:bg-secondary/80"
+                          >
+                            Cancel
                           </button>
                         </div>
                       </div>
-                    )
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    )}
 
-          {/* Debt Breakdown & Payoff Strategy */}
-          {debts.length > 0 && (
-            <>
-              <div className="grid gap-6 lg:grid-cols-2">
-                {/* Debt Breakdown Pie Chart */}
-                <Card className="border-border bg-card">
-                  <CardHeader>
-                    <CardTitle className="text-base">Debt Breakdown by Type</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-[300px] flex items-center justify-center">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={debtPieData}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            label={({ name, percent }) => `${name}: ${percent.toFixed(1)}%`}
-                            outerRadius={100}
-                            fill="#8884d8"
-                            dataKey="value"
-                          >
-                            {debtPieData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={DEBT_COLORS[entry.name as keyof typeof DEBT_COLORS] || '#6b7280'} />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            contentStyle={{
-                              backgroundColor: "hsl(var(--card))",
-                              border: "1px solid hsl(var(--border))",
-                              borderRadius: "8px",
-                            }}
-                            formatter={(value: number) => [formatCurrency(value), 'Amount']}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 mt-4">
-                      {debtPieData.map((item) => (
-                        <div key={item.name} className="flex items-center gap-2">
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: DEBT_COLORS[item.name as keyof typeof DEBT_COLORS] || '#6b7280' }}
-                          />
-                          <span className="text-xs text-muted-foreground">{item.name}</span>
-                        </div>
-                      ))}
-                    </div>
+                    {/* Debt List */}
+                    {debts.length === 0 ? (
+                      <div className="text-center py-10 text-muted-foreground text-sm">
+                        No debts added. Click "+ Add Debt" to get started.
+                      </div>
+                    ) : (
+                      debts.map(debt => {
+                        const debtFiles = csvFiles.filter(f => f.debt_id === debt.id)
+                        const isExpanded = expandedDebtId === debt.id
+                        const allTransactions = debtFiles.flatMap(f => f.parsed_data || [])
+                        const totalSpend = allTransactions.reduce((s: number, t: any) => s + (t.amount || 0), 0)
+
+                        return (
+                          <div key={debt.id} className="rounded-lg border border-border bg-secondary/30">
+                            {/* Debt Header Row */}
+                            <div className="flex items-center justify-between p-4">
+                              <div className="flex items-center gap-3 flex-1">
+                                <div>
+                                  <p className="font-medium text-foreground">{debt.name}</p>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${debt.type === 'Credit Card' ? 'bg-red-500/20 text-red-400' :
+                                      debt.type === 'Car Loan' ? 'bg-orange-500/20 text-orange-400' :
+                                        debt.type === 'Housing Loan' ? 'bg-yellow-500/20 text-yellow-400' :
+                                          'bg-purple-500/20 text-purple-400'
+                                      }`}>{debt.type}</span>
+                                    <span className="text-xs text-muted-foreground">{debt.apr}% APR</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right mr-4">
+                                <p className="font-bold text-foreground">${debt.balance.toLocaleString()}</p>
+                                <p className="text-xs text-muted-foreground">Min: ${debt.min_payment}/mo</p>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {debt.type === 'Credit Card' && (
+                                  <button
+                                    onClick={() => setExpandedDebtId(isExpanded ? null : debt.id)}
+                                    className="rounded p-1.5 hover:bg-secondary text-muted-foreground"
+                                    title="Upload CSV statements"
+                                  >
+                                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => deleteDebt(debt.id)}
+                                  className="rounded p-1.5 text-red-500 hover:bg-red-500/10"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Expanded CSV Section (Credit Card only) */}
+                            {isExpanded && debt.type === 'Credit Card' && (
+                              <div className="border-t border-border px-4 pb-4 pt-3 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-sm font-medium text-muted-foreground">
+                                    Statement Analysis ({debtFiles.length} file{debtFiles.length !== 1 ? 's' : ''})
+                                  </p>
+                                  <label className="flex items-center gap-2 cursor-pointer rounded bg-secondary px-3 py-1.5 text-xs hover:bg-secondary/80">
+                                    <Upload className="h-3 w-3" />
+                                    Upload CSV(s)
+                                    <input
+                                      type="file"
+                                      accept=".csv"
+                                      multiple
+                                      className="hidden"
+                                      onChange={async (e) => {
+                                        const files = Array.from(e.target.files || [])
+                                        for (const file of files) {
+                                          await uploadCsvFile(file, debt.id)
+                                        }
+                                        e.target.value = ''
+                                      }}
+                                    />
+                                  </label>
+                                </div>
+
+                                {/* Uploaded files list */}
+                                {debtFiles.length > 0 && (
+                                  <div className="space-y-1">
+                                    {debtFiles.map(file => (
+                                      <div key={file.id} className="flex items-center justify-between rounded bg-secondary/50 px-3 py-2">
+                                        <div className="flex items-center gap-2">
+                                          <FileText className="h-3 w-3 text-muted-foreground" />
+                                          <span className="text-xs text-foreground">{file.filename}</span>
+                                          <span className="text-xs text-muted-foreground">
+                                            ({file.parsed_data?.length || 0} transactions)
+                                          </span>
+                                        </div>
+                                        <button
+                                          onClick={() => deleteCsvFile(file.id, file.storage_path)}
+                                          className="text-red-400 hover:text-red-500"
+                                        >
+                                          <XIcon className="h-3 w-3" />
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* Transaction Summary */}
+                                {allTransactions.length > 0 && (
+                                  <div className="rounded-lg border border-border bg-secondary/50 p-3 space-y-2">
+                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                      Aggregated Statement Summary
+                                    </p>
+                                    <div className="grid grid-cols-3 gap-3">
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">Total Transactions</p>
+                                        <p className="text-lg font-bold text-foreground">{allTransactions.length}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">Total Spend</p>
+                                        <p className="text-lg font-bold text-red-400">${totalSpend.toFixed(2)}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">Avg Transaction</p>
+                                        <p className="text-lg font-bold text-foreground">
+                                          ${(totalSpend / allTransactions.length).toFixed(2)}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    {/* Top categories */}
+                                    {(() => {
+                                      const cats = allTransactions.reduce((acc: any, t: any) => {
+                                        acc[t.category] = (acc[t.category] || 0) + t.amount
+                                        return acc
+                                      }, {})
+                                      return (
+                                        <div className="space-y-1 mt-2">
+                                          <p className="text-xs text-muted-foreground">Top Categories</p>
+                                          {Object.entries(cats)
+                                            .sort(([, a]: any, [, b]: any) => b - a)
+                                            .slice(0, 4)
+                                            .map(([cat, amt]: any) => (
+                                              <div key={cat} className="flex justify-between text-xs">
+                                                <span className="text-muted-foreground">{cat}</span>
+                                                <span className="font-medium">${amt.toFixed(2)}</span>
+                                              </div>
+                                            ))}
+                                        </div>
+                                      )
+                                    })()}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })
+                    )}
                   </CardContent>
                 </Card>
 
-                {/* Interest Cost Breakdown */}
+                {/* Strategy Selection */}
                 <Card className="border-border bg-card">
                   <CardHeader>
-                    <CardTitle className="text-base">Interest Cost by Debt</CardTitle>
+                    <CardTitle className="text-base">Payoff Strategy</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {[
+                      { key: 'avalanche', label: 'Avalanche', desc: 'Pay highest APR first — saves the most money', icon: <Flame className="h-4 w-4" /> },
+                      { key: 'snowball', label: 'Snowball', desc: 'Pay smallest balance first — most motivational', icon: <Snowflake className="h-4 w-4" /> },
+                    ].map(s => (
+                      <label key={s.key} className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${payoffStrategy === s.key ? 'border-primary bg-primary/5' : 'border-border hover:bg-secondary/50'
+                        }`}>
+                        <input
+                          type="radio"
+                          name="payoffStrategy"
+                          value={s.key}
+                          checked={payoffStrategy === s.key}
+                          onChange={() => setPayoffStrategy(s.key as any)}
+                          className="accent-primary"
+                        />
+                        <div className="flex items-center gap-2 flex-1">
+                          {s.icon}
+                          <div>
+                            <p className="font-medium text-sm">{s.label}</p>
+                            <p className="text-xs text-muted-foreground">{s.desc}</p>
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </CardContent>
+                </Card>
+
+                {/* Extra Payment */}
+                <Card className="border-border bg-card">
+                  <CardHeader>
+                    <CardTitle className="text-base">Extra Monthly Payment</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="h-[300px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={debts.sort((a, b) => calculateAnnualInterest(b) - calculateAnnualInterest(a))}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.5} />
-                          <XAxis
-                            dataKey="name"
-                            fontSize={10}
-                            angle={-45}
-                            textAnchor="end"
-                            height={80}
-                            stroke="#9ca3af"
-                          />
-                          <YAxis
-                            tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
-                            fontSize={12}
-                            stroke="#9ca3af"
-                          />
-                          <Tooltip
-                            contentStyle={{
-                              backgroundColor: "hsl(var(--card))",
-                              border: "1px solid hsl(var(--border))",
-                              borderRadius: "8px",
-                            }}
-                            formatter={(value: number) => [formatCurrency(value), 'Annual Interest']}
-                          />
-                          <Bar dataKey={(debt: Debt) => calculateAnnualInterest(debt)} fill="#f97316" radius={[8, 8, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
+                    <label className="text-xs text-muted-foreground">Amount beyond minimums</label>
+                    <input
+                      type="number"
+                      value={extraDebtPayment || ''}
+                      onChange={e => setExtraDebtPayment(parseFloat(e.target.value) || 0)}
+                      placeholder="$0.00"
+                      className="w-full mt-1 rounded border border-border bg-secondary px-3 py-2 text-sm"
+                    />
                   </CardContent>
                 </Card>
               </div>
 
-              {/* Payoff Strategy Comparison */}
-              <Card className="border-border bg-card">
-                <CardHeader>
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              {/* RIGHT COLUMN — Sticky Summary */}
+              <div>
+                <Card className="sticky top-4 border-border bg-card">
+                  <CardHeader>
+                    <CardTitle className="text-base">Debt Summary</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
                     <div>
-                      <CardTitle className="text-base">Payoff Strategy Comparison</CardTitle>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Compare different debt payoff methods and see which saves you the most
+                      <p className="text-xs text-muted-foreground">Total Debt</p>
+                      <p className="text-2xl font-bold text-red-400">
+                        ${debts.reduce((s, d) => s + d.balance, 0).toLocaleString()}
                       </p>
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <div className="flex items-center gap-2">
-                        <label className="text-xs text-muted-foreground whitespace-nowrap">Extra Payment:</label>
-                        <input
-                          type="number"
-                          value={extraDebtPayment}
-                          onChange={(e) => setExtraDebtPayment(Number(e.target.value))}
-                          placeholder="0"
-                          className="w-24 rounded border border-border bg-secondary px-2 py-1 text-sm"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setPayoffStrategy('avalanche')}
-                          className={`px-3 py-1.5 text-xs rounded transition-colors ${payoffStrategy === 'avalanche'
-                              ? 'bg-primary text-primary-foreground'
-                              : 'bg-secondary text-foreground hover:bg-secondary/80'
-                            }`}
-                        >
-                          Avalanche
-                        </button>
-                        <button
-                          onClick={() => setPayoffStrategy('snowball')}
-                          className={`px-3 py-1.5 text-xs rounded transition-colors ${payoffStrategy === 'snowball'
-                              ? 'bg-primary text-primary-foreground'
-                              : 'bg-secondary text-foreground hover:bg-secondary/80'
-                            }`}
-                        >
-                          Snowball
-                        </button>
-                      </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Avg APR</p>
+                      <p className="text-xl font-bold">
+                        {debts.length > 0
+                          ? (debts.reduce((s, d) => s + d.apr, 0) / debts.length).toFixed(2)
+                          : '0.00'}%
+                      </p>
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4 sm:grid-cols-3 mb-6">
-                    {/* Avalanche Method */}
-                    <div className="rounded-lg border border-border bg-secondary/50 p-4">
-                      <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
-                        <Zap className="h-4 w-4 text-orange-500" />
-                        Avalanche (Highest APR First)
-                      </h4>
-                      <div className="space-y-2">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Payoff Time</p>
-                          <p className="font-bold text-foreground">{avalancheSchedule.length} months</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Total Interest</p>
-                          <p className="font-bold text-red-500">
-                            {formatCurrency(avalancheSchedule[avalancheSchedule.length - 1]?.totalInterestPaid || 0)}
-                          </p>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          ✅ Mathematically optimal - saves the most money
-                        </p>
-                      </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Monthly Minimum</p>
+                      <p className="text-xl font-bold">
+                        ${debts.reduce((s, d) => s + d.min_payment, 0).toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Strategy</p>
+                      <span className={`inline-flex items-center gap-1.5 mt-1 text-xs px-2 py-1 rounded-full font-medium ${payoffStrategy === 'avalanche' ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'
+                        }`}>
+                        {payoffStrategy === 'avalanche' ? <Flame className="h-3 w-3" /> : <Snowflake className="h-3 w-3" />}
+                        {payoffStrategy.charAt(0).toUpperCase() + payoffStrategy.slice(1)}
+                      </span>
                     </div>
 
-                    {/* Snowball Method */}
-                    <div className="rounded-lg border border-border bg-secondary/50 p-4">
-                      <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
-                        <Activity className="h-4 w-4 text-blue-500" />
-                        Snowball (Smallest Balance First)
-                      </h4>
-                      <div className="space-y-2">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Payoff Time</p>
-                          <p className="font-bold text-foreground">{snowballSchedule.length} months</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Total Interest</p>
-                          <p className="font-bold text-red-500">
-                            {formatCurrency(snowballSchedule[snowballSchedule.length - 1]?.totalInterestPaid || 0)}
-                          </p>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          ✅ Psychological wins - quick victories motivate you
-                        </p>
-                      </div>
-                    </div>
+                    {/* Payoff Estimate */}
+                    {debts.length > 0 && (() => {
+                      const schedule = calculateDebtPayoffSchedule(
+                        debts.map(d => ({
+                          id: d.id, name: d.name, type: d.type as any,
+                          balance: d.balance, apr: d.apr,
+                          monthlyPayment: d.min_payment,
+                          minimumPayment: d.min_payment,
+                        })),
+                        payoffStrategy,
+                        extraDebtPayment
+                      )
+                      const months = schedule.length
+                      const totalInterest = schedule[months - 1]?.totalInterestPaid || 0
+                      const payoffDate = new Date()
+                      payoffDate.setMonth(payoffDate.getMonth() + months)
 
-                    {/* Comparison */}
-                    <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
-                      <h4 className="text-sm font-semibold text-primary mb-2 flex items-center gap-2">
-                        <Target className="h-4 w-4" />
-                        Recommendation
-                      </h4>
-                      <div className="space-y-2">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Best Method</p>
-                          <p className="font-bold text-primary">
-                            {avalancheSchedule[avalancheSchedule.length - 1]?.totalInterestPaid <
-                              snowballSchedule[snowballSchedule.length - 1]?.totalInterestPaid
-                              ? 'Avalanche'
-                              : 'Snowball'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Savings</p>
-                          <p className="font-bold text-green-500">
-                            {formatCurrency(Math.abs(
-                              (avalancheSchedule[avalancheSchedule.length - 1]?.totalInterestPaid || 0) -
-                              (snowballSchedule[snowballSchedule.length - 1]?.totalInterestPaid || 0)
-                            ))}
-                          </p>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Using avalanche saves more in interest!
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Payoff Priority Order */}
-                  <div className="mt-6">
-                    <h4 className="text-sm font-semibold text-foreground mb-3">
-                      {payoffStrategy === 'avalanche' ? 'Avalanche' : 'Snowball'} Payoff Order:
-                    </h4>
-                    <div className="space-y-2">
-                      {(payoffStrategy === 'avalanche'
-                        ? [...debts].sort((a, b) => b.apr - a.apr)
-                        : [...debts].sort((a, b) => a.balance - b.balance)
-                      ).map((debt, index) => (
-                        <div key={debt.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-sm">
-                            {index + 1}
+                      return (
+                        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+                          <p className="text-xs font-medium text-primary uppercase tracking-wide">Payoff Estimate</p>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Debt-Free By</span>
+                            <span className="font-bold text-foreground">
+                              {payoffDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                            </span>
                           </div>
-                          <div className="flex-1 grid grid-cols-3 gap-4 text-sm">
-                            <div>
-                              <p className="font-medium text-foreground">{debt.name}</p>
-                              <p className="text-xs text-muted-foreground">{debt.type}</p>
-                            </div>
-                            <div>
-                              <p className="text-foreground">{formatCurrency(debt.balance)}</p>
-                              <p className="text-xs text-muted-foreground">Balance</p>
-                            </div>
-                            <div>
-                              <p className={`font-medium ${debt.apr > 15 ? 'text-red-500' :
-                                  debt.apr > 8 ? 'text-orange-500' :
-                                    'text-green-500'
-                                }`}>
-                                {debt.apr}% APR
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatCurrency(calculateAnnualInterest(debt))}/year interest
-                              </p>
-                            </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Months</span>
+                            <span className="font-bold">{months}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Total Interest</span>
+                            <span className="font-bold text-red-400">${totalInterest.toFixed(0)}</span>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </>
+                      )
+                    })()}
+
+                    <button
+                      onClick={exportDebtPDF}
+                      disabled={debts.length === 0}
+                      className="w-full flex items-center justify-center gap-2 rounded bg-secondary px-4 py-2 text-sm hover:bg-secondary/80 disabled:opacity-50 border border-border"
+                    >
+                      <FileText className="h-4 w-4" />
+                      Export PDF
+                    </button>
+
+                    {debtSaving && (
+                      <p className="text-xs text-center text-muted-foreground animate-pulse">Saving to cloud...</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
           )}
         </TabsContent>
+
 
         {/* ==================== TAB 3: FINANCIAL OVERVIEW ==================== */}
         <TabsContent value="overview" className="space-y-6">
@@ -1673,8 +1630,8 @@ export default function GoalsPage() {
                   </div>
                 </div>
                 <p className={`mt-4 text-lg font-semibold ${healthScore >= 80 ? 'text-green-500' :
-                    healthScore >= 60 ? 'text-yellow-500' :
-                      'text-red-500'
+                  healthScore >= 60 ? 'text-yellow-500' :
+                    'text-red-500'
                   }`}>
                   {healthScore >= 80 ? 'Excellent' : healthScore >= 60 ? 'Good' : healthScore >= 40 ? 'Fair' : 'Needs Improvement'}
                 </p>
@@ -1764,8 +1721,8 @@ export default function GoalsPage() {
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-foreground">Net Annual Benefit:</span>
                   <span className={`text-2xl font-bold ${(portfolioAnnualReturnDollars + dividendIncome - totalAnnualInterest) >= 0
-                      ? 'text-green-500'
-                      : 'text-red-500'
+                    ? 'text-green-500'
+                    : 'text-red-500'
                     }`}>
                     {(portfolioAnnualReturnDollars + dividendIncome - totalAnnualInterest) >= 0 ? '+' : ''}
                     {formatCurrency(portfolioAnnualReturnDollars + dividendIncome - totalAnnualInterest)}
@@ -1795,9 +1752,9 @@ export default function GoalsPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Debt-to-Income</span>
                     <span className={`font-bold ${debtToIncomeRatio > 50 ? 'text-red-500' :
-                        debtToIncomeRatio > 35 ? 'text-orange-500' :
-                          debtToIncomeRatio > 20 ? 'text-yellow-500' :
-                            'text-green-500'
+                      debtToIncomeRatio > 35 ? 'text-orange-500' :
+                        debtToIncomeRatio > 20 ? 'text-yellow-500' :
+                          'text-green-500'
                       }`}>
                       {debtToIncomeRatio.toFixed(1)}%
                     </span>
@@ -1818,8 +1775,8 @@ export default function GoalsPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Debt-to-Asset</span>
                     <span className={`font-bold ${debtToAssetRatio > 60 ? 'text-red-500' :
-                        debtToAssetRatio > 30 ? 'text-yellow-500' :
-                          'text-green-500'
+                      debtToAssetRatio > 30 ? 'text-yellow-500' :
+                        'text-green-500'
                       }`}>
                       {debtToAssetRatio.toFixed(1)}%
                     </span>
@@ -1839,8 +1796,8 @@ export default function GoalsPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Emergency Fund</span>
                     <span className={`font-bold ${emergencyFundMonths < 3 ? 'text-red-500' :
-                        emergencyFundMonths < 6 ? 'text-yellow-500' :
-                          'text-green-500'
+                      emergencyFundMonths < 6 ? 'text-yellow-500' :
+                        'text-green-500'
                       }`}>
                       {emergencyFundMonths.toFixed(1)}mo
                     </span>
@@ -1860,8 +1817,8 @@ export default function GoalsPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Leverage Ratio</span>
                     <span className={`font-bold ${leverageRatio > 2 ? 'text-red-500' :
-                        leverageRatio > 1 ? 'text-yellow-500' :
-                          'text-green-500'
+                      leverageRatio > 1 ? 'text-yellow-500' :
+                        'text-green-500'
                       }`}>
                       {leverageRatio.toFixed(2)}x
                     </span>

@@ -414,9 +414,12 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
   // Zoom when page buttons are clicked
   useEffect(() => {
     if (!zoomTick?.ts || !globeRef.current) return
-    const pov = globeRef.current.pointOfView()
-    const newAlt = zoomTick.dir > 0 ? pov.altitude * 0.75 : pov.altitude * 1.35
-    globeRef.current.pointOfView({ altitude: newAlt }, 300)
+    const camera = globeRef.current.camera()
+    if (!camera) return
+    const factor = zoomTick.dir > 0 ? 0.8 : 1.25
+    camera.position.x *= factor
+    camera.position.y *= factor
+    camera.position.z *= factor
   }, [zoomTick])
 
   if (loadError) {

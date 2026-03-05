@@ -812,175 +812,175 @@ export function DebtTrackerTab({ onDebtsChange }: DebtTrackerTabProps) {
         </CardContent>
       </Card>
 
-      {/* ── Strategy Section (only if debts exist) ─────────────────── */}
-      {debts.length > 0 && (
-        <>
-          <Card className="border-border bg-card">
-            <CardHeader>
-              <div className="flex items-center justify-between flex-wrap gap-3">
-                <div>
-                  <CardTitle className="text-base">Payoff Strategy</CardTitle>
-                  <p className="text-xs text-muted-foreground mt-1">Choose your strategy and see the real impact of extra payments</p>
-                </div>
-                <button onClick={() => generateDebtPDF(debts, payoffStrategy, extraPayment)} className="flex items-center gap-1.5 rounded border border-border bg-secondary px-3 py-1.5 text-sm hover:bg-secondary/80">
-                  <Download className="h-4 w-4" /> Export PDF
-                </button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
+      {/* ── Strategy Section ─────────────────────────────────────────── */}
+      <>
 
-              {/* Strategy Cards */}
-              <div className="grid gap-4 sm:grid-cols-2">
-                {([
-                  { key: 'snowball' as PayoffStrategy, icon: <Snowflake className="h-5 w-5 text-blue-400" />, label: '❄️ Snowball', desc: 'Smallest balance first. Quick psychological wins.', schedule: currentSnow },
-                  { key: 'avalanche' as PayoffStrategy, icon: <Flame className="h-5 w-5 text-orange-500" />, label: '🔥 Avalanche', desc: 'Highest APR first. Saves the most interest.', schedule: currentAval },
-                ] as const).map(({ key, icon, label, desc, schedule }) => (
-                  <button key={key} onClick={() => setPayoffStrategy(key)} className={`text-left rounded-lg border-2 p-4 transition-all ${payoffStrategy === key ? 'border-primary bg-primary/5' : 'border-border bg-secondary/30 hover:border-primary/50'}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2 font-semibold text-sm">{icon}{label}</div>
-                      {payoffStrategy === key && <CheckCircle2 className="h-4 w-4 text-primary" />}
+        <Card className="border-border bg-card">
+          <CardHeader>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <CardTitle className="text-base">Payoff Strategy</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">Choose your strategy and see the real impact of extra payments</p>
+              </div>
+              <button onClick={() => generateDebtPDF(debts, payoffStrategy, extraPayment)} className="flex items-center gap-1.5 rounded border border-border bg-secondary px-3 py-1.5 text-sm hover:bg-secondary/80">
+                <Download className="h-4 w-4" /> Export PDF
+              </button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+
+            {/* Strategy Cards */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              {([
+                { key: 'snowball' as PayoffStrategy, icon: <Snowflake className="h-5 w-5 text-blue-400" />, label: '❄️ Snowball', desc: 'Smallest balance first. Quick psychological wins.', schedule: currentSnow },
+                { key: 'avalanche' as PayoffStrategy, icon: <Flame className="h-5 w-5 text-orange-500" />, label: '🔥 Avalanche', desc: 'Highest APR first. Saves the most interest.', schedule: currentAval },
+              ] as const).map(({ key, icon, label, desc, schedule }) => (
+                <button key={key} onClick={() => setPayoffStrategy(key)} className={`text-left rounded-lg border-2 p-4 transition-all ${payoffStrategy === key ? 'border-primary bg-primary/5' : 'border-border bg-secondary/30 hover:border-primary/50'}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2 font-semibold text-sm">{icon}{label}</div>
+                    {payoffStrategy === key && <CheckCircle2 className="h-4 w-4 text-primary" />}
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">{desc}</p>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div><p className="text-muted-foreground">Payoff Time</p><p className="font-bold text-foreground">{formatMonths(schedule.length)}</p></div>
+                    <div><p className="text-muted-foreground">Total Interest</p><p className="font-bold text-red-500">{formatCurrency(schedule[schedule.length - 1]?.totalInterestPaid || 0)}</p></div>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Extra Payment Slider */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-foreground">Extra Monthly Payment</label>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-muted-foreground">$</span>
+                  <span className="text-lg font-bold text-primary w-16 text-right">{extraPayment}</span>
+                </div>
+              </div>
+              <input
+                type="range" min={0} max={2000} step={25}
+                value={extraPayment}
+                onChange={e => setExtraPayment(Number(e.target.value))}
+                className="w-full accent-primary"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground"><span>$0</span><span>$500</span><span>$1,000</span><span>$1,500</span><span>$2,000</span></div>
+            </div>
+
+            {/* Comparison Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    {['Strategy', 'Extra/mo', 'Payoff Time', 'Total Interest', 'Total Cost', 'vs Snowball'].map(h => (
+                      <th key={h} className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { key: 'snowball' as const, label: '❄️ Snowball', schedule: currentSnow },
+                    { key: 'avalanche' as const, label: '🔥 Avalanche', schedule: currentAval },
+                  ].map(({ key, label, schedule }) => {
+                    const totalInterest = schedule[schedule.length - 1]?.totalInterestPaid || 0
+                    const totalCost = totalDebt + totalInterest
+                    const snowInterest = currentSnow[currentSnow.length - 1]?.totalInterestPaid || 0
+                    const savings = snowInterest - totalInterest
+
+                    return (
+                      <tr key={key} className={`border-b border-border/50 ${payoffStrategy === key ? 'bg-primary/5' : ''}`}>
+                        <td className="py-2.5 px-3 font-medium">{label}{payoffStrategy === key && <span className="ml-1 text-xs text-primary">●</span>}</td>
+                        <td className="py-2.5 px-3">{formatCurrency(extraPayment)}</td>
+                        <td className="py-2.5 px-3 font-semibold text-green-500">{formatMonths(schedule.length)}</td>
+                        <td className="py-2.5 px-3 font-semibold text-red-500">{formatCurrency(totalInterest)}</td>
+                        <td className="py-2.5 px-3">{formatCurrency(totalCost)}</td>
+                        <td className="py-2.5 px-3">{key === 'snowball' ? <span className="text-muted-foreground">—</span> : <span className="text-green-500 font-semibold">save {formatCurrency(Math.max(0, savings))}</span>}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Payoff Priority Order */}
+            <div>
+              <h4 className="text-sm font-semibold text-foreground mb-3">
+                {payoffStrategy === 'avalanche' ? '🔥 Avalanche' : '❄️ Snowball'} — Payoff Order
+              </h4>
+              <div className="space-y-2">
+                {sortedPayoffOrder.map((debt, i) => (
+                  <div key={debt.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-sm shrink-0">{i + 1}</div>
+                    <div className="flex-1 grid grid-cols-3 gap-3 text-sm min-w-0">
+                      <div><p className="font-medium text-foreground truncate">{debt.name}</p><p className="text-xs text-muted-foreground">{debt.type}</p></div>
+                      <div><p className="text-foreground">{formatCurrency(debt.balance)}</p><p className="text-xs text-muted-foreground">Balance</p></div>
+                      <div><p className={`font-medium ${debt.apr > 15 ? 'text-red-500' : debt.apr > 8 ? 'text-orange-500' : 'text-green-500'}`}>{debt.apr}% APR</p><p className="text-xs text-muted-foreground">{formatCurrency(calcAnnualInterest(debt.balance, debt.apr))}/yr</p></div>
                     </div>
-                    <p className="text-xs text-muted-foreground mb-3">{desc}</p>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div><p className="text-muted-foreground">Payoff Time</p><p className="font-bold text-foreground">{formatMonths(schedule.length)}</p></div>
-                      <div><p className="text-muted-foreground">Total Interest</p><p className="font-bold text-red-500">{formatCurrency(schedule[schedule.length - 1]?.totalInterestPaid || 0)}</p></div>
-                    </div>
-                  </button>
+                  </div>
                 ))}
               </div>
+            </div>
+          </CardContent>
+        </Card>
 
-              {/* Extra Payment Slider */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-foreground">Extra Monthly Payment</label>
-                  <div className="flex items-center gap-1">
-                    <span className="text-sm text-muted-foreground">$</span>
-                    <span className="text-lg font-bold text-primary w-16 text-right">{extraPayment}</span>
-                  </div>
-                </div>
-                <input
-                  type="range" min={0} max={2000} step={25}
-                  value={extraPayment}
-                  onChange={e => setExtraPayment(Number(e.target.value))}
-                  className="w-full accent-primary"
-                />
-                <div className="flex justify-between text-xs text-muted-foreground"><span>$0</span><span>$500</span><span>$1,000</span><span>$1,500</span><span>$2,000</span></div>
-              </div>
-
-              {/* Comparison Table */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border">
-                      {['Strategy', 'Extra/mo', 'Payoff Time', 'Total Interest', 'Total Cost', 'vs Snowball'].map(h => (
-                        <th key={h} className="py-2 px-3 text-left text-xs font-semibold text-muted-foreground">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      { key: 'snowball' as const, label: '❄️ Snowball', schedule: currentSnow },
-                      { key: 'avalanche' as const, label: '🔥 Avalanche', schedule: currentAval },
-                    ].map(({ key, label, schedule }) => {
-                      const totalInterest = schedule[schedule.length - 1]?.totalInterestPaid || 0
-                      const totalCost = totalDebt + totalInterest
-                      const snowInterest = currentSnow[currentSnow.length - 1]?.totalInterestPaid || 0
-                      const savings = snowInterest - totalInterest
-
-                      return (
-                        <tr key={key} className={`border-b border-border/50 ${payoffStrategy === key ? 'bg-primary/5' : ''}`}>
-                          <td className="py-2.5 px-3 font-medium">{label}{payoffStrategy === key && <span className="ml-1 text-xs text-primary">●</span>}</td>
-                          <td className="py-2.5 px-3">{formatCurrency(extraPayment)}</td>
-                          <td className="py-2.5 px-3 font-semibold text-green-500">{formatMonths(schedule.length)}</td>
-                          <td className="py-2.5 px-3 font-semibold text-red-500">{formatCurrency(totalInterest)}</td>
-                          <td className="py-2.5 px-3">{formatCurrency(totalCost)}</td>
-                          <td className="py-2.5 px-3">{key === 'snowball' ? <span className="text-muted-foreground">—</span> : <span className="text-green-500 font-semibold">save {formatCurrency(Math.max(0, savings))}</span>}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Payoff Priority Order */}
-              <div>
-                <h4 className="text-sm font-semibold text-foreground mb-3">
-                  {payoffStrategy === 'avalanche' ? '🔥 Avalanche' : '❄️ Snowball'} — Payoff Order
-                </h4>
-                <div className="space-y-2">
-                  {sortedPayoffOrder.map((debt, i) => (
-                    <div key={debt.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-sm shrink-0">{i + 1}</div>
-                      <div className="flex-1 grid grid-cols-3 gap-3 text-sm min-w-0">
-                        <div><p className="font-medium text-foreground truncate">{debt.name}</p><p className="text-xs text-muted-foreground">{debt.type}</p></div>
-                        <div><p className="text-foreground">{formatCurrency(debt.balance)}</p><p className="text-xs text-muted-foreground">Balance</p></div>
-                        <div><p className={`font-medium ${debt.apr > 15 ? 'text-red-500' : debt.apr > 8 ? 'text-orange-500' : 'text-green-500'}`}>{debt.apr}% APR</p><p className="text-xs text-muted-foreground">{formatCurrency(calcAnnualInterest(debt.balance, debt.apr))}/yr</p></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* ── Charts ──────────────────────────────────────────────────── */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Pie Chart */}
-            <Card className="border-border bg-card">
-              <CardHeader><CardTitle className="text-base">Debt by Type</CardTitle></CardHeader>
-              <CardContent>
-                <div className="h-[260px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={debtByType} cx="50%" cy="50%" outerRadius={90} dataKey="value" label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`} labelLine={false}>
-                        {debtByType.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
-                      </Pie>
-                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} formatter={(v: number) => [formatCurrency(v), 'Amount']} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Bar Chart */}
-            <Card className="border-border bg-card">
-              <CardHeader><CardTitle className="text-base">Annual Interest by Debt</CardTitle></CardHeader>
-              <CardContent>
-                <div className="h-[260px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={debts.map(d => ({ name: d.name, interest: Math.round(calcAnnualInterest(d.balance, d.apr)) }))} margin={{ top: 5, right: 10, left: 10, bottom: 40 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.5} />
-                      <XAxis dataKey="name" fontSize={10} angle={-35} textAnchor="end" height={70} stroke="#9ca3af" />
-                      <YAxis tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} fontSize={11} stroke="#9ca3af" />
-                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} formatter={(v: number) => [formatCurrency(v), 'Annual Interest']} />
-                      <Bar dataKey="interest" fill="#f97316" radius={[6, 6, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Payoff Timeline */}
+        {/* ── Charts ──────────────────────────────────────────────────── */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Pie Chart */}
           <Card className="border-border bg-card">
-            <CardHeader>
-              <CardTitle className="text-base">Debt Payoff Timeline — {payoffStrategy === 'avalanche' ? '🔥 Avalanche' : '❄️ Snowball'}</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle className="text-base">Debt by Type</CardTitle></CardHeader>
             <CardContent>
-              <div className="h-[280px]">
+              <div className="h-[260px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={payoffTimelineData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.5} />
-                    <XAxis dataKey="month" fontSize={11} stroke="#9ca3af" />
-                    <YAxis tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} fontSize={11} stroke="#9ca3af" />
-                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} formatter={(v: number) => [formatCurrency(v), 'Remaining Balance']} />
-                    <Line type="monotone" dataKey="balance" stroke="#22c55e" strokeWidth={2} dot={false} />
-                  </LineChart>
+                  <PieChart>
+                    <Pie data={debtByType} cx="50%" cy="50%" outerRadius={90} dataKey="value" label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                      {debtByType.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                    </Pie>
+                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} formatter={(v: number) => [formatCurrency(v), 'Amount']} />
+                  </PieChart>
                 </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
-        </>
+
+          {/* Bar Chart */}
+          <Card className="border-border bg-card">
+            <CardHeader><CardTitle className="text-base">Annual Interest by Debt</CardTitle></CardHeader>
+            <CardContent>
+              <div className="h-[260px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={debts.map(d => ({ name: d.name, interest: Math.round(calcAnnualInterest(d.balance, d.apr)) }))} margin={{ top: 5, right: 10, left: 10, bottom: 40 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.5} />
+                    <XAxis dataKey="name" fontSize={10} angle={-35} textAnchor="end" height={70} stroke="#9ca3af" />
+                    <YAxis tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} fontSize={11} stroke="#9ca3af" />
+                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} formatter={(v: number) => [formatCurrency(v), 'Annual Interest']} />
+                    <Bar dataKey="interest" fill="#f97316" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Payoff Timeline */}
+        <Card className="border-border bg-card">
+          <CardHeader>
+            <CardTitle className="text-base">Debt Payoff Timeline — {payoffStrategy === 'avalanche' ? '🔥 Avalanche' : '❄️ Snowball'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[280px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={payoffTimelineData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.5} />
+                  <XAxis dataKey="month" fontSize={11} stroke="#9ca3af" />
+                  <YAxis tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} fontSize={11} stroke="#9ca3af" />
+                  <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} formatter={(v: number) => [formatCurrency(v), 'Remaining Balance']} />
+                  <Line type="monotone" dataKey="balance" stroke="#22c55e" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </>
       )}
     </div>
   )

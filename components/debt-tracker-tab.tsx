@@ -981,7 +981,6 @@ export function DebtTrackerTab({ onDebtsChange }: DebtTrackerTabProps) {
           </CardContent>
         </Card>
       </>
-      )}
     </div>
   )
 }

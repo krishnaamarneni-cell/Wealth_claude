@@ -9,7 +9,7 @@ import { usePortfolio } from "@/lib/portfolio-context"
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { useDebtData } from '@/lib/hooks/useDebtData'
-import { Target, TrendingUp, Calendar, DollarSign, Pencil, X, CreditCard, AlertTriangle, TrendingDown, PieChart as PieChartIcon, Activity, CheckCircle2, Plus, Trash2, Shield, Zap, FileText, ChevronDown, ChevronUp, Snowflake, Flame, Upload } from "lucide-react""
+import { Target, TrendingUp, Calendar, DollarSign, Pencil, X, CreditCard, AlertTriangle, TrendingDown, PieChart as PieChartIcon, Activity, CheckCircle2, Plus, Trash2, Shield, Zap, FileText, ChevronDown, ChevronUp, Snowflake, Flame, Upload } from "lucide-react"
 
 // ==================== TYPES ====================
 

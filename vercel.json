@@ -29,6 +29,14 @@
       "schedule": "0 3 * * *"
     }
   ],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "wealthclaude.com" }],
+      "destination": "https://www.wealthclaude.com/:path*",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/:file(.+)?\\?v=.*",

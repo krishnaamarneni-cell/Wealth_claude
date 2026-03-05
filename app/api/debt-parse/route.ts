@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerSideClient } from '@/lib/supabase'
 import pdfParse from 'pdf-parse'
-import { GoogleGenerativeAI } from '@google/generative-ai'
 
 const SPENDING_CATEGORIES: Record<string, string[]> = {
   'Dining': ['mcdonalds', 'starbucks', 'restaurant', 'cafe', 'pizza', 'sushi', 'chipotle', 'doordash', 'ubereats', 'grubhub', 'burger', 'taco', 'subway', 'wendys', 'panera', 'chick-fil'],
@@ -119,11 +118,18 @@ export async function POST(req: NextRequest) {
       const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY
       if (apiKey) {
         try {
-          const genAI = new GoogleGenerativeAI(apiKey)
-          const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
           const prompt = `Extract financial data from this ${loanType} statement. Return ONLY valid JSON, no markdown.\n\nText:\n${pdfText.substring(0, 5000)}\n\nReturn:\n{"accountName":"string","lender":"string","balance":0,"apr":0,"monthlyPayment":0,"minimumPayment":0,"creditLimit":null,"dueDate":null}`
-          const result = await model.generateContent(prompt)
-          const jsonStr = result.response.text().trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+
+          const geminiRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+            }
+          )
+          const geminiData = await geminiRes.json()
+          const responseText = (geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '').trim()
           const extracted = JSON.parse(jsonStr)
           return NextResponse.json({ success: true, fileType: 'pdf', accountName: extracted.accountName || file.name.replace('.pdf', ''), lender: extracted.lender || '', balance: extracted.balance || 0, apr: extracted.apr || 0, monthlyPayment: extracted.monthlyPayment || 0, minimumPayment: extracted.minimumPayment || 0, creditLimit: extracted.creditLimit || null })
         } catch (geminiErr) {

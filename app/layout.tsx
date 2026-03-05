@@ -104,12 +104,6 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <meta
-          name="google-site-verification"
-          content="k6ogtZfRjD_sjQ0Rf1XyuB7D9Huce1RopsC2tgCfWzk"
-        />
-      </head>
       <body
         className="font-sans antialiased min-h-screen"
         suppressHydrationWarning

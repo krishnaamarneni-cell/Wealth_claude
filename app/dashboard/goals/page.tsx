@@ -6,6 +6,9 @@ import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, BarChart, Bar, Cell, PieChart, Pie } from "recharts"
 import { usePortfolio } from "@/lib/portfolio-context"
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import { useDebtData } from '@/lib/hooks/useDebtData'
 import { Target, TrendingUp, Calendar, DollarSign, Pencil, X, CreditCard, AlertTriangle, TrendingDown, PieChart as PieChartIcon, Activity, CheckCircle2, Plus, Trash2, Shield, Zap, FileText, ChevronDown, ChevronUp, Snowflake, Flame, Upload } from "lucide-react""
 
 // ==================== TYPES ====================
@@ -213,9 +216,13 @@ export default function GoalsPage() {
   const [expandedDebtId, setExpandedDebtId] = useState<string | null>(null)
   const [showResults, setShowResults] = useState(false)
   const [newDebt, setNewDebt] = useState({
-    name: '', type: 'Credit Card' as const,
-    balance: 0, apr: 0, min_payment: 0
+    name: '',
+    type: 'Credit Card' as any,
+    balance: 0,
+    apr: 0,
+    min_payment: 0
   })
+
 
 
   // Financial Overview State

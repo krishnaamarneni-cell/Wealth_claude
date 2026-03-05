@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase-client'
+import { getSupabaseClient } from '@/lib/supabase-client'
 
 export interface Debt {
   id: string
@@ -19,6 +19,7 @@ export interface Debt {
 }
 
 export function useDebtData() {
+  const supabase = getSupabaseClient()
   const [debts, setDebts] = useState<Debt[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

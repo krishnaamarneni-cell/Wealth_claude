@@ -10,6 +10,7 @@ interface GlobeWrapperProps {
   selectedCountry: string | null
   onCountrySelect: (isoA3: string | null, name: string | null) => void
   showShips?: boolean
+  zoomTick?: { dir: number; ts: number }
 }
 
 // Minimal type shim for Globe.gl
@@ -19,7 +20,7 @@ declare global {
   }
 }
 
-export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, showShips = false }: GlobeWrapperProps) {
+export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, showShips = false, zoomTick }: GlobeWrapperProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const globeRef = useRef<any>(null)
   const [isReady, setIsReady] = useState(false)
@@ -410,23 +411,13 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
     return () => window.removeEventListener("resize", handleResize)
   }, [])
 
-  // Listen for zoom events from page buttons
+  // Zoom when page buttons are clicked
   useEffect(() => {
-    const zoomIn = () => {
-      const controls = (globeRef.current as any)?.controls?.()
-      if (controls) { controls.dollyIn(1.3); controls.update() }
-    }
-    const zoomOut = () => {
-      const controls = (globeRef.current as any)?.controls?.()
-      if (controls) { controls.dollyOut(1.3); controls.update() }
-    }
-    window.addEventListener("globeZoomIn", zoomIn)
-    window.addEventListener("globeZoomOut", zoomOut)
-    return () => {
-      window.removeEventListener("globeZoomIn", zoomIn)
-      window.removeEventListener("globeZoomOut", zoomOut)
-    }
-  }, [])
+    if (!zoomTick?.ts || !globeRef.current) return
+    const pov = globeRef.current.pointOfView()
+    const newAlt = zoomTick.dir > 0 ? pov.altitude * 0.75 : pov.altitude * 1.35
+    globeRef.current.pointOfView({ altitude: newAlt }, 300)
+  }, [zoomTick])
 
   if (loadError) {
     return (

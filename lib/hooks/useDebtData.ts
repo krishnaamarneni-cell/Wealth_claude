@@ -48,5 +48,34 @@ export function useDebtData() {
     fetchDebts()
   }, [])
 
-  return { debts, loading, error }
+  const addDebt = async (newDebt: Omit<Debt, 'id' | 'createdAt' | 'updatedAt'>): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('debts')
+        .insert([newDebt])
+
+      if (error) {
+        setError(error.message)
+        return false
+      }
+
+      // Refetch debts after adding
+      const { data } = await supabase
+        .from('debts')
+        .select('*')
+        .order('createdAt', { ascending: false })
+
+      if (data) {
+        setDebts(data)
+      }
+
+      return true
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred'
+      setError(errorMessage)
+      return false
+    }
+  }
+
+  return { debts, loading, error, addDebt }
 }

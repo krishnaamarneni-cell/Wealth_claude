@@ -328,17 +328,16 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
       }, 800) // small delay after mount
 
       // Stars + planets via Three.js scene
-      // Disabled temporarily — THREE not reliably available from globe.gl
-      // setTimeout(() => {
-      //   try {
-      //     const scene = globe.scene()
-      //     if (scene && (window as any).THREE) {
-      //       addStars(scene)
-      //       addPlanets(scene)
-      //       addOrbiters(scene)
-      //     }
-      //   } catch (_) { }
-      // }, 500)
+      setTimeout(() => {
+        try {
+          const scene = globe.scene()
+          if (scene && (window as any).THREE) {
+            addStars(scene)
+            addPlanets(scene)
+            addOrbiters(scene)
+          }
+        } catch (_) { }
+      }, 500)
     }
 
     init().catch(console.error)

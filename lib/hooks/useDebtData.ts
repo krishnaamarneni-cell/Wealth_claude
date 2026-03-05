@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 export interface Debt {
   id: string
@@ -23,7 +26,7 @@ export interface CsvFile {
 }
 
 export function useDebtData() {
-  const supabase = createClientComponentClient()
+  const supabase = createClient(supabaseUrl, supabaseAnonKey)
   const [debts, setDebts] = useState<Debt[]>([])
   const [csvFiles, setCsvFiles] = useState<CsvFile[]>([])
   const [loading, setLoading] = useState(true)

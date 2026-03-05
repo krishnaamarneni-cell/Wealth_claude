@@ -457,25 +457,6 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
         </div>
       )}
       <div ref={containerRef} className="w-full h-full" />
-      {/* Zoom controls */}
-      {isReady && (
-        <div style={{ position: "absolute", bottom: "24px", right: "16px", display: "flex", flexDirection: "column", gap: "8px", zIndex: 20 }}>
-          <button
-            onClick={() => {
-              const controls = (globeRef.current as any)?.controls?.()
-              if (controls) { controls.dollyIn(1.3); controls.update() }
-            }}
-            style={{ width: "36px", height: "36px", borderRadius: "50%", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.7)", fontSize: "20px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-          >+</button>
-          <button
-            onClick={() => {
-              const controls = (globeRef.current as any)?.controls?.()
-              if (controls) { controls.dollyOut(1.3); controls.update() }
-            }}
-            style={{ width: "36px", height: "36px", borderRadius: "50%", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.7)", fontSize: "20px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-          >−</button>
-        </div>
-      )}
     </div>
   )
 }

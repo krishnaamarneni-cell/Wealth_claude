@@ -7,6 +7,60 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const job = searchParams.get("job")
 
+  if (job === "blog-schedule") {
+    try {
+      const baseUrl =
+        process.env.NEXT_PUBLIC_APP_URL ||
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        "https://www.wealthclaude.com"
+
+      const utcHour = new Date().getUTCHours()
+      
+      // Map UTC hour to post type
+      let subJob = "blog-premarket"
+      if (utcHour === 11) subJob = "blog-premarket"
+      else if (utcHour === 14 || utcHour === 16) subJob = "blog-market"
+      else if (utcHour === 21) subJob = "blog-aftermarket"
+      else if (utcHour === 23) subJob = "blog-geopolitical"
+      else if (utcHour === 2) subJob = "blog-education"
+
+      console.log(`[CRON] Starting blog-schedule job at ${new Date().toISOString()}`)
+      console.log(`[CRON] UTC hour: ${utcHour}`)
+      console.log(`[CRON] Mapped to subJob: ${subJob}`)
+      console.log(`[CRON] Forwarding to /api/cron/run?job=blog`)
+
+      const cronSecret = process.env.CRON_SECRET ?? ""
+      const res = await fetch(`${baseUrl}/api/cron/run?job=blog`, {
+        method: "GET",
+        headers: {
+          authorization: `Bearer ${cronSecret}`,
+          "Content-Type": "application/json",
+        },
+      })
+
+      const data = await res.json()
+
+      console.log(`[CRON] blog job response status: ${res.status}`)
+      console.log(`[CRON] blog job response:`, JSON.stringify(data, null, 2))
+
+      if (!res.ok) {
+        console.error(`[CRON] blog job failed:`, data)
+        return NextResponse.json(
+          { job: "blog-schedule", success: false, utcHour, subJob, error: data },
+          { status: res.status }
+        )
+      }
+
+      return NextResponse.json({ job: "blog-schedule", success: true, utcHour, subJob, ...data })
+    } catch (err: any) {
+      console.error(`[CRON] blog-schedule job threw an error:`, err?.message)
+      return NextResponse.json(
+        { job: "blog-schedule", success: false, error: err?.message },
+        { status: 500 }
+      )
+    }
+  }
+
   if (job === "blog") {
     try {
       const baseUrl =

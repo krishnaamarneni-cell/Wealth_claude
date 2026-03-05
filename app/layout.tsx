@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     locale: "en_US",
     images: [
       {
-        url: "/logo.png",
+        url: "/logo.png?v=1",
         width: 1200,
         height: 630,
         alt: "WealthClaude - AI-Powered Portfolio Tracker",
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     description:
       "WealthClaude — AI-powered portfolio tracker with real-time market intelligence. Track stocks, analyze performance and get AI insights. Free to start.",
     creator: "@wealthclaude",
-    images: ["/logo.png"],
+    images: ["/logo.png?v=1"],
   },
   robots: {
     index: true,
@@ -64,25 +64,25 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: "/favicon-32x32.png",
+        url: "/favicon-32x32.png?v=1",
         sizes: "32x32",
         type: "image/png",
       },
       {
-        url: "/favicon-96x96.png",
+        url: "/favicon-96x96.png?v=1",
         sizes: "96x96",
         type: "image/png",
       },
       {
-        url: "/icon.svg",
+        url: "/icon.svg?v=1",
         type: "image/svg+xml",
       },
     ],
     apple: [
-      "/apple-icon.png",
-      { url: "/apple-icon-180x180.png", sizes: "180x180", type: "image/png" },
-      { url: "/apple-icon-144x144.png", sizes: "144x144", type: "image/png" },
-      { url: "/apple-icon-120x120.png", sizes: "120x120", type: "image/png" },
+      "/apple-icon.png?v=1",
+      { url: "/apple-icon-180x180.png?v=1", sizes: "180x180", type: "image/png" },
+      { url: "/apple-icon-144x144.png?v=1", sizes: "144x144", type: "image/png" },
+      { url: "/apple-icon-120x120.png?v=1", sizes: "120x120", type: "image/png" },
     ],
   },
   manifest: "/site.webmanifest",

@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/cron/run?job=blog",
-      "schedule": "0 0 * * *"
+      "schedule": "7 0 * * *"
     },
     {
       "path": "/api/cron/run?job=blog",

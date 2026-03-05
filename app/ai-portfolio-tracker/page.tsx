@@ -272,7 +272,7 @@ export default function AIPortfolioTrackerPage() {
                 <span className="group-open:rotate-180 transition-transform">▼</span>
               </summary>
               <p className="mt-4 text-foreground text-sm leading-relaxed">
-                WealthClaude provides real-time updates during market hours with AI analysis running continuously. You'll receive instant alerts for significant price movements (>5%), dividend announcements, earnings surprises, and market opportunities affecting your holdings. After-hours analysis identifies overnight developments affecting your portfolio.
+                WealthClaude provides real-time updates during market hours with AI analysis running continuously. You'll receive instant alerts for significant price movements ({'>'}5%), dividend announcements, earnings surprises, and market opportunities affecting your holdings. After-hours analysis identifies overnight developments affecting your portfolio.
               </p>
             </details>
           </div>

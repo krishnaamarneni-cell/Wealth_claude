@@ -161,6 +161,9 @@ importers:
       resend:
         specifier: ^6.9.2
         version: 6.9.2
+      sharp:
+        specifier: ^0.34.5
+        version: 0.34.5
       sonner:
         specifier: latest
         version: 2.0.7(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -2254,8 +2257,7 @@ snapshots:
     dependencies:
       react-hook-form: 7.71.1(react@19.2.0)
 
-  '@img/colour@1.0.0':
-    optional: true
+  '@img/colour@1.0.0': {}
 
   '@img/sharp-darwin-arm64@0.34.5':
     optionalDependencies:
@@ -3855,8 +3857,7 @@ snapshots:
 
   scheduler@0.27.0: {}
 
-  semver@7.7.4:
-    optional: true
+  semver@7.7.4: {}
 
   setimmediate@1.0.5: {}
 
@@ -3890,7 +3891,6 @@ snapshots:
       '@img/sharp-win32-arm64': 0.34.5
       '@img/sharp-win32-ia32': 0.34.5
       '@img/sharp-win32-x64': 0.34.5
-    optional: true
 
   simplesignal@2.1.7: {}
 

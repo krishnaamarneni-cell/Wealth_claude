@@ -1,0 +1,34 @@
+# Allow all crawlers to index the entire site
+User-agent: *
+Allow: /
+
+# Specific directives for Google
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 1
+
+# Specific directives for Bing
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 1
+
+# Disallow bad bots and scrapers
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+User-agent: SemrushBot-SA
+User-agent: SemrushBot-BA
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
+
+# Specify sitemap location
+Sitemap: https://www.wealthclaude.com/sitemap.xml
+
+# Crawl-delay for all other bots
+Crawl-delay: 1

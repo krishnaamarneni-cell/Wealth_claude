@@ -49,6 +49,33 @@
       ]
     },
     {
+      "source": "/android-icon-(:filename)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800"
+        }
+      ]
+    },
+    {
+      "source": "/apple-icon-(:filename)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800"
+        }
+      ]
+    },
+    {
+      "source": "/apple-icon.png",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800"
+        }
+      ]
+    },
+    {
       "source": "/apple-touch-icon.png",
       "headers": [
         {
@@ -58,7 +85,7 @@
       ]
     },
     {
-      "source": "/icon-(:filename).png",
+      "source": "/ms-icon-(:filename)",
       "headers": [
         {
           "key": "Cache-Control",

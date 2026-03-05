@@ -14,21 +14,26 @@ export async function GET(req: NextRequest) {
         process.env.NEXT_PUBLIC_SITE_URL ||
         "https://www.wealthclaude.com"
 
+      const cronSecret = process.env.CRON_SECRET ?? ""
+      console.log(`[CRON] Starting blog job at ${new Date().toISOString()}`)
+      console.log(`[CRON] Base URL: ${baseUrl}`)
+      console.log(`[CRON] CRON_SECRET set: ${!!cronSecret}`)
+      console.log(`[CRON] PERPLEXITY_API_KEY set: ${!!process.env.PERPLEXITY_API_KEY}`)
+      console.log(`[CRON] GEMINI_API_KEY set: ${!!process.env.GEMINI_API_KEY}`)
       console.log(`[CRON] Calling auto-blog at: ${baseUrl}/api/auto-blog`)
 
       const res = await fetch(`${baseUrl}/api/auto-blog`, {
-        method: "GET",
+        method: "POST",
         headers: {
-          authorization: `Bearer ${process.env.CRON_SECRET ?? ""}`,
+          authorization: `Bearer ${cronSecret}`,
           "Content-Type": "application/json",
         },
       })
 
-
       const data = await res.json()
 
       console.log(`[CRON] auto-blog response status: ${res.status}`)
-      console.log(`[CRON] auto-blog response data:`, JSON.stringify(data))
+      console.log(`[CRON] auto-blog response data:`, JSON.stringify(data, null, 2))
 
       if (!res.ok) {
         console.error(`[CRON] auto-blog failed:`, data)

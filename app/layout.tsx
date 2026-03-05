@@ -21,6 +21,9 @@ export const metadata: Metadata = {
   },
   verification: {
     google: "k6ogtZfRjD_sjQ0Rf1XyuB7D9Huce1RopsC2tgCfWzk",
+    other: {
+      "msvalidate.01": "5D22DCD29FB1E60647A1628D46B35F98",
+    },
   },
   openGraph: {
     title: "WealthClaude - AI-Powered Portfolio Tracker",

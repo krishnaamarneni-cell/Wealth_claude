@@ -17,11 +17,13 @@ export async function GET(req: NextRequest) {
       console.log(`[CRON] Calling auto-blog at: ${baseUrl}/api/auto-blog`)
 
       const res = await fetch(`${baseUrl}/api/auto-blog`, {
+        method: "GET",
         headers: {
-          authorization: req.headers.get("authorization") ?? "",
+          authorization: `Bearer ${process.env.CRON_SECRET ?? ""}`,
           "Content-Type": "application/json",
         },
       })
+
 
       const data = await res.json()
 

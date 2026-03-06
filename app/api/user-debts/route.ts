@@ -25,11 +25,8 @@ export async function GET() {
       apr: d.apr,
       monthlyPayment: d.monthly_payment,
       minimumPayment: d.minimum_payment,
-      loanTermMonths: d.loan_term_months,
-      notes: d.notes,
-      source: d.source,
-      fileName: d.file_name,
-      spendingInsights: d.spending_insights,
+      dueDate: d.due_date,
+      status: d.status,
     })))
   } catch (e) {
     console.error('[user-debts] GET error:', e)
@@ -55,11 +52,8 @@ export async function POST(req: NextRequest) {
         apr: body.apr,
         monthly_payment: body.monthlyPayment,
         minimum_payment: body.minimumPayment,
-        loan_term_months: body.loanTermMonths || null,
-        notes: body.notes || null,
-        source: body.source || 'manual',
-        file_name: body.fileName || null,
-        spending_insights: body.spendingInsights || null,
+        due_date: body.dueDate || null,
+        status: body.status || 'active',
       })
       .select()
       .single()
@@ -68,14 +62,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       debt: {
-        id: data.id, name: data.name, type: data.type,
-        balance: data.balance, apr: data.apr,
+        id: data.id,
+        name: data.name,
+        type: data.type,
+        balance: data.balance,
+        apr: data.apr,
         monthlyPayment: data.monthly_payment,
         minimumPayment: data.minimum_payment,
-        loanTermMonths: data.loan_term_months,
-        notes: data.notes, source: data.source,
-        fileName: data.file_name,
-        spendingInsights: data.spending_insights,
+        dueDate: data.due_date,
+        status: data.status,
       }
     })
   } catch (e) {

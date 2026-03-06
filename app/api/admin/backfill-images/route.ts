@@ -94,11 +94,14 @@ export async function GET(request: NextRequest) {
         source = 'unsplash'
       } catch (e: any) {
         console.warn(`[backfill] Unsplash failed for "${query}": ${e.message}`)
+      }
     }
-  }
 
-  return NextResponse.json(results)
-}
+    if (!image_url) {
+      results.failed++
+      results.posts.push({ title: post.title, status: '❌ Both sources failed' })
+      continue
+    }
 
     const { error: updateError } = await supabase
       .from('blog_posts')
@@ -114,4 +117,5 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return
+  return NextResponse.json(results)
+}

@@ -45,34 +45,169 @@ const FILE_TYPES = [
 // ==================== PARSING LOGIC ====================
 
 function extractFinancialData(text: string): ParsedCard | null {
-  // Stronger patterns matching the working API route
-  const balanceMatch = text.match(
-    /(?:balance|amount due|current balance|outstanding|total balance|new balance|statement balance)[:\s$]*([0-9,]+\.?[0-9]*)/i
-  )
-  const aprMatch = text.match(
-    /(?:apr|annual percentage rate|purchase apr|interest rate)[:\s]*([0-9]+\.?[0-9]*)\s*%/i
-  )
-  const paymentMatch = text.match(
-    /(?:minimum payment|min payment|monthly payment|minimum due|minimum amount due|payment due)[:\s$]*([0-9,]+\.?[0-9]*)/i
-  )
-  const cardNameMatch = text.match(
-    /(?:card|account|card name|account name|card ending)[:\s]+([^\n,]+)/i
-  )
+  // ====== CARD NAME EXTRACTION ======
+  // Priority 1: Known card product names (most reliable)
+  const knownCardPatterns = [
+    // Chase
+    /CHASE\s+(FREEDOM\s+UNLIMITED|FREEDOM\s+FLEX|SAPPHIRE\s+PREFERRED|SAPPHIRE\s+RESERVE|SLATE|AMAZON|AEROPLAN|INK\s+\w+)/i,
+    // American Express
+    /(HILTON\s+HONORS\s+CARD|BLUE\s+CASH\s+\w+|GOLD\s+CARD|PLATINUM\s+CARD|GREEN\s+CARD|DELTA\s+SKY\s*MILES\s+\w+|MARRIOTT\s+BONVOY\s+\w+|EVERYDAY\s+\w*)/i,
+    // Capital One
+    /(?:CAPITAL\s*ONE\s+)?(VENTURE\s*X?|QUICKSILVER\s*ONE?|SAVOR\s*ONE?|PLATINUM\s+CARD)\s*(?:\|[^|]+ending\s+in\s+\d+)?/i,
+    // Bank of America
+    /(VISA\s+SIGNATURE|CUSTOMIZED\s+CASH\s+REWARDS|TRAVEL\s+REWARDS|UNLIMITED\s+CASH\s+REWARDS|PREMIUM\s+REWARDS)\s*®?/i,
+    // Citi
+    /CITI\s+(DOUBLE\s+CASH|CUSTOM\s+CASH|PREMIER|DIAMOND\s+PREFERRED|SIMPLICITY|REWARDS\+?|COSTCO)/i,
+    // Discover
+    /DISCOVER\s+(IT|MORE|CHROME)\s*®?\s*(CASH\s+BACK|MILES|STUDENT|SECURED)?/i,
+    // Wells Fargo
+    /WELLS\s+FARGO\s+(ACTIVE\s+CASH|AUTOGRAPH|REFLECT|PLATINUM)/i,
+    // US Bank
+    /U\.?S\.?\s+BANK\s+(VISA\s+PLATINUM|ALTITUDE\s+\w+|CASH\+?|SHOPPER\s+CASH)/i,
+  ]
 
-  const balance = balanceMatch
-    ? parseFloat(balanceMatch[1].replace(/,/g, ""))
-    : 0
-  const apr = aprMatch ? parseFloat(aprMatch[1]) : 0
-  const minPayment = paymentMatch
-    ? parseFloat(paymentMatch[1].replace(/,/g, ""))
-    : 0
-  const name = cardNameMatch
-    ? cardNameMatch[1].trim().substring(0, 40)
-    : "Imported Card"
+  let cardName = ""
+  for (const pattern of knownCardPatterns) {
+    const match = text.match(pattern)
+    if (match) {
+      cardName = match[0].trim().substring(0, 50)
+      break
+    }
+  }
 
-  // Return card even if only balance is found (user can edit APR/payment)
+  // Priority 2: Generic card/account line (but NOT the person's name)
+  if (!cardName) {
+    // Look for "Card" or "Account" followed by product-like text, excluding common name patterns
+    const genericCardMatch = text.match(
+      /(?:^|\n)\s*((?:[\w]+\s+){0,3}(?:Card|Visa|Mastercard|World\s+Mastercard))\s*(?:\||®|\s+ending)/im
+    )
+    if (genericCardMatch) {
+      cardName = genericCardMatch[1].trim().substring(0, 50)
+    }
+  }
+
+  // Priority 3: Issuer name from statement
+  if (!cardName) {
+    const issuerMatch = text.match(
+      /(?:AMERICAN\s+EXPRESS|CHASE|CAPITAL\s*ONE|BANK\s+OF\s+AMERICA|CITIBANK|CITI|DISCOVER|WELLS\s+FARGO|U\.?S\.?\s+BANK|BARCLAYS|SYNCHRONY)/i
+    )
+    if (issuerMatch) {
+      cardName = issuerMatch[0].trim() + " Card"
+    }
+  }
+
+  if (!cardName) cardName = "Imported Card"
+
+  // ====== BALANCE EXTRACTION ======
+  // Try specific "New Balance" patterns first (most common across all banks)
+  let balance = 0
+  const balancePatterns = [
+    // "New Balance $333.89" or "New Balance Total $40.30" (BoA)
+    /New\s+Balance(?:\s+Total)?\s*(?:=\s*)?\$?\s*([0-9,]+\.[0-9]{2})/i,
+    // "Statement Balance $XXX.XX"
+    /Statement\s+Balance\s*\$?\s*([0-9,]+\.[0-9]{2})/i,
+    // "Current Balance $XXX.XX"
+    /Current\s+Balance\s*\$?\s*([0-9,]+\.[0-9]{2})/i,
+    // "Amount Due $XXX.XX"
+    /(?:Total\s+)?Amount\s+Due\s*\$?\s*([0-9,]+\.[0-9]{2})/i,
+    // "Balance Due $XXX.XX"
+    /Balance\s+Due\s*\$?\s*([0-9,]+\.[0-9]{2})/i,
+    // Fallback: any "balance" followed by dollar amount
+    /(?:balance|outstanding)[:\s]*\$?\s*([0-9,]+\.[0-9]{2})/i,
+  ]
+
+  for (const pattern of balancePatterns) {
+    const match = text.match(pattern)
+    if (match) {
+      const val = parseFloat(match[1].replace(/,/g, ""))
+      if (val > 0 && val < 1000000) {
+        balance = val
+        break
+      }
+    }
+  }
+
+  // ====== APR EXTRACTION ======
+  // APR appears in Interest Charge Calculation section with various formats
+  let apr = 0
+  const aprPatterns = [
+    // "Purchases 28.24% (v)" or "Purchases 27.49%(v)(d)" — Interest Charge table format
+    /Purchases\s+(\d{1,2}\.\d{1,2})%\s*(?:\(v\)|\(V\)|V|P|\(v\)\(d\)|\(d\))?/i,
+    // "Annual Percentage Rate (APR)" section: "28.99% P" or "26.49%V"
+    /(?:Annual\s+Percentage\s+Rate|APR)\s*(?:\(APR\))?\s*[\s:]*(\d{1,2}\.\d{1,2})%?\s*(?:\(v\)|V|P|\(v\)\(d\)|\(d\))?/i,
+    // "Purchase APR: 19.99%"
+    /Purchase\s+APR\s*:?\s*(\d{1,2}\.\d{1,2})\s*%/i,
+    // "Standard APR: XX.XX%"  
+    /Standard\s+APR\s*:?\s*(\d{1,2}\.\d{1,2})\s*%/i,
+    // "Variable APR: XX.XX%"
+    /Variable\s+APR\s*:?\s*(\d{1,2}\.\d{1,2})\s*%/i,
+    // "Interest Rate: XX.XX%"
+    /Interest\s+Rate\s*:?\s*(\d{1,2}\.\d{1,2})\s*%/i,
+    // "Penalty APR of 29.99%" — extract as fallback if no other APR found
+    /Penalty\s+APR\s+(?:of\s+)?(\d{1,2}\.\d{1,2})\s*%/i,
+    // Generic: any XX.XX% near "APR" text
+    /(\d{1,2}\.\d{1,2})%\s*(?:\(v\)|V|P|\(v\)\(d\)|\(d\))?\s*(?:variable|apr)/i,
+  ]
+
+  for (const pattern of aprPatterns) {
+    const match = text.match(pattern)
+    if (match) {
+      const val = parseFloat(match[1])
+      // Valid APR range: 0-40%, skip penalty APRs > 30% unless it's the only one
+      if (val > 0 && val <= 35) {
+        apr = val
+        break
+      }
+    }
+  }
+
+  // If no APR found yet, try to find any percentage near interest-related words
+  if (apr === 0) {
+    const fallbackAPR = text.match(
+      /(\d{1,2}\.\d{1,2})\s*%\s*(?:\(v\)|V|P|\(d\))?/g
+    )
+    if (fallbackAPR) {
+      for (const match of fallbackAPR) {
+        const val = parseFloat(match)
+        if (val >= 10 && val <= 35) {
+          apr = val
+          break
+        }
+      }
+    }
+  }
+
+  // ====== MINIMUM PAYMENT EXTRACTION ======
+  let minPayment = 0
+  const paymentPatterns = [
+    // "Minimum Payment Due $40.00" (most common)
+    /Minimum\s+Payment\s+Due\s*\$?\s*([0-9,]+\.[0-9]{2})/i,
+    // "Total Minimum Payment Due $35.00" (BoA)
+    /Total\s+Minimum\s+Payment\s+Due\s*\$?\s*([0-9,]+\.[0-9]{2})/i,
+    // "Minimum Payment $25.00"
+    /Minimum\s+Payment\s*\$?\s*([0-9,]+\.[0-9]{2})/i,
+    // "Minimum Due $XX.XX"
+    /Minimum\s+Due\s*\$?\s*([0-9,]+\.[0-9]{2})/i,
+    // "Minimum Amount Due $XX.XX"
+    /Minimum\s+Amount\s+Due\s*\$?\s*([0-9,]+\.[0-9]{2})/i,
+    // "Current Payment Due $35.00" (BoA)
+    /Current\s+Payment\s+Due\s*\$?\s*([0-9,]+\.[0-9]{2})/i,
+  ]
+
+  for (const pattern of paymentPatterns) {
+    const match = text.match(pattern)
+    if (match) {
+      const val = parseFloat(match[1].replace(/,/g, ""))
+      if (val > 0 && val < 100000) {
+        minPayment = val
+        break
+      }
+    }
+  }
+
+  // Return card if we found ANY useful data (user can edit the rest)
   if (balance > 0 || apr > 0 || minPayment > 0) {
-    return { name, balance, apr, minPayment }
+    return { name: cardName, balance, apr, minPayment }
   }
   return null
 }

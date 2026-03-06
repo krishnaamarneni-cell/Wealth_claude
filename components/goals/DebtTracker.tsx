@@ -24,12 +24,11 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
   const [extraPayment, setExtraPayment] = useState(200)
   const [showResults, setShowResults] = useState(false)
 
-  // Calculate all three strategies for comparison
+  // Calculate both strategies for comparison
   const allResults = useMemo(
     () => ({
       avalanche: calculatePayoffPlan(debts, "avalanche", extraPayment),
       snowball: calculatePayoffPlan(debts, "snowball", extraPayment),
-      custom: calculatePayoffPlan(debts, "custom", extraPayment),
     }),
     [debts, extraPayment]
   )
@@ -117,17 +116,12 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
       {/* Summary Cards */}
       <DebtSummaryCards debts={debts} />
 
-      {/* Donut Charts (only shown when debts exist) */}
-      {debts.length > 0 && (
-        <>
-          <CreditCardDonut debts={debts} />
-          <AllLoansDonut debts={debts} />
-        </>
-      )}
+      {/* Donut Charts */}
+      <CreditCardDonut debts={debts} />
+      <AllLoansDonut debts={debts} />
 
-      {/* Payoff Strategy (only shown when debts exist) */}
-      {debts.length > 0 && (
-        <PayoffStrategy
+      {/* Payoff Strategy */}
+      <PayoffStrategy
           debts={debts}
           strategy={strategy}
           setStrategy={handleStrategyChange}
@@ -135,8 +129,7 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
           setExtraPayment={handleExtraPaymentChange}
           onCalculate={handleCalculate}
           allResults={allResults}
-        />
-      )}
+      />
 
       {/* Results (only shown after Calculate is clicked) */}
       {showResults && debts.length > 0 && (
@@ -149,17 +142,6 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
         />
       )}
 
-      {/* Empty State */}
-      {debts.length === 0 && entryMode === "manual" && (
-        <Card className="border-border bg-card">
-          <CardContent className="py-12 text-center">
-            <CreditCard className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
-            <p className="text-sm text-muted-foreground">
-              No debts tracked yet. Add your first debt above to get started.
-            </p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   )
 }

@@ -2,11 +2,13 @@
 
 import { useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { CheckCircle2, Snowflake, Flame, BarChart3 } from "lucide-react"
+import { CheckCircle2, Snowflake, Flame } from "lucide-react"
 import type { Debt, PayoffStrategy as StrategyType, PayoffResult } from "@/components/goals/types"
 import {
   formatPrecise,
   formatMonthsShort,
+  formatCompact,
+  getAPRColor,
   calculatePayoffPlan,
 } from "@/components/goals/types"
 
@@ -33,12 +35,6 @@ const STRATEGIES = [
     icon: <Flame className="h-4 w-4" />,
     desc: "Highest APR first. Saves the most interest.",
   },
-  {
-    key: "custom" as const,
-    name: "Custom",
-    icon: <BarChart3 className="h-4 w-4" />,
-    desc: "Set your own extra monthly payment.",
-  },
 ]
 
 export function PayoffStrategy({
@@ -58,7 +54,7 @@ export function PayoffStrategy({
         </p>
 
         {/* Strategy Cards */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {STRATEGIES.map((s) => (
             <button
               key={s.key}
@@ -147,7 +143,7 @@ export function PayoffStrategy({
               </tr>
             </thead>
             <tbody>
-              {(["snowball", "avalanche", "custom"] as const).map((s) => {
+              {(["snowball", "avalanche"] as const).map((s) => {
                 const r = allResults[s]
                 if (!r) return null
                 const sv =
@@ -208,6 +204,48 @@ export function PayoffStrategy({
             </tbody>
           </table>
         </div>
+
+        {/* Payoff Order */}
+        {debts.length > 0 && (
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+              {strategy === "avalanche" ? "Avalanche" : "Snowball"} Payoff Order:
+            </p>
+            <div className="space-y-2">
+              {[...debts]
+                .sort((a, b) =>
+                  strategy === "avalanche" ? b.apr - a.apr : a.balance - b.balance
+                )
+                .map((debt, index) => (
+                  <div
+                    key={debt.id}
+                    className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30"
+                  >
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-green-500 text-black font-bold text-xs">
+                      {index + 1}
+                    </div>
+                    <div className="flex-1 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{debt.name}</p>
+                        <p className="text-xs text-muted-foreground">{debt.type}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-foreground">{formatCompact(debt.balance)}</p>
+                        <p className="text-xs" style={{ color: getAPRColor(debt.apr) }}>
+                          {debt.apr}% APR
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              {strategy === "avalanche"
+                ? "💰 Targets highest interest rate first — saves the most money over time."
+                : "🎯 Targets smallest balance first — builds momentum with quick wins."}
+            </p>
+          </div>
+        )}
 
         {/* Calculate Button */}
         <button

@@ -45,17 +45,18 @@ const FILE_TYPES = [
 // ==================== PARSING LOGIC ====================
 
 function extractFinancialData(text: string): ParsedCard | null {
+  // Stronger patterns matching the working API route
   const balanceMatch = text.match(
-    /(?:balance|amount due|total balance|new balance|statement balance)[:\s]+\$?([\d,]+\.?\d*)/i
+    /(?:balance|amount due|current balance|outstanding|total balance|new balance|statement balance)[:\s$]*([0-9,]+\.?[0-9]*)/i
   )
   const aprMatch = text.match(
-    /(?:apr|annual percentage rate|purchase apr|interest rate)[:\s]+(\d+\.?\d*)%?/i
+    /(?:apr|annual percentage rate|purchase apr|interest rate)[:\s]*([0-9]+\.?[0-9]*)\s*%/i
   )
   const paymentMatch = text.match(
-    /(?:minimum payment|min payment|monthly payment|minimum due|minimum amount due)[:\s]+\$?([\d,]+\.?\d*)/i
+    /(?:minimum payment|min payment|monthly payment|minimum due|minimum amount due|payment due)[:\s$]*([0-9,]+\.?[0-9]*)/i
   )
   const cardNameMatch = text.match(
-    /(?:card|account|card name|account name)[:\s]+([^\n,]+)/i
+    /(?:card|account|card name|account name|card ending)[:\s]+([^\n,]+)/i
   )
 
   const balance = balanceMatch
@@ -69,7 +70,8 @@ function extractFinancialData(text: string): ParsedCard | null {
     ? cardNameMatch[1].trim().substring(0, 40)
     : "Imported Card"
 
-  if (balance > 0) {
+  // Return card even if only balance is found (user can edit APR/payment)
+  if (balance > 0 || apr > 0 || minPayment > 0) {
     return { name, balance, apr, minPayment }
   }
   return null
@@ -134,12 +136,14 @@ async function parseCSV(text: string): Promise<ParsedCard[]> {
 
 async function parsePDF(file: File): Promise<ParsedCard[]> {
   try {
-    // Dynamic import for pdf-parse (client-side)
     const pdfjsLib = await import("pdfjs-dist")
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+    
+    // Use a specific version CDN worker that's known to work
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"
 
     const arrayBuffer = await file.arrayBuffer()
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise
 
     let fullText = ""
     for (let i = 1; i <= pdf.numPages; i++) {
@@ -151,18 +155,26 @@ async function parsePDF(file: File): Promise<ParsedCard[]> {
       fullText += pageText + "\n"
     }
 
+    if (!fullText || fullText.trim().length < 20) {
+      // PDF might be image-based / scanned
+      return []
+    }
+
     const card = extractFinancialData(fullText)
     return card ? [card] : []
   } catch (error) {
     console.error("PDF parsing error:", error)
-    // Fallback: try reading as text
+    // Fallback: try reading as raw text (some PDFs are text-based)
     try {
       const text = await file.text()
-      const card = extractFinancialData(text)
-      return card ? [card] : []
+      if (text && text.trim().length > 50) {
+        const card = extractFinancialData(text)
+        return card ? [card] : []
+      }
     } catch {
-      return []
+      // ignore
     }
+    return []
   }
 }
 

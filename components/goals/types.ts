@@ -26,7 +26,7 @@ export type Debt = {
   loanTerm?: number
 }
 
-export type PayoffStrategy = "avalanche" | "snowball" | "custom"
+export type PayoffStrategy = "avalanche" | "snowball"
 
 export type PayoffResult = {
   totalMonths: number
@@ -159,10 +159,8 @@ export function calculatePayoffPlan(
 
   const sortedDebts = [...debts].sort((a, b) => {
     if (strategy === "avalanche") return b.apr - a.apr
-    if (strategy === "snowball") return a.balance - b.balance
-    const scoreA = a.balance > 0 ? (a.apr / a.balance) * 10000 : 0
-    const scoreB = b.balance > 0 ? (b.apr / b.balance) * 10000 : 0
-    return scoreB - scoreA
+    // snowball: smallest balance first
+    return a.balance - b.balance
   })
 
   const schedule: PayoffResult["monthlySchedule"] = []

@@ -42,7 +42,7 @@ function generatePayoffReportHTML(
     )
     .join("")
 
-  const strategyRows = (["snowball", "avalanche", "custom"] as const)
+  const strategyRows = (["snowball", "avalanche"] as const)
     .map((s) => {
       const r = results[s]
       const saving = r.totalInterestPaid - results.snowball.totalInterestPaid
@@ -192,10 +192,8 @@ export function PayoffResults({
               ? "🔥 Mixed / Unknown pattern detected — "
               : "📊 Mixed / Unknown pattern detected — "}
             {strategy === "avalanche"
-              ? "Avalanche is the safest default when spending patterns are unclear."
-              : strategy === "snowball"
-                ? "Snowball builds momentum with quick wins."
-                : "Custom strategy balances interest savings with motivation."}
+              ? "Avalanche targets highest APR first — saves the most money."
+              : "Snowball targets smallest balance first — builds momentum with quick wins."}
           </p>
         </CardContent>
       </Card>

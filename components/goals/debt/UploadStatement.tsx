@@ -137,7 +137,7 @@ async function parseCSV(text: string): Promise<ParsedCard[]> {
 async function parsePDF(file: File): Promise<ParsedCard[]> {
   try {
     const pdfjsLib = await import("pdfjs-dist")
-    
+
     // Use a specific version CDN worker that's known to work
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"
@@ -409,11 +409,10 @@ export function UploadStatement({ onApplyCards }: UploadStatementProps) {
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onClick={() => fileInputRef.current?.click()}
-            className={`relative rounded-lg border-2 border-dashed p-12 text-center cursor-pointer transition-colors ${
-              isDragging
+            className={`relative rounded-lg border-2 border-dashed p-12 text-center cursor-pointer transition-colors ${isDragging
                 ? "border-green-500 bg-green-500/5"
                 : "border-border hover:border-muted-foreground"
-            }`}
+              }`}
           >
             <input
               ref={fileInputRef}
@@ -424,9 +423,8 @@ export function UploadStatement({ onApplyCards }: UploadStatementProps) {
               className="hidden"
             />
             <Upload
-              className={`h-10 w-10 mx-auto mb-3 ${
-                isDragging ? "text-green-500" : "text-muted-foreground"
-              }`}
+              className={`h-10 w-10 mx-auto mb-3 ${isDragging ? "text-green-500" : "text-muted-foreground"
+                }`}
             />
             <p className="text-sm font-medium text-foreground mb-1">
               Drop files here or click to browse
@@ -452,11 +450,10 @@ export function UploadStatement({ onApplyCards }: UploadStatementProps) {
           {parsedFiles.map((pf, i) => (
             <div
               key={i}
-              className={`flex items-center justify-between px-4 py-3 rounded-lg border ${
-                pf.status === "success"
+              className={`flex items-center justify-between px-4 py-3 rounded-lg border ${pf.status === "success"
                   ? "border-green-500/30 bg-green-500/5"
                   : "border-red-500/30 bg-red-500/5"
-              }`}
+                }`}
             >
               <div className="flex items-center gap-2">
                 {pf.status === "success" ? (
@@ -467,11 +464,10 @@ export function UploadStatement({ onApplyCards }: UploadStatementProps) {
                 <span className="text-sm text-foreground">{pf.name}</span>
               </div>
               <span
-                className={`text-xs font-medium px-2 py-0.5 rounded ${
-                  pf.status === "success"
+                className={`text-xs font-medium px-2 py-0.5 rounded ${pf.status === "success"
                     ? "bg-green-500/20 text-green-500"
                     : "bg-red-500/20 text-red-500"
-                }`}
+                  }`}
               >
                 {pf.status === "success"
                   ? `${pf.cardCount} card${pf.cardCount !== 1 ? "s" : ""} found`

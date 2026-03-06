@@ -138,9 +138,9 @@ async function parsePDF(file: File): Promise<ParsedCard[]> {
   try {
     const pdfjsLib = await import("pdfjs-dist")
 
-    // Use a specific version CDN worker that's known to work
+    // Match worker version to installed pdfjs-dist version dynamically
     pdfjsLib.GlobalWorkerOptions.workerSrc =
-      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"
+      `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
 
     const arrayBuffer = await file.arrayBuffer()
     const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise

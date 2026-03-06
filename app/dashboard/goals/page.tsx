@@ -6,8 +6,7 @@ import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, BarChart, Bar, Cell, PieChart, Pie } from "recharts"
 import { usePortfolio } from "@/lib/portfolio-context"
-import { Target, TrendingUp, Calendar, DollarSign, Pencil, X, CreditCard, AlertTriangle, TrendingDown, PieChart as PieChartIcon, Shield } from "lucide-react"
-import { DebtTrackerTab, type Debt } from "@/components/debt-tracker-tab"
+import { Target, TrendingUp, Calendar, DollarSign, Pencil, X, CreditCard, AlertTriangle, TrendingDown, PieChart as PieChartIcon, Activity, CheckCircle2, Plus, Trash2, Shield, Zap } from "lucide-react"
 
 // ==================== TYPES ====================
 
@@ -18,7 +17,18 @@ type Asset = {
   expectedReturn: number
 }
 
-// Removed old internal Debt and PayoffStrategy types since we import Debt from the component now
+type Debt = {
+  id: string
+  name: string
+  type: 'Credit Card' | 'Auto Loan' | 'Mortgage' | 'Student Loan' | 'Personal Loan' | 'Other'
+  balance: number
+  apr: number
+  monthlyPayment: number
+  minimumPayment: number
+  loanTerm?: number // in months
+}
+
+type PayoffStrategy = 'avalanche' | 'snowball' | 'custom'
 
 // ==================== HELPER FUNCTIONS ====================
 
@@ -81,7 +91,82 @@ function generateMilestones(goal: number): number[] {
   return [100000, 250000, 500000, 750000, 1000000]
 }
 
-// Removed old debt calculation functions since DebtTrackerTab handles them internally now
+// ==================== DEBT CALCULATIONS ====================
+
+function calculateMonthlyInterest(debt: Debt): number {
+  return (debt.balance * (debt.apr / 100)) / 12
+}
+
+function calculateAnnualInterest(debt: Debt): number {
+  return debt.balance * (debt.apr / 100)
+}
+
+function calculateDebtPayoffSchedule(debts: Debt[], strategy: PayoffStrategy, extraPayment: number = 0) {
+  const sortedDebts = [...debts].sort((a, b) => {
+    if (strategy === 'avalanche') return b.apr - a.apr
+    if (strategy === 'snowball') return a.balance - b.balance
+    return 0
+  })
+
+  const schedule: Array<{
+    month: number
+    debts: Array<{ id: string; balance: number; payment: number; interest: number }>
+    totalBalance: number
+    totalInterestPaid: number
+  }> = []
+
+  let currentDebts = sortedDebts.map(d => ({ ...d }))
+  let month = 0
+  let totalInterestPaid = 0
+
+  while (currentDebts.some(d => d.balance > 0) && month < 600) {
+    month++
+    const monthData: typeof schedule[0] = {
+      month,
+      debts: [],
+      totalBalance: 0,
+      totalInterestPaid: 0
+    }
+
+    // Calculate minimum payments for all debts
+    let availableExtra = extraPayment
+
+    currentDebts.forEach((debt, index) => {
+      if (debt.balance <= 0) {
+        monthData.debts.push({ id: debt.id, balance: 0, payment: 0, interest: 0 })
+        return
+      }
+
+      const monthlyInterest = calculateMonthlyInterest(debt)
+      let payment = debt.monthlyPayment
+
+      // Add extra payment to first non-zero debt (based on strategy)
+      if (index === currentDebts.findIndex(d => d.balance > 0) && availableExtra > 0) {
+        payment += availableExtra
+        availableExtra = 0
+      }
+
+      const principalPayment = payment - monthlyInterest
+      const newBalance = Math.max(0, debt.balance - principalPayment)
+
+      totalInterestPaid += monthlyInterest
+      monthData.debts.push({
+        id: debt.id,
+        balance: newBalance,
+        payment,
+        interest: monthlyInterest
+      })
+
+      debt.balance = newBalance
+      monthData.totalBalance += newBalance
+    })
+
+    monthData.totalInterestPaid = totalInterestPaid
+    schedule.push(monthData)
+  }
+
+  return schedule
+}
 
 // ==================== MAIN COMPONENT ====================
 
@@ -116,8 +201,20 @@ export default function GoalsPage() {
   const [newAssetValue, setNewAssetValue] = useState("")
   const [newAssetReturn, setNewAssetReturn] = useState("8")
 
-  // Debt Tracker State (Managed by component, we just hold the list for overview tab)
+  // Debt Tracker State
   const [debts, setDebts] = useState<Debt[]>([])
+  const [showAddDebt, setShowAddDebt] = useState(false)
+  const [payoffStrategy, setPayoffStrategy] = useState<PayoffStrategy>('avalanche')
+  const [extraDebtPayment, setExtraDebtPayment] = useState(0)
+  const [newDebt, setNewDebt] = useState<Partial<Debt>>({
+    name: '',
+    type: 'Credit Card',
+    balance: 0,
+    apr: 0,
+    monthlyPayment: 0,
+    minimumPayment: 0,
+    loanTerm: undefined
+  })
 
   // Financial Overview State
   const [includePortfolioInOverview, setIncludePortfolioInOverview] = useState(true)
@@ -178,14 +275,19 @@ export default function GoalsPage() {
 
   const projectionData = generateProjectionData(totalCurrentValue, monthlyContribution, blendedReturn, targetValue)
 
-  // Debt calculations for Overview tab
+  // Debt calculations
   const totalDebt = debts.reduce((sum, debt) => sum + debt.balance, 0)
-  const totalMonthlyDebtPayment = debts.reduce((sum, debt) => sum + debt.minimumPayment, 0)
-  const totalMonthlyInterest = debts.reduce((sum, debt) => sum + ((debt.apr / 100 / 12) * debt.balance), 0)
-  const totalAnnualInterest = debts.reduce((sum, debt) => sum + ((debt.apr / 100) * debt.balance), 0)
+  const totalMonthlyDebtPayment = debts.reduce((sum, debt) => sum + debt.monthlyPayment, 0)
+  const totalMonthlyInterest = debts.reduce((sum, debt) => sum + calculateMonthlyInterest(debt), 0)
+  const totalAnnualInterest = debts.reduce((sum, debt) => sum + calculateAnnualInterest(debt), 0)
   const weightedAvgAPR = totalDebt > 0
     ? debts.reduce((sum, debt) => sum + (debt.balance * debt.apr), 0) / totalDebt
     : 0
+
+  // Payoff schedules for all three strategies
+  const avalancheSchedule = useMemo(() => calculateDebtPayoffSchedule(debts, 'avalanche', extraDebtPayment), [debts, extraDebtPayment])
+  const snowballSchedule = useMemo(() => calculateDebtPayoffSchedule(debts, 'snowball', extraDebtPayment), [debts, extraDebtPayment])
+  const currentSchedule = payoffStrategy === 'avalanche' ? avalancheSchedule : snowballSchedule
 
   // Financial Overview calculations
   const totalAssets = (includePortfolioInOverview ? portfolioValue : 0) + currentSavings + totalAssetsValue
@@ -301,10 +403,67 @@ export default function GoalsPage() {
     setIsEditingReturn(false)
   }
 
+  const handleAddDebt = () => {
+    if (debts.length >= 20) {
+      alert("Maximum 20 debts allowed")
+      return
+    }
+
+    if (!newDebt.name || !newDebt.balance || !newDebt.apr || !newDebt.monthlyPayment) {
+      alert("Please fill in all required fields")
+      return
+    }
+
+    const debt: Debt = {
+      id: Date.now().toString(),
+      name: newDebt.name,
+      type: newDebt.type || 'Other',
+      balance: newDebt.balance,
+      apr: newDebt.apr,
+      monthlyPayment: newDebt.monthlyPayment,
+      minimumPayment: newDebt.minimumPayment || 0,
+      loanTerm: newDebt.loanTerm
+    }
+
+    setDebts([...debts, debt])
+    setNewDebt({
+      name: '',
+      type: 'Credit Card',
+      balance: 0,
+      apr: 0,
+      monthlyPayment: 0,
+      minimumPayment: 0,
+      loanTerm: undefined
+    })
+    setShowAddDebt(false)
+  }
+
+  const handleDeleteDebt = (id: string) => {
+    setDebts(debts.filter(debt => debt.id !== id))
+  }
+
+  const displayContributionAmount = contributionType === "monthly" ? baseContributionAmount : baseContributionAmount * 12
+
+  // Debt breakdown by type
   const debtByType = debts.reduce((acc, debt) => {
     acc[debt.type] = (acc[debt.type] || 0) + debt.balance
     return acc
   }, {} as Record<string, number>)
+
+  const debtPieData = Object.entries(debtByType).map(([type, value]) => ({
+    name: type,
+    value,
+    percent: (value / totalDebt) * 100
+  }))
+
+  const DEBT_COLORS = {
+    'Credit Card': '#ef4444',
+    'Auto Loan': '#f97316',
+    'Mortgage': '#eab308',
+    'Student Loan': '#3b82f6',
+    'Personal Loan': '#8b5cf6',
+    'Other': '#6b7280'
+  }
 
   // ==================== RENDER ====================
 
@@ -931,7 +1090,483 @@ export default function GoalsPage() {
 
         {/* ==================== TAB 2: DEBT TRACKER ==================== */}
         <TabsContent value="debts" className="space-y-6">
-          <DebtTrackerTab onDebtsChange={setDebts} />
+          {/* Debt Summary Cards */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card className="border-border bg-card">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                  <CreditCard className="h-4 w-4" />
+                  Total Debt
+                </div>
+                <p className="text-2xl font-bold text-red-500">{formatCurrency(totalDebt)}</p>
+                <p className="text-xs text-muted-foreground mt-1">{debts.length} debt{debts.length !== 1 ? 's' : ''}</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border bg-card">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                  <DollarSign className="h-4 w-4" />
+                  Monthly Payment
+                </div>
+                <p className="text-2xl font-bold text-foreground">{formatCurrency(totalMonthlyDebtPayment)}</p>
+                <p className="text-xs text-muted-foreground mt-1">Minimum payments</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border bg-card">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                  <TrendingDown className="h-4 w-4" />
+                  Annual Interest
+                </div>
+                <p className="text-2xl font-bold text-orange-500">{formatCurrency(totalAnnualInterest)}</p>
+                <p className="text-xs text-muted-foreground mt-1">{formatCurrency(totalMonthlyInterest)}/month</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border bg-card">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                  <Activity className="h-4 w-4" />
+                  Avg APR
+                </div>
+                <p className="text-2xl font-bold text-foreground">{weightedAvgAPR.toFixed(2)}%</p>
+                <p className="text-xs text-muted-foreground mt-1">Weighted average</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Add Debt Section */}
+          <Card className="border-border bg-card">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">Your Debts</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1">Track all your debts in one place (Max 20)</p>
+                </div>
+                <button
+                  onClick={() => setShowAddDebt(!showAddDebt)}
+                  disabled={debts.length >= 20}
+                  className="rounded bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Plus className="h-4 w-4" /> Add Debt
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {showAddDebt && (
+                <div className="rounded-lg border border-border bg-secondary/50 p-4 space-y-3">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <input
+                      type="text"
+                      placeholder="Debt name (e.g., Chase Sapphire)"
+                      value={newDebt.name}
+                      onChange={(e) => setNewDebt({ ...newDebt, name: e.target.value })}
+                      className="rounded border border-border bg-secondary px-3 py-2 text-sm"
+                    />
+                    <select
+                      value={newDebt.type}
+                      onChange={(e) => setNewDebt({ ...newDebt, type: e.target.value as Debt['type'] })}
+                      className="rounded border border-border bg-secondary px-3 py-2 text-sm"
+                    >
+                      <option value="Credit Card">Credit Card</option>
+                      <option value="Auto Loan">Auto Loan</option>
+                      <option value="Mortgage">Mortgage</option>
+                      <option value="Student Loan">Student Loan</option>
+                      <option value="Personal Loan">Personal Loan</option>
+                      <option value="Other">Other</option>
+                    </select>
+                    <input
+                      type="number"
+                      placeholder="Balance ($)"
+                      value={newDebt.balance || ''}
+                      onChange={(e) => setNewDebt({ ...newDebt, balance: Number(e.target.value) })}
+                      className="rounded border border-border bg-secondary px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="number"
+                      placeholder="APR (%)"
+                      value={newDebt.apr || ''}
+                      onChange={(e) => setNewDebt({ ...newDebt, apr: Number(e.target.value) })}
+                      step="0.01"
+                      className="rounded border border-border bg-secondary px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Monthly payment ($)"
+                      value={newDebt.monthlyPayment || ''}
+                      onChange={(e) => setNewDebt({ ...newDebt, monthlyPayment: Number(e.target.value) })}
+                      className="rounded border border-border bg-secondary px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Minimum payment ($)"
+                      value={newDebt.minimumPayment || ''}
+                      onChange={(e) => setNewDebt({ ...newDebt, minimumPayment: Number(e.target.value) })}
+                      className="rounded border border-border bg-secondary px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Loan term (months, optional)"
+                      value={newDebt.loanTerm || ''}
+                      onChange={(e) => setNewDebt({ ...newDebt, loanTerm: e.target.value ? Number(e.target.value) : undefined })}
+                      className="rounded border border-border bg-secondary px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleAddDebt}
+                      className="rounded bg-primary px-4 py-1.5 text-sm text-primary-foreground hover:bg-primary/90"
+                    >
+                      Save Debt
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAddDebt(false)
+                        setNewDebt({
+                          name: '',
+                          type: 'Credit Card',
+                          balance: 0,
+                          apr: 0,
+                          monthlyPayment: 0,
+                          minimumPayment: 0,
+                          loanTerm: undefined
+                        })
+                      }}
+                      className="rounded bg-secondary px-4 py-1.5 text-sm text-foreground hover:bg-secondary/80"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {debts.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <CreditCard className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm">No debts tracked yet. Click "Add Debt" to get started.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {debts.sort((a, b) => b.apr - a.apr).map((debt) => {
+                    const monthlyInterest = calculateMonthlyInterest(debt)
+                    const annualInterest = calculateAnnualInterest(debt)
+
+                    return (
+                      <div key={debt.id} className="rounded-lg border border-border bg-secondary/30 p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h4 className="font-semibold text-foreground">{debt.name}</h4>
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+                                {debt.type}
+                              </span>
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${debt.apr > 15 ? 'bg-red-500/20 text-red-500' :
+                                debt.apr > 8 ? 'bg-orange-500/20 text-orange-500' :
+                                  'bg-green-500/20 text-green-500'
+                                }`}>
+                                {debt.apr}% APR
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+                              <div>
+                                <p className="text-muted-foreground text-xs">Balance</p>
+                                <p className="font-medium text-foreground">{formatCurrency(debt.balance)}</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs">Monthly Payment</p>
+                                <p className="font-medium text-foreground">{formatCurrency(debt.monthlyPayment)}</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs">Interest/Month</p>
+                                <p className="font-medium text-orange-500">{formatCurrency(monthlyInterest)}</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs">Interest/Year</p>
+                                <p className="font-medium text-red-500">{formatCurrency(annualInterest)}</p>
+                              </div>
+                            </div>
+                            {debt.loanTerm && (
+                              <p className="text-xs text-muted-foreground mt-2">
+                                Loan Term: {debt.loanTerm} months ({(debt.loanTerm / 12).toFixed(1)} years)
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleDeleteDebt(debt.id)}
+                            className="ml-4 p-2 rounded hover:bg-red-500/10 text-red-500"
+                            aria-label="Delete debt"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Debt Breakdown & Payoff Strategy */}
+          {debts.length > 0 && (
+            <>
+              <div className="grid gap-6 lg:grid-cols-2">
+                {/* Debt Breakdown Pie Chart */}
+                <Card className="border-border bg-card">
+                  <CardHeader>
+                    <CardTitle className="text-base">Debt Breakdown by Type</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[300px] flex items-center justify-center">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={debtPieData}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={({ name, percent }) => `${name}: ${percent.toFixed(1)}%`}
+                            outerRadius={100}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            {debtPieData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={DEBT_COLORS[entry.name as keyof typeof DEBT_COLORS] || '#6b7280'} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: "hsl(var(--card))",
+                              border: "1px solid hsl(var(--border))",
+                              borderRadius: "8px",
+                            }}
+                            formatter={(value: number) => [formatCurrency(value), 'Amount']}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mt-4">
+                      {debtPieData.map((item) => (
+                        <div key={item.name} className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: DEBT_COLORS[item.name as keyof typeof DEBT_COLORS] || '#6b7280' }}
+                          />
+                          <span className="text-xs text-muted-foreground">{item.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Interest Cost Breakdown */}
+                <Card className="border-border bg-card">
+                  <CardHeader>
+                    <CardTitle className="text-base">Interest Cost by Debt</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={debts.sort((a, b) => calculateAnnualInterest(b) - calculateAnnualInterest(a))}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.5} />
+                          <XAxis
+                            dataKey="name"
+                            fontSize={10}
+                            angle={-45}
+                            textAnchor="end"
+                            height={80}
+                            stroke="#9ca3af"
+                          />
+                          <YAxis
+                            tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                            fontSize={12}
+                            stroke="#9ca3af"
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: "hsl(var(--card))",
+                              border: "1px solid hsl(var(--border))",
+                              borderRadius: "8px",
+                            }}
+                            formatter={(value: number) => [formatCurrency(value), 'Annual Interest']}
+                          />
+                          <Bar dataKey={(debt: Debt) => calculateAnnualInterest(debt)} fill="#f97316" radius={[8, 8, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Payoff Strategy Comparison */}
+              <Card className="border-border bg-card">
+                <CardHeader>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                      <CardTitle className="text-base">Payoff Strategy Comparison</CardTitle>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Compare different debt payoff methods and see which saves you the most
+                      </p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-muted-foreground whitespace-nowrap">Extra Payment:</label>
+                        <input
+                          type="number"
+                          value={extraDebtPayment}
+                          onChange={(e) => setExtraDebtPayment(Number(e.target.value))}
+                          placeholder="0"
+                          className="w-24 rounded border border-border bg-secondary px-2 py-1 text-sm"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setPayoffStrategy('avalanche')}
+                          className={`px-3 py-1.5 text-xs rounded transition-colors ${payoffStrategy === 'avalanche'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-secondary text-foreground hover:bg-secondary/80'
+                            }`}
+                        >
+                          Avalanche
+                        </button>
+                        <button
+                          onClick={() => setPayoffStrategy('snowball')}
+                          className={`px-3 py-1.5 text-xs rounded transition-colors ${payoffStrategy === 'snowball'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-secondary text-foreground hover:bg-secondary/80'
+                            }`}
+                        >
+                          Snowball
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 sm:grid-cols-3 mb-6">
+                    {/* Avalanche Method */}
+                    <div className="rounded-lg border border-border bg-secondary/50 p-4">
+                      <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                        <Zap className="h-4 w-4 text-orange-500" />
+                        Avalanche (Highest APR First)
+                      </h4>
+                      <div className="space-y-2">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Payoff Time</p>
+                          <p className="font-bold text-foreground">{avalancheSchedule.length} months</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Total Interest</p>
+                          <p className="font-bold text-red-500">
+                            {formatCurrency(avalancheSchedule[avalancheSchedule.length - 1]?.totalInterestPaid || 0)}
+                          </p>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          ✅ Mathematically optimal - saves the most money
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Snowball Method */}
+                    <div className="rounded-lg border border-border bg-secondary/50 p-4">
+                      <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                        <Activity className="h-4 w-4 text-blue-500" />
+                        Snowball (Smallest Balance First)
+                      </h4>
+                      <div className="space-y-2">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Payoff Time</p>
+                          <p className="font-bold text-foreground">{snowballSchedule.length} months</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Total Interest</p>
+                          <p className="font-bold text-red-500">
+                            {formatCurrency(snowballSchedule[snowballSchedule.length - 1]?.totalInterestPaid || 0)}
+                          </p>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          ✅ Psychological wins - quick victories motivate you
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Comparison */}
+                    <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                      <h4 className="text-sm font-semibold text-primary mb-2 flex items-center gap-2">
+                        <Target className="h-4 w-4" />
+                        Recommendation
+                      </h4>
+                      <div className="space-y-2">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Best Method</p>
+                          <p className="font-bold text-primary">
+                            {avalancheSchedule[avalancheSchedule.length - 1]?.totalInterestPaid <
+                              snowballSchedule[snowballSchedule.length - 1]?.totalInterestPaid
+                              ? 'Avalanche'
+                              : 'Snowball'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Savings</p>
+                          <p className="font-bold text-green-500">
+                            {formatCurrency(Math.abs(
+                              (avalancheSchedule[avalancheSchedule.length - 1]?.totalInterestPaid || 0) -
+                              (snowballSchedule[snowballSchedule.length - 1]?.totalInterestPaid || 0)
+                            ))}
+                          </p>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Using avalanche saves more in interest!
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Payoff Priority Order */}
+                  <div className="mt-6">
+                    <h4 className="text-sm font-semibold text-foreground mb-3">
+                      {payoffStrategy === 'avalanche' ? 'Avalanche' : 'Snowball'} Payoff Order:
+                    </h4>
+                    <div className="space-y-2">
+                      {(payoffStrategy === 'avalanche'
+                        ? [...debts].sort((a, b) => b.apr - a.apr)
+                        : [...debts].sort((a, b) => a.balance - b.balance)
+                      ).map((debt, index) => (
+                        <div key={debt.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-sm">
+                            {index + 1}
+                          </div>
+                          <div className="flex-1 grid grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <p className="font-medium text-foreground">{debt.name}</p>
+                              <p className="text-xs text-muted-foreground">{debt.type}</p>
+                            </div>
+                            <div>
+                              <p className="text-foreground">{formatCurrency(debt.balance)}</p>
+                              <p className="text-xs text-muted-foreground">Balance</p>
+                            </div>
+                            <div>
+                              <p className={`font-medium ${debt.apr > 15 ? 'text-red-500' :
+                                debt.apr > 8 ? 'text-orange-500' :
+                                  'text-green-500'
+                                }`}>
+                                {debt.apr}% APR
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatCurrency(calculateAnnualInterest(debt))}/year interest
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </TabsContent>
 
         {/* ==================== TAB 3: FINANCIAL OVERVIEW ==================== */}

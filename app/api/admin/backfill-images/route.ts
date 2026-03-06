@@ -6,8 +6,14 @@ export async function GET(request: NextRequest) {
   // Auth check
   const cookieStore = await cookies()
   const supabase = createServerSideClient(cookieStore)
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const urlSecret = request.nextUrl.searchParams.get('secret')
+  const cronSecret = process.env.CRON_SECRET
+  if (urlSecret && cronSecret && urlSecret === cronSecret) {
+    // authorized via secret
+  } else {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   const unsplashKey = process.env.UNSPLASH_ACCESS_KEY
   if (!unsplashKey) return NextResponse.json({ error: 'UNSPLASH_ACCESS_KEY not set' }, { status: 500 })

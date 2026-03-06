@@ -228,39 +228,40 @@ Respond ONLY with valid JSON, absolutely no markdown or code blocks:
   let raw = ''
   let usedModel = 'unknown'
 
-  // ── Try Gemini models in order (all free) ────────────────────────────────
-  const geminiKey = process.env.GEMINI_API_KEY
-  const geminiModels = [
-    'gemini-2.0-flash',      // stable fallback
-    'gemini-2.0-flash-lite', // lightweight fallback
+  // ── Try Groq models in order ─────────────────────────────────────────────
+  const groqKey = process.env.GROQ_API_KEY
+  const groqModels = [
+    'llama-3.3-70b-versatile', // primary
+    'deepseek-r1-distill-llama-70b', // fallback
   ]
 
-  if (geminiKey) {
-    for (const model of geminiModels) {
+  if (groqKey) {
+    for (const model of groqModels) {
       if (raw) break
       try {
-        const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: { temperature: 0.7, maxOutputTokens: 3000 },
-            }),
-          }
-        )
-        if (geminiRes.ok) {
-          const geminiData = await geminiRes.json()
-          const candidate = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${groqKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.7,
+            max_tokens: 3000,
+          }),
+        })
+        if (groqRes.ok) {
+          const groqData = await groqRes.json()
+          const candidate = groqData.choices?.[0]?.message?.content ?? ''
           if (candidate) {
             raw = candidate
             usedModel = model
             console.log(`[auto-blog] Used ${model} ✅`)
           }
-
         } else {
-          console.warn(`[auto-blog] ${model} failed (${geminiRes.status}), trying next...`)
+          console.warn(`[auto-blog] ${model} failed (${groqRes.status}), trying next...`)
         }
       } catch (e) {
         console.warn(`[auto-blog] ${model} threw error, trying next...`, e)

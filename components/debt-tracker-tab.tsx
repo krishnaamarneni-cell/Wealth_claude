@@ -130,22 +130,39 @@ function calcSchedule(debts: Debt[], strategy: 'avalanche' | 'snowball', extra: 
 // ── COMPONENT ─────────────────────────────────────────────────────────────────
 export function DebtTrackerTab({ onDebtsChange }: { onDebtsChange?: (debts: Debt[]) => void }) {
   const supabase = getSupabaseClient()
-  const { debts: rawDebts, loading, addDebt } = useDebtData()
+  const [debtsState, setDebtsState] = useState<Debt[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // Map Supabase → UI Debt shape
+  useEffect(() => {
+    async function loadDebts() {
+      try {
+        const res = await fetch('/api/user-debts')
+        if (!res.ok) throw new Error('Failed to load debts')
+        const data = await res.json()
+        setDebtsState(data || [])
+      } catch (err) {
+        console.error('[DebtTrackerTab] Error loading debts:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadDebts()
+  }, [])
+
+  // Map API → UI Debt shape
   const debts: Debt[] = useMemo(() => {
-    const mapped = (rawDebts || []).map(d => ({
+    const mapped = (debtsState || []).map(d => ({
       id: d.id,
       name: d.name,
       type: d.type,
-      balance: d.currentBalance ?? 0,
-      apr: d.interestRate ?? 0,
-      monthlyPayment: d.minimumPayment ?? 0,
+      balance: d.balance ?? 0,
+      apr: d.apr ?? 0,
+      monthlyPayment: d.monthlyPayment ?? 0,
       minimumPayment: d.minimumPayment ?? 0,
     }))
     onDebtsChange?.(mapped)
     return mapped
-  }, [rawDebts, onDebtsChange])
+  }, [debtsState, onDebtsChange])
 
   // UI State
   const [strategy, setStrategy] = useState<'avalanche' | 'snowball'>('avalanche')

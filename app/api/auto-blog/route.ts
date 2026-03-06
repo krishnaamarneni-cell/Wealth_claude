@@ -387,11 +387,13 @@ export async function POST(request: NextRequest) {
           excerpt: post.excerpt,
           content: post.content,
           tags: post.tags,
+          image_url: post.image_url || null,
           ai_model: post.ai_model || null,
           published: true,
           published_at: now,
           author_id: null,
         }])
+
 
         if (error) {
           console.error(`[auto-blog] DB insert failed:`, error.message)

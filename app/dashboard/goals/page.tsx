@@ -608,11 +608,11 @@ export default function GoalsPage() {
         </TabsContent>
 
         {/* ==================== TAB 2: DEBT TRACKER ==================== */}
-        <TabsContent value="debts" className="space-y-6">
+        <TabsContent value="debts" className="space-y-6 min-w-0">
           <DebtTrackerTab onDebtsChange={(newDebts) => setDebts(newDebts)} />
         </TabsContent>
         {/* ==================== TAB 3: FINANCIAL OVERVIEW ==================== */}
-        <TabsContent value="overview" className="space-y-6">
+        <TabsContent value="overview" className="space-y-6 min-w-0">
 
           {/* Data Sources — Export PDF button is INSIDE the header, not nested */}
           <Card className="border-border bg-card">

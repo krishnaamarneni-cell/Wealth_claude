@@ -1,95 +1,5 @@
-Agent Manager
-Open Editor
-Workspaces
-b_ndGvy5eYh12 - 1772564916975
-
-b_RxVKhoGDu06 - 1772762746086
-
-Playground
-
-b_ndGvy5eYh12 - 1772564916975
-  /
-  Fixing Dashboard Tabs
-I've fixed the Debt Tracker! 🚀
-
-The issue was that I was trying to use a complex API for PDF parsing that required server - side packages.I've now ported the pure client-side regex logic from your working credit card tool directly into the Debt Tracker.
-
-What's fixed:
-
-PDF Extraction: Now uses the same robust patterns that work on your other page.No API keys or broken routes needed.
-Manual Save: Fixed by using the useDebtData hook correctly with the logged -in userId.
-CSV Upload: Also handled client - side for better reliability.
-How to apply:
-
-Open components / debt - tracker - tab.tsx.
-Delete everything inside it.
-Paste Part 1 from the file below.
-Immediately paste Part 2 from the file below(right after Part 1).
-Please apply these two parts and let me know if it's working for you!
-
-Debt Tracker Part1
-Open
-Debt Tracker Part2
-Open
-User uploaded media 1
-when I click on debttracker and financial overview is not working when l click on that there is no movement
-Fixing Dashboard Tab Navigation
-Replaced the massive internal debt tracker code in
-
-  GoalsPage
-with the clean < DebtTrackerTab /> import so the tabs now render correctly.
-
-Files Edited
-
-page.tsx
-Progress Updates
-1
-Checking Goals Page tab implementation
-
-2
-Updating GoalsPage to properly integrate the new DebtTrackerTab
-
-3
-Replacing the old Debt Tracker code with the Component
-
-4
-Updating the user to inform them that GoalsPage has been fixed
-
-I discovered the issue! The GoalsPage was still rendering a giant chunk of old internal debt code instead of actually importing and using our nice new < DebtTrackerTab /> component.
-
-Because the old code didn't have the same states and calculations hooked up correctly to the new system, it appeared frozen when you clicked on the tab.
-
-I have just modified app / dashboard / goals / page.tsx on your machine to:
-
-Delete the 500 lines of old internal debt rendering.
-Import the actual DebtTrackerTab we built.
-Pass the setDebts prop into it so that the Financial Overview tab will automatically update when you add debts.
-Please refresh your browser page! The Debt Tracker tab and Financial Overview tab should now be fully functional.Uploading a PDF or adding a manual debt inside the Debt Tracker tab should now instantly reflect in the Financial Overview pie charts!
-
-Good
-Bad
-
-
-Model
-Gemini 3.1 Pro(High)
-New
-Gemini 3.1 Pro(Low)
-New
-Gemini 3 Flash
-Claude Sonnet 4.6(Thinking)
-Claude Opus 4.6(Thinking)
-GPT - OSS 120B(Medium)
-
-
-
-
-
-page.tsx
-app / dashboard / goals
-
-
-
 "use client"
+
 import { useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -98,15 +8,20 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { usePortfolio } from "@/lib/portfolio-context"
 import { Target, TrendingUp, Calendar, DollarSign, Pencil, X, CreditCard, AlertTriangle, TrendingDown, PieChart as PieChartIcon, Shield } from "lucide-react"
 import { DebtTrackerTab, type Debt } from "@/components/debt-tracker-tab"
+
 // ==================== TYPES ====================
+
 type Asset = {
   id: string
   name: string
   value: number
   expectedReturn: number
 }
+
 // Removed old internal Debt and PayoffStrategy types since we import Debt from the component now
+
 // ==================== HELPER FUNCTIONS ====================
+
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -115,52 +30,67 @@ function formatCurrency(value: number): string {
     maximumFractionDigits: 0,
   }).format(value)
 }
+
 function formatDateShort(date: Date): string {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   return `${months[date.getMonth()]} ${date.getFullYear()}`
 }
+
 function generateProjectionData(startValue: number, monthly: number, returnRate: number, goal: number) {
   const monthlyRate = returnRate / 100 / 12
   const data: Array<{ date: string; actual: number | null; invested: number | null; projected: number | null }> = []
   let balanceWithGrowth = startValue
   const today = new Date()
+
   data.push({
     date: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`,
     actual: startValue,
     invested: startValue,
     projected: null,
   })
+
   for (let i = 1; i <= 36; i++) {
     const investedOnly = startValue + monthly * i
+
     if (returnRate > 0) {
       balanceWithGrowth = balanceWithGrowth * (1 + monthlyRate) + monthly
     } else {
       balanceWithGrowth = balanceWithGrowth + monthly
     }
+
     const futureDate = new Date(today)
     futureDate.setMonth(futureDate.getMonth() + i)
+
     data.push({
       date: `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, '0')}`,
       actual: null,
       invested: Math.round(investedOnly),
       projected: Math.round(balanceWithGrowth),
     })
+
     if (balanceWithGrowth >= goal) break
   }
+
   return data
 }
+
 function generateMilestones(goal: number): number[] {
   if (goal <= 100000) return [10000, 25000, 50000, 75000, 100000]
   if (goal <= 250000) return [25000, 50000, 100000, 150000, 200000, 250000]
   if (goal <= 500000) return [50000, 100000, 250000, 350000, 500000]
   return [100000, 250000, 500000, 750000, 1000000]
 }
+
 // Removed old debt calculation functions since DebtTrackerTab handles them internally now
+
 // ==================== MAIN COMPONENT ====================
+
 export default function GoalsPage() {
   const portfolioContext = usePortfolio()
+
   // Tab state
   const [activeTab, setActiveTab] = useState('goals')
+
   // Goal Tracker State
   const [contributionType, setContributionType] = useState<"monthly" | "yearly">("monthly")
   const [baseContributionAmount, setBaseContributionAmount] = useState(500)
@@ -168,6 +98,7 @@ export default function GoalsPage() {
   const [expectedReturn, setExpectedReturn] = useState(8)
   const [currentSavings, setCurrentSavings] = useState(0)
   const [includePortfolio, setIncludePortfolio] = useState(true)
+
   // Edit states
   const [isEditingGoal, setIsEditingGoal] = useState(false)
   const [isEditingContribution, setIsEditingContribution] = useState(false)
@@ -177,34 +108,41 @@ export default function GoalsPage() {
   const [tempContributionValue, setTempContributionValue] = useState(baseContributionAmount.toString())
   const [tempReturnValue, setTempReturnValue] = useState(expectedReturn.toString())
   const [tempSavingsValue, setTempSavingsValue] = useState(currentSavings.toString())
+
   // Assets state
   const [assets, setAssets] = useState<Asset[]>([])
   const [showAddAsset, setShowAddAsset] = useState(false)
   const [newAssetName, setNewAssetName] = useState("")
   const [newAssetValue, setNewAssetValue] = useState("")
   const [newAssetReturn, setNewAssetReturn] = useState("8")
+
   // Debt Tracker State (Managed by component, we just hold the list for overview tab)
   const [debts, setDebts] = useState<Debt[]>([])
+
   // Financial Overview State
   const [includePortfolioInOverview, setIncludePortfolioInOverview] = useState(true)
   const [includeDividendsInOverview, setIncludeDividendsInOverview] = useState(true)
   const [monthlyIncome, setMonthlyIncome] = useState(5000)
   const [monthlyExpenses, setMonthlyExpenses] = useState(2000)
+
   // Portfolio values from context
   const portfolioValue = portfolioContext?.portfolioValue || 0
   const portfolioAnnualReturn = portfolioContext?.performance?.returns?.['1Y'] || 8
   const portfolioAnnualDividends = portfolioContext?.income?.totalDividends || 0
+
   // Assets calculations
   const totalAssetsValue = assets.reduce((sum, asset) => sum + asset.value, 0)
   const weightedAssetReturn = assets.length > 0
     ? assets.reduce((sum, asset) => sum + (asset.value * asset.expectedReturn), 0) / totalAssetsValue
     : 0
+
   // Goal calculations
   const totalCurrentValue = includePortfolio
     ? portfolioValue + currentSavings + totalAssetsValue
     : currentSavings + totalAssetsValue
   const progressPercent = targetValue > 0 ? (totalCurrentValue / targetValue) * 100 : 0
   const remainingAmount = Math.max(0, targetValue - totalCurrentValue)
+
   let monthsToGoal = 0
   const monthlyContribution = contributionType === "monthly" ? baseContributionAmount : baseContributionAmount / 12
   if (monthlyContribution > 0) {
@@ -225,9 +163,11 @@ export default function GoalsPage() {
       monthsToGoal = Math.ceil(remainingAmount / monthlyContribution)
     }
   }
+
   const completionDate = new Date()
   completionDate.setMonth(completionDate.getMonth() + monthsToGoal)
   const projectedCompletion = formatDateShort(completionDate)
+
   const blendedReturn = totalCurrentValue > 0
     ? (
       (portfolioValue * expectedReturn) +
@@ -235,7 +175,9 @@ export default function GoalsPage() {
       (totalAssetsValue * weightedAssetReturn)
     ) / totalCurrentValue
     : expectedReturn
+
   const projectionData = generateProjectionData(totalCurrentValue, monthlyContribution, blendedReturn, targetValue)
+
   // Debt calculations for Overview tab
   const totalDebt = debts.reduce((sum, debt) => sum + debt.balance, 0)
   const totalMonthlyDebtPayment = debts.reduce((sum, debt) => sum + debt.minimumPayment, 0)
@@ -244,106 +186,135 @@ export default function GoalsPage() {
   const weightedAvgAPR = totalDebt > 0
     ? debts.reduce((sum, debt) => sum + (debt.balance * debt.apr), 0) / totalDebt
     : 0
+
   // Financial Overview calculations
   const totalAssets = (includePortfolioInOverview ? portfolioValue : 0) + currentSavings + totalAssetsValue
   const totalLiabilities = totalDebt
   const netWorth = totalAssets - totalLiabilities
+
   const annualIncome = monthlyIncome * 12
   const annualExpenses = monthlyExpenses * 12
   const annualDebtPayments = totalMonthlyDebtPayment * 12
   const annualInvestmentContributions = monthlyContribution * 12
+
   const portfolioAnnualReturnDollars = includePortfolioInOverview ? (portfolioValue * (portfolioAnnualReturn / 100)) : 0
   const dividendIncome = (includePortfolioInOverview && includeDividendsInOverview) ? portfolioAnnualDividends : 0
+
   const totalAnnualIncome = annualIncome + portfolioAnnualReturnDollars + dividendIncome
   const totalAnnualExpenses = annualExpenses + totalAnnualInterest + annualInvestmentContributions
+
   const netAnnualCashFlow = totalAnnualIncome - totalAnnualExpenses
   const monthlyNetCashFlow = netAnnualCashFlow / 12
+
   // Risk Indicators
   const debtToIncomeRatio = monthlyIncome > 0 ? (totalMonthlyDebtPayment / monthlyIncome) * 100 : 0
   const debtToAssetRatio = totalAssets > 0 ? (totalDebt / totalAssets) * 100 : 0
   const emergencyFundMonths = monthlyExpenses > 0 ? currentSavings / monthlyExpenses : 0
   const leverageRatio = netWorth > 0 ? totalDebt / netWorth : 0
+
   // Financial Health Score (0-100)
   const calculateHealthScore = () => {
     let score = 100
+
     // Debt-to-income (30 points)
     if (debtToIncomeRatio > 50) score -= 30
     else if (debtToIncomeRatio > 35) score -= 20
     else if (debtToIncomeRatio > 20) score -= 10
+
     // Emergency fund (25 points)
     if (emergencyFundMonths < 3) score -= 25
     else if (emergencyFundMonths < 6) score -= 10
+
     // Net worth (20 points)
     if (netWorth < 0) score -= 20
     else if (netWorth < 10000) score -= 10
+
     // Leverage (15 points)
     if (leverageRatio > 2) score -= 15
     else if (leverageRatio > 1) score -= 8
+
     // Cash flow (10 points)
     if (monthlyNetCashFlow < 0) score -= 10
     else if (monthlyNetCashFlow < 200) score -= 5
+
     return Math.max(0, score)
   }
+
   const healthScore = calculateHealthScore()
+
   // ==================== HANDLERS ====================
+
   const handleSaveGoal = () => {
     const newValue = parseFloat(tempGoalValue)
     if (!isNaN(newValue)) setTargetValue(newValue)
     setIsEditingGoal(false)
   }
+
   const handleSaveSavings = () => {
     const newValue = Number(tempSavingsValue)
     if (newValue >= 0) setCurrentSavings(newValue)
     else setTempSavingsValue(currentSavings.toString())
     setIsEditingSavings(false)
   }
+
   const handleAddAsset = () => {
     if (assets.length >= 10) {
       alert("Maximum 10 assets allowed")
       return
     }
+
     const value = Number(newAssetValue)
     const returnRate = Number(newAssetReturn)
+
     if (!newAssetName || value <= 0 || returnRate < 0 || returnRate > 100) {
       alert("Please enter valid asset details")
       return
     }
+
     const asset: Asset = {
       id: Date.now().toString(),
       name: newAssetName,
       value: value,
       expectedReturn: returnRate
     }
+
     setAssets([...assets, asset])
     setNewAssetName("")
     setNewAssetValue("")
     setNewAssetReturn("8")
     setShowAddAsset(false)
   }
+
   const handleDeleteAsset = (id: string) => {
     setAssets(assets.filter(asset => asset.id !== id))
   }
+
   const handleSaveContribution = () => {
     const newValue = parseFloat(tempContributionValue)
     if (!isNaN(newValue)) setBaseContributionAmount(newValue)
     setIsEditingContribution(false)
   }
+
   const handleSaveReturn = () => {
     const newValue = parseFloat(tempReturnValue)
     if (!isNaN(newValue)) setExpectedReturn(newValue)
     setIsEditingReturn(false)
   }
+
   const debtByType = debts.reduce((acc, debt) => {
     acc[debt.type] = (acc[debt.type] || 0) + debt.balance
     return acc
   }, {} as Record<string, number>)
+
   // ==================== RENDER ====================
+
   return (
     <div className="p-4 lg:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Goals & Finance</h1>
         <p className="text-muted-foreground">Track your financial goals, debts, and overall financial health</p>
       </div>
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="goals" className="flex items-center gap-2">
@@ -359,6 +330,7 @@ export default function GoalsPage() {
             Financial Overview
           </TabsTrigger>
         </TabsList>
+
         {/* ==================== TAB 1: GOAL TRACKER ==================== */}
         <TabsContent value="goals" className="space-y-6">
           {/* Main Goal Card */}
@@ -454,6 +426,7 @@ export default function GoalsPage() {
                   </div>
                 </div>
               </div>
+
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
                 <div className={`rounded-lg border border-border p-4 ${includePortfolio ? 'bg-secondary/50' : 'bg-secondary/20 opacity-50'
                   }`}>
@@ -648,6 +621,7 @@ export default function GoalsPage() {
               </div>
             </CardContent>
           </Card>
+
           {/* Other Assets Section */}
           <Card className="border-border bg-card">
             <CardHeader>
@@ -716,6 +690,7 @@ export default function GoalsPage() {
                   </div>
                 </div>
               )}
+
               {assets.length === 0 ? (
                 <div className="text-center py-6 text-muted-foreground text-sm">
                   No assets added yet. Click "Add Asset" to get started.
@@ -744,6 +719,7 @@ export default function GoalsPage() {
                       </button>
                     </div>
                   ))}
+
                   {totalAssetsValue > 0 && (
                     <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 mt-4">
                       <div className="flex items-center justify-between">
@@ -762,6 +738,7 @@ export default function GoalsPage() {
               )}
             </CardContent>
           </Card>
+
           {/* Portfolio Projection Chart */}
           <Card className="border-border bg-card">
             <CardHeader>
@@ -839,12 +816,14 @@ export default function GoalsPage() {
               </div>
             </CardContent>
           </Card>
+
           {/* Breakdown Summary */}
           {(() => {
             const totalInvested = monthlyContribution * monthsToGoal
             const compoundGrowth = Math.max(0, targetValue - totalCurrentValue - totalInvested)
             const investedPercent = targetValue > 0 ? (totalInvested / targetValue) * 100 : 0
             const growthPercent = targetValue > 0 ? (compoundGrowth / targetValue) * 100 : 0
+
             return (
               <Card className="border-border bg-card">
                 <CardHeader>
@@ -907,6 +886,7 @@ export default function GoalsPage() {
               </Card>
             )
           })()}
+
           {/* Goal Milestones */}
           <Card className="border-border bg-card">
             <CardHeader>
@@ -917,6 +897,7 @@ export default function GoalsPage() {
                 {generateMilestones(targetValue).map((milestone) => {
                   const achieved = totalCurrentValue >= milestone
                   const progress = Math.min((totalCurrentValue / milestone) * 100, 100)
+
                   return (
                     <div key={milestone} className="flex items-center gap-4">
                       <div
@@ -947,10 +928,12 @@ export default function GoalsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
         {/* ==================== TAB 2: DEBT TRACKER ==================== */}
         <TabsContent value="debts" className="space-y-6">
           <DebtTrackerTab onDebtsChange={setDebts} />
         </TabsContent>
+
         {/* ==================== TAB 3: FINANCIAL OVERVIEW ==================== */}
         <TabsContent value="overview" className="space-y-6">
           {/* Settings Toggles */}
@@ -976,6 +959,7 @@ export default function GoalsPage() {
                     {includePortfolioInOverview ? 'ON' : 'OFF'}
                   </span>
                 </div>
+
                 <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-4 py-2">
                   <span className="text-sm text-muted-foreground">Include Dividends</span>
                   <button
@@ -993,6 +977,7 @@ export default function GoalsPage() {
                     {includeDividendsInOverview && includePortfolioInOverview ? 'ON' : 'OFF'}
                   </span>
                 </div>
+
                 <div className="flex items-center gap-2">
                   <label className="text-sm text-muted-foreground">Monthly Income:</label>
                   <input
@@ -1002,6 +987,7 @@ export default function GoalsPage() {
                     className="w-28 rounded border border-border bg-secondary px-2 py-1 text-sm"
                   />
                 </div>
+
                 <div className="flex items-center gap-2">
                   <label className="text-sm text-muted-foreground">Monthly Expenses:</label>
                   <input
@@ -1014,6 +1000,7 @@ export default function GoalsPage() {
               </div>
             </CardContent>
           </Card>
+
           {/* Financial Health Score */}
           <Card className="border-border bg-card">
             <CardHeader>
@@ -1057,6 +1044,7 @@ export default function GoalsPage() {
                   {healthScore >= 80 ? 'Excellent' : healthScore >= 60 ? 'Good' : healthScore >= 40 ? 'Fair' : 'Needs Improvement'}
                 </p>
               </div>
+
               <div className="mt-6 space-y-3">
                 <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30">
                   <span className="text-sm text-foreground">Debt-to-Income Ratio</span>
@@ -1085,6 +1073,7 @@ export default function GoalsPage() {
               </div>
             </CardContent>
           </Card>
+
           {/* Investment Returns vs Debt Costs */}
           <Card className="border-border bg-card">
             <CardHeader>
@@ -1118,6 +1107,7 @@ export default function GoalsPage() {
                     )}
                   </div>
                 </div>
+
                 <div className="rounded-lg border-2 border-red-500/30 bg-red-500/5 p-6">
                   <div className="flex items-center gap-2 mb-4">
                     <TrendingDown className="h-5 w-5 text-red-500" />
@@ -1134,6 +1124,7 @@ export default function GoalsPage() {
                   </div>
                 </div>
               </div>
+
               <div className="mt-6 rounded-lg border border-border bg-secondary/50 p-4">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-foreground">Net Annual Benefit:</span>
@@ -1154,6 +1145,7 @@ export default function GoalsPage() {
               </div>
             </CardContent>
           </Card>
+
           {/* Risk Indicators */}
           <Card className="border-border bg-card">
             <CardHeader>
@@ -1186,6 +1178,7 @@ export default function GoalsPage() {
                           '🚨 Danger'}
                   </p>
                 </div>
+
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Debt-to-Asset</span>
@@ -1206,6 +1199,7 @@ export default function GoalsPage() {
                         '❌ High'}
                   </p>
                 </div>
+
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Emergency Fund</span>
@@ -1226,6 +1220,7 @@ export default function GoalsPage() {
                         '❌ Risky'}
                   </p>
                 </div>
+
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Leverage Ratio</span>
@@ -1249,6 +1244,7 @@ export default function GoalsPage() {
               </div>
             </CardContent>
           </Card>
+
           {/* Balance Sheet */}
           <Card className="border-border bg-card">
             <CardHeader>
@@ -1286,6 +1282,7 @@ export default function GoalsPage() {
                     </div>
                   </div>
                 </div>
+
                 {/* Liabilities */}
                 <div>
                   <h4 className="font-semibold text-red-500 mb-3 flex items-center gap-2">
@@ -1315,6 +1312,7 @@ export default function GoalsPage() {
                   </div>
                 </div>
               </div>
+
               {/* Net Worth */}
               <div className="mt-6 p-6 rounded-lg bg-gradient-to-r from-primary/10 to-primary/5 border-2 border-primary/30">
                 <div className="flex items-center justify-between">
@@ -1334,6 +1332,7 @@ export default function GoalsPage() {
               </div>
             </CardContent>
           </Card>
+
           {/* Cash Flow Statement */}
           <Card className="border-border bg-card">
             <CardHeader>
@@ -1361,6 +1360,7 @@ export default function GoalsPage() {
                         )}
                       </div>
                     </div>
+
                     <div>
                       <p className="text-xs text-muted-foreground mb-2">OUTFLOWS</p>
                       <div className="space-y-1">
@@ -1378,6 +1378,7 @@ export default function GoalsPage() {
                         </div>
                       </div>
                     </div>
+
                     <div className="flex justify-between p-3 rounded bg-primary/10 border border-primary/30">
                       <span className="font-semibold text-foreground">Net Cash Flow</span>
                       <span className={`font-bold ${monthlyNetCashFlow >= 0 ? 'text-green-500' : 'text-red-500'}`}>
@@ -1386,6 +1387,7 @@ export default function GoalsPage() {
                     </div>
                   </div>
                 </div>
+
                 {/* Annual */}
                 <div>
                   <h4 className="font-semibold text-foreground mb-3">Annual</h4>
@@ -1411,6 +1413,7 @@ export default function GoalsPage() {
                         )}
                       </div>
                     </div>
+
                     <div>
                       <p className="text-xs text-muted-foreground mb-2">OUTFLOWS</p>
                       <div className="space-y-1">
@@ -1428,6 +1431,7 @@ export default function GoalsPage() {
                         </div>
                       </div>
                     </div>
+
                     <div className="flex justify-between p-3 rounded bg-primary/10 border border-primary/30">
                       <span className="font-semibold text-foreground">Net Cash Flow</span>
                       <span className={`font-bold ${netAnnualCashFlow >= 0 ? 'text-green-500' : 'text-red-500'}`}>
@@ -1439,6 +1443,7 @@ export default function GoalsPage() {
               </div>
             </CardContent>
           </Card>
+
           {/* Opportunity Cost */}
           {totalDebt > 0 && (
             <Card className="border-border bg-card border-orange-500/30">
@@ -1459,6 +1464,7 @@ export default function GoalsPage() {
                       💡 If you paid off your debt and invested that money instead at {expectedReturn}% return:
                     </p>
                   </div>
+
                   <div className="grid gap-4 sm:grid-cols-3">
                     <div className="p-4 rounded-lg bg-secondary/50">
                       <p className="text-xs text-muted-foreground mb-1">In 10 years</p>
@@ -1479,6 +1485,7 @@ export default function GoalsPage() {
                       </p>
                     </div>
                   </div>
+
                   <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30">
                     <p className="text-sm font-semibold text-red-500">
                       🚨 Your high-interest debt is costing you{' '}

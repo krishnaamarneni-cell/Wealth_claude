@@ -3,6 +3,8 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { getSupabaseClient } from '@/lib/supabase-client'
+import { useDebtData } from '@/lib/hooks/useDebtData'
+import type { Debt as SupabaseDebt } from '@/lib/hooks/useDebtData'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import {
@@ -130,39 +132,22 @@ function calcSchedule(debts: Debt[], strategy: 'avalanche' | 'snowball', extra: 
 // ── COMPONENT ─────────────────────────────────────────────────────────────────
 export function DebtTrackerTab({ onDebtsChange }: { onDebtsChange?: (debts: Debt[]) => void }) {
   const supabase = getSupabaseClient()
-  const [debtsState, setDebtsState] = useState<Debt[]>([])
-  const [loading, setLoading] = useState(true)
+  const { debts: rawDebts, loading, addDebt } = useDebtData()
 
-  useEffect(() => {
-    async function loadDebts() {
-      try {
-        const res = await fetch('/api/user-debts')
-        if (!res.ok) throw new Error('Failed to load debts')
-        const data = await res.json()
-        setDebtsState(data || [])
-      } catch (err) {
-        console.error('[DebtTrackerTab] Error loading debts:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadDebts()
-  }, [])
-
-  // Map API → UI Debt shape
+  // Map Supabase → UI Debt shape
   const debts: Debt[] = useMemo(() => {
-    const mapped = (debtsState || []).map(d => ({
+    const mapped = (rawDebts || []).map(d => ({
       id: d.id,
       name: d.name,
       type: d.type,
-      balance: d.balance ?? 0,
-      apr: d.apr ?? 0,
-      monthlyPayment: d.monthlyPayment ?? 0,
+      balance: d.currentBalance ?? 0,
+      apr: d.interestRate ?? 0,
+      monthlyPayment: d.minimumPayment ?? 0,
       minimumPayment: d.minimumPayment ?? 0,
     }))
     onDebtsChange?.(mapped)
     return mapped
-  }, [debtsState, onDebtsChange])
+  }, [rawDebts, onDebtsChange])
 
   // UI State
   const [strategy, setStrategy] = useState<'avalanche' | 'snowball'>('avalanche')

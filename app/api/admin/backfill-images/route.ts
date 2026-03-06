@@ -94,14 +94,11 @@ export async function GET(request: NextRequest) {
         source = 'unsplash'
       } catch (e: any) {
         console.warn(`[backfill] Unsplash failed for "${query}": ${e.message}`)
-      }
     }
+  }
 
-    if (!image_url) {
-      results.failed++
-      results.posts.push({ title: post.title, status: '❌ Both sources failed' })
-      continue
-    }
+  return NextResponse.json(results)
+}
 
     const { error: updateError } = await supabase
       .from('blog_posts')

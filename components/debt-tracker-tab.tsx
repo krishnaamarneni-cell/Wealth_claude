@@ -3,16 +3,10 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { getSupabaseClient } from '@/lib/supabase-client'
-import { useDebtData } from '@/lib/hooks/useDebtData'
-import type { Debt as SupabaseDebt } from '@/lib/hooks/useDebtData'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, PieChart, Pie, Cell
-} from 'recharts'
-import {
-  Trash2, Upload, FileText, Plus, ChevronDown, ChevronUp,
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
+import { Trash2, Upload, FileText, Plus, ChevronDown, ChevronUp, Snowflake, Flame, TrendingDown, DollarSign, AlertTriangle, Download } from 'lucide-react'
   Snowflake, Flame, TrendingDown, DollarSign, AlertTriangle, Download
 } from 'lucide-react'
 

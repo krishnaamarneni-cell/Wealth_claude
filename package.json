@@ -70,6 +70,7 @@
     "vaul": "latest",
     "ws": "latest",
     "yahoo-finance2": "latest",
+    "xlsx": "^0.18.5",
     "zod": "3.25.76"
   },
   "devDependencies": {

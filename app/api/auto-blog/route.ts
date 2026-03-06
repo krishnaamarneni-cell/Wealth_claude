@@ -302,10 +302,24 @@ Respond ONLY with valid JSON, absolutely no markdown or code blocks:
     if (!match) return null
     const parsed = JSON.parse(match[0])
 
-    // Fetch Unsplash image
+    // Fetch image — Pixabay first, Unsplash fallback
     let image_url = ''
+    const pixabayKey = process.env.PIXABAY_API_KEY
     const unsplashKey = process.env.UNSPLASH_ACCESS_KEY
-    if (unsplashKey && parsed.image_query) {
+
+    if (pixabayKey && parsed.image_query) {
+      try {
+        const imgRes = await fetch(
+          `https://pixabay.com/api/?key=${pixabayKey}&q=${encodeURIComponent(parsed.image_query)}&image_type=photo&orientation=horizontal&category=business&per_page=5&safesearch=true`
+        )
+        if (imgRes.ok) {
+          const img = await imgRes.json()
+          image_url = img.hits?.[0]?.webformatURL ?? ''
+        }
+      } catch { console.warn('[auto-blog] Pixabay failed, trying Unsplash...') }
+    }
+
+    if (!image_url && unsplashKey && parsed.image_query) {
       try {
         const imgRes = await fetch(
           `https://api.unsplash.com/photos/random?query=${encodeURIComponent(parsed.image_query)}&orientation=landscape`,
@@ -315,8 +329,9 @@ Respond ONLY with valid JSON, absolutely no markdown or code blocks:
           const img = await imgRes.json()
           image_url = img.urls?.regular ?? ''
         }
-      } catch { /* no image — that's ok */ }
+      } catch { console.warn('[auto-blog] Unsplash fallback also failed') }
     }
+
 
     return {
       title: parsed.title ?? topic,

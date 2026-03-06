@@ -2,21 +2,51 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSideClient } from '@/lib/supabase'
 import { cookies } from 'next/headers'
 
+async function fetchFromPixabay(query: string, apiKey: string): Promise<string> {
+  const res = await fetch(
+    `https://pixabay.com/api/?key=${apiKey}&q=${encodeURIComponent(query)}&image_type=photo&orientation=horizontal&category=business&per_page=5&safesearch=true`
+  )
+  if (!res.ok) throw new Error(`Pixabay ${res.status}`)
+  const data = await res.json()
+  const url = data.hits?.[0]?.webformatURL ?? ''
+  if (!url) throw new Error('Pixabay no results')
+  return url
+}
+
+async function fetchFromUnsplash(query: string, apiKey: string): Promise<string> {
+  const res = await fetch(
+    `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&orientation=landscape`,
+    { headers: { Authorization: `Client-ID ${apiKey}` } }
+  )
+  if (!res.ok) throw new Error(`Unsplash ${res.status}`)
+  const data = await res.json()
+  const url = data.urls?.regular ?? ''
+  if (!url) throw new Error('Unsplash no results')
+  return url
+}
+
 export async function GET(request: NextRequest) {
   // Auth check
-  const cookieStore = await cookies()
-  const supabase = createServerSideClient(cookieStore)
   const urlSecret = request.nextUrl.searchParams.get('secret')
   const cronSecret = process.env.CRON_SECRET
   if (urlSecret && cronSecret && urlSecret === cronSecret) {
     // authorized via secret
   } else {
+    const cookieStore = await cookies()
+    const supabase = createServerSideClient(cookieStore)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const pixabayKey = process.env.PIXABAY_API_KEY
   const unsplashKey = process.env.UNSPLASH_ACCESS_KEY
-  if (!unsplashKey) return NextResponse.json({ error: 'UNSPLASH_ACCESS_KEY not set' }, { status: 500 })
+
+  if (!pixabayKey && !unsplashKey) {
+    return NextResponse.json({ error: 'No image API keys set' }, { status: 500 })
+  }
+
+  const cookieStore = await cookies()
+  const supabase = createServerSideClient(cookieStore)
 
   // Fetch all posts with empty image_url
   const { data: posts, error } = await supabase
@@ -25,45 +55,66 @@ export async function GET(request: NextRequest) {
     .or('image_url.is.null,image_url.eq.')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!posts || posts.length === 0) return NextResponse.json({ message: 'No posts need images', updated: 0 })
+  if (!posts || posts.length === 0) {
+    return NextResponse.json({ message: 'No posts need images', updated: 0 })
+  }
 
-  const results = { updated: 0, failed: 0, posts: [] as { title: string; status: string }[] }
+  const results = {
+    updated: 0,
+    failed: 0,
+    posts: [] as { title: string; status: string; source?: string }[],
+  }
 
   for (const post of posts) {
-    // Small delay to respect Unsplash rate limit
     await new Promise(r => setTimeout(r, 300))
 
-    try {
-      // Use first 4 words of title as search query
-      const query = post.title.split(' ').slice(0, 4).join(' ')
+    // Build clean search query from title
+    const words = post.title.replace(/[+\-%$]/g, '').split(' ')
+    const skipWords = ['why', 'how', 'what', 'when', 'is', 'are', 'the', 'on', 'in', 'of', 'vs', 'to']
+    const meaningful = words.filter(w => w.length > 3 && !skipWords.includes(w.toLowerCase()))
+    const query = meaningful.slice(0, 3).join(' ') || 'stock market trading'
 
-      const imgRes = await fetch(
-        `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&orientation=landscape`,
-        { headers: { Authorization: `Client-ID ${unsplashKey}` } }
-      )
+    let image_url = ''
+    let source = ''
 
-      if (!imgRes.ok) throw new Error(`Unsplash ${imgRes.status}`)
+    // Try Pixabay first
+    if (pixabayKey) {
+      try {
+        image_url = await fetchFromPixabay(query, pixabayKey)
+        source = 'pixabay'
+      } catch (e: any) {
+        console.warn(`[backfill] Pixabay failed for "${query}": ${e.message}`)
+      }
+    }
 
-      const img = await imgRes.json()
-      const image_url = img.urls?.regular ?? ''
+    // Fallback to Unsplash
+    if (!image_url && unsplashKey) {
+      try {
+        image_url = await fetchFromUnsplash(query, unsplashKey)
+        source = 'unsplash'
+      } catch (e: any) {
+        console.warn(`[backfill] Unsplash failed for "${query}": ${e.message}`)
+      }
+    }
 
-      if (!image_url) throw new Error('No image URL returned')
-
-      const { error: updateError } = await supabase
-        .from('blog_posts')
-        .update({ image_url })
-        .eq('id', post.id)
-
-      if (updateError) throw new Error(updateError.message)
-
-      results.updated++
-      results.posts.push({ title: post.title, status: `✅ ${image_url}` })
-
-    } catch (err: any) {
+    if (!image_url) {
       results.failed++
-      results.posts.push({ title: post.title, status: `❌ ${err.message}` })
+      results.posts.push({ title: post.title, status: '❌ Both sources failed' })
+      continue
+    }
+
+    const { error: updateError } = await supabase
+      .from('blog_posts')
+      .update({ image_url })
+      .eq('id', post.id)
+
+    if (updateError) {
+      results.failed++
+      results.posts.push({ title: post.title, status: `❌ DB error: ${updateError.message}` })
+    } else {
+      results.updated++
+      results.posts.push({ title: post.title, status: `✅ ${image_url}`, source })
     }
   }
 
-  return NextResponse.json(results)
-}
+  return

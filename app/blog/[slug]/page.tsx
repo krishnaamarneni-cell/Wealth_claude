@@ -47,28 +47,42 @@ function getSupabase() {
 async function getPost(slug: string) {
   const supabase = getSupabase()
 
+  console.log(`[getPost] Looking for slug: ${slug}`)
+
   // Try exact match first
-  const { data: exact } = await supabase
+  const { data: exact, error: exactError } = await supabase
     .from('blog_posts')
     .select('*')
     .eq('slug', slug)
     .eq('published', true)
     .maybeSingle()
 
+  if (exactError) console.error('[getPost] Exact match error:', exactError)
+
   if (exact) {
-    // Increment view count for exact match
-    await supabase
+    console.log('[getPost] Found exact match:', exact.id, 'views:', exact.view_count)
+
+    // Try to increment view count
+    const { error: updateError } = await supabase
       .from('blog_posts')
       .update({
         view_count: (exact.view_count ?? 0) + 1,
         last_viewed_at: new Date().toISOString(),
       })
       .eq('id', exact.id)
+
+    if (updateError) {
+      console.error('[getPost] View count update failed:', updateError)
+    } else {
+      console.log('[getPost] View count incremented successfully')
+    }
+
     return exact
   }
 
   // Fallback to prefix match
-  const { data: fallback } = await supabase
+  console.log('[getPost] Trying prefix match...')
+  const { data: fallback, error: fallbackError } = await supabase
     .from('blog_posts')
     .select('*')
     .ilike('slug', `${slug}%`)
@@ -76,18 +90,29 @@ async function getPost(slug: string) {
     .limit(1)
     .maybeSingle()
 
+  if (fallbackError) console.error('[getPost] Fallback match error:', fallbackError)
+
   if (fallback) {
-    // Increment view count for fallback match
-    await supabase
+    console.log('[getPost] Found fallback match:', fallback.id, 'views:', fallback.view_count)
+
+    const { error: updateError } = await supabase
       .from('blog_posts')
       .update({
         view_count: (fallback.view_count ?? 0) + 1,
         last_viewed_at: new Date().toISOString(),
       })
       .eq('id', fallback.id)
+
+    if (updateError) {
+      console.error('[getPost] Fallback view count update failed:', updateError)
+    } else {
+      console.log('[getPost] Fallback view count incremented')
+    }
+
     return fallback
   }
 
+  console.log('[getPost] No post found for slug:', slug)
   return null
 }
 

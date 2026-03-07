@@ -107,16 +107,18 @@ export async function PUT(req: NextRequest) {
     // Insert all debts - ONLY with valid columns
     console.log('[user-debts] PUT: Inserting', debts.length, 'new debts')
     for (const debt of debts) {
+      const normalizedType = String(debt.type || 'Other')
+      
       const insertPayload = {
         user_id: user.id,
         name: debt.name,
-        type: debt.type,  // Pass type as-is from frontend
+        type: normalizedType,
         balance: Number(debt.balance) || 0,
         apr: Number(debt.apr) || 0,
         min_payment: Number(debt.monthlyPayment) || 0,
       }
       
-      console.log(`[user-debts] PUT: Inserting "${debt.name}" with type: "${debt.type}"`)
+      console.log(`[user-debts] PUT: Inserting "${debt.name}" with type: "${normalizedType}"`)
       
       const { error: insertError } = await supabase
         .from('user_debts')

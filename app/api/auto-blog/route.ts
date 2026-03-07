@@ -222,7 +222,8 @@ Respond ONLY with valid JSON, absolutely no markdown or code blocks:
   "excerpt": "2-3 sentence compelling summary ~50 words",
   "content": "full HTML 900-1100 words using h2/p/strong/ul/li/div",
   "tags": ["us-stocks", "investing", "market-analysis", "relevant-ticker", "relevant-tag"],
-  "image_query": "3-4 word US finance photo search query"
+  "image_query": "specific unique 3-4 word photo query - AVOID generic terms like 'stock market' or 'trading'. Use specific objects: coins, calculator, wallet, office desk, laptop finance, dollar bills, gold bars, bank building, credit cards, piggy bank, financial newspaper, coffee and charts, boardroom meeting, etc."
+
 }`
 
   let raw = ''
@@ -310,43 +311,80 @@ Respond ONLY with valid JSON, absolutely no markdown or code blocks:
 
     if (pixabayKey && parsed.image_query) {
       try {
+        // Add variety modifiers based on post type
+        const imageModifiers: Record<PostType, string[]> = {
+          'premarket': ['sunrise city', 'morning coffee desk', 'early trading', 'dawn skyline', 'breakfast business'],
+          'market-analysis': ['stock chart', 'trading screen', 'financial data', 'bull bear', 'market graph'],
+          'aftermarket': ['sunset city', 'evening office', 'closing bell', 'night skyline', 'end of day'],
+          'geopolitical': ['world map', 'globe business', 'international flags', 'global trade', 'world economy'],
+          'education': ['books finance', 'learning investment', 'piggy bank', 'calculator money', 'graduation finance'],
+        }
+
+        const modifiers = imageModifiers[postType] || imageModifiers['market-analysis']
+        const randomModifier = modifiers[Math.floor(Math.random() * modifiers.length)]
+        const searchQuery = `${parsed.image_query} ${randomModifier}`
+
         const imgRes = await fetch(
-          `https://pixabay.com/api/?key=${pixabayKey}&q=${encodeURIComponent(parsed.image_query)}&image_type=photo&orientation=horizontal&category=business&per_page=5&safesearch=true`
+          `https://pixabay.com/api/?key=${pixabayKey}&q=${encodeURIComponent(searchQuery)}&image_type=photo&orientation=horizontal&category=business&per_page=20&safesearch=true`
         )
         if (imgRes.ok) {
           const img = await imgRes.json()
-          image_url = img.hits?.[0]?.webformatURL ?? ''
+          const hits = img.hits ?? []
+          if (hits.length > 0) {
+            // Pick random from top results
+            const randomIndex = Math.floor(Math.random() * Math.min(hits.length, 15))
+            image_url = hits[randomIndex]?.webformatURL ?? ''
+          }
         }
       } catch { console.warn('[auto-blog] Pixabay failed, trying Unsplash...') }
     }
+    try {
+      const imgRes = await fetch(
+        `https://pixabay.com/api/?key=${pixabayKey}&q=${encodeURIComponent(parsed.image_query)}&image_type=photo&orientation=horizontal&category=business&per_page=5&safesearch=true`
+      )
+      if (imgRes.ok) {
+        const img = await imgRes.json()
+        const hits = img.hits ?? []
+        if (hits.length > 0) {
+          const randomIndex = Math.floor(Math.random() * Math.min(hits.length, 10))
+          image_url = hits[randomIndex]?.webformatURL ?? ''
+        }
+      }
+
+    } catch { console.warn('[auto-blog] Pixabay failed, trying Unsplash...') }
+  }
 
     if (!image_url && unsplashKey && parsed.image_query) {
-      try {
-        const imgRes = await fetch(
-          `https://api.unsplash.com/photos/random?query=${encodeURIComponent(parsed.image_query)}&orientation=landscape`,
-          { headers: { Authorization: `Client-ID ${unsplashKey}` } }
-        )
-        if (imgRes.ok) {
-          const img = await imgRes.json()
-          image_url = img.urls?.regular ?? ''
+    try {
+      const imgRes = await fetch(
+        `https://api.unsplash.com/photos/random?query=${encodeURIComponent(parsed.image_query)}&count=10&orientation=landscape`,
+        { headers: { Authorization: `Client-ID ${unsplashKey}` } }
+      )
+      if (imgRes.ok) {
+        const images = await imgRes.json()
+        if (Array.isArray(images) && images.length > 0) {
+          const randomIndex = Math.floor(Math.random() * images.length)
+          image_url = images[randomIndex]?.urls?.regular ?? ''
         }
-      } catch { console.warn('[auto-blog] Unsplash fallback also failed') }
-    }
-
-
-    return {
-      title: parsed.title ?? topic,
-      slug: titleToSlug(parsed.title ?? topic) + '-' + Date.now(),
-      excerpt: parsed.excerpt ?? '',
-      content: parsed.content ?? '',
-      tags: Array.isArray(parsed.tags) ? parsed.tags : [],
-      image_url,
-      ai_model: usedModel,
-    }
-  } catch (err) {
-    console.error(`[auto-blog] Gemini JSON parse failed for "${topic}"`, err)
-    return null
+      }
+    } catch { console.warn('[auto-blog] Unsplash fallback also failed') }
   }
+
+
+
+  return {
+    title: parsed.title ?? topic,
+    slug: titleToSlug(parsed.title ?? topic) + '-' + Date.now(),
+    excerpt: parsed.excerpt ?? '',
+    content: parsed.content ?? '',
+    tags: Array.isArray(parsed.tags) ? parsed.tags : [],
+    image_url,
+    ai_model: usedModel,
+  }
+} catch (err) {
+  console.error(`[auto-blog] Gemini JSON parse failed for "${topic}"`, err)
+  return null
+}
 }
 
 // ─── Main handler ─────────────────────────────────────────────────────────────
@@ -398,18 +436,18 @@ export async function POST(request: NextRequest) {
       } else {
         const now = new Date().toISOString()
         const { error } = await supabase.from('blog_posts').insert([{
-  slug: post.slug,
-  title: post.title,
-  excerpt: post.excerpt,
-  content: post.content,
-  tags: post.tags,
-  image_url: post.image_url || null,
-  ai_model: post.ai_model || null,
-  post_type: postType,
-  published: true,
-  published_at: now,
-  author_id: null,
-}])
+          slug: post.slug,
+          title: post.title,
+          excerpt: post.excerpt,
+          content: post.content,
+          tags: post.tags,
+          image_url: post.image_url || null,
+          ai_model: post.ai_model || null,
+          post_type: postType,
+          published: true,
+          published_at: now,
+          author_id: null,
+        }])
 
 
 

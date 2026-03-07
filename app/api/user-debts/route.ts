@@ -94,7 +94,18 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Debts must be an array' }, { status: 400 })
     }
 
-    // Insert all debts - ONLY with valid columns
+    // FIRST: Delete all existing debts for this user to prevent duplicates
+    console.log('[user-debts] PUT: Deleting existing debts for user', user.id)
+    const { error: deleteError } = await supabase
+      .from('user_debts')
+      .delete()
+      .eq('user_id', user.id)
+    if (deleteError) {
+      console.error('[user-debts] PUT: Delete error:', deleteError)
+      throw deleteError
+    }
+
+    // SECOND: Insert all debts - ONLY with valid columns
     console.log('[user-debts] PUT: Inserting', debts.length, 'new debts')
     for (const debt of debts) {
       // Pass type exactly as-is - database expects Title Case: "Credit Card", "Auto Loan", etc.

@@ -41,17 +41,26 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json()
     
-    // Convert debt type from title case to snake_case for Supabase enum
+    // Explicit type mapping
     const typeMap: { [key: string]: string } = {
       'Credit Card': 'credit_card',
+      'credit_card': 'credit_card',
       'Auto Loan': 'auto_loan',
+      'auto_loan': 'auto_loan',
       'Mortgage': 'mortgage',
+      'mortgage': 'mortgage',
       'Student Loan': 'student_loan',
+      'student_loan': 'student_loan',
       'Personal Loan': 'personal_loan',
+      'personal_loan': 'personal_loan',
       'Other': 'other',
+      'other': 'other',
     }
     
-    const debtType = typeMap[body.type] || body.type.toLowerCase().replace(/\s+/g, '_')
+    let debtType = typeMap[body.type]
+    if (!debtType) {
+      debtType = body.type.toLowerCase().replace(/\s+/g, '_')
+    }
     
     const { error, data } = await supabase
       .from('user_debts')
@@ -59,9 +68,9 @@ export async function POST(req: NextRequest) {
         user_id: user.id,
         name: body.name,
         type: debtType,
-        balance: body.balance,
-        apr: body.apr,
-        min_payment: body.monthlyPayment || 0,
+        balance: parseFloat(String(body.balance)) || 0,
+        apr: parseFloat(String(body.apr)) || 0,
+        min_payment: parseFloat(String(body.monthlyPayment)) || 0,
       })
       .select()
       .single()
@@ -103,17 +112,23 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Debts must be an array' }, { status: 400 })
     }
 
-    // Type conversion - convert from UI format to database enum values
-    const normalizeDebtType = (type: string): string => {
-      if (!type) return 'other'
-      // Convert to lowercase and replace spaces with underscores
-      const normalized = type.toLowerCase().replace(/\s+/g, '_')
-      // List of valid database enum values
-      const validTypes = ['credit_card', 'auto_loan', 'mortgage', 'student_loan', 'personal_loan', 'other']
-      return validTypes.includes(normalized) ? normalized : 'other'
+    // Explicit type mapping - handle both formats
+    const typeMap: { [key: string]: string } = {
+      'Credit Card': 'credit_card',
+      'credit_card': 'credit_card',
+      'Auto Loan': 'auto_loan',
+      'auto_loan': 'auto_loan',
+      'Mortgage': 'mortgage',
+      'mortgage': 'mortgage',
+      'Student Loan': 'student_loan',
+      'student_loan': 'student_loan',
+      'Personal Loan': 'personal_loan',
+      'personal_loan': 'personal_loan',
+      'Other': 'other',
+      'other': 'other',
     }
 
-    // Delete existing debts for this user, then insert new ones
+    // Delete existing debts for this user
     console.log('[user-debts] PUT: Deleting existing debts for user', user.id)
     const { error: deleteError } = await supabase
       .from('user_debts')
@@ -124,23 +139,35 @@ export async function PUT(req: NextRequest) {
       throw deleteError
     }
 
-    // Insert all debts
+    // Insert all debts - ONLY with valid columns
     console.log('[user-debts] PUT: Inserting', debts.length, 'new debts')
     for (const debt of debts) {
-      const debtType = normalizeDebtType(debt.type)
-      console.log('[user-debts] PUT: Debt:', debt.name, '| Original type:', debt.type, '| Normalized type:', debtType)
+      // Use explicit mapping, fallback to lowercase_with_underscore
+      let normalizedType = typeMap[debt.type]
+      if (!normalizedType) {
+        normalizedType = debt.type.toLowerCase().replace(/\s+/g, '_')
+        console.log('[user-debts] PUT: Type not in map, using fallback conversion:', debt.type, '->', normalizedType)
+      }
+      
+      console.log('[user-debts] PUT: Inserting debt:', debt.name, '| Type:', debt.type, '-> Normalized:', normalizedType)
+      
+      const insertPayload = {
+        user_id: user.id,
+        name: debt.name,
+        type: normalizedType,
+        balance: parseFloat(String(debt.balance)) || 0,
+        apr: parseFloat(String(debt.apr)) || 0,
+        min_payment: parseFloat(String(debt.monthlyPayment)) || 0,
+      }
+      
+      console.log('[user-debts] PUT: Insert payload:', JSON.stringify(insertPayload))
+      
       const { error: insertError } = await supabase
         .from('user_debts')
-        .insert({
-          user_id: user.id,
-          name: debt.name,
-          type: debtType,
-          balance: debt.balance,
-          apr: debt.apr,
-          min_payment: debt.monthlyPayment || 0,
-        })
+        .insert(insertPayload)
+      
       if (insertError) {
-        console.error('[user-debts] PUT: Insert error for debt', debt.name, 'normalized type:', debtType, 'error:', insertError)
+        console.error('[user-debts] PUT: Insert error for debt', debt.name, 'with type:', normalizedType, '| error:', insertError)
         throw insertError
       }
     }

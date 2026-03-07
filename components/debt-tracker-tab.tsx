@@ -1,4 +1,5 @@
 'use client'
+// Cache bust: fixed imports and hooks - v2
 
 import { useState, useMemo, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'

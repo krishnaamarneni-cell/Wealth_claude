@@ -12,6 +12,7 @@ import { PayoffStrategy } from "@/components/goals/debt/PayoffStrategy"
 import { PayoffResults } from "@/components/goals/debt/PayoffResults"
 import type { Debt, PayoffStrategy as StrategyType } from "@/components/goals/types"
 import { calculatePayoffPlan } from "@/components/goals/types"
+import { postJSON, deleteJSON, debtTypeToDb } from "@/components/goals/hooks"
 
 interface DebtTrackerProps {
   debts: Debt[]
@@ -24,12 +25,11 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
   const [extraPayment, setExtraPayment] = useState(200)
   const [showResults, setShowResults] = useState(false)
 
-  // Calculate all three strategies for comparison
+  // Calculate both strategies for comparison
   const allResults = useMemo(
     () => ({
       avalanche: calculatePayoffPlan(debts, "avalanche", extraPayment),
       snowball: calculatePayoffPlan(debts, "snowball", extraPayment),
-      custom: calculatePayoffPlan(debts, "custom", extraPayment),
     }),
     [debts, extraPayment]
   )
@@ -37,27 +37,64 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
   const currentResult = allResults[strategy]
 
   const handleAddDebt = useCallback(
-    (debt: Debt) => {
+    async (debt: Debt) => {
+      // Optimistic UI update
       setDebts((prev) => [...prev, debt])
       setShowResults(false)
+
+      // Persist to Supabase
+      const result = await postJSON<any>("/api/user-debts", {
+        name: debt.name,
+        type: debtTypeToDb(debt.type),
+        balance: debt.balance,
+        apr: debt.apr,
+        monthlyPayment: debt.monthlyPayment,
+        minimumPayment: debt.minimumPayment,
+        status: "active",
+      })
+      if (result?.debt?.id) {
+        // Replace temp ID with Supabase ID
+        setDebts((prev) =>
+          prev.map((d) => (d.id === debt.id ? { ...d, id: result.debt.id } : d))
+        )
+      }
     },
     [setDebts]
   )
 
   const handleDeleteDebt = useCallback(
-    (id: string) => {
+    async (id: string) => {
       setDebts((prev) => prev.filter((d) => d.id !== id))
       setShowResults(false)
+      await deleteJSON("/api/user-debts", id)
     },
     [setDebts]
   )
 
   const handleApplyCards = useCallback(
-    (importedDebts: Debt[]) => {
+    async (importedDebts: Debt[]) => {
+      // Optimistic UI update
       setDebts((prev) => [...prev, ...importedDebts].slice(0, 20))
-      setEntryMode("manual") // Switch to manual entry to show the table
-      // Auto-calculate after applying
+      setEntryMode("manual")
       setTimeout(() => setShowResults(true), 100)
+
+      // Persist each imported debt to Supabase
+      for (const debt of importedDebts) {
+        const result = await postJSON<any>("/api/user-debts", {
+          name: debt.name,
+          type: debtTypeToDb(debt.type),
+          balance: debt.balance,
+          apr: debt.apr,
+          monthlyPayment: debt.monthlyPayment,
+          minimumPayment: debt.minimumPayment,
+          status: "active",
+        })
+        if (result?.debt?.id) {
+          setDebts((prev) =>
+            prev.map((d) => (d.id === debt.id ? { ...d, id: result.debt.id } : d))
+          )
+        }
+      }
     },
     [setDebts]
   )
@@ -115,26 +152,20 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
       {/* Summary Cards */}
       <DebtSummaryCards debts={debts} />
 
-      {/* Donut Charts (only shown when debts exist) */}
-      {debts.length > 0 && (
-        <>
-          <CreditCardDonut debts={debts} />
-          <AllLoansDonut debts={debts} />
-        </>
-      )}
+      {/* Donut Charts */}
+      <CreditCardDonut debts={debts} />
+      <AllLoansDonut debts={debts} />
 
-      {/* Payoff Strategy (only shown when debts exist) */}
-      {debts.length > 0 && (
-        <PayoffStrategy
-          debts={debts}
-          strategy={strategy}
-          setStrategy={handleStrategyChange}
-          extraPayment={extraPayment}
-          setExtraPayment={handleExtraPaymentChange}
-          onCalculate={handleCalculate}
-          allResults={allResults}
-        />
-      )}
+      {/* Payoff Strategy */}
+      <PayoffStrategy
+        debts={debts}
+        strategy={strategy}
+        setStrategy={handleStrategyChange}
+        extraPayment={extraPayment}
+        setExtraPayment={handleExtraPaymentChange}
+        onCalculate={handleCalculate}
+        allResults={allResults}
+      />
 
       {/* Results (only shown after Calculate is clicked) */}
       {showResults && debts.length > 0 && (
@@ -147,17 +178,6 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
         />
       )}
 
-      {/* Empty State */}
-      {debts.length === 0 && entryMode === "manual" && (
-        <Card className="border-border bg-card">
-          <CardContent className="py-12 text-center">
-            <CreditCard className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
-            <p className="text-sm text-muted-foreground">
-              No debts tracked yet. Add your first debt above to get started.
-            </p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   )
 }

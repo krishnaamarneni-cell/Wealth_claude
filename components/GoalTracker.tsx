@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import {
@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import type { Asset } from "@/components/goals/types"
 import { formatCurrency, formatDateShort } from "@/components/goals/types"
+import { useAutoSave, postJSON, deleteJSON } from "@/components/goals/hooks"
 
 interface GoalTrackerProps {
   assets: Asset[]
@@ -82,6 +83,22 @@ export function GoalTracker(props: GoalTrackerProps) {
   const [newAssetValue, setNewAssetValue] = useState("")
   const [newAssetReturn, setNewAssetReturn] = useState("8")
 
+  // Auto-save goals to Supabase
+  const { save: saveGoals } = useAutoSave<any>("/api/user-goals", "PUT")
+  const isInitialMount = useRef(true)
+
+  useEffect(() => {
+    if (isInitialMount.current) { isInitialMount.current = false; return }
+    saveGoals({
+      targetValue,
+      currentSavings,
+      contributionAmount: baseContributionAmount,
+      contributionType,
+      expectedReturn,
+      includePortfolio,
+    })
+  }, [targetValue, currentSavings, baseContributionAmount, contributionType, expectedReturn, includePortfolio, saveGoals])
+
   const progressPercent = targetValue > 0 ? (totalCurrentValue / targetValue) * 100 : 0
   const remainingAmount = Math.max(0, targetValue - totalCurrentValue)
   const weightedAssetReturn = assets.length > 0 ? assets.reduce((s, a) => s + a.value * a.expectedReturn, 0) / totalAssetsValue : 0
@@ -108,12 +125,27 @@ export function GoalTracker(props: GoalTrackerProps) {
   const handleSaveContribution = () => { const v = parseFloat(tempContributionValue); if (!isNaN(v)) setBaseContributionAmount(v); setIsEditingContribution(false) }
   const handleSaveReturn = () => { const v = parseFloat(tempReturnValue); if (!isNaN(v)) setExpectedReturn(v); setIsEditingReturn(false) }
 
-  const handleAddAsset = () => {
+  const handleAddAsset = async () => {
     if (assets.length >= 10) return
     const value = Number(newAssetValue), returnRate = Number(newAssetReturn)
     if (!newAssetName || value <= 0 || returnRate < 0 || returnRate > 100) { alert("Please enter valid asset details"); return }
-    setAssets([...assets, { id: Date.now().toString(), name: newAssetName, value, expectedReturn: returnRate }])
+
+    // Optimistic UI update with temp ID
+    const tempId = Date.now().toString()
+    setAssets([...assets, { id: tempId, name: newAssetName, value, expectedReturn: returnRate }])
     setNewAssetName(""); setNewAssetValue(""); setNewAssetReturn("8"); setShowAddAsset(false)
+
+    // Persist to Supabase
+    const result = await postJSON<any>("/api/user-assets", { name: newAssetName, value, expectedReturn: returnRate })
+    if (result?.asset?.id) {
+      // Replace temp ID with real Supabase ID
+      setAssets(prev => prev.map(a => a.id === tempId ? { ...a, id: result.asset.id } : a))
+    }
+  }
+
+  const handleDeleteAsset = async (id: string) => {
+    setAssets(assets.filter((a) => a.id !== id))
+    await deleteJSON("/api/user-assets", id)
   }
 
   return (
@@ -254,7 +286,7 @@ export function GoalTracker(props: GoalTrackerProps) {
                     <p className="text-right font-bold text-foreground">{formatCurrency(asset.value)}</p>
                     <p className="text-right text-sm text-muted-foreground">{asset.expectedReturn}% return</p>
                   </div>
-                  <button onClick={() => setAssets(assets.filter((a) => a.id !== asset.id))} className="ml-3 rounded p-1.5 text-red-500 hover:bg-red-500/10"><X className="h-4 w-4" /></button>
+                  <button onClick={() => handleDeleteAsset(asset.id)} className="ml-3 rounded p-1.5 text-red-500 hover:bg-red-500/10"><X className="h-4 w-4" /></button>
                 </div>
               ))}
               {totalAssetsValue > 0 && (

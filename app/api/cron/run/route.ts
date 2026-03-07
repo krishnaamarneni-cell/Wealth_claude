@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
         "https://www.wealthclaude.com"
 
       const utcHour = new Date().getUTCHours()
-      
+
       // Map UTC hour to post type
       let subJob = "blog-premarket"
       if (utcHour === 11) subJob = "blog-premarket"
@@ -69,20 +69,27 @@ export async function GET(req: NextRequest) {
         "https://www.wealthclaude.com"
 
       const cronSecret = process.env.CRON_SECRET ?? ""
+      const type = searchParams.get("type") ?? ""
+      const autoBlogUrl = type
+        ? `${baseUrl}/api/auto-blog?type=${type}`
+        : `${baseUrl}/api/auto-blog`
+
       console.log(`[CRON] Starting blog job at ${new Date().toISOString()}`)
       console.log(`[CRON] Base URL: ${baseUrl}`)
+      console.log(`[CRON] Post type: ${type || 'time-based fallback'}`)
       console.log(`[CRON] CRON_SECRET set: ${!!cronSecret}`)
       console.log(`[CRON] PERPLEXITY_API_KEY set: ${!!process.env.PERPLEXITY_API_KEY}`)
-      console.log(`[CRON] GEMINI_API_KEY set: ${!!process.env.GEMINI_API_KEY}`)
-      console.log(`[CRON] Calling auto-blog at: ${baseUrl}/api/auto-blog`)
+      console.log(`[CRON] GROQ_API_KEY set: ${!!process.env.GROQ_API_KEY}`)
+      console.log(`[CRON] Calling auto-blog at: ${autoBlogUrl}`)
 
-      const res = await fetch(`${baseUrl}/api/auto-blog`, {
+      const res = await fetch(autoBlogUrl, {
         method: "POST",
         headers: {
           authorization: `Bearer ${cronSecret}`,
           "Content-Type": "application/json",
         },
       })
+
 
       const data = await res.json()
 

@@ -92,92 +92,110 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 
+'use client'
+
+import { useEffect } from 'react'
+
+// View tracker component
+function ViewTracker({ slug }: { slug: string }) {
+  useEffect(() => {
+    fetch('/api/track-view', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug })
+    }).catch(console.error)
+  }, [slug])
+  return null
+}
+
+// Your existing server component (keep everything else the same)
 export default async function BlogPostPage({ params }: Props) {
   const { slug } = await params
   const post = await getPost(slug)
   if (!post) notFound()
 
-
   const readTime = estimateReadTime(post.content ?? '')
 
-
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <div className="pt-16">
-        {post.image_url && (
-          <div className="w-full h-72 md:h-[480px] overflow-hidden">
-            <img
-              src={post.image_url}
-              alt={post.title}
-              className="w-full h-full object-cover"
-            />
-          </div>
-        )}
+    <>
+      <ViewTracker slug={slug} />
+      <div className="min-h-screen bg-background">
 
-
-        <div className="container mx-auto px-4 py-12 max-w-3xl">
-          <Link href="/news"
-            className="inline-flex items-center gap-2 text-base text-muted-foreground hover:text-foreground transition-colors mb-10">
-            <ArrowLeft className="h-5 w-5" />
-            Back to News
-          </Link>
-
-
-          <div className="flex gap-2 flex-wrap mb-6">
-            {(post.tags ?? []).map((tag: string) => (
-              <Badge key={tag} variant="secondary" className="text-sm px-3 py-1">
-                {tag}
-              </Badge>
-            ))}
-          </div>
-
-
-          <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-6">
-            {post.title}
-          </h1>
-
-
-          {post.excerpt && (
-            <p className="text-xl text-muted-foreground leading-relaxed mb-6">
-              {post.excerpt}
-            </p>
+        <Header />
+        <div className="pt-16">
+          {post.image_url && (
+            <div className="w-full h-72 md:h-[480px] overflow-hidden">
+              <img
+                src={post.image_url}
+                alt={post.title}
+                className="w-full h-full object-cover"
+              />
+            </div>
           )}
 
 
-          <div className="flex items-center gap-6 text-base text-muted-foreground mb-10 pb-10 border-b border-border">
-            <span className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              {readTime}
-            </span>
-            {post.published_at && (
-              <span className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                {new Date(post.published_at).toLocaleDateString('en-US', {
-                  year: 'numeric', month: 'long', day: 'numeric',
-                })}
-              </span>
-            )}
-          </div>
-
-
-          {/* blog-content styles are in styles/globals.css */}
-          <article
-            className="blog-content"
-            dangerouslySetInnerHTML={{ __html: post.content }}
-          />
-
-
-          <div className="mt-16 pt-8 border-t border-border">
+          <div className="container mx-auto px-4 py-12 max-w-3xl">
             <Link href="/news"
-              className="inline-flex items-center gap-2 text-base text-muted-foreground hover:text-foreground transition-colors">
+              className="inline-flex items-center gap-2 text-base text-muted-foreground hover:text-foreground transition-colors mb-10">
               <ArrowLeft className="h-5 w-5" />
-              Back to all articles
+              Back to News
             </Link>
+
+
+            <div className="flex gap-2 flex-wrap mb-6">
+              {(post.tags ?? []).map((tag: string) => (
+                <Badge key={tag} variant="secondary" className="text-sm px-3 py-1">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+
+
+            <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-6">
+              {post.title}
+            </h1>
+
+
+            {post.excerpt && (
+              <p className="text-xl text-muted-foreground leading-relaxed mb-6">
+                {post.excerpt}
+              </p>
+            )}
+
+
+            <div className="flex items-center gap-6 text-base text-muted-foreground mb-10 pb-10 border-b border-border">
+              <span className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                {readTime}
+              </span>
+              {post.published_at && (
+                <span className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  {new Date(post.published_at).toLocaleDateString('en-US', {
+                    year: 'numeric', month: 'long', day: 'numeric',
+                  })}
+                </span>
+              )}
+            </div>
+
+
+            {/* blog-content styles are in styles/globals.css */}
+            <article
+              className="blog-content"
+              dangerouslySetInnerHTML={{ __html: post.content }}
+            />
+
+
+            <div className="mt-16 pt-8 border-t border-border">
+              <Link href="/news"
+                className="inline-flex items-center gap-2 text-base text-muted-foreground hover:text-foreground transition-colors">
+                <ArrowLeft className="h-5 w-5" />
+                Back to all articles
+              </Link>
+            </div>
           </div>
         </div>
+        <Footer />
       </div>
-      <Footer />
-    </div>
-  )
+      )
 }

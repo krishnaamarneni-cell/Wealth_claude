@@ -27,14 +27,22 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
   // ==================== AUTO-SAVE DEBTS TO SUPABASE ====================
   useEffect(() => {
     const timer = setTimeout(async () => {
-      if (debts.length === 0) return // Don't save empty list
+      if (debts.length === 0) {
+        console.log('[DebtTracker] Skipping save: no debts to save')
+        return
+      }
+      console.log('[DebtTracker] Auto-saving', debts.length, 'debts to Supabase')
       try {
         const response = await fetch('/api/user-debts', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ debts }),
         })
-        if (!response.ok) console.error('[DebtTracker] Save failed:', response.status)
+        if (!response.ok) {
+          console.error('[DebtTracker] Save failed with status:', response.status)
+        } else {
+          console.log('[DebtTracker] Successfully saved debts')
+        }
       } catch (e) {
         console.error('[DebtTracker] Save error:', e)
       }

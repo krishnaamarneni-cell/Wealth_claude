@@ -216,7 +216,16 @@ export function ManualEntry({ debts, onAddDebt, onDeleteDebt }: ManualEntryProps
                     </td>
                     <td className="px-2 py-3">
                       <button
-                        onClick={() => onDeleteDebt(debt.id)}
+                        onClick={() => {
+                          onDeleteDebt(debt.id)
+                          // Call API to delete from Supabase
+                          fetch(`/api/user-debts?id=${debt.id}`, { method: 'DELETE' })
+                            .then(res => {
+                              if (!res.ok) console.error('[DebtTracker] Delete failed')
+                              else console.log('[DebtTracker] Successfully deleted debt from Supabase')
+                            })
+                            .catch(e => console.error('[DebtTracker] Delete error:', e))
+                        }}
                         className="text-muted-foreground hover:text-red-500 transition-colors"
                       >
                         <X className="h-4 w-4" />

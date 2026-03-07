@@ -69,10 +69,11 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
       setDebts((prev) => prev.filter((d) => d.id !== id))
       setShowResults(false)
       await deleteJSON("/api/user-debts", id)
-      setIsDeleting(false)
+      setTimeout(() => setIsDeleting(false), 1000) // Delay to skip any auto-save
     },
     [setDebts]
   )
+
 
 
   const handleApplyCards = useCallback(

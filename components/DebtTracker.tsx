@@ -12,7 +12,7 @@ import { PayoffStrategy } from "@/components/goals/debt/PayoffStrategy"
 import { PayoffResults } from "@/components/goals/debt/PayoffResults"
 import type { Debt, PayoffStrategy as StrategyType } from "@/components/goals/types"
 import { calculatePayoffPlan } from "@/components/goals/types"
-import { postJSON, deleteJSON, debtTypeToDb } from "@/components/goals/hooks"
+import { postJSON, deleteJSON } from "@/components/goals/hooks"
 
 interface DebtTrackerProps {
   debts: Debt[]
@@ -24,6 +24,7 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
   const [strategy, setStrategy] = useState<StrategyType>("avalanche")
   const [extraPayment, setExtraPayment] = useState(200)
   const [showResults, setShowResults] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Calculate both strategies for comparison
   const allResults = useMemo(
@@ -45,7 +46,7 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
       // Persist to Supabase
       const result = await postJSON<any>("/api/user-debts", {
         name: debt.name,
-        type: debtTypeToDb(debt.type),
+        type: debt.type,
         balance: debt.balance,
         apr: debt.apr,
         monthlyPayment: debt.monthlyPayment,
@@ -64,12 +65,15 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
 
   const handleDeleteDebt = useCallback(
     async (id: string) => {
+      setIsDeleting(true)
       setDebts((prev) => prev.filter((d) => d.id !== id))
       setShowResults(false)
       await deleteJSON("/api/user-debts", id)
+      setIsDeleting(false)
     },
     [setDebts]
   )
+
 
   const handleApplyCards = useCallback(
     async (importedDebts: Debt[]) => {
@@ -82,7 +86,7 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
       for (const debt of importedDebts) {
         const result = await postJSON<any>("/api/user-debts", {
           name: debt.name,
-          type: debtTypeToDb(debt.type),
+          type: debt.type,
           balance: debt.balance,
           apr: debt.apr,
           monthlyPayment: debt.monthlyPayment,
@@ -121,8 +125,8 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
         <button
           onClick={() => setEntryMode("manual")}
           className={`flex items-center justify-center gap-2 py-3 text-sm font-semibold uppercase tracking-wider transition-colors ${entryMode === "manual"
-              ? "bg-green-500 text-black"
-              : "bg-card text-muted-foreground hover:text-foreground"
+            ? "bg-green-500 text-black"
+            : "bg-card text-muted-foreground hover:text-foreground"
             }`}
         >
           <Pencil className="h-4 w-4" /> Manual Entry
@@ -130,8 +134,8 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
         <button
           onClick={() => setEntryMode("upload")}
           className={`flex items-center justify-center gap-2 py-3 text-sm font-semibold uppercase tracking-wider transition-colors ${entryMode === "upload"
-              ? "bg-green-500 text-black"
-              : "bg-card text-muted-foreground hover:text-foreground"
+            ? "bg-green-500 text-black"
+            : "bg-card text-muted-foreground hover:text-foreground"
             }`}
         >
           <Upload className="h-4 w-4" /> Upload Statement

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerSideClient } from '@/lib/supabase'
-// v11 DEPLOYMENT - DELETE PERSISTENCE FIX
-// Issue: Old code trying to insert due_date, causing PUT to fail silently
-// Fix: Only insert valid columns (user_id, name, type, balance, apr, min_payment)
+// ========== v13 HARD REDEPLOYMENT ==========
+// CRITICAL: Vercel caching old code with due_date column insert
+// Fix: Only insert these 6 columns: user_id, name, type, balance, apr, min_payment
+// NO other columns - especially NO due_date, due, status, etc.
 
 export async function GET() {
   try {
@@ -108,12 +109,13 @@ export async function PUT(req: NextRequest) {
       throw deleteError
     }
 
-    // SECOND: Insert all debts - ONLY with valid columns (v12)
-    console.log('[user-debts] PUT v12: Inserting', debts.length, 'new debts')
+    // SECOND: Insert all debts - ONLY with valid columns (v13)
+    console.log('[user-debts] PUT v13: Inserting', debts.length, 'new debts')
     for (const debt of debts) {
       // Pass type exactly as-is - database expects Title Case: "Credit Card", "Auto Loan", etc.
       const debtType = debt.type || 'Other'
       
+      // CRITICAL: Only these 6 columns are valid in user_debts table
       const insertPayload = {
         user_id: user.id,
         name: debt.name,
@@ -123,17 +125,18 @@ export async function PUT(req: NextRequest) {
         min_payment: Number(debt.monthlyPayment) || 0,
       }
       
-      console.log(`[user-debts] PUT v12: Inserting "${debt.name}" with type: "${debtType}"`)
+      console.log(`[user-debts] PUT v13: Column check - sending:`, Object.keys(insertPayload))
+      console.log(`[user-debts] PUT v13: Inserting "${debt.name}" with type: "${debtType}"`)
       
       const { error: insertError } = await supabase
         .from('user_debts')
         .insert(insertPayload)
       
       if (insertError) {
-        console.error(`[user-debts] PUT v12: FAILED inserting "${debt.name}". Error:`, insertError)
+        console.error(`[user-debts] PUT v13: FAILED inserting "${debt.name}". Error:`, insertError)
         throw insertError
       }
-      console.log(`[user-debts] PUT v12: Successfully inserted "${debt.name}"`)
+      console.log(`[user-debts] PUT v13: Successfully inserted "${debt.name}"`)
     }
 
     console.log('[user-debts] PUT: Successfully saved', debts.length, 'debts')

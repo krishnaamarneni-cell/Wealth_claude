@@ -127,7 +127,7 @@ export async function PUT(req: NextRequest) {
     console.log('[user-debts] PUT: Inserting', debts.length, 'new debts')
     for (const debt of debts) {
       const debtType = typeMap[debt.type] || debt.type.toLowerCase().replace(/\s+/g, '_')
-      console.log('[user-debts] PUT: Inserting debt:', debt.name, 'type:', debtType, 'balance:', debt.balance)
+      console.log('[user-debts] PUT: Inserting debt:', debt.name, 'original type:', debt.type, 'converted type:', debtType, 'balance:', debt.balance, 'apr:', debt.apr, 'min_payment:', debt.monthlyPayment)
       const { error: insertError } = await supabase
         .from('user_debts')
         .insert({
@@ -139,7 +139,7 @@ export async function PUT(req: NextRequest) {
           min_payment: debt.monthlyPayment || 0,
         })
       if (insertError) {
-        console.error('[user-debts] PUT: Insert error for debt', debt.name, ':', insertError)
+        console.error('[user-debts] PUT: Insert error for debt', debt.name, 'error:', insertError)
         throw insertError
       }
     }

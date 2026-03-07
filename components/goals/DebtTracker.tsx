@@ -33,7 +33,15 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
       }
       console.log('[v0] DebtTracker AUTO-SAVE triggered with', debts.length, 'debts:', JSON.stringify(debts))
       try {
-        const payload = { debts }
+        // Transform debts to only include fields expected by API
+        const debtsToSave = debts.map(debt => ({
+          type: debt.type,
+          name: debt.name,
+          balance: debt.balance,
+          apr: debt.apr,
+          monthlyPayment: debt.monthlyPayment,
+        }))
+        const payload = { debts: debtsToSave }
         console.log('[v0] Sending PUT to /api/user-debts:', JSON.stringify(payload))
         const response = await fetch('/api/user-debts', {
           method: 'PUT',

@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Shield, TrendingUp, TrendingDown, AlertTriangle, Zap } from "lucide-react"
@@ -37,6 +38,28 @@ export function FinancialOverview(props: FinancialOverviewProps) {
     includeDividendsInOverview, setIncludeDividendsInOverview,
     monthlyIncome, setMonthlyIncome, monthlyExpenses, setMonthlyExpenses,
   } = props
+
+  // ==================== AUTO-SAVE TO SUPABASE ====================
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch('/api/user-financial-settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            monthlyIncome,
+            monthlyExpenses,
+            includePortfolio: includePortfolioInOverview,
+            includeDividends: includeDividendsInOverview,
+          }),
+        })
+        if (!response.ok) console.error('[FinancialOverview] Save failed:', response.status)
+      } catch (e) {
+        console.error('[FinancialOverview] Save error:', e)
+      }
+    }, 1000) // Debounce saves by 1 second
+    return () => clearTimeout(timer)
+  }, [monthlyIncome, monthlyExpenses, includePortfolioInOverview, includeDividendsInOverview])
 
   const totalAssets = (includePortfolioInOverview ? portfolioValue : 0) + currentSavings + totalAssetsValue
   const totalLiabilities = totalDebt

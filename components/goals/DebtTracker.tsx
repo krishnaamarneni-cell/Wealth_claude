@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Pencil, Upload, CreditCard } from "lucide-react"
 import { ManualEntry } from "@/components/goals/debt/ManualEntry"
@@ -23,6 +23,24 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
   const [strategy, setStrategy] = useState<StrategyType>("avalanche")
   const [extraPayment, setExtraPayment] = useState(200)
   const [showResults, setShowResults] = useState(false)
+
+  // ==================== AUTO-SAVE DEBTS TO SUPABASE ====================
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (debts.length === 0) return // Don't save empty list
+      try {
+        const response = await fetch('/api/user-debts', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ debts }),
+        })
+        if (!response.ok) console.error('[DebtTracker] Save failed:', response.status)
+      } catch (e) {
+        console.error('[DebtTracker] Save error:', e)
+      }
+    }, 1000) // Debounce saves by 1 second
+    return () => clearTimeout(timer)
+  }, [debts])
 
   // Calculate both strategies for comparison
   const allResults = useMemo(

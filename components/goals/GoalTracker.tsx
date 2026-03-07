@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import {
@@ -68,6 +68,47 @@ export function GoalTracker(props: GoalTrackerProps) {
     includePortfolio, setIncludePortfolio,
     portfolioValue, totalAssetsValue, totalCurrentValue, monthlyContribution,
   } = props
+
+  // ==================== AUTO-SAVE TO SUPABASE ====================
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch('/api/user-goals', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            targetValue,
+            currentSavings,
+            contributionAmount: baseContributionAmount,
+            contributionType,
+            expectedReturn,
+            includePortfolio,
+          }),
+        })
+        if (!response.ok) console.error('[GoalTracker] Save failed:', response.status)
+      } catch (e) {
+        console.error('[GoalTracker] Save error:', e)
+      }
+    }, 1000) // Debounce saves by 1 second
+    return () => clearTimeout(timer)
+  }, [targetValue, currentSavings, baseContributionAmount, contributionType, expectedReturn, includePortfolio])
+
+  // ==================== AUTO-SAVE ASSETS TO SUPABASE ====================
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch('/api/user-assets', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ assets }),
+        })
+        if (!response.ok) console.error('[GoalTracker] Assets save failed:', response.status)
+      } catch (e) {
+        console.error('[GoalTracker] Assets save error:', e)
+      }
+    }, 1000) // Debounce saves by 1 second
+    return () => clearTimeout(timer)
+  }, [assets])
 
   const [isEditingGoal, setIsEditingGoal] = useState(false)
   const [isEditingContribution, setIsEditingContribution] = useState(false)

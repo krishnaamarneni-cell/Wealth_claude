@@ -149,9 +149,9 @@ export function DebtTrackerTab({ onDebtsChange }: { onDebtsChange?: (debts: Debt
       id: d.id,
       name: d.name,
       type: d.type,
-      balance: d.currentBalance ?? 0,
-      apr: d.interestRate ?? 0,
-      monthlyPayment: d.minimumPayment ?? 0,
+      balance: d.balance ?? 0,
+      apr: d.apr ?? 0,
+      monthlyPayment: d.monthlyPayment ?? 0,
       minimumPayment: d.minimumPayment ?? 0,
     }))
     onDebtsChange?.(mapped)
@@ -169,29 +169,36 @@ export function DebtTrackerTab({ onDebtsChange }: { onDebtsChange?: (debts: Debt
   const [manualForm, setManualForm] = useState({ name: '', type: 'credit_card', balance: '', apr: '', minPay: '' })
   const [confirmData, setConfirmData] = useState<Partial<Debt> | null>(null)
 
-  // ── SAVE DEBT (Direct via useDebtData) ──────────────────────────────────────
+  // ── SAVE DEBT (Direct via API) ──────────────────────────────────────
   const handleSave = async (data: any) => {
     setSaving(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { alert('Please log in'); setSaving(false); return }
 
-      const success = await addDebt({
-        userId: user.id,
+      const debtData = {
         name: data.name,
         type: (data.type || 'credit_card') as any,
-        principal: parseFloat(data.balance),
-        currentBalance: parseFloat(data.balance),
-        interestRate: parseFloat(data.apr),
+        balance: parseFloat(data.balance),
+        apr: parseFloat(data.apr),
+        monthlyPayment: parseFloat(data.minPay || data.minimumPayment) || 25,
         minimumPayment: parseFloat(data.minPay || data.minimumPayment) || 25,
-        dueDate: '',
-        status: 'active',
+      }
+
+      const response = await fetch('/api/user-debts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(debtData),
       })
 
-      if (success) {
+      if (response.ok) {
         setShowForm(false)
         setConfirmData(null)
         setManualForm({ name: '', type: 'credit_card', balance: '', apr: '', minPay: '' })
+        // Reload debts from API
+        const res = await fetch('/api/user-debts')
+        const newData = await res.json()
+        setRawDebts(newData || [])
       } else {
         alert('Failed to save. Check your connection.')
       }

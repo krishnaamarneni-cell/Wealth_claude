@@ -41,7 +41,15 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json()
     
-    const debtType = body.type
+    // Type conversion: "Credit Card" -> "credit_card"
+    const typeMap: { [key: string]: string } = {
+      'Credit Card': 'credit_card',
+      'Auto Loan': 'auto_loan',
+      'Mortgage': 'mortgage',
+      'Student Loan': 'student_loan',
+      'Personal Loan': 'personal_loan',
+    }
+    const debtType = typeMap[body.type] || body.type.toLowerCase().replace(/\s+/g, '_') || 'other'
 
     const { error, data } = await supabase
       .from('user_debts')
@@ -93,6 +101,18 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Debts must be an array' }, { status: 400 })
     }
 
+    // Type conversion function: "Credit Card" -> "credit_card"
+    const convertType = (type: string): string => {
+      const typeMap: { [key: string]: string } = {
+        'Credit Card': 'credit_card',
+        'Auto Loan': 'auto_loan',
+        'Mortgage': 'mortgage',
+        'Student Loan': 'student_loan',
+        'Personal Loan': 'personal_loan',
+      }
+      return typeMap[type] || type.toLowerCase().replace(/\s+/g, '_') || 'other'
+    }
+
     // Delete existing debts for this user
     console.log('[user-debts] PUT: Deleting existing debts for user', user.id)
     const { error: deleteError } = await supabase
@@ -107,18 +127,18 @@ export async function PUT(req: NextRequest) {
     // Insert all debts - ONLY with valid columns
     console.log('[user-debts] PUT: Inserting', debts.length, 'new debts')
     for (const debt of debts) {
-      const normalizedType = String(debt.type || 'Other')
+      const debtType = convertType(debt.type || 'other')
       
       const insertPayload = {
         user_id: user.id,
         name: debt.name,
-        type: normalizedType,
+        type: debtType,
         balance: Number(debt.balance) || 0,
         apr: Number(debt.apr) || 0,
         min_payment: Number(debt.monthlyPayment) || 0,
       }
       
-      console.log(`[user-debts] PUT: Inserting "${debt.name}" with type: "${normalizedType}"`)
+      console.log(`[user-debts] PUT: Inserting "${debt.name}" with type: "${debt.type}" -> "${debtType}"`)
       
       const { error: insertError } = await supabase
         .from('user_debts')

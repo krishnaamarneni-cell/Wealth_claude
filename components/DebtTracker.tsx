@@ -65,24 +65,28 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
 
   const handleDeleteDebt = useCallback(
     async (id: string) => {
-      // Pause auto-save during delete
-      const debtToDelete = debts.find(d => d.id === id)
+      // Activate 3-second delete shield
+      setDeleteShield(true)
+
+      // Optimistic UI update
       setDebts((prev) => prev.filter((d) => d.id !== id))
       setShowResults(false)
 
       // Delete from DB
       await deleteJSON("/api/user-debts", id)
 
-      // Force full sync after delete
+      // Sync from DB after delay
       setTimeout(async () => {
-        const { data } = await fetchJSON<{ debts: Debt[] }>("api/user-debts")
-        if (data?.debts) {
-          setDebts(data.debts)
+        const { data } = await fetchJSON<any>("/api/user-debts")
+        if (data && Array.isArray(data)) {
+          setDebts(data)
         }
-      }, 50)
+        setDeleteShield(false)
+      }, 3000) // 3 seconds to override any auto-save
     },
-    [setDebts, debts]
+    [setDebts]
   )
+
 
 
 

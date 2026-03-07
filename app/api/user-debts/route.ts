@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerSideClient } from '@/lib/supabase'
 
+// FORCE REBUILD: Vercel cache invalidation - only insert 6 columns, never due_date
 export async function GET() {
   try {
     const cookieStore = await cookies()

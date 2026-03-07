@@ -1,4 +1,5 @@
 "use client"
+// FORCE REBUILD: DebtTracker field stripping - strips id, minimumPayment, never sends them
 
 import { useState, useMemo, useCallback, useEffect } from "react"
 import { Card } from "@/components/ui/card"

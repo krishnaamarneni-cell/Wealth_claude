@@ -1,5 +1,5 @@
 "use client"
-// v5 Force rebuild - ensure field stripping deploys correctly
+// v8 Force redeploy - Consistent field stripping for all debts
 
 import { useState, useMemo, useCallback, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"

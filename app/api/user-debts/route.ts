@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerSideClient } from '@/lib/supabase'
-// v6 DEPLOYMENT FORCE - Ensure type normalization deploys: "Credit Card" -> "credit_card"
+// v8 DEPLOYMENT FORCE - Fixed: No type conversion, no due_date column, only valid columns
 
 export async function GET() {
   try {

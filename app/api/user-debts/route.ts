@@ -23,10 +23,7 @@ export async function GET() {
       type: d.type,
       balance: d.balance,
       apr: d.apr,
-      monthlyPayment: d.monthly_payment,
-      minimumPayment: d.minimum_payment,
-      dueDate: d.due_date,
-      status: d.status,
+      monthlyPayment: d.min_payment,
     })))
   } catch (e) {
     console.error('[user-debts] GET error:', e)
@@ -63,10 +60,7 @@ export async function POST(req: NextRequest) {
         type: debtType,
         balance: body.balance,
         apr: body.apr,
-        monthly_payment: body.monthlyPayment,
-        minimum_payment: body.minimumPayment,
-        due_date: body.dueDate || null,
-        status: body.status || 'active',
+        min_payment: body.monthlyPayment || 0,
       })
       .select()
       .single()
@@ -80,10 +74,7 @@ export async function POST(req: NextRequest) {
         type: data.type,
         balance: data.balance,
         apr: data.apr,
-        monthlyPayment: data.monthly_payment,
-        minimumPayment: data.minimum_payment,
-        dueDate: data.due_date,
-        status: data.status,
+        monthlyPayment: data.min_payment,
       }
     })
   } catch (e) {
@@ -145,10 +136,7 @@ export async function PUT(req: NextRequest) {
           type: debtType,
           balance: debt.balance,
           apr: debt.apr,
-          monthly_payment: debt.monthlyPayment,
-          minimum_payment: debt.minimumPayment,
-          due_date: debt.dueDate || null,
-          status: debt.status || 'active',
+          min_payment: debt.monthlyPayment || 0,
         })
       if (insertError) {
         console.error('[user-debts] PUT: Insert error for debt', debt.name, ':', insertError)

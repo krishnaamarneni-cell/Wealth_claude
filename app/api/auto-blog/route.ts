@@ -398,8 +398,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'PERPLEXITY_API_KEY not set' }, { status: 500 })
   }
 
+  const url = new URL(request.url)
+  const typeParam = url.searchParams.get('type') as PostType | null
   const utcHour = new Date().getUTCHours()
-  const postType = getPostType(utcHour)
+  const postType: PostType = typeParam && ['premarket', 'market-analysis', 'aftermarket', 'geopolitical', 'education'].includes(typeParam)
+    ? typeParam
+    : getPostType(utcHour) // fallback to time-based
+
 
   console.log(`[auto-blog] ─── Run started: ${postType} (UTC ${utcHour}) ───`)
 

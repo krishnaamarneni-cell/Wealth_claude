@@ -398,17 +398,19 @@ export async function POST(request: NextRequest) {
       } else {
         const now = new Date().toISOString()
         const { error } = await supabase.from('blog_posts').insert([{
-          slug: post.slug,
-          title: post.title,
-          excerpt: post.excerpt,
-          content: post.content,
-          tags: post.tags,
-          image_url: post.image_url || null,
-          ai_model: post.ai_model || null,
-          published: true,
-          published_at: now,
-          author_id: null,
-        }])
+  slug: post.slug,
+  title: post.title,
+  excerpt: post.excerpt,
+  content: post.content,
+  tags: post.tags,
+  image_url: post.image_url || null,
+  ai_model: post.ai_model || null,
+  post_type: postType,
+  published: true,
+  published_at: now,
+  author_id: null,
+}])
+
 
 
         if (error) {

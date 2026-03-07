@@ -108,8 +108,8 @@ export async function PUT(req: NextRequest) {
       throw deleteError
     }
 
-    // SECOND: Insert all debts - ONLY with valid columns
-    console.log('[user-debts] PUT: Inserting', debts.length, 'new debts')
+    // SECOND: Insert all debts - ONLY with valid columns (v12)
+    console.log('[user-debts] PUT v12: Inserting', debts.length, 'new debts')
     for (const debt of debts) {
       // Pass type exactly as-is - database expects Title Case: "Credit Card", "Auto Loan", etc.
       const debtType = debt.type || 'Other'
@@ -123,17 +123,17 @@ export async function PUT(req: NextRequest) {
         min_payment: Number(debt.monthlyPayment) || 0,
       }
       
-      console.log(`[user-debts] PUT: Inserting "${debt.name}" with type: "${debtType}"`)
+      console.log(`[user-debts] PUT v12: Inserting "${debt.name}" with type: "${debtType}"`)
       
       const { error: insertError } = await supabase
         .from('user_debts')
         .insert(insertPayload)
       
       if (insertError) {
-        console.error(`[user-debts] PUT: FAILED inserting "${debt.name}". Error:`, insertError)
+        console.error(`[user-debts] PUT v12: FAILED inserting "${debt.name}". Error:`, insertError)
         throw insertError
       }
-      console.log(`[user-debts] PUT: Successfully inserted "${debt.name}"`)
+      console.log(`[user-debts] PUT v12: Successfully inserted "${debt.name}"`)
     }
 
     console.log('[user-debts] PUT: Successfully saved', debts.length, 'debts')

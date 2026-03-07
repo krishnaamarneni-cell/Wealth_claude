@@ -1,5 +1,5 @@
 "use client"
-// v11 DELETE PERSISTENCE FIX - Field stripping always applied, no extra fields sent
+// v12 FORCE DEPLOY - Field stripping always applied, no extra fields sent
 
 import { useState, useMemo, useCallback, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
@@ -27,7 +27,7 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteShield, setDeleteShield] = useState(false)
 
-  // ==================== AUTO-SAVE DEBTS TO SUPABASE ====================
+  // ==================== AUTO-SAVE DEBTS TO SUPABASE v12 ====================
   useEffect(() => {
     // Skip auto-save if no debts or currently deleting
     if (debts.length === 0 || isDeleting) {
@@ -36,18 +36,22 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
     }
     
     const timer = setTimeout(async () => {
-      console.log('[v0] DebtTracker AUTO-SAVE triggered with', debts.length, 'debts:', JSON.stringify(debts))
+      console.log('[v0] DebtTracker AUTO-SAVE v12 triggered with', debts.length, 'debts')
       try {
-        // Transform debts to only include fields expected by API
-        const debtsToSave = debts.map(debt => ({
-          type: debt.type,
-          name: debt.name,
-          balance: debt.balance,
-          apr: debt.apr,
-          monthlyPayment: debt.monthlyPayment,
-        }))
+        // Transform debts to ONLY include fields expected by API - MUST strip id and minimumPayment
+        const debtsToSave = debts.map(debt => {
+          const cleanDebt = {
+            type: debt.type,
+            name: debt.name,
+            balance: debt.balance,
+            apr: debt.apr,
+            monthlyPayment: debt.monthlyPayment,
+          }
+          console.log('[v0] v12: Stripping fields for debt', debt.name, '- removed id, minimumPayment')
+          return cleanDebt
+        })
         const payload = { debts: debtsToSave }
-        console.log('[v0] Sending PUT to /api/user-debts:', JSON.stringify(payload))
+        console.log('[v0] Sending PUT to /api/user-debts with v12 payload:', JSON.stringify(payload))
         const response = await fetch('/api/user-debts', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -60,7 +64,7 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
         if (!response.ok) {
           console.error('[v0] Save failed with status:', response.status, 'response:', responseText)
         } else {
-          console.log('[v0] DebtTracker successfully saved debts to Supabase')
+          console.log('[v0] DebtTracker v12 successfully saved debts to Supabase')
         }
       } catch (e) {
         console.error('[v0] DebtTracker save error:', e)

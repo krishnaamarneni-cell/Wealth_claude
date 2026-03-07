@@ -21,28 +21,20 @@ function estimateReadTime(content: string): string {
 }
 
 
-// Server Supabase client — has write permissions
+// Public Supabase client — no cookies, works for any visitor
 function getSupabase() {
-  const cookieStore = cookies()
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (cookiesToSet) => {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
-          } catch {
-            // Ignore session refresh errors
-          }
-        }
-      }
+        getAll: () => [],
+        setAll: () => { },
+      },
     }
   )
 }
+
 
 
 async function getPost(slug: string) {

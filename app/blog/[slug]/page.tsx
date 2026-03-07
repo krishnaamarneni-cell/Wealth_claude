@@ -47,39 +47,50 @@ function getSupabase() {
 async function getPost(slug: string) {
   const supabase = getSupabase()
 
-  // Exact match
-  const { data } = await supabase
+  // Try exact match first
+  const { data: exact } = await supabase
     .from('blog_posts')
     .select('*')
     .eq('slug', slug)
     .eq('published', true)
     .maybeSingle()
 
-  const post = data ?? await (async () => {
-    // Prefix match — handles timestamp suffixes added by auto-blog
-    const { data: fallback } = await supabase
-      .from('blog_posts')
-      .select('*')
-      .ilike('slug', `${slug}%`)
-      .eq('published', true)
-      .limit(1)
-      .maybeSingle()
-    return fallback ?? null
-  })()
-
-  // Increment view count every time post is opened
-  if (post?.id) {
+  if (exact) {
+    // Increment view count for exact match
     await supabase
       .from('blog_posts')
       .update({
-        view_count: (post.view_count ?? 0) + 1,
+        view_count: (exact.view_count ?? 0) + 1,
         last_viewed_at: new Date().toISOString(),
       })
-      .eq('id', post.id)
+      .eq('id', exact.id)
+    return exact
   }
 
-  return post
+  // Fallback to prefix match
+  const { data: fallback } = await supabase
+    .from('blog_posts')
+    .select('*')
+    .ilike('slug', `${slug}%`)
+    .eq('published', true)
+    .limit(1)
+    .maybeSingle()
+
+  if (fallback) {
+    // Increment view count for fallback match
+    await supabase
+      .from('blog_posts')
+      .update({
+        view_count: (fallback.view_count ?? 0) + 1,
+        last_viewed_at: new Date().toISOString(),
+      })
+      .eq('id', fallback.id)
+    return fallback
+  }
+
+  return null
 }
+
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params

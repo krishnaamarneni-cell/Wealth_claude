@@ -1,10 +1,12 @@
 "use client"
 
+import { useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Shield, TrendingUp, TrendingDown, AlertTriangle, Zap } from "lucide-react"
 import type { Debt } from "@/components/goals/types"
 import { formatCurrency } from "@/components/goals/types"
+import { useAutoSave } from "@/components/goals/hooks"
 
 interface FinancialOverviewProps {
   debts: Debt[]
@@ -37,6 +39,20 @@ export function FinancialOverview(props: FinancialOverviewProps) {
     includeDividendsInOverview, setIncludeDividendsInOverview,
     monthlyIncome, setMonthlyIncome, monthlyExpenses, setMonthlyExpenses,
   } = props
+
+  // Auto-save financial settings to Supabase
+  const { save: saveSettings } = useAutoSave<any>("/api/user-financial-settings", "PUT")
+  const isInitialMount = useRef(true)
+
+  useEffect(() => {
+    if (isInitialMount.current) { isInitialMount.current = false; return }
+    saveSettings({
+      monthlyIncome,
+      monthlyExpenses,
+      includePortfolio: includePortfolioInOverview,
+      includeDividends: includeDividendsInOverview,
+    })
+  }, [monthlyIncome, monthlyExpenses, includePortfolioInOverview, includeDividendsInOverview, saveSettings])
 
   const totalAssets = (includePortfolioInOverview ? portfolioValue : 0) + currentSavings + totalAssetsValue
   const totalLiabilities = totalDebt

@@ -78,12 +78,10 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
 
       // Sync from DB after delay
       setTimeout(async () => {
-        const { data } = await fetchJSON<any>("/api/user-debts")
-        if (data && Array.isArray(data)) {
-          setDebts(data)
-        }
-        setDeleteShield(false)
-      }, 3000) // 3 seconds to override any auto-save
+        // Hard refresh from DB
+        window.location.reload()
+      }, 1000)
+      // 3 seconds to override any auto-save
     },
     [setDebts]
   )

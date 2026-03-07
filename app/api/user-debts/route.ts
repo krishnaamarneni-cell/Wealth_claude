@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerSideClient } from '@/lib/supabase'
-// v5 Force rebuild - ensuring normalizeDebtType deploys correctly
+// v6 DEPLOYMENT FORCE - Ensure type normalization deploys: "Credit Card" -> "credit_card"
 
 export async function GET() {
   try {
@@ -127,6 +127,8 @@ export async function PUT(req: NextRequest) {
       'Other': 'other',
       'other': 'other',
     }
+    
+    console.log('[user-debts] PUT: Type mapping ready. Processing', debts.length, 'debts')
 
     // Delete existing debts for this user
     console.log('[user-debts] PUT: Deleting existing debts for user', user.id)
@@ -142,34 +144,32 @@ export async function PUT(req: NextRequest) {
     // Insert all debts - ONLY with valid columns
     console.log('[user-debts] PUT: Inserting', debts.length, 'new debts')
     for (const debt of debts) {
-      // Use explicit mapping, fallback to lowercase_with_underscore
-      let normalizedType = typeMap[debt.type]
-      if (!normalizedType) {
-        normalizedType = debt.type.toLowerCase().replace(/\s+/g, '_')
-        console.log('[user-debts] PUT: Type not in map, using fallback conversion:', debt.type, '->', normalizedType)
-      }
+      // Normalize type - convert "Credit Card" to "credit_card" format
+      const rawType = String(debt.type || 'other')
+      const normalizedType = typeMap[rawType] || rawType.toLowerCase().replace(/\s+/g, '_') || 'other'
       
-      console.log('[user-debts] PUT: Inserting debt:', debt.name, '| Type:', debt.type, '-> Normalized:', normalizedType)
+      console.log(`[user-debts] PUT: Debt "${debt.name}" | Raw Type: "${rawType}" | Normalized: "${normalizedType}"`)
       
       const insertPayload = {
         user_id: user.id,
         name: debt.name,
-        type: normalizedType,
-        balance: parseFloat(String(debt.balance)) || 0,
-        apr: parseFloat(String(debt.apr)) || 0,
-        min_payment: parseFloat(String(debt.monthlyPayment)) || 0,
+        type: normalizedType,  // MUST be: credit_card, auto_loan, mortgage, student_loan, personal_loan, or other
+        balance: Number(debt.balance) || 0,
+        apr: Number(debt.apr) || 0,
+        min_payment: Number(debt.monthlyPayment) || 0,
       }
       
-      console.log('[user-debts] PUT: Insert payload:', JSON.stringify(insertPayload))
+      console.log(`[user-debts] PUT: Payload for ${debt.name}:`, JSON.stringify(insertPayload))
       
       const { error: insertError } = await supabase
         .from('user_debts')
         .insert(insertPayload)
       
       if (insertError) {
-        console.error('[user-debts] PUT: Insert error for debt', debt.name, 'with type:', normalizedType, '| error:', insertError)
+        console.error(`[user-debts] PUT: FAILED inserting ${debt.name}. Type was "${normalizedType}". Error:`, insertError)
         throw insertError
       }
+      console.log(`[user-debts] PUT: Successfully inserted "${debt.name}" with type "${normalizedType}"`)
     }
 
     console.log('[user-debts] PUT: Successfully saved', debts.length, 'debts')

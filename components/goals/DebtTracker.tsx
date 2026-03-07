@@ -1,23 +1,17 @@
 "use client"
-// v14 FORCE COMPLETE REDEPLOYMENT - DebtTracker field stripping fix
-// Must strip: id, minimumPayment ALWAYS
 
 import { useState, useMemo, useCallback, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Pencil, Upload, CreditCard } from "lucide-react"
-import { ManualEntry } from "@/components/goals/debt/ManualEntry"
-import { UploadStatement } from "@/components/goals/debt/UploadStatement"
-import { DebtSummaryCards } from "@/components/goals/debt/DebtSummaryCards"
-import { CreditCardDonut } from "@/components/goals/debt/CreditCardDonut"
-import { AllLoansDonut } from "@/components/goals/debt/AllLoansDonut"
-import { PayoffStrategy } from "@/components/goals/debt/PayoffStrategy"
-import { PayoffResults } from "@/components/goals/debt/PayoffResults"
-import type { Debt, PayoffStrategy as StrategyType } from "@/components/goals/types"
-import { calculatePayoffPlan } from "@/components/goals/types"
+import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ManualEntry } from "./debt/ManualEntry"
+import { PaymentPlan } from "./debt/PaymentPlan"
+import { calculatePayoffPlan } from "./utils/debtCalculations"
+import type { Debt, StrategyType } from "./types"
 
 interface DebtTrackerProps {
   debts: Debt[]
-  setDebts: React.Dispatch<React.SetStateAction<Debt[]>>
+  setDebts: (debts: Debt[]) => void
 }
 
 export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
@@ -28,46 +22,37 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteShield, setDeleteShield] = useState(false)
 
-  // ==================== AUTO-SAVE DEBTS TO SUPABASE v14 ====================
+  // ==================== AUTO-SAVE v16: CLEAN REDEPLOYMENT ====================
   useEffect(() => {
-    if (debts.length === 0 || isDeleting) {
-      return
-    }
+    if (debts.length === 0 || isDeleting) return
     
     const timer = setTimeout(async () => {
       try {
-        // v14: STRICT field filtering - ONLY send these 5 fields, nothing else
-        const debtsToSave = debts.map(debt => {
-          // Create object with ONLY the fields the API expects
-          return {
-            type: String(debt.type),
-            name: String(debt.name),
-            balance: Number(debt.balance),
-            apr: Number(debt.apr),
-            monthlyPayment: Number(debt.monthlyPayment),
-          }
-        })
+        // Strictly create new objects with ONLY the 5 required fields
+        const cleanDebts = debts.map(d => ({
+          type: d.type,
+          name: d.name,
+          balance: d.balance,
+          apr: d.apr,
+          monthlyPayment: d.monthlyPayment,
+        }))
         
-        const payload = { debts: debtsToSave }
-        
-        const response = await fetch('/api/user-debts', {
+        const res = await fetch('/api/user-debts', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ debts: cleanDebts }),
         })
         
-        if (!response.ok) {
-          const text = await response.text()
-          console.error('[v0] v14: Save failed:', text)
+        if (!res.ok) {
+          console.error('[DebtTracker] Save failed:', res.status)
         }
-      } catch (e) {
-        console.error('[v0] v14: Save error:', e)
+      } catch (error) {
+        console.error('[DebtTracker] Save error:', error)
       }
     }, 1000)
     return () => clearTimeout(timer)
   }, [debts, isDeleting])
 
-  // Calculate both strategies for comparison
   const allResults = useMemo(
     () => ({
       avalanche: calculatePayoffPlan(debts, "avalanche", extraPayment),
@@ -80,124 +65,86 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
 
   const handleAddDebt = useCallback(
     (debt: Debt) => {
-      setDebts((prev) => [...prev, debt])
+      setDebts([...debts, debt])
       setShowResults(false)
     },
-    [setDebts]
+    [debts, setDebts]
   )
 
   const handleDeleteDebt = useCallback(
     (id: string) => {
-      console.log('[DebtTracker] Deleting debt:', id)
       setIsDeleting(true)
-      setDebts((prev) => prev.filter((d) => d.id !== id))
+      setDebts(debts.filter(d => d.id !== id))
       
-      // Call API to delete from Supabase
       fetch(`/api/user-debts?id=${id}`, { method: 'DELETE' })
-        .then(res => {
-          if (!res.ok) console.error('[DebtTracker] Delete API call failed')
-          else console.log('[DebtTracker] Successfully deleted debt from Supabase')
-        })
-        .catch(e => console.error('[DebtTracker] Delete API error:', e))
+        .catch(e => console.error('[DebtTracker] Delete error:', e))
         .finally(() => {
           setIsDeleting(false)
           setShowResults(false)
         })
     },
-    [setDebts]
+    [debts, setDebts]
   )
-
-  const handleApplyCards = useCallback(
-    (importedDebts: Debt[]) => {
-      setDebts((prev) => [...prev, ...importedDebts].slice(0, 20))
-      setEntryMode("manual") // Switch to manual entry to show the table
-      // Auto-calculate after applying
-      setTimeout(() => setShowResults(true), 100)
-    },
-    [setDebts]
-  )
-
-  const handleStrategyChange = useCallback((s: StrategyType) => {
-    setStrategy(s)
-    setShowResults(false)
-  }, [])
-
-  const handleExtraPaymentChange = useCallback((n: number) => {
-    setExtraPayment(n)
-    setShowResults(false)
-  }, [])
-
-  const handleCalculate = useCallback(() => {
-    if (debts.length === 0) return
-    setShowResults(true)
-  }, [debts])
 
   return (
     <div className="space-y-6">
-      {/* Manual Entry / Upload Statement Toggle */}
-      <div className="grid grid-cols-2 rounded-lg overflow-hidden border border-border">
-        <button
-          onClick={() => setEntryMode("manual")}
-          className={`flex items-center justify-center gap-2 py-3 text-sm font-semibold uppercase tracking-wider transition-colors ${
-            entryMode === "manual"
-              ? "bg-green-500 text-black"
-              : "bg-card text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Pencil className="h-4 w-4" /> Manual Entry
-        </button>
-        <button
-          onClick={() => setEntryMode("upload")}
-          className={`flex items-center justify-center gap-2 py-3 text-sm font-semibold uppercase tracking-wider transition-colors ${
-            entryMode === "upload"
-              ? "bg-green-500 text-black"
-              : "bg-card text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Upload className="h-4 w-4" /> Upload Statement
-        </button>
-      </div>
+      <Card className="p-6">
+        <h2 className="text-2xl font-bold mb-6">Debt Tracker</h2>
+        
+        <Tabs value={entryMode} onValueChange={(v) => setEntryMode(v as "manual" | "upload")} className="mb-6">
+          <TabsList>
+            <TabsTrigger value="manual">Manual Entry</TabsTrigger>
+            <TabsTrigger value="upload">Upload CSV</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="manual">
+            <ManualEntry debts={debts} onAddDebt={handleAddDebt} onDeleteDebt={handleDeleteDebt} />
+          </TabsContent>
+        </Tabs>
 
-      {/* Entry Mode Content */}
-      {entryMode === "manual" ? (
-        <ManualEntry
-          debts={debts}
-          onAddDebt={handleAddDebt}
-          onDeleteDebt={handleDeleteDebt}
-        />
-      ) : (
-        <UploadStatement onApplyCards={handleApplyCards} />
-      )}
+        {debts.length > 0 && (
+          <div className="mt-6 space-y-4">
+            <div className="space-y-3">
+              <label className="block text-sm font-medium">Extra Monthly Payment: ${extraPayment}</label>
+              <input
+                type="range"
+                min="0"
+                max="1000"
+                step="50"
+                value={extraPayment}
+                onChange={(e) => setExtraPayment(Number(e.target.value))}
+                className="w-full"
+              />
+            </div>
 
-      {/* Summary Cards */}
-      <DebtSummaryCards debts={debts} />
+            <div className="space-y-3">
+              <label className="block text-sm font-medium">Payoff Strategy:</label>
+              <div className="flex gap-4">
+                <Button
+                  variant={strategy === "avalanche" ? "default" : "outline"}
+                  onClick={() => setStrategy("avalanche")}
+                >
+                  Avalanche
+                </Button>
+                <Button
+                  variant={strategy === "snowball" ? "default" : "outline"}
+                  onClick={() => setStrategy("snowball")}
+                >
+                  Snowball
+                </Button>
+              </div>
+            </div>
 
-      {/* Donut Charts */}
-      <CreditCardDonut debts={debts} />
-      <AllLoansDonut debts={debts} />
+            <Button onClick={() => setShowResults(!showResults)} className="w-full">
+              {showResults ? "Hide Results" : "Calculate Results"}
+            </Button>
 
-      {/* Payoff Strategy */}
-      <PayoffStrategy
-          debts={debts}
-          strategy={strategy}
-          setStrategy={handleStrategyChange}
-          extraPayment={extraPayment}
-          setExtraPayment={handleExtraPaymentChange}
-          onCalculate={handleCalculate}
-          allResults={allResults}
-      />
-
-      {/* Results (only shown after Calculate is clicked) */}
-      {showResults && debts.length > 0 && (
-        <PayoffResults
-          debts={debts}
-          strategy={strategy}
-          extraPayment={extraPayment}
-          result={currentResult}
-          allResults={allResults}
-        />
-      )}
-
+            {showResults && currentResult && (
+              <PaymentPlan result={currentResult} strategy={strategy} />
+            )}
+          </div>
+        )}
+      </Card>
     </div>
   )
 }

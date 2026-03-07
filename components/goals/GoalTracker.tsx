@@ -271,8 +271,8 @@ export function GoalTracker(props: GoalTrackerProps) {
       <Card className="border-border bg-card">
         <CardHeader><div className="flex items-center justify-between"><CardTitle className="text-base">Portfolio Projection</CardTitle><p className="text-xs text-muted-foreground">The gap between lines shows compound growth</p></div></CardHeader>
         <CardContent>
-          <div className="h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="relative w-full h-[350px] min-w-0 overflow-hidden">
+            <ResponsiveContainer width="100%" height={350}>
               <LineChart data={projectionData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.5} />
                 <XAxis dataKey="date" stroke="#9ca3af" fontSize={12} tick={{ fill: "#d1d5db" }} axisLine={{ stroke: "#4b5563", strokeWidth: 2 }} tickLine={{ stroke: "#4b5563" }} />

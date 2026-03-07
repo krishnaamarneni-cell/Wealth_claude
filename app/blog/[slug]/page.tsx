@@ -65,6 +65,19 @@ async function getPost(slug: string) {
 }
 
 
+async function getRecentPosts(currentSlug: string) {
+  const supabase = getSupabase()
+  const { data } = await supabase
+    .from('blog_posts')
+    .select('slug, title, excerpt, image_url, tags, published_at')
+    .eq('published', true)
+    .neq('slug', currentSlug)
+    .order('published_at', { ascending: false })
+    .limit(3)
+  return data ?? []
+}
+
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
   const post = await getPost(slug)

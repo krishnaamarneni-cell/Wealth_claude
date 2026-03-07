@@ -102,14 +102,14 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Debts must be an array' }, { status: 400 })
     }
 
-    // Type conversion map
-    const typeMap: { [key: string]: string } = {
-      'Credit Card': 'credit_card',
-      'Auto Loan': 'auto_loan',
-      'Mortgage': 'mortgage',
-      'Student Loan': 'student_loan',
-      'Personal Loan': 'personal_loan',
-      'Other': 'other',
+    // Type conversion - convert from UI format to database enum values
+    const normalizeDebtType = (type: string): string => {
+      if (!type) return 'other'
+      // Convert to lowercase and replace spaces with underscores
+      const normalized = type.toLowerCase().replace(/\s+/g, '_')
+      // List of valid database enum values
+      const validTypes = ['credit_card', 'auto_loan', 'mortgage', 'student_loan', 'personal_loan', 'other']
+      return validTypes.includes(normalized) ? normalized : 'other'
     }
 
     // Delete existing debts for this user, then insert new ones
@@ -126,8 +126,8 @@ export async function PUT(req: NextRequest) {
     // Insert all debts
     console.log('[user-debts] PUT: Inserting', debts.length, 'new debts')
     for (const debt of debts) {
-      const debtType = typeMap[debt.type] || debt.type.toLowerCase().replace(/\s+/g, '_')
-      console.log('[user-debts] PUT: Inserting debt:', debt.name, 'original type:', debt.type, 'converted type:', debtType, 'balance:', debt.balance, 'apr:', debt.apr, 'min_payment:', debt.monthlyPayment)
+      const debtType = normalizeDebtType(debt.type)
+      console.log('[user-debts] PUT: Debt:', debt.name, '| Original type:', debt.type, '| Normalized type:', debtType)
       const { error: insertError } = await supabase
         .from('user_debts')
         .insert({
@@ -139,7 +139,7 @@ export async function PUT(req: NextRequest) {
           min_payment: debt.monthlyPayment || 0,
         })
       if (insertError) {
-        console.error('[user-debts] PUT: Insert error for debt', debt.name, 'error:', insertError)
+        console.error('[user-debts] PUT: Insert error for debt', debt.name, 'normalized type:', debtType, 'error:', insertError)
         throw insertError
       }
     }

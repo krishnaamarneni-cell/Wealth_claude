@@ -1,5 +1,5 @@
 "use client"
-// v10 Force redeploy - Field stripping always applied in auto-save
+// v11 DELETE PERSISTENCE FIX - Field stripping always applied, no extra fields sent
 
 import { useState, useMemo, useCallback, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"

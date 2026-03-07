@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerSideClient } from '@/lib/supabase'
-// v10 CRITICAL REDEPLOYMENT - Fix: No due_date column, proper type handling, field stripping applied
+// v11 DEPLOYMENT - DELETE PERSISTENCE FIX
+// Issue: Old code trying to insert due_date, causing PUT to fail silently
+// Fix: Only insert valid columns (user_id, name, type, balance, apr, min_payment)
 
 export async function GET() {
   try {

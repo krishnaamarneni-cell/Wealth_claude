@@ -97,16 +97,20 @@ export async function PUT(req: NextRequest) {
     for (const debt of debts) {
       const debtType = debt.type || 'Other'
       
+      const payload = {
+        user_id: user.id,
+        name: debt.name,
+        type: debtType,
+        balance: Number(debt.balance) || 0,
+        apr: Number(debt.apr) || 0,
+        min_payment: Number(debt.monthlyPayment) || 0,
+      }
+      
+      console.log('[user-debts] PUT: Inserting payload columns:', Object.keys(payload), 'type value:', debtType)
+      
       const { error: insertError } = await supabase
         .from('user_debts')
-        .insert({
-          user_id: user.id,
-          name: debt.name,
-          type: debtType,
-          balance: Number(debt.balance) || 0,
-          apr: Number(debt.apr) || 0,
-          min_payment: Number(debt.monthlyPayment) || 0,
-        })
+        .insert(payload)
       
       if (insertError) {
         console.error(`[user-debts] PUT: Insert error for debt ${debt.name}:`, insertError)

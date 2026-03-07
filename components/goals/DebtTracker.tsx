@@ -27,7 +27,10 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
     if (debts.length === 0 || isDeleting) return
     const debounce = setTimeout(() => {
       const data = debts.map(d => ({ type: d.type, name: d.name, balance: d.balance, apr: d.apr, monthlyPayment: d.monthlyPayment }))
-      fetch('/api/user-debts', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ debts: data }) })
+      const payload = { debts: data }
+      console.log('[DebtTracker] v17 Sending payload:', JSON.stringify(payload, null, 2))
+      fetch('/api/user-debts', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        .then(r => r.json().then(j => console.log('[DebtTracker] Response:', j)))
         .catch(e => console.error('Save error:', e))
     }, 1000)
     return () => clearTimeout(debounce)

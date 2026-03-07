@@ -17,16 +17,29 @@ function estimateReadTime(content: string): string {
   return `${mins} min read`
 }
 
-// Public Supabase client — no cookies, works for any visitor
+import { cookies } from 'next/headers'
+
+// Server Supabase client — has write permissions
 function getSupabase() {
+  const cookieStore = cookies()
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll: () => [],
-        setAll: () => { },
-      },
+        getAll: () => cookieStore.getAll(),
+        setAll: (cookiesToSet) => {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            )
+          } catch {
+            // The `setAll` method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing
+            // user sessions.
+          }
+        }
+      }
     }
   )
 }

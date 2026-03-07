@@ -25,6 +25,7 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
   const [extraPayment, setExtraPayment] = useState(200)
   const [showResults, setShowResults] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteShield, setDeleteShield] = useState(false)
 
   // ==================== AUTO-SAVE DEBTS TO SUPABASE ====================
   useEffect(() => {

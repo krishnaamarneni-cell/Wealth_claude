@@ -25,6 +25,7 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
   const [extraPayment, setExtraPayment] = useState(200)
   const [showResults, setShowResults] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteShield, setDeleteShield] = useState(false)
 
   // Calculate both strategies for comparison
   const allResults = useMemo(
@@ -86,10 +87,6 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
     },
     [setDebts]
   )
-
-
-
-
 
   const handleApplyCards = useCallback(
     async (importedDebts: Debt[]) => {

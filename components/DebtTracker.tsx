@@ -79,7 +79,7 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
         if (data?.debts) {
           setDebts(data.debts)
         }
-      }, 500)
+      }, 50)
     },
     [setDebts, debts]
   )

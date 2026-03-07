@@ -92,6 +92,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 
+// Client component for view tracking
 'use client'
 
 import { useEffect } from 'react'

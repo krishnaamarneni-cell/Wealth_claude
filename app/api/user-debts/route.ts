@@ -108,46 +108,6 @@ export async function PUT(req: NextRequest) {
         })
       
       if (insertError) {
-        console.error(`[user-debts] PUT: Insert error for debt ${debt.name} error:`, insertError)
-        throw insertError
-      }
-    }
-
-    return NextResponse.json({ success: true, count: debts.length })
-  } catch (e: any) {
-    console.error('[v0] [user-debts] PUT error:', e)
-    return NextResponse.json({ error: 'Failed to save debts', details: e.message }, { status: 500 })
-  }
-}
-
-    const body = await req.json()
-    const { debts } = body
-    
-    if (!Array.isArray(debts)) {
-      return NextResponse.json({ error: 'Debts must be an array' }, { status: 400 })
-    }
-
-    const { error: deleteError } = await supabase
-      .from('user_debts')
-      .delete()
-      .eq('user_id', user.id)
-    if (deleteError) throw deleteError
-
-    for (const debt of debts) {
-      const debtType = debt.type || 'Other'
-      
-      const { error: insertError } = await supabase
-        .from('user_debts')
-        .insert({
-          user_id: user.id,
-          name: debt.name,
-          type: debtType,
-          balance: Number(debt.balance) || 0,
-          apr: Number(debt.apr) || 0,
-          min_payment: Number(debt.monthlyPayment) || 0,
-        })
-      
-      if (insertError) {
         console.error(`[user-debts] PUT: Insert error for debt ${debt.name}:`, insertError)
         throw insertError
       }

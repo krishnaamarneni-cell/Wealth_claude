@@ -22,32 +22,36 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteShield, setDeleteShield] = useState(false)
 
-  // ==================== AUTO-SAVE v17: FORCE REDEPLOYMENT - STRICT FIELD FILTERING ====================
+  // ==================== AUTO-SAVE DEBTS - NO EXTRA FIELDS ====================
   useEffect(() => {
     if (debts.length === 0 || isDeleting) return
     
     const timer = setTimeout(async () => {
       try {
-        // Create BRAND NEW objects with ONLY the 5 fields the API expects - strip id and minimumPayment
-        const strippedDebts = debts.map(d => ({
-          type: d.type,
-          name: d.name,
-          balance: d.balance,
-          apr: d.apr,
-          monthlyPayment: d.monthlyPayment,
-        }))
+        // Transform ONLY these 5 fields: type, name, balance, apr, monthlyPayment
+        // Do NOT include: id, minimumPayment, or any other fields
+        const payload = {
+          debts: debts.map(debt => ({
+            type: debt.type,
+            name: debt.name,
+            balance: debt.balance,
+            apr: debt.apr,
+            monthlyPayment: debt.monthlyPayment,
+          }))
+        }
         
         const res = await fetch('/api/user-debts', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ debts: strippedDebts }),
+          body: JSON.stringify(payload),
         })
         
         if (!res.ok) {
-          console.error('[DebtTracker] v17 Save failed:', res.status)
+          const text = await res.text()
+          console.error('[DebtTracker] Save failed:', res.status, text)
         }
       } catch (error) {
-        console.error('[DebtTracker] v17 Save error:', error)
+        console.error('[DebtTracker] Save error:', error)
       }
     }, 1000)
     return () => clearTimeout(timer)

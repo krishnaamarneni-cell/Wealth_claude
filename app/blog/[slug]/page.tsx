@@ -42,18 +42,30 @@ async function getPost(slug: string) {
     .eq('published', true)
     .maybeSingle()
 
-  if (data) return data
+  const post = data ?? await (async () => {
+    // Prefix match — handles timestamp suffixes added by auto-blog
+    const { data: fallback } = await supabase
+      .from('blog_posts')
+      .select('*')
+      .ilike('slug', `${slug}%`)
+      .eq('published', true)
+      .limit(1)
+      .maybeSingle()
+    return fallback ?? null
+  })()
 
-  // Prefix match — handles timestamp suffixes added by auto-blog
-  const { data: fallback } = await supabase
-    .from('blog_posts')
-    .select('*')
-    .ilike('slug', `${slug}%`)
-    .eq('published', true)
-    .limit(1)
-    .maybeSingle()
+  // Increment view count every time post is opened
+  if (post?.id) {
+    await supabase
+      .from('blog_posts')
+      .update({
+        view_count: (post.view_count ?? 0) + 1,
+        last_viewed_at: new Date().toISOString(),
+      })
+      .eq('id', post.id)
+  }
 
-  return fallback ?? null
+  return post
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

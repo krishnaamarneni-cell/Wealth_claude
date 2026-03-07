@@ -1,5 +1,5 @@
 "use client"
-// v9 Force redeploy - Ensure field stripping works correctly
+// v10 Force redeploy - Field stripping always applied in auto-save
 
 import { useState, useMemo, useCallback, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"

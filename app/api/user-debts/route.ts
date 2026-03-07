@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerSideClient } from '@/lib/supabase'
-// v8 DEPLOYMENT FORCE - Fixed: No type conversion, no due_date column, only valid columns
+// v10 CRITICAL REDEPLOYMENT - Fix: No due_date column, proper type handling, field stripping applied
 
 export async function GET() {
   try {

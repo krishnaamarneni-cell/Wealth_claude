@@ -1,13 +1,28 @@
+'use client'
+
+import { useEffect } from 'react'
 import { createServerClient } from '@supabase/ssr'
 import { notFound } from 'next/navigation'
 import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
 import { Badge } from '@/components/ui/badge'
 import { Clock, ArrowLeft, Calendar } from 'lucide-react'
-import { cookies } from 'next/headers'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 
+
+interface BlogPost {
+  id: string
+  title: string
+  slug: string
+  content?: string
+  excerpt?: string
+  image_url?: string
+  tags?: string[]
+  published_at?: string
+  view_count?: number
+  last_viewed_at?: string
+}
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -36,8 +51,7 @@ function getSupabase() {
 }
 
 
-
-async function getPost(slug: string) {
+async function getPost(slug: string): Promise<BlogPost | null> {
   const supabase = getSupabase()
 
   // Exact match
@@ -75,7 +89,6 @@ async function getPost(slug: string) {
 }
 
 
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
   const post = await getPost(slug)
@@ -91,11 +104,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-
-// Client component for view tracking
-'use client'
-
-import { useEffect } from 'react'
 
 // View tracker component
 function ViewTracker({ slug }: { slug: string }) {

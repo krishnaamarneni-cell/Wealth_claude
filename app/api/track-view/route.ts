@@ -4,12 +4,20 @@ import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
   const { slug } = await request.json()
-  if (!slug) {
-    return NextResponse.json({ error: 'No slug provided' }, { status: 400 })
-  }
 
   const cookieStore = await cookies()
   const supabase = createServerSideClient(cookieStore)
+
+  const { data } = await supabase
+    .from('blog_posts')
+    .select('id')
+    .eq('slug', slug)
+    .eq('published', true)
+    .single()
+
+  if (!data) {
+    return NextResponse.json({ error: 'Post not found' }, { status: 404 })
+  }
 
   const { error } = await supabase
     .from('blog_posts')
@@ -17,10 +25,10 @@ export async function POST(request: NextRequest) {
       view_count: supabase.rpc('increment', { col: 'view_count' }),
       last_viewed_at: new Date().toISOString()
     })
-    .eq('slug', slug)
-    .eq('published', true)
+    .eq('id', data.id)
 
   if (error) {
+    console.error('[track-view] Error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 

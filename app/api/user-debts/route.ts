@@ -42,12 +42,25 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
+    
+    // Convert debt type from title case to snake_case for Supabase enum
+    const typeMap: { [key: string]: string } = {
+      'Credit Card': 'credit_card',
+      'Auto Loan': 'auto_loan',
+      'Mortgage': 'mortgage',
+      'Student Loan': 'student_loan',
+      'Personal Loan': 'personal_loan',
+      'Other': 'other',
+    }
+    
+    const debtType = typeMap[body.type] || body.type.toLowerCase().replace(/\s+/g, '_')
+    
     const { error, data } = await supabase
       .from('user_debts')
       .insert({
         user_id: user.id,
         name: body.name,
-        type: body.type,
+        type: debtType,
         balance: body.balance,
         apr: body.apr,
         monthly_payment: body.monthlyPayment,
@@ -98,6 +111,16 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Debts must be an array' }, { status: 400 })
     }
 
+    // Type conversion map
+    const typeMap: { [key: string]: string } = {
+      'Credit Card': 'credit_card',
+      'Auto Loan': 'auto_loan',
+      'Mortgage': 'mortgage',
+      'Student Loan': 'student_loan',
+      'Personal Loan': 'personal_loan',
+      'Other': 'other',
+    }
+
     // Delete existing debts for this user, then insert new ones
     console.log('[user-debts] PUT: Deleting existing debts for user', user.id)
     const { error: deleteError } = await supabase
@@ -112,13 +135,14 @@ export async function PUT(req: NextRequest) {
     // Insert all debts
     console.log('[user-debts] PUT: Inserting', debts.length, 'new debts')
     for (const debt of debts) {
-      console.log('[user-debts] PUT: Inserting debt:', debt.name, 'balance:', debt.balance)
+      const debtType = typeMap[debt.type] || debt.type.toLowerCase().replace(/\s+/g, '_')
+      console.log('[user-debts] PUT: Inserting debt:', debt.name, 'type:', debtType, 'balance:', debt.balance)
       const { error: insertError } = await supabase
         .from('user_debts')
         .insert({
           user_id: user.id,
           name: debt.name,
-          type: debt.type,
+          type: debtType,
           balance: debt.balance,
           apr: debt.apr,
           monthly_payment: debt.monthlyPayment,

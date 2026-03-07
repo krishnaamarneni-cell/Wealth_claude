@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  console.log('[user-debts] PUT: === HANDLER CALLED - v9 DEPLOYED ===')
   try {
     const cookieStore = await cookies()
     const supabase = createServerSideClient(cookieStore)

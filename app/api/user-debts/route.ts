@@ -158,9 +158,16 @@ export async function PUT(req: NextRequest) {
 
     console.log('[user-debts] PUT: Successfully saved', debts.length, 'debts')
     return NextResponse.json({ success: true, count: debts.length })
-  } catch (e) {
-    console.error('[user-debts] PUT error:', e)
-    return NextResponse.json({ error: 'Failed to save debts' }, { status: 500 })
+  } catch (e: any) {
+    console.error('[v0] [user-debts] PUT error:', e)
+    console.error('[v0] [user-debts] Error details:', {
+      message: e.message,
+      code: e.code,
+      status: e.status,
+      details: e.details,
+      hint: e.hint,
+    })
+    return NextResponse.json({ error: 'Failed to save debts', details: e.message }, { status: 500 })
   }
 }
 

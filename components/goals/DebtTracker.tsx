@@ -31,20 +31,26 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
         console.log('[DebtTracker] Skipping save: no debts to save')
         return
       }
-      console.log('[DebtTracker] Auto-saving', debts.length, 'debts to Supabase')
+      console.log('[v0] DebtTracker AUTO-SAVE triggered with', debts.length, 'debts:', JSON.stringify(debts))
       try {
+        const payload = { debts }
+        console.log('[v0] Sending PUT to /api/user-debts:', JSON.stringify(payload))
         const response = await fetch('/api/user-debts', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ debts }),
+          body: JSON.stringify(payload),
         })
+        console.log('[v0] PUT response status:', response.status)
+        const responseText = await response.text()
+        console.log('[v0] PUT response body:', responseText)
+        
         if (!response.ok) {
-          console.error('[DebtTracker] Save failed with status:', response.status)
+          console.error('[v0] Save failed with status:', response.status, 'response:', responseText)
         } else {
-          console.log('[DebtTracker] Successfully saved debts')
+          console.log('[v0] DebtTracker successfully saved debts to Supabase')
         }
       } catch (e) {
-        console.error('[DebtTracker] Save error:', e)
+        console.error('[v0] DebtTracker save error:', e)
       }
     }, 1000) // Debounce saves by 1 second
     return () => clearTimeout(timer)

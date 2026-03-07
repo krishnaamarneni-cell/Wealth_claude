@@ -1,5 +1,5 @@
 'use client'
-// Cache bust: use client at top - v2
+// v3 Force rebuild - use client at top
 
 import { createServerClient } from '@supabase/ssr'
 import { notFound } from 'next/navigation'

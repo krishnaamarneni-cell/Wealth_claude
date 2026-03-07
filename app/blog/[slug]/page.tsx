@@ -4,9 +4,9 @@ import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
 import { Badge } from '@/components/ui/badge'
 import { Clock, ArrowLeft, Calendar } from 'lucide-react'
+import { cookies } from 'next/headers'
 import Link from 'next/link'
 import type { Metadata } from 'next'
-import { cookies } from 'next/headers'
 
 
 interface Props {

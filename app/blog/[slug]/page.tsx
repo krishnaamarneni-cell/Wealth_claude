@@ -7,9 +7,11 @@ import { Clock, ArrowLeft, Calendar } from 'lucide-react'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 
+
 interface Props {
   params: Promise<{ slug: string }>
 }
+
 
 function estimateReadTime(content: string): string {
   const words = content?.replace(/<[^>]*>/g, '').split(/\s+/).length ?? 0
@@ -17,72 +19,40 @@ function estimateReadTime(content: string): string {
   return `${mins} min read`
 }
 
-import { cookies } from 'next/headers'
 
-// Server Supabase client — has write permissions
+// Public Supabase client — no cookies, works for any visitor
 function getSupabase() {
-  const cookieStore = cookies()
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (cookiesToSet) => {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
-          } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
-          }
-        }
-      }
+        getAll: () => [],
+        setAll: () => { },
+      },
     }
   )
 }
 
+
 async function getPost(slug: string) {
   const supabase = getSupabase()
 
-  console.log(`[getPost] Looking for slug: ${slug}`)
 
-  // Try exact match first
-  const { data: exact, error: exactError } = await supabase
+  // Exact match
+  const { data } = await supabase
     .from('blog_posts')
     .select('*')
     .eq('slug', slug)
     .eq('published', true)
     .maybeSingle()
 
-  if (exactError) console.error('[getPost] Exact match error:', exactError)
 
-  if (exact) {
-    console.log('[getPost] Found exact match:', exact.id, 'views:', exact.view_count)
+  if (data) return data
 
-    // Try to increment view count
-    const { error: updateError } = await supabase
-      .from('blog_posts')
-      .update({
-        view_count: (exact.view_count ?? 0) + 1,
-        last_viewed_at: new Date().toISOString(),
-      })
-      .eq('id', exact.id)
 
-    if (updateError) {
-      console.error('[getPost] View count update failed:', updateError)
-    } else {
-      console.log('[getPost] View count incremented successfully')
-    }
-
-    return exact
-  }
-
-  // Fallback to prefix match
-  console.log('[getPost] Trying prefix match...')
-  const { data: fallback, error: fallbackError } = await supabase
+  // Prefix match — handles timestamp suffixes added by auto-blog
+  const { data: fallback } = await supabase
     .from('blog_posts')
     .select('*')
     .ilike('slug', `${slug}%`)
@@ -90,30 +60,8 @@ async function getPost(slug: string) {
     .limit(1)
     .maybeSingle()
 
-  if (fallbackError) console.error('[getPost] Fallback match error:', fallbackError)
 
-  if (fallback) {
-    console.log('[getPost] Found fallback match:', fallback.id, 'views:', fallback.view_count)
-
-    const { error: updateError } = await supabase
-      .from('blog_posts')
-      .update({
-        view_count: (fallback.view_count ?? 0) + 1,
-        last_viewed_at: new Date().toISOString(),
-      })
-      .eq('id', fallback.id)
-
-    if (updateError) {
-      console.error('[getPost] Fallback view count update failed:', updateError)
-    } else {
-      console.log('[getPost] Fallback view count incremented')
-    }
-
-    return fallback
-  }
-
-  console.log('[getPost] No post found for slug:', slug)
-  return null
+  return fallback ?? null
 }
 
 
@@ -132,12 +80,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
+
 export default async function BlogPostPage({ params }: Props) {
   const { slug } = await params
   const post = await getPost(slug)
   if (!post) notFound()
 
+
   const readTime = estimateReadTime(post.content ?? '')
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -153,12 +104,14 @@ export default async function BlogPostPage({ params }: Props) {
           </div>
         )}
 
+
         <div className="container mx-auto px-4 py-12 max-w-3xl">
           <Link href="/news"
             className="inline-flex items-center gap-2 text-base text-muted-foreground hover:text-foreground transition-colors mb-10">
             <ArrowLeft className="h-5 w-5" />
             Back to News
           </Link>
+
 
           <div className="flex gap-2 flex-wrap mb-6">
             {(post.tags ?? []).map((tag: string) => (
@@ -168,15 +121,18 @@ export default async function BlogPostPage({ params }: Props) {
             ))}
           </div>
 
+
           <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-6">
             {post.title}
           </h1>
+
 
           {post.excerpt && (
             <p className="text-xl text-muted-foreground leading-relaxed mb-6">
               {post.excerpt}
             </p>
           )}
+
 
           <div className="flex items-center gap-6 text-base text-muted-foreground mb-10 pb-10 border-b border-border">
             <span className="flex items-center gap-2">
@@ -193,11 +149,13 @@ export default async function BlogPostPage({ params }: Props) {
             )}
           </div>
 
+
           {/* blog-content styles are in styles/globals.css */}
           <article
             className="blog-content"
             dangerouslySetInnerHTML={{ __html: post.content }}
           />
+
 
           <div className="mt-16 pt-8 border-t border-border">
             <Link href="/news"

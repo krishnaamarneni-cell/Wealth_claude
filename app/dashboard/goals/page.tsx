@@ -1,13 +1,14 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { usePortfolio } from "@/lib/portfolio-context"
 import { Target, CreditCard, PieChart as PieChartIcon } from "lucide-react"
 import { GoalTracker } from "@/components/goals/GoalTracker"
 import { DebtTracker } from "@/components/goals/DebtTracker"
 import { FinancialOverview } from "@/components/goals/FinancialOverview"
-import type { Asset, Debt } from "@/components/goals/types"
+import type { Asset, Debt, DebtType } from "@/components/goals/types"
+import { fetchJSON, dbToDebtType } from "@/components/goals/hooks"
 
 export default function GoalsPage() {
   const portfolioContext = usePortfolio()
@@ -32,6 +33,74 @@ export default function GoalsPage() {
   const [includeDividendsInOverview, setIncludeDividendsInOverview] = useState(true)
   const [monthlyIncome, setMonthlyIncome] = useState(5000)
   const [monthlyExpenses, setMonthlyExpenses] = useState(2000)
+
+  // ==================== LOAD DATA FROM SUPABASE ON MOUNT ====================
+
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadUserData() {
+      try {
+        const [goalsData, debtsData, assetsData, settingsData] = await Promise.all([
+          fetchJSON<any>("/api/user-goals"),
+          fetchJSON<any[]>("/api/user-debts"),
+          fetchJSON<any[]>("/api/user-assets"),
+          fetchJSON<any>("/api/user-financial-settings"),
+        ])
+
+        // Populate goals
+        if (goalsData) {
+          if (goalsData.targetValue != null) setTargetValue(goalsData.targetValue)
+          if (goalsData.currentSavings != null) setCurrentSavings(goalsData.currentSavings)
+          if (goalsData.contributionAmount != null) setBaseContributionAmount(goalsData.contributionAmount)
+          if (goalsData.contributionType) setContributionType(goalsData.contributionType)
+          if (goalsData.expectedReturn != null) setExpectedReturn(goalsData.expectedReturn)
+          if (goalsData.includePortfolio != null) setIncludePortfolio(goalsData.includePortfolio)
+        }
+
+        // Populate debts
+        if (debtsData && Array.isArray(debtsData)) {
+          setDebts(
+            debtsData.map((d: any) => ({
+              id: d.id,
+              name: d.name,
+              type: dbToDebtType(d.type) as DebtType,
+              balance: d.balance,
+              apr: d.apr,
+              monthlyPayment: d.monthlyPayment || d.minimumPayment || 0,
+              minimumPayment: d.minimumPayment || 0,
+            }))
+          )
+        }
+
+        // Populate assets
+        if (assetsData && Array.isArray(assetsData)) {
+          setAssets(
+            assetsData.map((a: any) => ({
+              id: a.id,
+              name: a.name,
+              value: a.value,
+              expectedReturn: a.expectedReturn || 0,
+            }))
+          )
+        }
+
+        // Populate financial settings
+        if (settingsData) {
+          if (settingsData.monthlyIncome != null) setMonthlyIncome(settingsData.monthlyIncome)
+          if (settingsData.monthlyExpenses != null) setMonthlyExpenses(settingsData.monthlyExpenses)
+          if (settingsData.includePortfolio != null) setIncludePortfolioInOverview(settingsData.includePortfolio)
+          if (settingsData.includeDividends != null) setIncludeDividendsInOverview(settingsData.includeDividends)
+        }
+      } catch (e) {
+        console.error("[goals] Failed to load user data:", e)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadUserData()
+  }, [])
 
   // ==================== PORTFOLIO VALUES ====================
 
@@ -58,6 +127,17 @@ export default function GoalsPage() {
     (sum, d) => sum + d.balance * (d.apr / 100),
     0
   )
+
+  if (isLoading) {
+    return (
+      <div className="p-4 lg:p-6 flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">Loading your financial data...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="p-4 lg:p-6 space-y-6">

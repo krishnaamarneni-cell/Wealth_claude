@@ -41,27 +41,8 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json()
     
-    // Explicit type mapping
-    const typeMap: { [key: string]: string } = {
-      'Credit Card': 'credit_card',
-      'credit_card': 'credit_card',
-      'Auto Loan': 'auto_loan',
-      'auto_loan': 'auto_loan',
-      'Mortgage': 'mortgage',
-      'mortgage': 'mortgage',
-      'Student Loan': 'student_loan',
-      'student_loan': 'student_loan',
-      'Personal Loan': 'personal_loan',
-      'personal_loan': 'personal_loan',
-      'Other': 'other',
-      'other': 'other',
-    }
-    
-    let debtType = typeMap[body.type]
-    if (!debtType) {
-      debtType = body.type.toLowerCase().replace(/\s+/g, '_')
-    }
-    
+    const debtType = body.type
+
     const { error, data } = await supabase
       .from('user_debts')
       .insert({
@@ -94,7 +75,6 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  console.log('[user-debts] PUT: === START PUT REQUEST v7 ===')
   try {
     const cookieStore = await cookies()
     const supabase = createServerSideClient(cookieStore)
@@ -113,24 +93,6 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Debts must be an array' }, { status: 400 })
     }
 
-    // Explicit type mapping - handle both formats
-    const typeMap: { [key: string]: string } = {
-      'Credit Card': 'credit_card',
-      'credit_card': 'credit_card',
-      'Auto Loan': 'auto_loan',
-      'auto_loan': 'auto_loan',
-      'Mortgage': 'mortgage',
-      'mortgage': 'mortgage',
-      'Student Loan': 'student_loan',
-      'student_loan': 'student_loan',
-      'Personal Loan': 'personal_loan',
-      'personal_loan': 'personal_loan',
-      'Other': 'other',
-      'other': 'other',
-    }
-    
-    console.log('[user-debts] PUT: Type mapping ready. Processing', debts.length, 'debts')
-
     // Delete existing debts for this user
     console.log('[user-debts] PUT: Deleting existing debts for user', user.id)
     const { error: deleteError } = await supabase
@@ -145,45 +107,32 @@ export async function PUT(req: NextRequest) {
     // Insert all debts - ONLY with valid columns
     console.log('[user-debts] PUT: Inserting', debts.length, 'new debts')
     for (const debt of debts) {
-      // Normalize type - convert "Credit Card" to "credit_card" format
-      const rawType = String(debt.type || 'other')
-      const normalizedType = typeMap[rawType] || rawType.toLowerCase().replace(/\s+/g, '_') || 'other'
-      
-      console.log(`[user-debts] PUT v7: Processing debt "${debt.name}" - Raw Type: "${rawType}" -> Normalized: "${normalizedType}"`)
-      
       const insertPayload = {
         user_id: user.id,
         name: debt.name,
-        type: normalizedType,  // MUST be: credit_card, auto_loan, mortgage, student_loan, personal_loan, or other
+        type: debt.type,  // Pass type as-is from frontend
         balance: Number(debt.balance) || 0,
         apr: Number(debt.apr) || 0,
         min_payment: Number(debt.monthlyPayment) || 0,
       }
       
-      console.log(`[user-debts] PUT v7: About to insert:`, JSON.stringify(insertPayload))
+      console.log(`[user-debts] PUT: Inserting "${debt.name}" with type: "${debt.type}"`)
       
       const { error: insertError } = await supabase
         .from('user_debts')
         .insert(insertPayload)
       
       if (insertError) {
-        console.error(`[user-debts] PUT v7: FAILED inserting "${debt.name}" with normalized type "${normalizedType}". Error:`, insertError)
+        console.error(`[user-debts] PUT: FAILED inserting "${debt.name}". Error:`, insertError)
         throw insertError
       }
-      console.log(`[user-debts] PUT v7: SUCCESS - inserted "${debt.name}" with type "${normalizedType}"`)
+      console.log(`[user-debts] PUT: Successfully inserted "${debt.name}"`)
     }
 
     console.log('[user-debts] PUT: Successfully saved', debts.length, 'debts')
     return NextResponse.json({ success: true, count: debts.length })
   } catch (e: any) {
     console.error('[v0] [user-debts] PUT error:', e)
-    console.error('[v0] [user-debts] Error details:', {
-      message: e.message,
-      code: e.code,
-      status: e.status,
-      details: e.details,
-      hint: e.hint,
-    })
     return NextResponse.json({ error: 'Failed to save debts', details: e.message }, { status: 500 })
   }
 }

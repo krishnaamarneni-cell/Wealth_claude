@@ -7,8 +7,6 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
 import { Trash2, Upload, FileText, Plus, ChevronDown, ChevronUp, Snowflake, Flame, TrendingDown, DollarSign, AlertTriangle, Download } from 'lucide-react'
-  Snowflake, Flame, TrendingDown, DollarSign, AlertTriangle, Download
-} from 'lucide-react'
 
 // ── TYPES ────────────────────────────────────────────────────────────────────
 export interface Debt {
@@ -126,7 +124,24 @@ function calcSchedule(debts: Debt[], strategy: 'avalanche' | 'snowball', extra: 
 // ── COMPONENT ─────────────────────────────────────────────────────────────────
 export function DebtTrackerTab({ onDebtsChange }: { onDebtsChange?: (debts: Debt[]) => void }) {
   const supabase = getSupabaseClient()
-  const { debts: rawDebts, loading, addDebt } = useDebtData()
+  const [rawDebts, setRawDebts] = useState<Debt[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadDebts() {
+      try {
+        const res = await fetch('/api/user-debts')
+        if (!res.ok) throw new Error('Failed to load debts')
+        const data = await res.json()
+        setRawDebts(data || [])
+      } catch (err) {
+        console.error('[DebtTrackerTab] Error loading debts:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadDebts()
+  }, [])
 
   // Map Supabase → UI Debt shape
   const debts: Debt[] = useMemo(() => {

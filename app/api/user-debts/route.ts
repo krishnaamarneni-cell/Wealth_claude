@@ -79,6 +79,49 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function PUT(req: NextRequest) {
+  try {
+    const cookieStore = await cookies()
+    const supabase = createServerSideClient(cookieStore)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const body = await req.json()
+    const { debts } = body
+    if (!Array.isArray(debts)) return NextResponse.json({ error: 'Debts must be an array' }, { status: 400 })
+
+    // Delete existing debts for this user, then insert new ones
+    const { error: deleteError } = await supabase
+      .from('user_debts')
+      .delete()
+      .eq('user_id', user.id)
+    if (deleteError) throw deleteError
+
+    // Insert all debts
+    for (const debt of debts) {
+      const { error: insertError } = await supabase
+        .from('user_debts')
+        .insert({
+          user_id: user.id,
+          name: debt.name,
+          type: debt.type,
+          balance: debt.balance,
+          apr: debt.apr,
+          monthly_payment: debt.monthlyPayment,
+          minimum_payment: debt.minimumPayment,
+          due_date: debt.dueDate || null,
+          status: debt.status || 'active',
+        })
+      if (insertError) throw insertError
+    }
+
+    return NextResponse.json({ success: true, count: debts.length })
+  } catch (e) {
+    console.error('[user-debts] PUT error:', e)
+    return NextResponse.json({ error: 'Failed to save debts' }, { status: 500 })
+  }
+}
+
 export async function DELETE(req: NextRequest) {
   try {
     const cookieStore = await cookies()

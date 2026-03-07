@@ -35,6 +35,44 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function PUT(req: NextRequest) {
+  try {
+    const cookieStore = await cookies()
+    const supabase = createServerSideClient(cookieStore)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const body = await req.json()
+    const { assets } = body
+    if (!Array.isArray(assets)) return NextResponse.json({ error: 'Assets must be an array' }, { status: 400 })
+
+    // Delete existing assets for this user, then insert new ones
+    const { error: deleteError } = await supabase
+      .from('user_assets')
+      .delete()
+      .eq('user_id', user.id)
+    if (deleteError) throw deleteError
+
+    // Insert all assets
+    for (const asset of assets) {
+      const { error: insertError } = await supabase
+        .from('user_assets')
+        .insert({
+          user_id: user.id,
+          name: asset.name,
+          value: asset.value,
+          expected_return: asset.expectedReturn || null,
+        })
+      if (insertError) throw insertError
+    }
+
+    return NextResponse.json({ success: true, count: assets.length })
+  } catch (e) {
+    console.error('[user-assets] PUT error:', e)
+    return NextResponse.json({ error: 'Failed to save assets' }, { status: 500 })
+  }
+}
+
 export async function DELETE(req: NextRequest) {
   try {
     const cookieStore = await cookies()

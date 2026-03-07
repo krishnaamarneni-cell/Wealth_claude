@@ -1,3 +1,5 @@
+'use client'
+
 import { createServerClient } from '@supabase/ssr'
 import { notFound } from 'next/navigation'
 import { Header } from '@/components/header'

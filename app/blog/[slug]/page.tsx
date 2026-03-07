@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Clock, ArrowLeft, Calendar } from 'lucide-react'
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { cookies } from 'next/headers'
 
 
 interface Props {
@@ -20,16 +21,25 @@ function estimateReadTime(content: string): string {
 }
 
 
-// Public Supabase client — no cookies, works for any visitor
+// Server Supabase client — has write permissions
 function getSupabase() {
+  const cookieStore = cookies()
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll: () => [],
-        setAll: () => { },
-      },
+        getAll: () => cookieStore.getAll(),
+        setAll: (cookiesToSet) => {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            )
+          } catch {
+            // Ignore session refresh errors
+          }
+        }
+      }
     }
   )
 }

@@ -23,33 +23,14 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteShield, setDeleteShield] = useState(false)
 
-  // Strip all extra fields before sending - ONLY send: type, name, balance, apr, monthlyPayment
-  const stripDebtFields = (debt: any) => ({
-    type: debt.type,
-    name: debt.name,
-    balance: debt.balance,
-    apr: debt.apr,
-    monthlyPayment: debt.monthlyPayment,
-  })
-
-  // ==================== AUTO-SAVE DEBTS ====================
   useEffect(() => {
     if (debts.length === 0 || isDeleting) return
-    
-    const timer = setTimeout(async () => {
-      try {
-        const stripped = debts.map(stripDebtFields)
-        const res = await fetch('/api/user-debts', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ debts: stripped }),
-        })
-        if (!res.ok) console.error('[DebtTracker] Save error:', res.status)
-      } catch (error) {
-        console.error('[DebtTracker] Save error:', error)
-      }
+    const debounce = setTimeout(() => {
+      const data = debts.map(d => ({ type: d.type, name: d.name, balance: d.balance, apr: d.apr, monthlyPayment: d.monthlyPayment }))
+      fetch('/api/user-debts', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ debts: data }) })
+        .catch(e => console.error('Save error:', e))
     }, 1000)
-    return () => clearTimeout(timer)
+    return () => clearTimeout(debounce)
   }, [debts, isDeleting])
 
   const allResults = useMemo(

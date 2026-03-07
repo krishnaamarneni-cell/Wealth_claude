@@ -1,4 +1,5 @@
 "use client"
+// v5 Force rebuild - ensure field stripping deploys correctly
 
 import { useState, useMemo, useCallback, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"

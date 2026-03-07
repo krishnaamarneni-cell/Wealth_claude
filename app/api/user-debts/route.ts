@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerSideClient } from '@/lib/supabase'
-// v4 Cache bust - Force deploy with normalizeDebtType
+// v5 Force rebuild - ensuring normalizeDebtType deploys correctly
 
 export async function GET() {
   try {

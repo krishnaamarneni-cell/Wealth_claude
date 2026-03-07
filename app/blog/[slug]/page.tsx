@@ -1,6 +1,3 @@
-'use client'
-// v3 Force rebuild - use client at top
-
 import { createServerClient } from '@supabase/ssr'
 import { notFound } from 'next/navigation'
 import { Header } from '@/components/header'

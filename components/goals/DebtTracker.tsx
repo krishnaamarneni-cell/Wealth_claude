@@ -24,14 +24,17 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
   const [strategy, setStrategy] = useState<StrategyType>("avalanche")
   const [extraPayment, setExtraPayment] = useState(200)
   const [showResults, setShowResults] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // ==================== AUTO-SAVE DEBTS TO SUPABASE ====================
   useEffect(() => {
+    // Skip auto-save if no debts or currently deleting
+    if (debts.length === 0 || isDeleting) {
+      console.log('[DebtTracker] Skipping save: no debts to save or currently deleting')
+      return
+    }
+    
     const timer = setTimeout(async () => {
-      if (debts.length === 0) {
-        console.log('[DebtTracker] Skipping save: no debts to save')
-        return
-      }
       console.log('[v0] DebtTracker AUTO-SAVE triggered with', debts.length, 'debts:', JSON.stringify(debts))
       try {
         // Transform debts to only include fields expected by API
@@ -63,7 +66,7 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
       }
     }, 1000) // Debounce saves by 1 second
     return () => clearTimeout(timer)
-  }, [debts])
+  }, [debts, isDeleting])
 
   // Calculate both strategies for comparison
   const allResults = useMemo(
@@ -86,8 +89,21 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
 
   const handleDeleteDebt = useCallback(
     (id: string) => {
+      console.log('[DebtTracker] Deleting debt:', id)
+      setIsDeleting(true)
       setDebts((prev) => prev.filter((d) => d.id !== id))
-      setShowResults(false)
+      
+      // Call API to delete from Supabase
+      fetch(`/api/user-debts?id=${id}`, { method: 'DELETE' })
+        .then(res => {
+          if (!res.ok) console.error('[DebtTracker] Delete API call failed')
+          else console.log('[DebtTracker] Successfully deleted debt from Supabase')
+        })
+        .catch(e => console.error('[DebtTracker] Delete API error:', e))
+        .finally(() => {
+          setIsDeleting(false)
+          setShowResults(false)
+        })
     },
     [setDebts]
   )

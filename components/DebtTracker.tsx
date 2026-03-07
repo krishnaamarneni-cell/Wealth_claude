@@ -66,22 +66,31 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
 
   const handleDeleteDebt = useCallback(
     async (id: string) => {
-      // Activate 3-second delete shield
+      setIsDeleting(true)
       setDeleteShield(true)
 
       // Optimistic UI update
       setDebts((prev) => prev.filter((d) => d.id !== id))
       setShowResults(false)
 
-      // Delete from DB
+      // 1. Single record delete
       await deleteJSON("/api/user-debts", id)
 
-      // Sync from DB after delay
-      setTimeout(async () => {
-        // Hard refresh from DB
-        window.location.reload()
-      }, 1000)
-      // 3 seconds to override any auto-save
+      // 2. NUKE entire table (kills any rogue inserts)
+      await fetch('/api/user-debts', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ debts: [] })
+      })
+
+      // 3. Hard reload - bypasses ALL caching/Realtime
+      setTimeout(() => window.location.reload(), 500)
+
+      // Reset shields
+      setTimeout(() => {
+        setIsDeleting(false)
+        setDeleteShield(false)
+      }, 2000)
     },
     [setDebts]
   )

@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerSideClient } from '@/lib/supabase'
-// ========== v13 HARD REDEPLOYMENT ==========
-// CRITICAL: Vercel caching old code with due_date column insert
-// Fix: Only insert these 6 columns: user_id, name, type, balance, apr, min_payment
-// NO other columns - especially NO due_date, due, status, etc.
 
 export async function GET() {
   try {
@@ -20,7 +16,6 @@ export async function GET() {
       .order('created_at', { ascending: false })
     if (error) throw error
 
-    // Map snake_case to camelCase for frontend
     return NextResponse.json((data || []).map(d => ({
       id: d.id,
       name: d.name,
@@ -43,8 +38,6 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
-    
-    // Pass type exactly as-is - database expects Title Case: "Credit Card", "Auto Loan", etc.
     const debtType = body.type || 'Other'
 
     const { error, data } = await supabase
@@ -53,9 +46,9 @@ export async function POST(req: NextRequest) {
         user_id: user.id,
         name: body.name,
         type: debtType,
-        balance: parseFloat(String(body.balance)) || 0,
-        apr: parseFloat(String(body.apr)) || 0,
-        min_payment: parseFloat(String(body.monthlyPayment)) || 0,
+        balance: Number(body.balance) || 0,
+        apr: Number(body.apr) || 0,
+        min_payment: Number(body.monthlyPayment) || 0,
       })
       .select()
       .single()
@@ -79,70 +72,50 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  console.log('[user-debts] PUT: === HANDLER CALLED - v9 DEPLOYED ===')
   try {
     const cookieStore = await cookies()
     const supabase = createServerSideClient(cookieStore)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      console.error('[user-debts] PUT: Unauthorized - no user')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const body = await req.json()
     const { debts } = body
-    console.log('[user-debts] PUT: Received', debts?.length || 0, 'debts for user', user.id)
     
     if (!Array.isArray(debts)) {
-      console.error('[user-debts] PUT: Invalid debts format - not an array')
       return NextResponse.json({ error: 'Debts must be an array' }, { status: 400 })
     }
 
-    // FIRST: Delete all existing debts for this user to prevent duplicates
-    console.log('[user-debts] PUT: Deleting existing debts for user', user.id)
     const { error: deleteError } = await supabase
       .from('user_debts')
       .delete()
       .eq('user_id', user.id)
-    if (deleteError) {
-      console.error('[user-debts] PUT: Delete error:', deleteError)
-      throw deleteError
-    }
+    if (deleteError) throw deleteError
 
-    // SECOND: Insert all debts - ONLY with valid columns (v13)
-    console.log('[user-debts] PUT v13: Inserting', debts.length, 'new debts')
     for (const debt of debts) {
-      // Pass type exactly as-is - database expects Title Case: "Credit Card", "Auto Loan", etc.
       const debtType = debt.type || 'Other'
-      
-      // CRITICAL: Only these 6 columns are valid in user_debts table
-      const insertPayload = {
-        user_id: user.id,
-        name: debt.name,
-        type: debtType,
-        balance: Number(debt.balance) || 0,
-        apr: Number(debt.apr) || 0,
-        min_payment: Number(debt.monthlyPayment) || 0,
-      }
-      
-      console.log(`[user-debts] PUT v13: Column check - sending:`, Object.keys(insertPayload))
-      console.log(`[user-debts] PUT v13: Inserting "${debt.name}" with type: "${debtType}"`)
       
       const { error: insertError } = await supabase
         .from('user_debts')
-        .insert(insertPayload)
+        .insert({
+          user_id: user.id,
+          name: debt.name,
+          type: debtType,
+          balance: Number(debt.balance) || 0,
+          apr: Number(debt.apr) || 0,
+          min_payment: Number(debt.monthlyPayment) || 0,
+        })
       
       if (insertError) {
-        console.error(`[user-debts] PUT v13: FAILED inserting "${debt.name}". Error:`, insertError)
+        console.error(`[user-debts] PUT: Insert error for debt ${debt.name}:`, insertError)
         throw insertError
       }
-      console.log(`[user-debts] PUT v13: Successfully inserted "${debt.name}"`)
     }
 
-    console.log('[user-debts] PUT: Successfully saved', debts.length, 'debts')
     return NextResponse.json({ success: true, count: debts.length })
   } catch (e: any) {
-    console.error('[v0] [user-debts] PUT error:', e)
+    console.error('[user-debts] PUT error:', e)
     return NextResponse.json({ error: 'Failed to save debts', details: e.message }, { status: 500 })
   }
 }
@@ -158,7 +131,11 @@ export async function DELETE(req: NextRequest) {
     const id = searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
-    const { error } = await supabase.from('user_debts').delete().eq('id', id).eq('user_id', user.id)
+    const { error } = await supabase
+      .from('user_debts')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id)
     if (error) throw error
     return NextResponse.json({ success: true })
   } catch (e) {

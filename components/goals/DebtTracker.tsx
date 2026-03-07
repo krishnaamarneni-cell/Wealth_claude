@@ -1,5 +1,6 @@
 "use client"
-// v12 FORCE DEPLOY - Field stripping always applied, no extra fields sent
+// v14 FORCE COMPLETE REDEPLOYMENT - DebtTracker field stripping fix
+// Must strip: id, minimumPayment ALWAYS
 
 import { useState, useMemo, useCallback, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
@@ -27,49 +28,42 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteShield, setDeleteShield] = useState(false)
 
-  // ==================== AUTO-SAVE DEBTS TO SUPABASE v12 ====================
+  // ==================== AUTO-SAVE DEBTS TO SUPABASE v14 ====================
   useEffect(() => {
-    // Skip auto-save if no debts or currently deleting
     if (debts.length === 0 || isDeleting) {
-      console.log('[DebtTracker] Skipping save: no debts to save or currently deleting')
       return
     }
     
     const timer = setTimeout(async () => {
-      console.log('[v0] DebtTracker AUTO-SAVE v12 triggered with', debts.length, 'debts')
       try {
-        // Transform debts to ONLY include fields expected by API - MUST strip id and minimumPayment
+        // v14: STRICT field filtering - ONLY send these 5 fields, nothing else
         const debtsToSave = debts.map(debt => {
-          const cleanDebt = {
-            type: debt.type,
-            name: debt.name,
-            balance: debt.balance,
-            apr: debt.apr,
-            monthlyPayment: debt.monthlyPayment,
+          // Create object with ONLY the fields the API expects
+          return {
+            type: String(debt.type),
+            name: String(debt.name),
+            balance: Number(debt.balance),
+            apr: Number(debt.apr),
+            monthlyPayment: Number(debt.monthlyPayment),
           }
-          console.log('[v0] v12: Stripping fields for debt', debt.name, '- removed id, minimumPayment')
-          return cleanDebt
         })
+        
         const payload = { debts: debtsToSave }
-        console.log('[v0] Sending PUT to /api/user-debts with v12 payload:', JSON.stringify(payload))
+        
         const response = await fetch('/api/user-debts', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         })
-        console.log('[v0] PUT response status:', response.status)
-        const responseText = await response.text()
-        console.log('[v0] PUT response body:', responseText)
         
         if (!response.ok) {
-          console.error('[v0] Save failed with status:', response.status, 'response:', responseText)
-        } else {
-          console.log('[v0] DebtTracker v12 successfully saved debts to Supabase')
+          const text = await response.text()
+          console.error('[v0] v14: Save failed:', text)
         }
       } catch (e) {
-        console.error('[v0] DebtTracker save error:', e)
+        console.error('[v0] v14: Save error:', e)
       }
-    }, 1000) // Debounce saves by 1 second
+    }, 1000)
     return () => clearTimeout(timer)
   }, [debts, isDeleting])
 

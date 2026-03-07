@@ -94,6 +94,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  console.log('[user-debts] PUT: === START PUT REQUEST v7 ===')
   try {
     const cookieStore = await cookies()
     const supabase = createServerSideClient(cookieStore)
@@ -148,7 +149,7 @@ export async function PUT(req: NextRequest) {
       const rawType = String(debt.type || 'other')
       const normalizedType = typeMap[rawType] || rawType.toLowerCase().replace(/\s+/g, '_') || 'other'
       
-      console.log(`[user-debts] PUT: Debt "${debt.name}" | Raw Type: "${rawType}" | Normalized: "${normalizedType}"`)
+      console.log(`[user-debts] PUT v7: Processing debt "${debt.name}" - Raw Type: "${rawType}" -> Normalized: "${normalizedType}"`)
       
       const insertPayload = {
         user_id: user.id,
@@ -159,17 +160,17 @@ export async function PUT(req: NextRequest) {
         min_payment: Number(debt.monthlyPayment) || 0,
       }
       
-      console.log(`[user-debts] PUT: Payload for ${debt.name}:`, JSON.stringify(insertPayload))
+      console.log(`[user-debts] PUT v7: About to insert:`, JSON.stringify(insertPayload))
       
       const { error: insertError } = await supabase
         .from('user_debts')
         .insert(insertPayload)
       
       if (insertError) {
-        console.error(`[user-debts] PUT: FAILED inserting ${debt.name}. Type was "${normalizedType}". Error:`, insertError)
+        console.error(`[user-debts] PUT v7: FAILED inserting "${debt.name}" with normalized type "${normalizedType}". Error:`, insertError)
         throw insertError
       }
-      console.log(`[user-debts] PUT: Successfully inserted "${debt.name}" with type "${normalizedType}"`)
+      console.log(`[user-debts] PUT v7: SUCCESS - inserted "${debt.name}" with type "${normalizedType}"`)
     }
 
     console.log('[user-debts] PUT: Successfully saved', debts.length, 'debts')

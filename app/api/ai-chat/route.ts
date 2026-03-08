@@ -1,11 +1,9 @@
 /**
- * Phase 4 — Updated /api/ai-chat/route.ts
+ * Phase 5 — Updated /api/ai-chat/route.ts
  * 
- * Changes from Phase 3:
- *   - Classifies questions as portfolio / market / mixed
- *   - Routes market questions to Perplexity (real-time web search)
- *   - Routes mixed questions: Perplexity first → then Groq with both contexts
- *   - Portfolio questions still go to Groq (existing behavior, unchanged)
+ * Changes from Phase 4:
+ *   - Step 18: Mistral fallback when Groq hits rate limits (429)
+ *   - Step 20: Fallback portfolio fetch from Supabase transactions when PortfolioContext is empty
  * 
  * Replace your existing: app/api/ai-chat/route.ts
  */
@@ -15,6 +13,8 @@ import { cookies } from 'next/headers'
 import { createServerSideClient } from '@/lib/supabase'
 import { classifyQuestion } from '@/lib/ai-chat/question-classifier'
 import { queryPerplexity, formatMarketResponse, formatAsGroqContext } from '@/lib/ai-chat/perplexity-client'
+import { callMistral } from '@/lib/ai-chat/mistral-client'
+import { fetchFallbackPortfolio, buildFallbackPromptSection } from '@/lib/ai-chat/fallback-portfolio'
 import type { FinancialSnapshot } from '@/components/ai-chat/financial-snapshot'
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
@@ -62,6 +62,25 @@ export async function POST(req: NextRequest) {
     // MARKET ONLY → Perplexity handles it directly
     if (classification.category === 'market') {
       return await handleMarketQuestion(message, classification.marketQuery!)
+    }
+
+    // ── Step 20: Fallback portfolio fetch if frontend didn't send data ──
+    let fallbackPromptSection: string | null = null
+    const hasPortfolioData = portfolioSnapshot?.portfolio?.totalValue > 0
+
+    if (!hasPortfolioData) {
+      console.log('[AI Chat] No portfolio snapshot from frontend — fetching fallback from Supabase transactions...')
+      const fallbackPortfolio = await fetchFallbackPortfolio(supabase, user.id)
+      if (fallbackPortfolio) {
+        fallbackPromptSection = buildFallbackPromptSection(fallbackPortfolio)
+        // Update holdingSymbols for classifier (re-classify with real symbols)
+        const fallbackSymbols = fallbackPortfolio.symbols
+        const reClassification = classifyQuestion(message, fallbackSymbols)
+        if (reClassification.category === 'market' && classification.category !== 'market') {
+          console.log('[AI Chat] Re-classified as market after fallback fetch')
+          return await handleMarketQuestion(message, reClassification.marketQuery!)
+        }
+      }
     }
 
     // PORTFOLIO or MIXED → need Supabase data
@@ -120,12 +139,13 @@ export async function POST(req: NextRequest) {
         message,
         classification.marketQuery!,
         fullSnapshot,
-        chatHistory
+        chatHistory,
+        fallbackPromptSection
       )
     }
 
     // PORTFOLIO → Groq only (existing Phase 3 behavior)
-    return await handlePortfolioQuestion(message, fullSnapshot, chatHistory)
+    return await handlePortfolioQuestion(message, fullSnapshot, chatHistory, fallbackPromptSection)
 
   } catch (error) {
     console.error('[AI Chat] Error:', error)
@@ -170,7 +190,8 @@ async function handleMixedQuestion(
   userMessage: string,
   searchQuery: string,
   snapshot: FinancialSnapshot,
-  chatHistory: Array<{ role: 'user' | 'assistant'; content: string }>
+  chatHistory: Array<{ role: 'user' | 'assistant'; content: string }>,
+  fallbackPromptSection: string | null = null
 ) {
   console.log(`[AI Chat] → Perplexity + Groq (mixed) | Query: "${searchQuery}"`)
 
@@ -179,6 +200,11 @@ async function handleMixedQuestion(
 
   // Step 2: Build system prompt with BOTH portfolio data AND market data
   let systemPrompt = buildSystemPrompt(snapshot)
+
+  // Step 20: Inject fallback portfolio data if frontend snapshot was empty
+  if (fallbackPromptSection) {
+    systemPrompt += fallbackPromptSection
+  }
 
   // Inject market data into the prompt
   if (perplexityResult.success) {
@@ -202,11 +228,18 @@ Answer using the portfolio data you have, and note that current market data coul
 async function handlePortfolioQuestion(
   userMessage: string,
   snapshot: FinancialSnapshot,
-  chatHistory: Array<{ role: 'user' | 'assistant'; content: string }>
+  chatHistory: Array<{ role: 'user' | 'assistant'; content: string }>,
+  fallbackPromptSection: string | null = null
 ) {
   console.log('[AI Chat] → Groq (portfolio)')
 
-  const systemPrompt = buildSystemPrompt(snapshot)
+  let systemPrompt = buildSystemPrompt(snapshot)
+
+  // Step 20: Inject fallback portfolio data if frontend snapshot was empty
+  if (fallbackPromptSection) {
+    systemPrompt += fallbackPromptSection
+  }
+
   return await callGroq(systemPrompt, userMessage, chatHistory, 'portfolio')
 }
 
@@ -257,9 +290,42 @@ async function callGroq(
     const errorText = await groqResponse.text()
     console.error('[AI Chat] Groq API error:', groqResponse.status, errorText)
 
+    // Step 18: If rate limited, try Mistral as fallback
     if (groqResponse.status === 429) {
+      console.log('[AI Chat] Groq rate limited (429) — falling back to Mistral...')
+      const mistralResult = await callMistral(systemPrompt, userMessage, chatHistory)
+
+      if (mistralResult.success) {
+        return NextResponse.json({
+          success: true,
+          response: mistralResult.content,
+          metadata: {
+            route: 'mistral-fallback',
+            category,
+            reason: 'groq-rate-limited',
+          },
+        })
+      }
+
+      // Both Groq and Mistral failed
+      console.error('[AI Chat] Both Groq and Mistral failed')
       return NextResponse.json({
-        response: "I'm getting a lot of questions right now. Please wait a moment and try again.",
+        response: "I'm experiencing high demand right now. Please try again in a moment.",
+      })
+    }
+
+    // Non-429 Groq error — also try Mistral
+    console.log('[AI Chat] Groq error — trying Mistral fallback...')
+    const mistralResult = await callMistral(systemPrompt, userMessage, chatHistory)
+    if (mistralResult.success) {
+      return NextResponse.json({
+        success: true,
+        response: mistralResult.content,
+        metadata: {
+          route: 'mistral-fallback',
+          category,
+          reason: 'groq-error',
+        },
       })
     }
 

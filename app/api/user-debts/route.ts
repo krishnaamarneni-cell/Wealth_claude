@@ -1,18 +1,18 @@
-// v30-FINAL-NO-LOWERCASE-NO-DUE-DATE
+// v30-FINAL: Title Case types, 6 columns only, no due_date, no toLowerCase
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerSideClient } from '@/lib/supabase'
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const cookieStore = await cookies()
     const supabase = createServerSideClient(cookieStore)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!user) return NextResponse.json([], { status: 401 })
 
     const { data, error } = await supabase
       .from('user_debts')
-      .select('*')
+      .select('id, name, type, balance, apr, min_payment, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
     if (error) throw error
@@ -45,12 +45,12 @@ export async function POST(req: NextRequest) {
       .insert({
         user_id: user.id,
         name: body.name,
-        type: body.type,
+        type: body.type || 'Other',
         balance: Number(body.balance) || 0,
         apr: Number(body.apr) || 0,
         min_payment: Number(body.monthlyPayment) || 0,
       })
-      .select()
+      .select('id, name, type, balance, apr, min_payment')
       .single()
     if (error) throw error
 
@@ -65,9 +65,9 @@ export async function POST(req: NextRequest) {
         monthlyPayment: data.min_payment,
       }
     })
-  } catch (e) {
+  } catch (e: any) {
     console.error('[user-debts] POST error:', e)
-    return NextResponse.json({ error: 'Failed to save debt' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to save debt', details: e.message }, { status: 500 })
   }
 }
 
@@ -85,28 +85,28 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Debts must be an array' }, { status: 400 })
     }
 
+    // Delete all existing debts for this user
     const { error: deleteError } = await supabase
       .from('user_debts')
       .delete()
       .eq('user_id', user.id)
     if (deleteError) throw deleteError
 
-    for (const debt of debts) {
+    // Insert only if debts array is not empty
+    if (debts.length > 0) {
+      const rows = debts.map(debt => ({
+        user_id: user.id,
+        name: debt.name,
+        type: debt.type || 'Other',
+        balance: Number(debt.balance) || 0,
+        apr: Number(debt.apr) || 0,
+        min_payment: Number(debt.monthlyPayment) || 0,
+      }))
+
       const { error: insertError } = await supabase
         .from('user_debts')
-        .insert({
-          user_id: user.id,
-          name: debt.name,
-          type: debt.type,
-          balance: Number(debt.balance) || 0,
-          apr: Number(debt.apr) || 0,
-          min_payment: Number(debt.monthlyPayment) || 0,
-        })
-
-      if (insertError) {
-        console.error(`[user-debts] PUT error for debt ${debt.name}:`, insertError)
-        throw insertError
-      }
+        .insert(rows)
+      if (insertError) throw insertError
     }
 
     return NextResponse.json({ success: true, count: debts.length })
@@ -133,7 +133,7 @@ export async function DELETE(req: NextRequest) {
       .eq('id', id)
       .eq('user_id', user.id)
     if (error) throw error
-    
+
     return NextResponse.json({ success: true })
   } catch (e) {
     console.error('[user-debts] DELETE error:', e)

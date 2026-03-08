@@ -2,6 +2,7 @@ import React from "react"
 import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import { createServerSideClient } from "@/lib/supabase"
+import { PortfolioProvider } from "@/lib/portfolio-context"
 
 export default async function ChatLayout({
   children,
@@ -24,5 +25,9 @@ export default async function ChatLayout({
     redirect("/auth?message=auth_error")
   }
 
-  return <>{children}</>
+  return (
+    <PortfolioProvider>
+      {children}
+    </PortfolioProvider>
+  )
 }

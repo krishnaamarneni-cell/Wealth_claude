@@ -6,6 +6,8 @@ export const maxDuration = 60
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const job = searchParams.get("job")
+  // Also support ?type= as a direct post_type override (e.g. ?job=blog&type=geopolitical)
+  const typeParam = searchParams.get("type")
 
   if (job === "blog-schedule") {
     try {
@@ -81,10 +83,11 @@ export async function GET(req: NextRequest) {
         "https://www.wealthclaude.com"
 
       const cronSecret = process.env.CRON_SECRET ?? ""
-      const postType = JOB_TO_POST_TYPE[job ?? ""] ?? ""
+      // typeParam (?type=geopolitical) takes priority, then job-name map, then UTC hour
+      const postType = typeParam || JOB_TO_POST_TYPE[job ?? ""] || ""
 
       console.log(`[CRON] Starting ${job} job at ${new Date().toISOString()}`)
-      console.log(`[CRON] Resolved post_type override: "${postType || "auto (UTC hour)"}"`)
+      console.log(`[CRON] Resolved post_type: "${postType || "auto (UTC hour)"}" (typeParam=${typeParam}, job=${job})`)
 
       const res = await fetch(`${baseUrl}/api/auto-blog`, {
         method: "POST",
@@ -92,7 +95,6 @@ export async function GET(req: NextRequest) {
           authorization: `Bearer ${cronSecret}`,
           "Content-Type": "application/json",
         },
-        // Pass post_type so auto-blog uses it instead of UTC hour
         body: JSON.stringify(postType ? { post_type: postType } : {}),
       })
 

@@ -1,9 +1,8 @@
 'use client'
-// v3 Force rebuild - fixed all import/hook issues
+// v4 - removed unused supabase direct client, all data ops go through /api/user-debts
 
 import { useState, useMemo, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { getSupabaseClient } from '@/lib/supabase-client'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
@@ -124,7 +123,6 @@ function calcSchedule(debts: Debt[], strategy: 'avalanche' | 'snowball', extra: 
 
 // ── COMPONENT ─────────────────────────────────────────────────────────────────
 export function DebtTrackerTab({ onDebtsChange }: { onDebtsChange?: (debts: Debt[]) => void }) {
-  const supabase = getSupabaseClient()
   const [rawDebts, setRawDebts] = useState<Debt[]>([])
   const [loading, setLoading] = useState(true)
 

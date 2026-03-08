@@ -56,24 +56,16 @@ export async function queryPerplexity(
 RULES:
 - Focus on facts: prices, percentages, dates, analyst ratings.
 - Include specific numbers whenever available.
-- Keep responses between 200-400 words — be dense with information.
 - Do NOT give investment advice or say "should buy/sell".
 - State facts and let the user decide.
+- Bold all **dollar amounts**, **percentages**, and **ticker symbols**.
 
-FORMATTING (STRICT):
-- Start with a **one-line bold summary** answering the question.
-- Use a **markdown table** for key metrics. For a stock, use:
-
-| Metric | Value |
-|--------|-------|
-| Price | $XX.XX |
-| Change | +X.X% |
-| 52W High | $XX |
-| 52W Low | $XX |
-
-- After the table, add 2-3 bullet points of key news or context.
-- Bold all dollar amounts, percentages, and ticker symbols.
-- Never write long paragraphs.`,
+FORMAT — adapt to the question:
+- **Price check** ("what is X price"): One sentence with the price + change. No table needed.
+- **Stock research** ("tell me about X", "X earnings"): Bold summary → metrics table → 2-3 bullet points of news.
+- **Market overview** ("market today", "how are markets"): Bold summary → bullet points for major indices → key driver.
+- **Why question** ("why did X drop"): Bold answer → 2-3 bullet points explaining reasons.
+- Keep responses 100-300 words. Match length to question complexity.`,
           },
           {
             role: 'user',

@@ -42,11 +42,11 @@ export async function POST(req: NextRequest) {
         .eq('user_id', user.id),
       supabase
         .from('user_goals')
-        .select('name, type, target_amount, current_amount, target_date')
+        .select('target_value, current_savings, contribution_amount, contribution_type, expected_return, include_portfolio')
         .eq('user_id', user.id),
       supabase
         .from('user_financial_settings')
-        .select('risk_tolerance, annual_income, monthly_savings, tax_bracket')
+        .select('monthly_income, monthly_expenses, include_portfolio, include_dividends')
         .eq('user_id', user.id)
         .maybeSingle(),
     ])
@@ -60,19 +60,20 @@ export async function POST(req: NextRequest) {
     }))
 
     const goals = (goalsResult.data ?? []).map((g: any) => ({
-      name: g.name,
-      type: g.type,
-      targetAmount: g.target_amount,
-      currentAmount: g.current_amount,
-      targetDate: g.target_date,
+      targetValue: g.target_value,
+      currentSavings: g.current_savings,
+      contributionAmount: g.contribution_amount,
+      contributionType: g.contribution_type,
+      expectedReturn: g.expected_return,
+      includePortfolio: g.include_portfolio,
     }))
 
     const financialProfile = settingsResult.data
       ? {
-        riskTolerance: settingsResult.data.risk_tolerance ?? 'moderate',
-        annualIncome: settingsResult.data.annual_income ?? 0,
-        monthlyExpenses: settingsResult.data.monthly_savings ?? 0,
-        taxBracket: settingsResult.data.tax_bracket ?? 0,
+        monthlyIncome: settingsResult.data.monthly_income ?? 0,
+        monthlyExpenses: settingsResult.data.monthly_expenses ?? 0,
+        includePortfolio: settingsResult.data.include_portfolio ?? false,
+        includeDividends: settingsResult.data.include_dividends ?? false,
       }
       : null
 
@@ -100,12 +101,11 @@ export async function POST(req: NextRequest) {
     ]
 
     // ── For now, return the prepared data (LLM call comes in Phase 3) ──
-    // This lets us test that data flows correctly before adding Groq
     return NextResponse.json({
       success: true,
       debug: {
         userId: user.id,
-        hasPortfolioData: !!portfolioSnapshot,
+        hasPortfolioData: !!(portfolioSnapshot && portfolioSnapshot.portfolio?.totalValue > 0),
         holdingsCount: portfolioSnapshot?.holdings?.length ?? 0,
         debtsCount: debts.length,
         goalsCount: goals.length,
@@ -113,7 +113,6 @@ export async function POST(req: NextRequest) {
         messageCount: messages.length,
         message: message,
       },
-      // Placeholder response until Phase 3 connects Groq
       response:
         "I'm connected to your data! I can see your portfolio, debts, and goals. The LLM will be wired up in Phase 3 to give you real answers.",
     })
@@ -156,7 +155,6 @@ Number of Holdings: ${portfolio.portfolio.holdingsCount}
 
 `
 
-    // Holdings
     if (portfolio.holdings && portfolio.holdings.length > 0) {
       prompt += `=== HOLDINGS ===\n`
       portfolio.holdings.forEach((h) => {
@@ -165,7 +163,6 @@ Number of Holdings: ${portfolio.portfolio.holdingsCount}
       prompt += '\n'
     }
 
-    // Allocation
     if (portfolio.allocation?.bySector && Object.keys(portfolio.allocation.bySector).length > 0) {
       prompt += `=== SECTOR ALLOCATION ===\n`
       const totalValue = portfolio.portfolio.totalValue
@@ -178,7 +175,6 @@ Number of Holdings: ${portfolio.portfolio.holdingsCount}
       prompt += '\n'
     }
 
-    // Risk
     if (portfolio.risk) {
       prompt += `=== RISK METRICS ===
 Diversification Score: ${portfolio.risk.diversificationScore.toFixed(0)}/100
@@ -188,7 +184,6 @@ Value at Risk (5%): $${portfolio.risk.valueAtRisk.toLocaleString()}
 `
     }
 
-    // Benchmarks
     if (portfolio.benchmarks) {
       prompt += `=== VS BENCHMARKS ===
 vs S&P 500: ${portfolio.benchmarks.vsSP500 >= 0 ? '+' : ''}${portfolio.benchmarks.vsSP500.toFixed(2)}%
@@ -197,7 +192,6 @@ vs NASDAQ: ${portfolio.benchmarks.vsNASDAQ >= 0 ? '+' : ''}${portfolio.benchmark
 `
     }
 
-    // Tax
     if (portfolio.tax) {
       prompt += `=== TAX SITUATION ===
 Short-term Gains: $${portfolio.tax.shortTermGains.toLocaleString()}
@@ -208,7 +202,7 @@ Estimated Tax Liability: $${portfolio.tax.estimatedTaxLiability.toLocaleString()
     }
   } else {
     prompt += `=== PORTFOLIO ===
-No portfolio data available. The user may not have added transactions yet.
+No portfolio data available. The user may not have loaded their dashboard yet, or they haven't added transactions.
 
 `
   }
@@ -232,9 +226,9 @@ No debts recorded.
   // Goals
   if (goals.length > 0) {
     prompt += `=== FINANCIAL GOALS ===\n`
-    goals.forEach((g) => {
-      const progress = g.targetAmount > 0 ? ((g.currentAmount / g.targetAmount) * 100).toFixed(1) : '0'
-      prompt += `${g.name} (${g.type}): $${g.currentAmount.toLocaleString()} / $${g.targetAmount.toLocaleString()} (${progress}%) | Target: ${g.targetDate}\n`
+    goals.forEach((g, i) => {
+      const progress = g.targetValue > 0 ? ((g.currentSavings / g.targetValue) * 100).toFixed(1) : '0'
+      prompt += `Goal ${i + 1}: $${g.currentSavings.toLocaleString()} / $${g.targetValue.toLocaleString()} (${progress}%) | Contributing $${g.contributionAmount.toLocaleString()} ${g.contributionType} | Expected return: ${g.expectedReturn}%${g.includePortfolio ? ' | Includes portfolio value' : ''}\n`
     })
     prompt += '\n'
   } else {
@@ -247,9 +241,9 @@ No financial goals recorded.
   // Financial profile
   if (financialProfile) {
     prompt += `=== FINANCIAL PROFILE ===
-Risk Tolerance: ${financialProfile.riskTolerance}
-Annual Income: $${financialProfile.annualIncome.toLocaleString()}
-Tax Bracket: ${financialProfile.taxBracket}%
+Monthly Income: $${financialProfile.monthlyIncome.toLocaleString()}
+Monthly Expenses: $${financialProfile.monthlyExpenses.toLocaleString()}
+Monthly Savings Capacity: $${(financialProfile.monthlyIncome - financialProfile.monthlyExpenses).toLocaleString()}
 `
   }
 

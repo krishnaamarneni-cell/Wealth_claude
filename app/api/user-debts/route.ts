@@ -90,51 +90,28 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Debts must be an array' }, { status: 400 })
     }
 
-    // Get existing debt IDs for this user
-    const { data: existing } = await supabase
+    // Step 1: Delete ALL existing debts for THIS user only
+    const { error: deleteError } = await supabase
       .from('user_debts')
-      .select('id')
+      .delete()
       .eq('user_id', user.id)
+    if (deleteError) throw deleteError
 
-    const existingIds = (existing || []).map((r: any) => r.id)
-    const incomingIds = debts.filter(d => d.id).map((d: any) => d.id)
-
-    // Delete rows that are no longer in the incoming list
-    const toDelete = existingIds.filter((id: string) => !incomingIds.includes(id))
-    if (toDelete.length > 0) {
-      const { error: deleteError } = await supabase
-        .from('user_debts')
-        .delete()
-        .in('id', toDelete)
-        .eq('user_id', user.id)
-      if (deleteError) throw deleteError
-    }
-
-    // Upsert incoming debts (insert new, update existing)
-    for (const debt of debts) {
-      const payload: any = {
+    // Step 2: Re-insert the current list (only if non-empty)
+    if (debts.length > 0) {
+      const rows = debts.map((debt: any) => ({
         user_id: user.id,
         name: debt.name,
-        type: debt.type,
+        type: debt.type || 'Other',
         balance: Number(debt.balance) || 0,
         apr: Number(debt.apr) || 0,
         min_payment: Number(debt.monthlyPayment || debt.minimumPayment) || 0,
-      }
-      if (debt.id) payload.id = debt.id
+      }))
 
-      const { error: upsertError } = await supabase
+      const { error: insertError } = await supabase
         .from('user_debts')
-        .upsert(payload, { onConflict: 'id' })
-      if (upsertError) throw upsertError
-    }
-
-    // If no debts incoming, delete all for this user (handles "delete all" case)
-    if (debts.length === 0) {
-      const { error: deleteAllError } = await supabase
-        .from('user_debts')
-        .delete()
-        .eq('user_id', user.id)
-      if (deleteAllError) throw deleteAllError
+        .insert(rows)
+      if (insertError) throw insertError
     }
 
     return NextResponse.json({ success: true, count: debts.length })

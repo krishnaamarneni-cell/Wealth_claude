@@ -98,31 +98,15 @@ export async function deleteJSON(
 }
 
 // ==================== DEBT TYPE MAPPER ====================
-// DB uses snake_case: credit_card, auto_loan, etc.
-// Frontend uses display format: "Credit Card", "Auto Loan", etc.
-
-const TYPE_TO_DB: Record<string, string> = {
-  "Credit Card": "credit_card",
-  "Auto Loan": "auto_loan",
-  Mortgage: "mortgage",
-  "Student Loan": "student_loan",
-  "Personal Loan": "personal_loan",
-  Other: "other",
-}
-
-const DB_TO_TYPE: Record<string, string> = {
-  credit_card: "Credit Card",
-  auto_loan: "Auto Loan",
-  mortgage: "Mortgage",
-  student_loan: "Student Loan",
-  personal_loan: "Personal Loan",
-  other: "Other",
-}
+// DB CHECK constraint accepts Title Case values directly:
+// 'Credit Card', 'Car Loan', 'Housing Loan', 'Personal Loan',
+// 'Auto Loan', 'Mortgage', 'Student Loan', 'Other'
+// Pass type as-is — no conversion needed.
 
 export function debtTypeToDb(displayType: string): string {
-  return TYPE_TO_DB[displayType] || "other"
+  return displayType || "Other"
 }
 
 export function dbToDebtType(dbType: string): string {
-  return DB_TO_TYPE[dbType] || "Other"
+  return dbType || "Other"
 }

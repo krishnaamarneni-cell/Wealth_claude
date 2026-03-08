@@ -27,9 +27,9 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
   useEffect(() => {
     const timer = setTimeout(async () => {
       try {
-        // Only send the fields the API/DB actually needs
         const payload = {
           debts: debts.map(d => ({
+            id: d.id,
             name: d.name,
             type: d.type,
             balance: d.balance,

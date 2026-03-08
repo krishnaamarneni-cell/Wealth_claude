@@ -204,23 +204,27 @@ async function generatePost(apiKey: string, topic: string, postType: PostType): 
 
 ${typeInstructions[postType]}
 
-IMPORTANT: Focus exclusively on US markets, US-listed stocks (NYSE/NASDAQ), and US investors. Do not mention Indian, European or other non-US stocks unless explaining their impact on US markets.
+CRITICAL FORMATTING RULES — follow exactly:
+1. NEVER start with <h2>Introduction</h2>. That heading is forbidden.
+2. ALWAYS start the content with a bold hook sentence: <p><strong>[compelling hook about the topic with specific number or fact]</strong> [2-3 more sentences expanding the hook with data.]</p>
+3. Use <strong> tags to highlight specific prices, percentages, ticker symbols, and key terms inline throughout the article.
+4. Section headings must be: <h2>What's Happening Right Now</h2>, <h2>Why It Matters for US Investors</h2>, <h2>What Analysts Are Saying</h2>
+5. Use specific real numbers, prices, percentages throughout. Be data-driven.
+6. Focus exclusively on US markets, US-listed stocks (NYSE/NASDAQ), and US investors.
 
-Use specific numbers and data. 
-
-Structure:
-1. Hook intro (1 paragraph)
-2. What's happening right now (h2 + data)
-3. Why it matters for US investors (h2 + analysis)
-4. What analysts are saying (h2)
-5. Key Takeaways: <div class="key-takeaways"><h3>Key Takeaways</h3><ul><li>point</li><li>point</li><li>point</li></ul></div>
-6. FAQ: <div class="faq"><h2>Frequently Asked Questions</h2><h3>Question?</h3><p>Answer.</p><h3>Question?</h3><p>Answer.</p><h3>Question?</h3><p>Answer.</p></div>
+Structure (in this exact order):
+1. <p><strong>Bold hook opening sentence with data.</strong> Follow-up context sentences.</p>
+2. <h2>What's Happening Right Now</h2> — specific prices, moves, data
+3. <h2>Why It Matters for US Investors</h2> — analysis and implications
+4. <h2>What Analysts Are Saying</h2> — expert views
+5. <div class="key-takeaways"><h3>Key Takeaways</h3><ul><li>point</li><li>point</li><li>point</li></ul></div>
+6. <div class="faq"><h2>Frequently Asked Questions</h2><h3>Question?</h3><p>Answer.</p><h3>Question?</h3><p>Answer.</p><h3>Question?</h3><p>Answer.</p></div>
 
 Respond ONLY with valid JSON, absolutely no markdown or code blocks:
 {
-  "title": "SEO title focused on US market, 50-60 chars",
-  "excerpt": "2-3 sentence compelling summary ~50 words",
-  "content": "full HTML 900-1100 words using h2/p/strong/ul/li/div",
+  "title": "SEO title with specific data point (ticker, %, $price), 50-60 chars",
+  "excerpt": "2-3 sentence compelling summary with specific data ~50 words",
+  "content": "full HTML 900-1100 words using h2/p/strong/ul/li/div — NO <h2>Introduction</h2>",
   "tags": ["us-stocks", "investing", "market-analysis", "relevant-ticker", "relevant-tag"],
   "image_query": "3-4 word US finance photo search query"
 }`

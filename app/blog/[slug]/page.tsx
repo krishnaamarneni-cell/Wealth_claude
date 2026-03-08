@@ -36,6 +36,18 @@ function getSupabase() {
 }
 
 
+async function getRecentPosts(excludeSlug: string) {
+  const supabase = getSupabase()
+  const { data } = await supabase
+    .from('blog_posts')
+    .select('slug, title, excerpt, image_url, published_at, tags')
+    .eq('published', true)
+    .neq('slug', excludeSlug)
+    .order('published_at', { ascending: false })
+    .limit(4)
+  return data ?? []
+}
+
 async function getPost(slug: string) {
   const supabase = getSupabase()
 
@@ -87,8 +99,8 @@ export default async function BlogPostPage({ params }: Props) {
   const post = await getPost(slug)
   if (!post) notFound()
 
-
   const readTime = estimateReadTime(post.content ?? '')
+  const recentPosts = await getRecentPosts(post.slug)
 
 
   return (
@@ -167,6 +179,55 @@ export default async function BlogPostPage({ params }: Props) {
             </Link>
           </div>
         </div>
+
+        {/* Recent Posts */}
+        {recentPosts.length > 0 && (
+          <div className="border-t border-border mt-8">
+            <div className="container mx-auto px-4 py-12 max-w-5xl">
+              <h2 className="text-2xl font-bold mb-8">Recent Articles</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {recentPosts.map((recent: any) => (
+                  <Link
+                    key={recent.slug}
+                    href={`/blog/${recent.slug}`}
+                    className="group flex flex-col rounded-xl overflow-hidden border border-border hover:border-primary/50 transition-colors bg-card"
+                  >
+                    {recent.image_url ? (
+                      <div className="h-36 overflow-hidden">
+                        <img
+                          src={recent.image_url}
+                          alt={recent.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      </div>
+                    ) : (
+                      <div className="h-36 bg-muted flex items-center justify-center">
+                        <span className="text-muted-foreground text-sm">No image</span>
+                      </div>
+                    )}
+                    <div className="p-4 flex flex-col gap-2 flex-1">
+                      {recent.tags?.[0] && (
+                        <Badge variant="secondary" className="w-fit text-xs">
+                          {recent.tags[0]}
+                        </Badge>
+                      )}
+                      <h3 className="text-sm font-semibold leading-snug group-hover:text-primary transition-colors line-clamp-2">
+                        {recent.title}
+                      </h3>
+                      {recent.published_at && (
+                        <p className="text-xs text-muted-foreground mt-auto">
+                          {new Date(recent.published_at).toLocaleDateString('en-US', {
+                            month: 'short', day: 'numeric', year: 'numeric',
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       <Footer />
     </div>

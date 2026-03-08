@@ -14,7 +14,9 @@ import { ChatMessageList, type ChatMessage } from '@/components/ai-chat/chat-mes
 import { buildPortfolioSnapshot } from '@/components/ai-chat/financial-snapshot'
 import { usePortfolioSafe } from '@/lib/portfolio-context'
 
-export function AIChatButton() {
+// ── Core chat UI — shared by both exports ─────────────────────────────────
+
+function ChatButtonCore({ portfolioCtx }: { portfolioCtx: any }) {
   const [isVisible, setIsVisible] = useState(true)
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [input, setInput] = useState('')
@@ -22,9 +24,6 @@ export function AIChatButton() {
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
-
-  // Returns real data on dashboard pages, null on public pages
-  const portfolioCtx = usePortfolioSafe()
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -218,4 +217,17 @@ export function AIChatButton() {
       </div>
     </>
   )
+}
+
+// ── Dashboard version — reads PortfolioContext ─────────────────────────────
+
+export function AIChatButton() {
+  const ctx = usePortfolioSafe()
+  return <ChatButtonCore portfolioCtx={ctx} />
+}
+
+// ── Public version — no portfolio data ────────────────────────────────────
+
+export function AIChatButtonPublic() {
+  return <ChatButtonCore portfolioCtx={null} />
 }

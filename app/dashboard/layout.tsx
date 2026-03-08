@@ -6,6 +6,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { PortfolioProvider } from "@/lib/portfolio-context"
+import { AIChatButton } from "@/components/ai-chat/chat-button"
 
 export default async function DashboardLayout({
   children,
@@ -43,6 +44,7 @@ export default async function DashboardLayout({
           <main className="flex-1 overflow-y-auto h-full">{children}</main>
         </SidebarInset>
       </SidebarProvider>
+      <AIChatButton />
     </PortfolioProvider>
   )
 }

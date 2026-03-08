@@ -140,14 +140,13 @@ function ChatButtonCore({ portfolioCtx }: { portfolioCtx: any }) {
                 >
                   <Maximize2 className="h-3.5 w-3.5" />
                 </button>
-                <SheetClose asChild>
-                  <button
-                    className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-                    aria-label="Close chat"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </SheetClose>
+                <button
+                  onClick={() => setIsChatOpen(false)}
+                  className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Close chat"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
           </SheetHeader>

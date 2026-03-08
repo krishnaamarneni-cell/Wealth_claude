@@ -66,12 +66,12 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/favicon-512.jpg", type: "image/jpeg" },
+      { url: "/icon.jpg", type: "image/jpeg", sizes: "any" },
     ],
     apple: [
-      { url: "/favicon-512.jpg", type: "image/jpeg" },
+      { url: "/icon.jpg", type: "image/jpeg" },
     ],
-    shortcut: "/favicon-512.jpg",
+    shortcut: "/icon.jpg",
   },
   manifest: "/site.webmanifest",
   appleWebApp: {

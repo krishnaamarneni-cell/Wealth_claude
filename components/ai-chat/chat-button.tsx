@@ -128,17 +128,27 @@ function ChatButtonCore({ portfolioCtx }: { portfolioCtx: any }) {
                   </SheetDescription>
                 </div>
               </div>
-              <button
-                onClick={() => {
-                  setIsChatOpen(false)
-                  router.push('/chat')
-                }}
-                className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Close and expand to full page"
-                title="Open full chat"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => {
+                    setIsChatOpen(false)
+                    router.push('/chat')
+                  }}
+                  className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Expand to full page"
+                  title="Open full chat"
+                >
+                  <Maximize2 className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => setIsChatOpen(false)}
+                  className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Close chat"
+                  title="Close"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
           </SheetHeader>
 

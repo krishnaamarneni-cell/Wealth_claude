@@ -360,10 +360,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'PERPLEXITY_API_KEY not set' }, { status: 500 })
   }
 
-  const utcHour = new Date().getUTCHours()
-  const postType = getPostType(utcHour)
+  // Allow cron jobs to pass an explicit post_type override
+  let bodyPostType: PostType | null = null
+  try {
+    const body = await request.json().catch(() => ({}))
+    if (body?.post_type) bodyPostType = body.post_type as PostType
+  } catch { /* no body is fine */ }
 
-  console.log(`[auto-blog] ─── Run started: ${postType} (UTC ${utcHour}) ───`)
+  const utcHour = new Date().getUTCHours()
+  const postType: PostType = bodyPostType ?? getPostType(utcHour)
+
+  console.log(`[auto-blog] ─── Run started: ${postType} (UTC ${utcHour}, override: ${bodyPostType ?? 'none'}) ───`)
 
   try {
     // Step 1 — Get real US market data
@@ -405,6 +412,7 @@ export async function POST(request: NextRequest) {
           tags: post.tags,
           image_url: post.image_url || null,
           ai_model: post.ai_model || null,
+          post_type: postType,
           published: true,
           published_at: now,
           author_id: null,

@@ -61,7 +61,19 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  if (job === "blog") {
+  // Map specific job names to post_type — used by cron-job.org external crons
+  const JOB_TO_POST_TYPE: Record<string, string> = {
+    "blog": "",                      // no override — auto-blog uses UTC hour
+    "blog-premarket": "premarket",
+    "blog-market": "market-analysis",
+    "blog-market-1": "market-analysis",
+    "blog-market-2": "market-analysis",
+    "blog-aftermarket": "aftermarket",
+    "blog-geopolitical": "geopolitical",
+    "blog-education": "education",
+  }
+
+  if (job === "blog" || job in JOB_TO_POST_TYPE) {
     try {
       const baseUrl =
         process.env.NEXT_PUBLIC_APP_URL ||
@@ -69,12 +81,10 @@ export async function GET(req: NextRequest) {
         "https://www.wealthclaude.com"
 
       const cronSecret = process.env.CRON_SECRET ?? ""
-      console.log(`[CRON] Starting blog job at ${new Date().toISOString()}`)
-      console.log(`[CRON] Base URL: ${baseUrl}`)
-      console.log(`[CRON] CRON_SECRET set: ${!!cronSecret}`)
-      console.log(`[CRON] PERPLEXITY_API_KEY set: ${!!process.env.PERPLEXITY_API_KEY}`)
-      console.log(`[CRON] GEMINI_API_KEY set: ${!!process.env.GEMINI_API_KEY}`)
-      console.log(`[CRON] Calling auto-blog at: ${baseUrl}/api/auto-blog`)
+      const postType = JOB_TO_POST_TYPE[job ?? ""] ?? ""
+
+      console.log(`[CRON] Starting ${job} job at ${new Date().toISOString()}`)
+      console.log(`[CRON] Resolved post_type override: "${postType || "auto (UTC hour)"}"`)
 
       const res = await fetch(`${baseUrl}/api/auto-blog`, {
         method: "POST",
@@ -82,26 +92,25 @@ export async function GET(req: NextRequest) {
           authorization: `Bearer ${cronSecret}`,
           "Content-Type": "application/json",
         },
+        // Pass post_type so auto-blog uses it instead of UTC hour
+        body: JSON.stringify(postType ? { post_type: postType } : {}),
       })
 
       const data = await res.json()
 
-      console.log(`[CRON] auto-blog response status: ${res.status}`)
-      console.log(`[CRON] auto-blog response data:`, JSON.stringify(data, null, 2))
-
       if (!res.ok) {
-        console.error(`[CRON] auto-blog failed:`, data)
+        console.error(`[CRON] auto-blog failed for ${job}:`, data)
         return NextResponse.json(
-          { job: "blog", success: false, error: data },
+          { job, success: false, error: data },
           { status: res.status }
         )
       }
 
-      return NextResponse.json({ job: "blog", success: true, ...data })
+      return NextResponse.json({ job, success: true, ...data })
     } catch (err: any) {
-      console.error(`[CRON] blog job threw an error:`, err?.message)
+      console.error(`[CRON] ${job} threw an error:`, err?.message)
       return NextResponse.json(
-        { job: "blog", success: false, error: err?.message },
+        { job, success: false, error: err?.message },
         { status: 500 }
       )
     }

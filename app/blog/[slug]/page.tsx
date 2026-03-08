@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Clock, ArrowLeft, Calendar } from 'lucide-react'
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { ViewTracker } from '@/components/blog/ViewTracker'
 
 
 interface Props {
@@ -92,6 +93,7 @@ export default async function BlogPostPage({ params }: Props) {
 
   return (
     <div className="min-h-screen bg-background">
+      <ViewTracker slug={post.slug} />
       <Header />
       <div className="pt-16">
         {post.image_url && (

@@ -115,8 +115,8 @@ function ChatButtonCore({ portfolioCtx }: { portfolioCtx: any }) {
           <SheetHeader className="p-3 pb-2 border-b border-border/50">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-lg bg-emerald-600/15 flex items-center justify-center">
-                  <Sparkles className="h-3.5 w-3.5 text-emerald-500" />
+                <div className="h-7 w-7 rounded-lg bg-green-600/15 flex items-center justify-center">
+                  <Sparkles className="h-3.5 w-3.5 text-green-500" />
                 </div>
                 <div>
                   <SheetTitle className="text-sm font-semibold">
@@ -145,8 +145,8 @@ function ChatButtonCore({ portfolioCtx }: { portfolioCtx: any }) {
             {!hasMessages && !isLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center space-y-2">
-                  <div className="h-10 w-10 rounded-full bg-emerald-600/10 flex items-center justify-center mx-auto">
-                    <Sparkles className="h-5 w-5 text-emerald-500" />
+                  <div className="h-10 w-10 rounded-full bg-green-600/10 flex items-center justify-center mx-auto">
+                    <Sparkles className="h-5 w-5 text-green-500" />
                   </div>
                   <p className="text-sm font-medium text-foreground">
                     How can I help?
@@ -178,12 +178,12 @@ function ChatButtonCore({ portfolioCtx }: { portfolioCtx: any }) {
                 }}
                 placeholder="Ask anything..."
                 disabled={isLoading}
-                className="flex-1 h-9 rounded-lg border border-border/50 bg-muted/30 px-3 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all disabled:opacity-50"
+                className="flex-1 h-9 rounded-lg border border-border/50 bg-muted/30 px-3 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-green-500/50 focus:border-green-500/50 transition-all disabled:opacity-50"
               />
               <button
                 onClick={handleSend}
                 disabled={!input.trim() || isLoading}
-                className="h-9 w-9 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:bg-muted disabled:text-muted-foreground text-white flex items-center justify-center transition-all duration-200 shrink-0"
+                className="h-9 w-9 rounded-lg bg-green-600 hover:bg-green-500 disabled:bg-muted disabled:text-muted-foreground text-white flex items-center justify-center transition-all duration-200 shrink-0"
                 aria-label="Send message"
               >
                 <Send className="h-3.5 w-3.5" />
@@ -206,11 +206,11 @@ function ChatButtonCore({ portfolioCtx }: { portfolioCtx: any }) {
 
         <button
           onClick={() => setIsChatOpen(true)}
-          className="group relative h-12 w-12 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/25 hover:shadow-emerald-500/40 transition-all duration-300 hover:scale-105 flex items-center justify-center"
+          className="group relative h-12 w-12 rounded-full bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-600/25 hover:shadow-green-500/40 transition-all duration-300 hover:scale-105 flex items-center justify-center"
           aria-label="Open AI chat"
         >
           {!isChatOpen && (
-            <span className="absolute inset-0 rounded-full bg-emerald-500/30 animate-ping [animation-duration:3s]" />
+            <span className="absolute inset-0 rounded-full bg-green-500/30 animate-ping [animation-duration:3s]" />
           )}
           <MessageSquare className="h-5 w-5 transition-transform duration-200 group-hover:scale-110" />
         </button>

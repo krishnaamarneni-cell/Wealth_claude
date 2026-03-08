@@ -1,4 +1,48 @@
-'use client'
+import { cookies } from 'next/headers'
+import { createServerSideClient } from '@/lib/supabase'
+import { redirect, notFound } from 'next/navigation'
+
+export const metadata = {
+  title: 'AI Usage — WealthClaude',
+  description: 'Monitor AI chat performance and costs',
+  robots: 'noindex, nofollow',
+}
+
+export default async function AdminAIUsagePage() {
+  const cookieStore = await cookies()
+  const supabase = createServerSideClient(cookieStore)
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect('/auth?message=admin_required')
+  }
+
+  const adminEmail = process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL
+  const isAdmin = adminEmail ? user.email === adminEmail : false
+
+  if (!isAdmin) {
+    notFound()
+  }
+
+  return (
+    <div className="min-h-screen bg-background pt-20 px-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight">AI Usage Dashboard</h1>
+          <p className="text-muted-foreground mt-1">
+            Monitor AI chat performance and costs · Logged in as{' '}
+            <span className="text-foreground font-medium">{user.email}</span>
+          </p>
+        </div>
+
+        <AIUsageClient />
+      </div>
+    </div>
+  )
+}
 
 import { useState, useEffect, useCallback } from 'react'
 import {
@@ -33,7 +77,7 @@ interface UsageData {
   }>
 }
 
-export default function AdminAIUsagePage() {
+function AIUsageClient() {
   const [data, setData] = useState<UsageData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -76,18 +120,11 @@ export default function AdminAIUsagePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6 space-y-6">
-      {/* Header */}
+    <div className="space-y-6">
+      {/* Header with period selector */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Bot className="h-6 w-6 text-green-500" />
-            AI Usage Dashboard
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">Monitor AI chat performance and costs</p>
-        </div>
+        <div></div>
         <div className="flex items-center gap-3">
-          {/* Period selector */}
           <div className="relative">
             <select
               value={period}
@@ -238,7 +275,7 @@ export default function AdminAIUsagePage() {
                         title={`${day}: ${count} requests`}
                       />
                       <span className="text-[9px] text-muted-foreground">
-                        {day.substring(5)} {/* MM-DD */}
+                        {day.substring(5)}
                       </span>
                     </div>
                   )
@@ -323,8 +360,6 @@ export default function AdminAIUsagePage() {
   )
 }
 
-// ── Helper Components ────────────────────────────────────────────────────
-
 function StatCard({ icon, label, value, color }: {
   icon: React.ReactNode; label: string; value: string; color: string
 }) {
@@ -345,8 +380,6 @@ function StatCard({ icon, label, value, color }: {
     </div>
   )
 }
-
-// ── Style Helpers ────────────────────────────────────────────────────────
 
 function getCategoryColor(cat: string): string {
   switch (cat) {

@@ -148,8 +148,8 @@ export default function ChatPage() {
             <ArrowLeft className="h-4 w-4" />
           </button>
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-emerald-600/15 flex items-center justify-center">
-              <Sparkles className="h-4 w-4 text-emerald-500" />
+            <div className="h-8 w-8 rounded-lg bg-green-600/15 flex items-center justify-center">
+              <Sparkles className="h-4 w-4 text-green-500" />
             </div>
             <div>
               <h1 className="text-sm font-semibold">WealthClaude AI</h1>
@@ -177,8 +177,8 @@ export default function ChatPage() {
           {!hasMessages ? (
             <div className="flex flex-col items-center justify-center min-h-[calc(100vh-160px)]">
               <div className="text-center space-y-4 mb-8">
-                <div className="h-14 w-14 rounded-2xl bg-emerald-600/10 flex items-center justify-center mx-auto">
-                  <Sparkles className="h-7 w-7 text-emerald-500" />
+                <div className="h-14 w-14 rounded-2xl bg-green-600/10 flex items-center justify-center mx-auto">
+                  <Sparkles className="h-7 w-7 text-green-500" />
                 </div>
                 <div>
                   <h2 className="text-xl font-semibold">
@@ -198,10 +198,10 @@ export default function ChatPage() {
                     onClick={() => {
                       setInput(prompt.label)
                     }}
-                    className="flex items-start gap-3 p-3 rounded-xl border border-border/50 hover:border-emerald-500/30 hover:bg-emerald-500/5 transition-all duration-200 text-left group"
+                    className="flex items-start gap-3 p-3 rounded-xl border border-border/50 hover:border-green-500/30 hover:bg-green-500/5 transition-all duration-200 text-left group"
                   >
-                    <div className="h-8 w-8 rounded-lg bg-muted/50 group-hover:bg-emerald-600/10 flex items-center justify-center shrink-0 transition-colors">
-                      <prompt.icon className="h-4 w-4 text-muted-foreground group-hover:text-emerald-500 transition-colors" />
+                      <div className="h-8 w-8 rounded-lg bg-muted/50 group-hover:bg-green-600/10 flex items-center justify-center shrink-0 transition-colors">
+                        <prompt.icon className="h-4 w-4 text-muted-foreground group-hover:text-green-500 transition-colors" />
                     </div>
                     <div>
                       <p className="text-sm font-medium">{prompt.label}</p>
@@ -239,13 +239,13 @@ export default function ChatPage() {
                 }}
                 placeholder="Ask anything about your finances..."
                 disabled={isLoading}
-                className="w-full h-10 rounded-xl border border-border/50 bg-muted/30 px-4 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all disabled:opacity-50"
+                className="w-full h-10 rounded-xl border border-border/50 bg-muted/30 px-4 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-green-500/50 focus:border-green-500/50 transition-all disabled:opacity-50"
               />
             </div>
             <button
               onClick={handleSend}
               disabled={!input.trim() || isLoading}
-              className="h-10 w-10 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-muted disabled:text-muted-foreground text-white flex items-center justify-center transition-all duration-200 shrink-0"
+              className="h-10 w-10 rounded-xl bg-green-600 hover:bg-green-500 disabled:bg-muted disabled:text-muted-foreground text-white flex items-center justify-center transition-all duration-200 shrink-0"
               aria-label="Send message"
             >
               <Send className="h-4 w-4" />

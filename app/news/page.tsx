@@ -7,6 +7,21 @@ import type { Metadata } from "next"
 export const metadata: Metadata = {
   title: 'Market News — WealthClaude | AI-Powered Finance News',
   description: 'Stay ahead of the market with AI-powered US stock market news, pre-market previews, geopolitical analysis and finance education updated 6 times daily.',
+  alternates: { canonical: 'https://www.wealthclaude.com/news' },
+  openGraph: {
+    title: 'Market News — WealthClaude | AI-Powered Finance News',
+    description: 'Stay ahead of the market with AI-powered US stock market news, pre-market previews, geopolitical analysis and finance education updated 6 times daily.',
+    url: 'https://www.wealthclaude.com/news',
+    siteName: 'WealthClaude',
+    type: 'website',
+    images: [{ url: '/favicon-512.jpg', width: 512, height: 512, alt: 'WealthClaude Market News' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Market News — WealthClaude | AI-Powered Finance News',
+    description: 'Stay ahead of the market with AI-powered US stock market news, pre-market previews, geopolitical analysis and finance education updated 6 times daily.',
+    images: ['/favicon-512.jpg'],
+  },
 }
 
 export default function NewsPage() {

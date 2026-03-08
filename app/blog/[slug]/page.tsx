@@ -82,13 +82,27 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
   const post = await getPost(slug)
   if (!post) return { title: 'Post Not Found' }
+  const url = `https://www.wealthclaude.com/blog/${post.slug}`
   return {
     title: `${post.title} — WealthClaude`,
     description: post.excerpt ?? '',
+    alternates: { canonical: url },
     openGraph: {
       title: post.title,
       description: post.excerpt ?? '',
-      images: post.image_url ? [post.image_url] : [],
+      url,
+      siteName: 'WealthClaude',
+      type: 'article',
+      publishedTime: post.published_at,
+      images: post.image_url
+        ? [{ url: post.image_url, width: 1200, height: 630, alt: post.title }]
+        : [{ url: '/favicon-512.jpg', width: 512, height: 512, alt: 'WealthClaude' }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${post.title} — WealthClaude`,
+      description: post.excerpt ?? '',
+      images: post.image_url ? [post.image_url] : ['/favicon-512.jpg'],
     },
   }
 }

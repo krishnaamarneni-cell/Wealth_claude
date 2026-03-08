@@ -66,27 +66,12 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      {
-        url: "/favicon-32x32.png?v=2",
-        sizes: "32x32",
-        type: "image/png",
-      },
-      {
-        url: "/favicon-96x96.png?v=2",
-        sizes: "96x96",
-        type: "image/png",
-      },
-      {
-        url: "/icon.svg?v=2",
-        type: "image/svg+xml",
-      },
+      { url: "/favicon-512.jpg", type: "image/jpeg" },
     ],
     apple: [
-      "/apple-icon.png?v=2",
-      { url: "/apple-icon-180x180.png?v=2", sizes: "180x180", type: "image/png" },
-      { url: "/apple-icon-144x144.png?v=2", sizes: "144x144", type: "image/png" },
-      { url: "/apple-icon-120x120.png?v=2", sizes: "120x120", type: "image/png" },
+      { url: "/favicon-512.jpg", type: "image/jpeg" },
     ],
+    shortcut: "/favicon-512.jpg",
   },
   manifest: "/site.webmanifest",
   appleWebApp: {

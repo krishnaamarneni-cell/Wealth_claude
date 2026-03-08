@@ -16,24 +16,6 @@ import { ChatMessageList, type ChatMessage } from "@/components/ai-chat/chat-mes
 import { buildPortfolioSnapshot } from "@/components/ai-chat/financial-snapshot"
 import { usePortfolioSafe } from "@/lib/portfolio-context"
 
-// Try to import usePortfolio — will fail gracefully if not in provider
-let usePortfolioHook: (() => any) | null = null
-try {
-  const mod = require("@/lib/portfolio-context")
-  usePortfolioHook = mod.usePortfolio
-} catch {
-  // Not inside PortfolioProvider
-}
-
-function usePortfolioSafe() {
-  try {
-    if (usePortfolioHook) return usePortfolioHook()
-  } catch {
-    // Outside PortfolioProvider
-  }
-  return null
-}
-
 const SUGGESTED_PROMPTS = [
   {
     icon: PiggyBank,
@@ -64,8 +46,6 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false)
   const portfolioCtx = usePortfolioSafe()
   const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  const portfolioCtx = usePortfolioSafe()
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })

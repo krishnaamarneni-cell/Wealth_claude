@@ -1,4 +1,5 @@
 'use client'
+// Fixed: Single close button only - forcing GitHub sync
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'

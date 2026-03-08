@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { MessageSquare, X, Maximize2, Sparkles } from 'lucide-react'
+import { MessageSquare, X, Maximize2, Sparkles, Send } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
@@ -10,13 +10,52 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet'
+import { ChatMessageList, type ChatMessage } from '@/components/ai-chat/chat-message-list'
 
 export function AIChatButton() {
   const [isVisible, setIsVisible] = useState(true)
   const [isChatOpen, setIsChatOpen] = useState(false)
+  const [input, setInput] = useState('')
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, isLoading])
+
+  const handleSend = () => {
+    if (!input.trim()) return
+
+    const userMessage: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: input.trim(),
+      timestamp: new Date(),
+    }
+
+    setMessages((prev) => [...prev, userMessage])
+    setInput('')
+    setIsLoading(true)
+
+    // Simulate AI response — will be replaced in Phase 3 with real Groq call
+    setTimeout(() => {
+      const aiMessage: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content:
+          "I'm not connected to an LLM yet — that's coming in **Phase 3**. Once wired up, I'll analyze your portfolio, goals, and more.\n\nFor now, the UI works!",
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, aiMessage])
+      setIsLoading(false)
+    }, 1500)
+  }
+
   if (!isVisible) return null
+
+  const hasMessages = messages.length > 0
 
   return (
     <>
@@ -56,32 +95,55 @@ export function AIChatButton() {
             </div>
           </SheetHeader>
 
-          {/* Messages Area — placeholder for Step 4 */}
-          <div className="flex-1 overflow-y-auto p-4 flex items-center justify-center">
-            <div className="text-center space-y-2">
-              <div className="h-10 w-10 rounded-full bg-emerald-600/10 flex items-center justify-center mx-auto">
-                <Sparkles className="h-5 w-5 text-emerald-500" />
+          {/* Messages Area */}
+          <div className="flex-1 overflow-y-auto p-3">
+            {!hasMessages && !isLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center space-y-2">
+                  <div className="h-10 w-10 rounded-full bg-emerald-600/10 flex items-center justify-center mx-auto">
+                    <Sparkles className="h-5 w-5 text-emerald-500" />
+                  </div>
+                  <p className="text-sm font-medium text-foreground">
+                    How can I help?
+                  </p>
+                  <p className="text-xs text-muted-foreground max-w-[220px]">
+                    Ask about your portfolio, goals, debts, or market trends.
+                  </p>
+                </div>
               </div>
-              <p className="text-sm font-medium text-foreground">
-                How can I help?
-              </p>
-              <p className="text-xs text-muted-foreground max-w-[220px]">
-                Ask about your portfolio, goals, debts, or market trends.
-              </p>
-            </div>
+            ) : (
+              <>
+                <ChatMessageList messages={messages} isLoading={isLoading} />
+                <div ref={messagesEndRef} />
+              </>
+            )}
           </div>
 
-          {/* Input Area — placeholder for Step 5 */}
+          {/* Input Area */}
           <div className="p-3 pt-2 border-t border-border/50">
             <div className="flex items-center gap-2">
-              <div className="flex-1 h-9 rounded-lg border border-border/50 bg-muted/30 flex items-center px-3">
-                <span className="text-xs text-muted-foreground">
-                  Ask anything...
-                </span>
-              </div>
-              <div className="h-9 w-9 rounded-lg bg-emerald-600/20 flex items-center justify-center">
-                <MessageSquare className="h-4 w-4 text-emerald-500/50" />
-              </div>
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && input.trim() && !isLoading) {
+                    e.preventDefault()
+                    handleSend()
+                  }
+                }}
+                placeholder="Ask anything..."
+                disabled={isLoading}
+                className="flex-1 h-9 rounded-lg border border-border/50 bg-muted/30 px-3 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all disabled:opacity-50"
+              />
+              <button
+                onClick={handleSend}
+                disabled={!input.trim() || isLoading}
+                className="h-9 w-9 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:bg-muted disabled:text-muted-foreground text-white flex items-center justify-center transition-all duration-200 shrink-0"
+                aria-label="Send message"
+              >
+                <Send className="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
         </SheetContent>
@@ -89,7 +151,6 @@ export function AIChatButton() {
 
       {/* Floating Button */}
       <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2">
-        {/* Dismiss button */}
         {!isChatOpen && (
           <button
             onClick={() => setIsVisible(false)}
@@ -100,7 +161,6 @@ export function AIChatButton() {
           </button>
         )}
 
-        {/* Main chat toggle */}
         <button
           onClick={() => setIsChatOpen(true)}
           className="group relative h-12 w-12 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/25 hover:shadow-emerald-500/40 transition-all duration-300 hover:scale-105 flex items-center justify-center"

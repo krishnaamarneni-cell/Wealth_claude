@@ -1,6 +1,20 @@
+/**
+ * Phase 4 — Updated /api/ai-chat/route.ts
+ * 
+ * Changes from Phase 3:
+ *   - Classifies questions as portfolio / market / mixed
+ *   - Routes market questions to Perplexity (real-time web search)
+ *   - Routes mixed questions: Perplexity first → then Groq with both contexts
+ *   - Portfolio questions still go to Groq (existing behavior, unchanged)
+ * 
+ * Replace your existing: app/api/ai-chat/route.ts
+ */
+
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerSideClient } from '@/lib/supabase'
+import { classifyQuestion } from '@/lib/ai-chat/question-classifier'
+import { queryPerplexity, formatMarketResponse, formatAsGroqContext } from '@/lib/ai-chat/perplexity-client'
 import type { FinancialSnapshot } from '@/components/ai-chat/financial-snapshot'
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
@@ -37,7 +51,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
 
-    // ── Fetch debts, goals, financial settings from Supabase ───────────
+    // ── Step 15: Classify the question ─────────────────────────────────
+    const holdingSymbols = portfolioSnapshot?.holdings?.map((h) => h.symbol) ?? []
+    const classification = classifyQuestion(message, holdingSymbols)
+
+    console.log(`[AI Chat] Classification: ${classification.category} (${(classification.confidence * 100).toFixed(0)}%) — ${classification.reasoning}`)
+
+    // ── Route based on classification ──────────────────────────────────
+
+    // MARKET ONLY → Perplexity handles it directly
+    if (classification.category === 'market') {
+      return await handleMarketQuestion(message, classification.marketQuery!)
+    }
+
+    // PORTFOLIO or MIXED → need Supabase data
     const [debtsResult, goalsResult, settingsResult] = await Promise.all([
       supabase
         .from('user_debts')
@@ -80,7 +107,6 @@ export async function POST(req: NextRequest) {
       }
       : null
 
-    // ── Build full financial snapshot ───────────────────────────────────
     const fullSnapshot: FinancialSnapshot = {
       portfolio: portfolioSnapshot ?? ({} as any),
       debts,
@@ -88,69 +114,18 @@ export async function POST(req: NextRequest) {
       financialProfile,
     }
 
-    // ── Build system prompt ────────────────────────────────────────────
-    const systemPrompt = buildSystemPrompt(fullSnapshot)
-
-    // ── Build messages array (last 10 messages for context) ────────────
-    const recentHistory = chatHistory.slice(-10)
-
-    const groqMessages = [
-      { role: 'system' as const, content: systemPrompt },
-      ...recentHistory.map((m) => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-      })),
-      { role: 'user' as const, content: message },
-    ]
-
-    // ── Call Groq API ──────────────────────────────────────────────────
-    const groqApiKey = process.env.GROQ_API_KEY
-    if (!groqApiKey) {
-      console.error('[AI Chat] GROQ_API_KEY is not set')
-      return NextResponse.json(
-        { response: 'AI service is not configured. Please add your GROQ_API_KEY.' },
-        { status: 500 }
+    // MIXED → Fetch market data from Perplexity, then combine with portfolio in Groq
+    if (classification.category === 'mixed') {
+      return await handleMixedQuestion(
+        message,
+        classification.marketQuery!,
+        fullSnapshot,
+        chatHistory
       )
     }
 
-    const groqResponse = await fetch(GROQ_API_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${groqApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages: groqMessages,
-        temperature: 0.7,
-        max_tokens: 1024,
-        top_p: 0.9,
-      }),
-    })
-
-    if (!groqResponse.ok) {
-      const errorText = await groqResponse.text()
-      console.error('[AI Chat] Groq API error:', groqResponse.status, errorText)
-
-      // If rate limited, return a friendly message
-      if (groqResponse.status === 429) {
-        return NextResponse.json({
-          response: "I'm getting a lot of questions right now. Please wait a moment and try again.",
-        })
-      }
-
-      return NextResponse.json({
-        response: "Sorry, I had trouble thinking about that. Please try again.",
-      })
-    }
-
-    const groqData = await groqResponse.json()
-    const aiResponse = groqData.choices?.[0]?.message?.content ?? 'Sorry, I couldn\'t generate a response.'
-
-    return NextResponse.json({
-      success: true,
-      response: aiResponse,
-    })
+    // PORTFOLIO → Groq only (existing Phase 3 behavior)
+    return await handlePortfolioQuestion(message, fullSnapshot, chatHistory)
 
   } catch (error) {
     console.error('[AI Chat] Error:', error)
@@ -161,7 +136,164 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ── System Prompt Builder ────────────────────────────────────────────────
+// ── Handler: Pure market questions (Step 16) ─────────────────────────────
+
+async function handleMarketQuestion(
+  userMessage: string,
+  searchQuery: string
+) {
+  console.log(`[AI Chat] → Perplexity (market) | Query: "${searchQuery}"`)
+
+  const perplexityResult = await queryPerplexity(userMessage, searchQuery)
+
+  if (!perplexityResult.success) {
+    // Fallback: try Groq with a general response
+    console.warn('[AI Chat] Perplexity failed, falling back to Groq for market question')
+    return await fallbackGroqMarket(userMessage)
+  }
+
+  const response = formatMarketResponse(perplexityResult)
+
+  return NextResponse.json({
+    success: true,
+    response,
+    metadata: {
+      route: 'perplexity',
+      category: 'market',
+    },
+  })
+}
+
+// ── Handler: Mixed questions (Step 17) ───────────────────────────────────
+
+async function handleMixedQuestion(
+  userMessage: string,
+  searchQuery: string,
+  snapshot: FinancialSnapshot,
+  chatHistory: Array<{ role: 'user' | 'assistant'; content: string }>
+) {
+  console.log(`[AI Chat] → Perplexity + Groq (mixed) | Query: "${searchQuery}"`)
+
+  // Step 1: Get market data from Perplexity
+  const perplexityResult = await queryPerplexity(userMessage, searchQuery)
+
+  // Step 2: Build system prompt with BOTH portfolio data AND market data
+  let systemPrompt = buildSystemPrompt(snapshot)
+
+  // Inject market data into the prompt
+  if (perplexityResult.success) {
+    systemPrompt += formatAsGroqContext(perplexityResult)
+    systemPrompt += `IMPORTANT: The user's question involves both their portfolio AND current market data.
+Use the real-time market data above together with their portfolio data to give a complete answer.
+When referencing market data, mention that it's from recent web sources.
+When referencing portfolio data, use their specific numbers.\n\n`
+  } else {
+    systemPrompt += `=== MARKET DATA ===
+Real-time market data lookup was attempted but unavailable.
+Answer using the portfolio data you have, and note that current market data couldn't be fetched.\n\n`
+  }
+
+  // Step 3: Send combined context to Groq
+  return await callGroq(systemPrompt, userMessage, chatHistory, 'mixed')
+}
+
+// ── Handler: Pure portfolio questions (existing Phase 3) ─────────────────
+
+async function handlePortfolioQuestion(
+  userMessage: string,
+  snapshot: FinancialSnapshot,
+  chatHistory: Array<{ role: 'user' | 'assistant'; content: string }>
+) {
+  console.log('[AI Chat] → Groq (portfolio)')
+
+  const systemPrompt = buildSystemPrompt(snapshot)
+  return await callGroq(systemPrompt, userMessage, chatHistory, 'portfolio')
+}
+
+// ── Groq caller (shared) ─────────────────────────────────────────────────
+
+async function callGroq(
+  systemPrompt: string,
+  userMessage: string,
+  chatHistory: Array<{ role: 'user' | 'assistant'; content: string }>,
+  category: string
+) {
+  const groqApiKey = process.env.GROQ_API_KEY
+  if (!groqApiKey) {
+    console.error('[AI Chat] GROQ_API_KEY is not set')
+    return NextResponse.json(
+      { response: 'AI service is not configured. Please add your GROQ_API_KEY.' },
+      { status: 500 }
+    )
+  }
+
+  const recentHistory = chatHistory.slice(-10)
+
+  const groqMessages = [
+    { role: 'system' as const, content: systemPrompt },
+    ...recentHistory.map((m) => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+    })),
+    { role: 'user' as const, content: userMessage },
+  ]
+
+  const groqResponse = await fetch(GROQ_API_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${groqApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: GROQ_MODEL,
+      messages: groqMessages,
+      temperature: 0.7,
+      max_tokens: 1024,
+      top_p: 0.9,
+    }),
+  })
+
+  if (!groqResponse.ok) {
+    const errorText = await groqResponse.text()
+    console.error('[AI Chat] Groq API error:', groqResponse.status, errorText)
+
+    if (groqResponse.status === 429) {
+      return NextResponse.json({
+        response: "I'm getting a lot of questions right now. Please wait a moment and try again.",
+      })
+    }
+
+    return NextResponse.json({
+      response: "Sorry, I had trouble thinking about that. Please try again.",
+    })
+  }
+
+  const groqData = await groqResponse.json()
+  const aiResponse = groqData.choices?.[0]?.message?.content ?? "Sorry, I couldn't generate a response."
+
+  return NextResponse.json({
+    success: true,
+    response: aiResponse,
+    metadata: {
+      route: category === 'mixed' ? 'perplexity+groq' : 'groq',
+      category,
+    },
+  })
+}
+
+// ── Fallback: Groq for market questions when Perplexity fails ────────────
+
+async function fallbackGroqMarket(userMessage: string) {
+  const systemPrompt = `You are WealthClaude AI, a financial assistant.
+The user asked a market/financial question. You don't have access to real-time data right now.
+Give the best answer you can from your training data, but clearly note that your information may not be current.
+Suggest the user check a financial site like Yahoo Finance or Google Finance for the latest data.
+Keep it concise. Always end with a disclaimer that you're not a licensed financial advisor.`
+
+  return await callGroq(systemPrompt, userMessage, [], 'market-fallback')
+}
+
+// ── System Prompt Builder (unchanged from Phase 3) ───────────────────────
 
 function buildSystemPrompt(snapshot: FinancialSnapshot): string {
   const { portfolio, debts, goals, financialProfile } = snapshot

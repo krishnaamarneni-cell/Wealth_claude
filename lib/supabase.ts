@@ -1,7 +1,6 @@
 import { createBrowserClient, createServerClient } from '@supabase/ssr'
 import type { Database } from '@/types/database'
-import type { NextRequest, NextResponse } from 'next/server'
-import { NextResponse } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 
 // Global singleton instance - initialized only once
 let supabaseInstance: ReturnType<typeof createBrowserClient> | undefined

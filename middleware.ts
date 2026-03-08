@@ -19,14 +19,14 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
-     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
      * - sitemap.xml (SEO)
      * - robots.txt (SEO)
+     * NOTE: api routes are intentionally included so session cookies are refreshed
      */
-    '/((?!_next/static|_next/image|api|favicon.ico|public|sitemap.xml|robots.txt).*)',
+    '/((?!_next/static|_next/image|favicon.ico|public|sitemap.xml|robots.txt).*)',
   ],
 }

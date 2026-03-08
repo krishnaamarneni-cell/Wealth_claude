@@ -1,19 +1,14 @@
+// v30-FINAL-NO-LOWERCASE-NO-DUE-DATE
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerSideClient } from '@/lib/supabase'
 
-// ===== v22 COMPLETE REBUILD =====
-// Cache invalidation timestamp: 2026-03-07-18:45:00
-// Debt types MUST be converted to lowercase before database insert
-// Database schema expects: user_id, name, type (lowercase), balance, apr, min_payment
-// v21: Convert debt types to lowercase for database constraint
-// Only insert 6 columns: user_id, name, type, balance, apr, min_payment
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const cookieStore = await cookies()
     const supabase = createServerSideClient(cookieStore)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json([], { status: 401 })
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { data, error } = await supabase
       .from('user_debts')
@@ -44,14 +39,13 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
-    const debtType = (body.type || 'Other').toLowerCase()
 
     const { error, data } = await supabase
       .from('user_debts')
       .insert({
         user_id: user.id,
         name: body.name,
-        type: debtType,
+        type: body.type,
         balance: Number(body.balance) || 0,
         apr: Number(body.apr) || 0,
         min_payment: Number(body.monthlyPayment) || 0,
@@ -91,7 +85,6 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Debts must be an array' }, { status: 400 })
     }
 
-    // Delete all existing debts for this user
     const { error: deleteError } = await supabase
       .from('user_debts')
       .delete()
@@ -99,20 +92,17 @@ export async function PUT(req: NextRequest) {
     if (deleteError) throw deleteError
 
     for (const debt of debts) {
-      // Convert type to lowercase to match database CHECK constraint
-      const debtType = (debt.type || 'Other').toLowerCase()
-      
       const { error: insertError } = await supabase
         .from('user_debts')
         .insert({
           user_id: user.id,
           name: debt.name,
-          type: debtType,
+          type: debt.type,
           balance: Number(debt.balance) || 0,
           apr: Number(debt.apr) || 0,
           min_payment: Number(debt.monthlyPayment) || 0,
         })
-      
+
       if (insertError) {
         console.error(`[user-debts] PUT error for debt ${debt.name}:`, insertError)
         throw insertError
@@ -143,6 +133,7 @@ export async function DELETE(req: NextRequest) {
       .eq('id', id)
       .eq('user_id', user.id)
     if (error) throw error
+    
     return NextResponse.json({ success: true })
   } catch (e) {
     console.error('[user-debts] DELETE error:', e)

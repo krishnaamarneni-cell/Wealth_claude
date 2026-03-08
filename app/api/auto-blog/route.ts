@@ -310,12 +310,18 @@ Respond ONLY with valid JSON, absolutely no markdown or code blocks:
 
     if (pixabayKey && parsed.image_query) {
       try {
+        // Use random page (1-3) and random hit index to get image variety
+        const page = Math.floor(Math.random() * 3) + 1
         const imgRes = await fetch(
-          `https://pixabay.com/api/?key=${pixabayKey}&q=${encodeURIComponent(parsed.image_query)}&image_type=photo&orientation=horizontal&category=business&per_page=5&safesearch=true`
+          `https://pixabay.com/api/?key=${pixabayKey}&q=${encodeURIComponent(parsed.image_query)}&image_type=photo&orientation=horizontal&category=business&per_page=10&page=${page}&safesearch=true`
         )
         if (imgRes.ok) {
           const img = await imgRes.json()
-          image_url = img.hits?.[0]?.webformatURL ?? ''
+          const hits = img.hits ?? []
+          if (hits.length > 0) {
+            const pick = hits[Math.floor(Math.random() * hits.length)]
+            image_url = pick?.webformatURL ?? ''
+          }
         }
       } catch { console.warn('[auto-blog] Pixabay failed, trying Unsplash...') }
     }
@@ -351,6 +357,13 @@ Respond ONLY with valid JSON, absolutely no markdown or code blocks:
 
 // ─── Main handler ─────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
+  // Read body FIRST before any other async operations consume the request
+  let bodyPostType: PostType | null = null
+  try {
+    const body = await request.json()
+    if (body?.post_type) bodyPostType = body.post_type as PostType
+  } catch { /* no body is fine */ }
+
   if (!(await isAuthorized(request))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -359,13 +372,6 @@ export async function POST(request: NextRequest) {
   if (!apiKey) {
     return NextResponse.json({ error: 'PERPLEXITY_API_KEY not set' }, { status: 500 })
   }
-
-  // Allow cron jobs to pass an explicit post_type override
-  let bodyPostType: PostType | null = null
-  try {
-    const body = await request.json().catch(() => ({}))
-    if (body?.post_type) bodyPostType = body.post_type as PostType
-  } catch { /* no body is fine */ }
 
   const utcHour = new Date().getUTCHours()
   const postType: PostType = bodyPostType ?? getPostType(utcHour)

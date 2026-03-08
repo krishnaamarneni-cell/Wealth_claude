@@ -56,12 +56,24 @@ export async function queryPerplexity(
 RULES:
 - Focus on facts: prices, percentages, dates, analyst ratings.
 - Include specific numbers whenever available.
-- Keep responses under 300 words — be dense with information.
-- Mention the date/time of the data when relevant.
-- If discussing a stock, include: current price, recent change, key news.
-- For economic data, include the most recent figures and trend.
+- Keep responses between 200-400 words — be dense with information.
 - Do NOT give investment advice or say "should buy/sell".
-- State facts and let the user decide.`,
+- State facts and let the user decide.
+
+FORMATTING (STRICT):
+- Start with a **one-line bold summary** answering the question.
+- Use a **markdown table** for key metrics. For a stock, use:
+
+| Metric | Value |
+|--------|-------|
+| Price | $XX.XX |
+| Change | +X.X% |
+| 52W High | $XX |
+| 52W Low | $XX |
+
+- After the table, add 2-3 bullet points of key news or context.
+- Bold all dollar amounts, percentages, and ticker symbols.
+- Never write long paragraphs.`,
           },
           {
             role: 'user',

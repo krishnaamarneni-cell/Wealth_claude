@@ -1,8 +1,7 @@
 "use client"
 
 import { useState, useMemo, useCallback, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Pencil, Upload, CreditCard } from "lucide-react"
+import { Pencil, Upload } from "lucide-react"
 import { ManualEntry } from "@/components/goals/debt/ManualEntry"
 import { UploadStatement } from "@/components/goals/debt/UploadStatement"
 import { DebtSummaryCards } from "@/components/goals/debt/DebtSummaryCards"
@@ -23,7 +22,7 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
   const [extraPayment, setExtraPayment] = useState(200)
   const [showResults, setShowResults] = useState(false)
 
-  // ==================== AUTO-SAVE DEBTS TO SUPABASE ====================
+  // Auto-save debts to Supabase via API (scoped to authenticated user)
   useEffect(() => {
     const timer = setTimeout(async () => {
       try {
@@ -53,7 +52,6 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
     return () => clearTimeout(timer)
   }, [debts])
 
-  // Calculate both strategies for comparison
   const allResults = useMemo(
     () => ({
       avalanche: calculatePayoffPlan(debts, "avalanche", extraPayment),
@@ -83,8 +81,7 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
   const handleApplyCards = useCallback(
     (importedDebts: Debt[]) => {
       setDebts((prev) => [...prev, ...importedDebts].slice(0, 20))
-      setEntryMode("manual") // Switch to manual entry to show the table
-      // Auto-calculate after applying
+      setEntryMode("manual")
       setTimeout(() => setShowResults(true), 100)
     },
     [setDebts]
@@ -107,7 +104,6 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
 
   return (
     <div className="space-y-6">
-      {/* Manual Entry / Upload Statement Toggle */}
       <div className="grid grid-cols-2 rounded-lg overflow-hidden border border-border">
         <button
           onClick={() => setEntryMode("manual")}
@@ -131,7 +127,6 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
         </button>
       </div>
 
-      {/* Entry Mode Content */}
       {entryMode === "manual" ? (
         <ManualEntry
           debts={debts}
@@ -142,25 +137,20 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
         <UploadStatement onApplyCards={handleApplyCards} />
       )}
 
-      {/* Summary Cards */}
       <DebtSummaryCards debts={debts} />
-
-      {/* Donut Charts */}
       <CreditCardDonut debts={debts} />
       <AllLoansDonut debts={debts} />
 
-      {/* Payoff Strategy */}
       <PayoffStrategy
-          debts={debts}
-          strategy={strategy}
-          setStrategy={handleStrategyChange}
-          extraPayment={extraPayment}
-          setExtraPayment={handleExtraPaymentChange}
-          onCalculate={handleCalculate}
-          allResults={allResults}
+        debts={debts}
+        strategy={strategy}
+        setStrategy={handleStrategyChange}
+        extraPayment={extraPayment}
+        setExtraPayment={handleExtraPaymentChange}
+        onCalculate={handleCalculate}
+        allResults={allResults}
       />
 
-      {/* Results (only shown after Calculate is clicked) */}
       {showResults && debts.length > 0 && (
         <PayoffResults
           debts={debts}
@@ -170,7 +160,6 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
           allResults={allResults}
         />
       )}
-
     </div>
   )
 }

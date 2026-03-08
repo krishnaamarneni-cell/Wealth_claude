@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import AnalyticsWrapper from "@/components/Analytics"
 // Analytics is a client component and properly handles ssr: false
 import "./globals.css"
+import { AIChatButton } from "@/components/ai-chat/chat-button"
 
 const geistSans = Geist({ subsets: ["latin"] })
 const geistMono = Geist_Mono({ subsets: ["latin"] })
@@ -104,6 +105,7 @@ export default function RootLayout({
         >
           {children}
           <AnalyticsWrapper />
+          <AIChatButton />
         </ThemeProvider>
       </body>
     </html>

@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
-    const debtType = body.type || 'Other'
+    const debtType = (body.type || 'Other').toLowerCase()
 
     const { error, data } = await supabase
       .from('user_debts')
@@ -93,27 +93,23 @@ export async function PUT(req: NextRequest) {
       .eq('user_id', user.id)
     if (deleteError) throw deleteError
 
-    // Insert only the valid 6 columns: user_id, name, type, balance, apr, min_payment
     for (const debt of debts) {
-      const debtType = debt.type || 'Other'
-      
-      const payload = {
-        user_id: user.id,
-        name: debt.name,
-        type: debtType,
-        balance: Number(debt.balance) || 0,
-        apr: Number(debt.apr) || 0,
-        min_payment: Number(debt.monthlyPayment) || 0,
-      }
-      
-      console.log('[user-debts] PUT: Inserting payload columns:', Object.keys(payload), 'type value:', debtType)
+      // Convert type to lowercase to match database CHECK constraint
+      const debtType = (debt.type || 'Other').toLowerCase()
       
       const { error: insertError } = await supabase
         .from('user_debts')
-        .insert(payload)
+        .insert({
+          user_id: user.id,
+          name: debt.name,
+          type: debtType,
+          balance: Number(debt.balance) || 0,
+          apr: Number(debt.apr) || 0,
+          min_payment: Number(debt.monthlyPayment) || 0,
+        })
       
       if (insertError) {
-        console.error(`[user-debts] PUT: Insert error for debt ${debt.name}:`, insertError)
+        console.error(`[user-debts] PUT error for debt ${debt.name}:`, insertError)
         throw insertError
       }
     }

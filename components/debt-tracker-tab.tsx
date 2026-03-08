@@ -21,21 +21,21 @@ export interface Debt {
 }
 
 const LOAN_TYPES = [
-  { label: 'Credit Card', value: 'credit_card' },
-  { label: 'Mortgage', value: 'mortgage' },
-  { label: 'Car / Auto Loan', value: 'auto_loan' },
-  { label: 'Personal Loan', value: 'personal_loan' },
-  { label: 'Student Loan', value: 'student_loan' },
-  { label: 'Other', value: 'other' },
+  { label: 'Credit Card', value: 'Credit Card' },
+  { label: 'Mortgage', value: 'Mortgage' },
+  { label: 'Car / Auto Loan', value: 'Auto Loan' },
+  { label: 'Personal Loan', value: 'Personal Loan' },
+  { label: 'Student Loan', value: 'Student Loan' },
+  { label: 'Other', value: 'Other' },
 ]
 
 const DEBT_COLORS: Record<string, string> = {
-  credit_card: '#ef4444',
-  mortgage: '#eab308',
-  auto_loan: '#f97316',
-  personal_loan: '#8b5cf6',
-  student_loan: '#3b82f6',
-  other: '#6b7280',
+  'Credit Card': '#ef4444',
+  'Mortgage': '#eab308',
+  'Auto Loan': '#f97316',
+  'Personal Loan': '#8b5cf6',
+  'Student Loan': '#3b82f6',
+  'Other': '#6b7280',
 }
 
 // ── REGEX PDF EXTRACTION LOGIC (Ported from working Credit Card tool) ─────────
@@ -167,19 +167,16 @@ export function DebtTrackerTab({ onDebtsChange }: { onDebtsChange?: (debts: Debt
   const [isParsing, setIsParsing] = useState(false)
 
   // Forms
-  const [manualForm, setManualForm] = useState({ name: '', type: 'credit_card', balance: '', apr: '', minPay: '' })
+  const [manualForm, setManualForm] = useState({ name: '', type: 'Credit Card', balance: '', apr: '', minPay: '' })
   const [confirmData, setConfirmData] = useState<Partial<Debt> | null>(null)
 
-  // ── SAVE DEBT (Direct via API) ──────────────────────────────────────
+  // ── SAVE DEBT (via API - auth handled server-side) ──────────────────────────────────────
   const handleSave = async (data: any) => {
     setSaving(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { alert('Please log in'); setSaving(false); return }
-
       const debtData = {
         name: data.name,
-        type: (data.type || 'credit_card') as any,
+        type: data.type || 'Other',
         balance: parseFloat(data.balance),
         apr: parseFloat(data.apr),
         monthlyPayment: parseFloat(data.minPay || data.minimumPayment) || 25,
@@ -195,13 +192,14 @@ export function DebtTrackerTab({ onDebtsChange }: { onDebtsChange?: (debts: Debt
       if (response.ok) {
         setShowForm(false)
         setConfirmData(null)
-        setManualForm({ name: '', type: 'credit_card', balance: '', apr: '', minPay: '' })
+        setManualForm({ name: '', type: 'Credit Card', balance: '', apr: '', minPay: '' })
         // Reload debts from API
         const res = await fetch('/api/user-debts')
         const newData = await res.json()
         setRawDebts(newData || [])
       } else {
-        alert('Failed to save. Check your connection.')
+        const err = await response.json()
+        alert('Failed to save: ' + (err.details || err.error || 'Unknown error'))
       }
     } catch (e: any) { alert(e.message) }
     setSaving(false)

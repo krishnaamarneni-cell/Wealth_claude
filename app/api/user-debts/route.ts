@@ -90,26 +90,51 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Debts must be an array' }, { status: 400 })
     }
 
-    // Delete all existing debts for this user first
-    const { error: deleteError } = await supabase
+    // Get existing debt IDs for this user
+    const { data: existing } = await supabase
       .from('user_debts')
-      .delete()
+      .select('id')
       .eq('user_id', user.id)
-    if (deleteError) throw deleteError
 
-    // Insert fresh list - only the 6 valid columns
-    for (const debt of debts) {
-      const { error: insertError } = await supabase
+    const existingIds = (existing || []).map((r: any) => r.id)
+    const incomingIds = debts.filter(d => d.id).map((d: any) => d.id)
+
+    // Delete rows that are no longer in the incoming list
+    const toDelete = existingIds.filter((id: string) => !incomingIds.includes(id))
+    if (toDelete.length > 0) {
+      const { error: deleteError } = await supabase
         .from('user_debts')
-        .insert({
-          user_id: user.id,
-          name: debt.name,
-          type: debt.type,
-          balance: Number(debt.balance) || 0,
-          apr: Number(debt.apr) || 0,
-          min_payment: Number(debt.monthlyPayment || debt.minimumPayment) || 0,
-        })
-      if (insertError) throw insertError
+        .delete()
+        .in('id', toDelete)
+        .eq('user_id', user.id)
+      if (deleteError) throw deleteError
+    }
+
+    // Upsert incoming debts (insert new, update existing)
+    for (const debt of debts) {
+      const payload: any = {
+        user_id: user.id,
+        name: debt.name,
+        type: debt.type,
+        balance: Number(debt.balance) || 0,
+        apr: Number(debt.apr) || 0,
+        min_payment: Number(debt.monthlyPayment || debt.minimumPayment) || 0,
+      }
+      if (debt.id) payload.id = debt.id
+
+      const { error: upsertError } = await supabase
+        .from('user_debts')
+        .upsert(payload, { onConflict: 'id' })
+      if (upsertError) throw upsertError
+    }
+
+    // If no debts incoming, delete all for this user (handles "delete all" case)
+    if (debts.length === 0) {
+      const { error: deleteAllError } = await supabase
+        .from('user_debts')
+        .delete()
+        .eq('user_id', user.id)
+      if (deleteAllError) throw deleteAllError
     }
 
     return NextResponse.json({ success: true, count: debts.length })

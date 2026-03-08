@@ -210,8 +210,12 @@ export function DebtTrackerTab({ onDebtsChange }: { onDebtsChange?: (debts: Debt
   // ── DELETE DEBT ─────────────────────────────────────────────────────────────
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this debt?')) return
-    await supabase.from('debts').delete().eq('id', id)
-    window.location.reload() // Fastest way to refresh hook state
+    const res = await fetch(`/api/user-debts?id=${id}`, { method: 'DELETE' })
+    if (res.ok) {
+      setRawDebts(prev => prev.filter((d: any) => d.id !== id))
+    } else {
+      alert('Failed to delete. Please try again.')
+    }
   }
 
   // ── PDF EXTRACTION (CLIENT SIDE) ───────────────────────────────────────────

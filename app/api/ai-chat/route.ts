@@ -3,6 +3,9 @@ import { cookies } from 'next/headers'
 import { createServerSideClient } from '@/lib/supabase'
 import type { FinancialSnapshot } from '@/components/ai-chat/financial-snapshot'
 
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
+const GROQ_MODEL = 'llama-3.3-70b-versatile'
+
 export async function POST(req: NextRequest) {
   try {
     // ── Auth check ─────────────────────────────────────────────────────
@@ -91,7 +94,7 @@ export async function POST(req: NextRequest) {
     // ── Build messages array (last 10 messages for context) ────────────
     const recentHistory = chatHistory.slice(-10)
 
-    const messages = [
+    const groqMessages = [
       { role: 'system' as const, content: systemPrompt },
       ...recentHistory.map((m) => ({
         role: m.role as 'user' | 'assistant',
@@ -100,26 +103,59 @@ export async function POST(req: NextRequest) {
       { role: 'user' as const, content: message },
     ]
 
-    // ── For now, return the prepared data (LLM call comes in Phase 3) ──
+    // ── Call Groq API ──────────────────────────────────────────────────
+    const groqApiKey = process.env.GROQ_API_KEY
+    if (!groqApiKey) {
+      console.error('[AI Chat] GROQ_API_KEY is not set')
+      return NextResponse.json(
+        { response: 'AI service is not configured. Please add your GROQ_API_KEY.' },
+        { status: 500 }
+      )
+    }
+
+    const groqResponse = await fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${groqApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: groqMessages,
+        temperature: 0.7,
+        max_tokens: 1024,
+        top_p: 0.9,
+      }),
+    })
+
+    if (!groqResponse.ok) {
+      const errorText = await groqResponse.text()
+      console.error('[AI Chat] Groq API error:', groqResponse.status, errorText)
+
+      // If rate limited, return a friendly message
+      if (groqResponse.status === 429) {
+        return NextResponse.json({
+          response: "I'm getting a lot of questions right now. Please wait a moment and try again.",
+        })
+      }
+
+      return NextResponse.json({
+        response: "Sorry, I had trouble thinking about that. Please try again.",
+      })
+    }
+
+    const groqData = await groqResponse.json()
+    const aiResponse = groqData.choices?.[0]?.message?.content ?? 'Sorry, I couldn\'t generate a response.'
+
     return NextResponse.json({
       success: true,
-      debug: {
-        userId: user.id,
-        hasPortfolioData: !!(portfolioSnapshot && portfolioSnapshot.portfolio?.totalValue > 0),
-        holdingsCount: portfolioSnapshot?.holdings?.length ?? 0,
-        debtsCount: debts.length,
-        goalsCount: goals.length,
-        hasFinancialProfile: !!financialProfile,
-        messageCount: messages.length,
-        message: message,
-      },
-      response:
-        "I'm connected to your data! I can see your portfolio, debts, and goals. The LLM will be wired up in Phase 3 to give you real answers.",
+      response: aiResponse,
     })
+
   } catch (error) {
     console.error('[AI Chat] Error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { response: 'Sorry, something went wrong. Please try again.' },
       { status: 500 }
     )
   }

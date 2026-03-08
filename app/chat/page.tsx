@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft,
@@ -13,6 +13,25 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ChatMessageList, type ChatMessage } from "@/components/ai-chat/chat-message-list"
+import { buildPortfolioSnapshot } from "@/components/ai-chat/financial-snapshot"
+
+// Try to import usePortfolio — will fail gracefully if not in provider
+let usePortfolioHook: (() => any) | null = null
+try {
+  const mod = require("@/lib/portfolio-context")
+  usePortfolioHook = mod.usePortfolio
+} catch {
+  // Not inside PortfolioProvider
+}
+
+function usePortfolioSafe() {
+  try {
+    if (usePortfolioHook) return usePortfolioHook()
+  } catch {
+    // Outside PortfolioProvider
+  }
+  return null
+}
 
 const SUGGESTED_PROMPTS = [
   {
@@ -44,38 +63,88 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Auto-scroll to bottom when new messages arrive
+  const portfolioCtx = usePortfolioSafe()
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages, isLoading])
 
-  const handleSend = () => {
-    if (!input.trim()) return
+  const sendMessage = useCallback(
+    async (text: string) => {
+      if (!text.trim()) return
 
-    const userMessage: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: input.trim(),
-      timestamp: new Date(),
-    }
-
-    setMessages((prev) => [...prev, userMessage])
-    setInput("")
-    setIsLoading(true)
-
-    // Simulate AI response — will be replaced in Phase 3 with real Groq call
-    setTimeout(() => {
-      const aiMessage: ChatMessage = {
+      const userMessage: ChatMessage = {
         id: crypto.randomUUID(),
-        role: "assistant",
-        content:
-          "I'm not connected to an LLM yet — that's coming in **Phase 3**. Once wired up, I'll be able to analyze your portfolio, check your goals, and answer market questions.\n\nFor now, the UI is ready to go!",
+        role: "user",
+        content: text.trim(),
         timestamp: new Date(),
       }
-      setMessages((prev) => [...prev, aiMessage])
-      setIsLoading(false)
-    }, 1500)
-  }
+
+      setMessages((prev) => [...prev, userMessage])
+      setInput("")
+      setIsLoading(true)
+
+      try {
+        const portfolioSnapshot = portfolioCtx
+          ? buildPortfolioSnapshot(portfolioCtx)
+          : null
+
+        const chatHistory = messages.slice(-10).map((m) => ({
+          role: m.role,
+          content: m.content,
+        }))
+
+        const response = await fetch("/api/ai-chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: text.trim(),
+            portfolioSnapshot,
+            chatHistory,
+          }),
+        })
+
+        if (response.status === 401) {
+          const aiMessage: ChatMessage = {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content:
+              "**Please log in to use WealthClaude AI.** I need access to your financial data to give personalized advice.\n\n[Sign up free →](/auth)",
+            timestamp: new Date(),
+          }
+          setMessages((prev) => [...prev, aiMessage])
+          return
+        }
+
+        const data = await response.json()
+
+        const aiMessage: ChatMessage = {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content:
+            data.response ??
+            "Sorry, something went wrong. Please try again.",
+          timestamp: new Date(),
+        }
+        setMessages((prev) => [...prev, aiMessage])
+      } catch (error) {
+        console.error("[AI Chat] Error:", error)
+        const errorMessage: ChatMessage = {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content:
+            "Sorry, I had trouble connecting. Please try again in a moment.",
+          timestamp: new Date(),
+        }
+        setMessages((prev) => [...prev, errorMessage])
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [portfolioCtx, messages]
+  )
+
+  const handleSend = () => sendMessage(input)
 
   const handleNewChat = () => {
     setMessages([])
@@ -124,7 +193,6 @@ export default function ChatPage() {
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-2xl mx-auto px-4 py-6">
           {!hasMessages ? (
-            /* Welcome State */
             <div className="flex flex-col items-center justify-center min-h-[calc(100vh-160px)]">
               <div className="text-center space-y-4 mb-8">
                 <div className="h-14 w-14 rounded-2xl bg-emerald-600/10 flex items-center justify-center mx-auto">
@@ -141,7 +209,6 @@ export default function ChatPage() {
                 </div>
               </div>
 
-              {/* Suggested Prompts */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
                 {SUGGESTED_PROMPTS.map((prompt) => (
                   <button
@@ -165,7 +232,6 @@ export default function ChatPage() {
               </div>
             </div>
           ) : (
-            /* Message List */
             <>
               <ChatMessageList messages={messages} isLoading={isLoading} />
               <div ref={messagesEndRef} />

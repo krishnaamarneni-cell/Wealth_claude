@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { MessageSquare, X, Maximize2, Sparkles, Send } from 'lucide-react'
 import {
@@ -11,6 +11,25 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet'
 import { ChatMessageList, type ChatMessage } from '@/components/ai-chat/chat-message-list'
+import { buildPortfolioSnapshot } from '@/components/ai-chat/financial-snapshot'
+
+// Try to import usePortfolio — will fail gracefully on public pages
+let usePortfolioHook: (() => any) | null = null
+try {
+  const mod = require('@/lib/portfolio-context')
+  usePortfolioHook = mod.usePortfolio
+} catch {
+  // Not inside PortfolioProvider — that's fine for public pages
+}
+
+function usePortfolioSafe() {
+  try {
+    if (usePortfolioHook) return usePortfolioHook()
+  } catch {
+    // Outside PortfolioProvider
+  }
+  return null
+}
 
 export function AIChatButton() {
   const [isVisible, setIsVisible] = useState(true)
@@ -21,17 +40,19 @@ export function AIChatButton() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
+  const portfolioCtx = usePortfolioSafe()
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading])
 
-  const handleSend = () => {
-    if (!input.trim()) return
+  const sendMessage = useCallback(async (text: string) => {
+    if (!text.trim()) return
 
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
-      content: input.trim(),
+      content: text.trim(),
       timestamp: new Date(),
     }
 
@@ -39,19 +60,65 @@ export function AIChatButton() {
     setInput('')
     setIsLoading(true)
 
-    // Simulate AI response — will be replaced in Phase 3 with real Groq call
-    setTimeout(() => {
+    try {
+      // Build portfolio snapshot if context is available
+      const portfolioSnapshot = portfolioCtx
+        ? buildPortfolioSnapshot(portfolioCtx)
+        : null
+
+      // Build chat history (last 10 messages)
+      const chatHistory = messages.slice(-10).map((m) => ({
+        role: m.role,
+        content: m.content,
+      }))
+
+      const response = await fetch('/api/ai-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text.trim(),
+          portfolioSnapshot,
+          chatHistory,
+        }),
+      })
+
+      if (response.status === 401) {
+        // Not logged in — show login prompt
+        const aiMessage: ChatMessage = {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content:
+            '**Please log in to use WealthClaude AI.** I need access to your financial data to give personalized advice.\n\n[Sign up free →](/auth)',
+          timestamp: new Date(),
+        }
+        setMessages((prev) => [...prev, aiMessage])
+        return
+      }
+
+      const data = await response.json()
+
       const aiMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content:
-          "I'm not connected to an LLM yet — that's coming in **Phase 3**. Once wired up, I'll analyze your portfolio, goals, and more.\n\nFor now, the UI works!",
+        content: data.response ?? 'Sorry, something went wrong. Please try again.',
         timestamp: new Date(),
       }
       setMessages((prev) => [...prev, aiMessage])
+    } catch (error) {
+      console.error('[AI Chat] Error:', error)
+      const errorMessage: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: 'Sorry, I had trouble connecting. Please try again in a moment.',
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, errorMessage])
+    } finally {
       setIsLoading(false)
-    }, 1500)
-  }
+    }
+  }, [portfolioCtx, messages])
+
+  const handleSend = () => sendMessage(input)
 
   if (!isVisible) return null
 

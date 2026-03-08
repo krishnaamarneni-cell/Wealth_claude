@@ -51,9 +51,8 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
         balance: debt.balance,
         apr: debt.apr,
         monthlyPayment: debt.monthlyPayment,
-        minimumPayment: debt.minimumPayment,
-        status: "active",
       })
+
       if (result?.debt?.id) {
         // Replace temp ID with Supabase ID
         setDebts((prev) =>

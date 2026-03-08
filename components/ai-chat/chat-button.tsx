@@ -9,6 +9,7 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
+  SheetClose,
 } from '@/components/ui/sheet'
 import { ChatMessageList, type ChatMessage } from '@/components/ai-chat/chat-message-list'
 import { buildPortfolioSnapshot } from '@/components/ai-chat/financial-snapshot'

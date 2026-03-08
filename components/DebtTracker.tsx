@@ -1,8 +1,7 @@
 "use client"
 
 import { useState, useMemo, useCallback } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Pencil, Upload, CreditCard } from "lucide-react"
+import { Pencil, Upload } from "lucide-react"
 import { ManualEntry } from "@/components/goals/debt/ManualEntry"
 import { UploadStatement } from "@/components/goals/debt/UploadStatement"
 import { DebtSummaryCards } from "@/components/goals/debt/DebtSummaryCards"
@@ -13,6 +12,7 @@ import { PayoffResults } from "@/components/goals/debt/PayoffResults"
 import type { Debt, PayoffStrategy as StrategyType } from "@/components/goals/types"
 import { calculatePayoffPlan } from "@/components/goals/types"
 import { postJSON, deleteJSON } from "@/components/goals/hooks"
+
 
 interface DebtTrackerProps {
   debts: Debt[]

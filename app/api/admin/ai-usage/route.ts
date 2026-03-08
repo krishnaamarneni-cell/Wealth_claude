@@ -25,14 +25,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check if user is admin
-    const { data: adminCheck } = await supabase
-      .from('admin_users')
-      .select('id')
-      .eq('user_id', user.id)
-      .single()
+    // Check if user is admin via email env var
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL
+    const isAdmin = adminEmail ? user.email === adminEmail : false
 
-    if (!adminCheck) {
+    if (!isAdmin) {
       return NextResponse.json({ error: 'Forbidden — admin access required' }, { status: 403 })
     }
 

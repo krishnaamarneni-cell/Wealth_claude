@@ -10,8 +10,7 @@ import { CreditCardDonut } from "@/components/goals/debt/CreditCardDonut"
 import { AllLoansDonut } from "@/components/goals/debt/AllLoansDonut"
 import { PayoffStrategy } from "@/components/goals/debt/PayoffStrategy"
 import { PayoffResults } from "@/components/goals/debt/PayoffResults"
-import type { Debt, PayoffStrategy as StrategyType } from "@/components/goals/types"
-import { calculatePayoffPlan } from "@/components/goals/types"
+import { type Debt, type PayoffStrategy as StrategyType, calculatePayoffPlan } from "@/components/goals/types"
 
 interface DebtTrackerProps {
   debts: Debt[]
@@ -26,7 +25,6 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
 
   // ==================== AUTO-SAVE DEBTS TO SUPABASE ====================
   useEffect(() => {
-    if (debts.length === 0) return
     const timer = setTimeout(async () => {
       try {
         // Only send the fields the API/DB actually needs

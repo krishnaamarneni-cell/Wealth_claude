@@ -15,6 +15,7 @@ import {
   GitCompare,
   Database,
   BookOpen,
+  Zap,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -53,6 +54,7 @@ const analysisNav = [
 
 const developmentNav = [
   { title: "Blog", url: "/admin/blog", icon: BookOpen },
+  { title: "AI Usage", url: "/admin/ai-usage", icon: Zap },
   { title: "Data Inspector", url: "/dashboard/data-inspector", icon: Database },
 ]
 

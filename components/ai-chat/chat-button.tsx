@@ -12,13 +12,9 @@ import {
 } from '@/components/ui/sheet'
 import { ChatMessageList, type ChatMessage } from '@/components/ai-chat/chat-message-list'
 import { buildPortfolioSnapshot } from '@/components/ai-chat/financial-snapshot'
-import { usePortfolio } from '@/lib/portfolio-context'
+import { usePortfolioSafe } from '@/lib/portfolio-context'
 
-/**
- * Inner chat component that uses usePortfolio.
- * Wrapped in ChatButtonSafe which catches the error on public pages.
- */
-function ChatButtonInner({ portfolioCtx }: { portfolioCtx: any }) {
+export function AIChatButton() {
   const [isVisible, setIsVisible] = useState(true)
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [input, setInput] = useState('')
@@ -26,6 +22,9 @@ function ChatButtonInner({ portfolioCtx }: { portfolioCtx: any }) {
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
+
+  // Returns real data on dashboard pages, null on public pages
+  const portfolioCtx = usePortfolioSafe()
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -46,9 +45,10 @@ function ChatButtonInner({ portfolioCtx }: { portfolioCtx: any }) {
     setIsLoading(true)
 
     try {
-      const portfolioSnapshot = portfolioCtx?.holdings?.length > 0
-        ? buildPortfolioSnapshot(portfolioCtx)
-        : null
+      const portfolioSnapshot =
+        portfolioCtx && portfolioCtx.holdings && portfolioCtx.holdings.length > 0
+          ? buildPortfolioSnapshot(portfolioCtx)
+          : null
 
       const chatHistory = messages.slice(-10).map((m) => ({
         role: m.role,
@@ -218,51 +218,4 @@ function ChatButtonInner({ portfolioCtx }: { portfolioCtx: any }) {
       </div>
     </>
   )
-}
-
-/**
- * Wrapper that tries usePortfolio.
- * On dashboard pages (inside PortfolioProvider): passes real data.
- * On public pages (outside PortfolioProvider): passes null.
- */
-function ChatWithPortfolio() {
-  const ctx = usePortfolio()
-  return <ChatButtonInner portfolioCtx={ctx} />
-}
-
-function ChatWithoutPortfolio() {
-  return <ChatButtonInner portfolioCtx={null} />
-}
-
-/**
- * Exported component — uses error boundary pattern to handle
- * being rendered outside PortfolioProvider on public pages.
- */
-export function AIChatButton() {
-  const [hasProvider, setHasProvider] = useState<boolean | null>(null)
-
-  useEffect(() => {
-    // Check if we're inside a PortfolioProvider by looking for the context
-    // The PortfolioProvider is only in the dashboard layout
-    // We detect this by checking if the dashboard sidebar exists in the DOM
-    const isDashboard = document.querySelector('[data-slot="sidebar"]') !== null
-    setHasProvider(isDashboard)
-  }, [])
-
-  // Still checking
-  if (hasProvider === null) {
-    return (
-      <div className="fixed bottom-4 right-4 z-50">
-        <div className="h-12 w-12 rounded-full bg-emerald-600 flex items-center justify-center text-white shadow-lg">
-          <MessageSquare className="h-5 w-5" />
-        </div>
-      </div>
-    )
-  }
-
-  if (hasProvider) {
-    return <ChatWithPortfolio />
-  }
-
-  return <ChatWithoutPortfolio />
 }

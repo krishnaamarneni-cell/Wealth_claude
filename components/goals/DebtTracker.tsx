@@ -6,8 +6,6 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ManualEntry } from "./debt/ManualEntry"
-import { PaymentPlan } from "./debt/PaymentPlan"
-import { calculatePayoffPlan } from "./utils/debtCalculations"
 import type { Debt, StrategyType } from "./types"
 
 interface DebtTrackerProps {
@@ -35,16 +33,6 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
     }, 1000)
     return () => clearTimeout(debounce)
   }, [debts, isDeleting])
-
-  const allResults = useMemo(
-    () => ({
-      avalanche: calculatePayoffPlan(debts, "avalanche", extraPayment),
-      snowball: calculatePayoffPlan(debts, "snowball", extraPayment),
-    }),
-    [debts, extraPayment]
-  )
-
-  const currentResult = allResults[strategy]
 
   const handleAddDebt = useCallback(
     (debt: Debt) => {
@@ -121,10 +109,6 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
             <Button onClick={() => setShowResults(!showResults)} className="w-full">
               {showResults ? "Hide Results" : "Calculate Results"}
             </Button>
-
-            {showResults && currentResult && (
-              <PaymentPlan result={currentResult} strategy={strategy} />
-            )}
           </div>
         )}
       </Card>

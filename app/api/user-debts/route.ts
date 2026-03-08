@@ -2,9 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerSideClient } from '@/lib/supabase'
 
-// DB columns: id, user_id, name, type, balance, apr, min_payment, created_at
-// No monthly_payment, minimum_payment, due_date, status columns exist
-
 export async function GET() {
   try {
     const cookieStore = await cookies()

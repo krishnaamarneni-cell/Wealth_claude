@@ -168,6 +168,10 @@ export function usePortfolio(): PortfolioContextData {
   return context
 }
 
+export function usePortfolioSafe(): PortfolioContextData | null {
+  return useContext(PortfolioContext) ?? null
+}
+
 // ==================== CACHE HELPERS ====================
 
 const CACHE_KEY = 'portfolioContextCache'

@@ -26,33 +26,32 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
 
   // ==================== AUTO-SAVE DEBTS TO SUPABASE ====================
   useEffect(() => {
+    if (debts.length === 0) return
     const timer = setTimeout(async () => {
-      if (debts.length === 0) {
-        console.log('[DebtTracker] Skipping save: no debts to save')
-        return
-      }
-      console.log('[v0] DebtTracker AUTO-SAVE triggered with', debts.length, 'debts:', JSON.stringify(debts))
       try {
-        const payload = { debts }
-        console.log('[v0] Sending PUT to /api/user-debts:', JSON.stringify(payload))
+        // Only send the fields the API/DB actually needs
+        const payload = {
+          debts: debts.map(d => ({
+            name: d.name,
+            type: d.type,
+            balance: d.balance,
+            apr: d.apr,
+            monthlyPayment: d.monthlyPayment,
+          }))
+        }
         const response = await fetch('/api/user-debts', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         })
-        console.log('[v0] PUT response status:', response.status)
-        const responseText = await response.text()
-        console.log('[v0] PUT response body:', responseText)
-        
         if (!response.ok) {
-          console.error('[v0] Save failed with status:', response.status, 'response:', responseText)
-        } else {
-          console.log('[v0] DebtTracker successfully saved debts to Supabase')
+          const text = await response.text()
+          console.error('[DebtTracker] Auto-save failed:', response.status, text)
         }
       } catch (e) {
-        console.error('[v0] DebtTracker save error:', e)
+        console.error('[DebtTracker] Auto-save error:', e)
       }
-    }, 1000) // Debounce saves by 1 second
+    }, 1000)
     return () => clearTimeout(timer)
   }, [debts])
 

@@ -1,5 +1,4 @@
 'use client'
-// Fixed: Single close button only - forcing GitHub sync
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -15,9 +14,112 @@ import { ChatMessageList, type ChatMessage } from '@/components/ai-chat/chat-mes
 import { buildPortfolioSnapshot } from '@/components/ai-chat/financial-snapshot'
 import { usePortfolioSafe } from '@/lib/portfolio-context'
 
+// ── Demo responses for non-logged-in visitors (zero API cost) ─────────────
+
+const DEMO_RESPONSES: Record<string, string> = {
+  "Am I properly diversified?": `**Based on a typical portfolio analysis, here's what diversification looks like:**
+
+| Sector | Recommended | Common Mistake |
+|--------|------------|----------------|
+| Technology | 20-30% | 50%+ (overweight) |
+| Healthcare | 10-15% | Often skipped |
+| Financial | 10-15% | Underweight |
+| Consumer | 10-15% | Ignored |
+| Energy | 5-10% | Timing-dependent |
+
+**Key diversification checks:**
+- Do you have **5+ sectors** represented?
+- Is any single stock more than **15%** of your portfolio?
+- Do you have both **growth and value** stocks?
+
+Sign up free to get a **real diversification score** based on your actual holdings.
+
+*Not a licensed financial advisor.*`,
+
+  "What's the best way to pay off debt?": `**Two proven strategies:**
+
+| Strategy | How It Works | Best For |
+|----------|-------------|----------|
+| **Avalanche** | Pay highest APR first | Saving the most money |
+| **Snowball** | Pay smallest balance first | Staying motivated |
+
+**Quick math example:**
+- Credit card at **22% APR** → Pay this first (avalanche)
+- Student loan at **5% APR** → Pay minimum for now
+- Car loan at **7% APR** → Pay after credit card
+
+The avalanche method saves more money. The snowball method feels more rewarding.
+
+Sign up to get a **personalized debt payoff plan** based on your actual debts.
+
+*Not a licensed financial advisor.*`,
+
+  "How is NVDA doing today?": `**NVIDIA (NVDA)** is one of the most watched stocks in 2024-2026.
+
+| Metric | Detail |
+|--------|--------|
+| Sector | Technology / Semiconductors |
+| Why it moves | AI chip demand, data center growth |
+| Key risk | Valuation, competition from AMD |
+
+To get **real-time NVDA price and analysis**, sign up and ask me — I'll pull the latest data from the web.
+
+*Not a licensed financial advisor.*`,
+
+  "Show me a sample portfolio analysis": `**Here's what a WealthClaude portfolio analysis looks like:**
+
+| Metric | Sample Portfolio |
+|--------|-----------------|
+| Total Value | **$52,340** |
+| Total Gain | **+$4,120 (+8.5%)** |
+| Holdings | **22 stocks** |
+| Top Sector | Technology (28%) |
+| Diversification Score | **72/100** |
+
+**AI Insights generated:**
+- Your portfolio is **overweight in tech** (28% vs recommended 20-25%)
+- **AMD** has gained **67%** — consider taking some profits
+- You have **no healthcare exposure** — consider adding a position
+- Your **Sharpe ratio is 1.2** — good risk-adjusted returns
+
+Sign up free to get this analysis for **your real portfolio**.
+
+*Not a licensed financial advisor.*`,
+}
+
+const DEFAULT_DEMO_RESPONSE = `Great question! With WealthClaude AI, I can analyze your portfolio, track your debts, monitor market trends, and give you personalized financial insights.
+
+**Sign up free** to get real answers based on your actual financial data.
+
+*Not a licensed financial advisor.*`
+
+// ── Suggested prompts ─────────────────────────────────────────────────────
+
+const PUBLIC_PROMPTS = [
+  { text: "Am I properly diversified?", icon: "🎯" },
+  { text: "What's the best way to pay off debt?", icon: "💳" },
+  { text: "How is NVDA doing today?", icon: "📈" },
+  { text: "Show me a sample portfolio analysis", icon: "📊" },
+]
+
+const DASHBOARD_PROMPTS = [
+  { text: "How many holdings do I have?", icon: "📋" },
+  { text: "Am I properly diversified?", icon: "🎯" },
+  { text: "Show my sector allocation", icon: "📊" },
+  { text: "How is my portfolio doing vs S&P 500?", icon: "📈" },
+  { text: "What's the best strategy for my debt?", icon: "💳" },
+  { text: "How is NVDA doing today?", icon: "🔍" },
+]
+
 // ── Core chat UI — shared by both exports ─────────────────────────────────
 
-function ChatButtonCore({ portfolioCtx }: { portfolioCtx: any }) {
+function ChatButtonCore({
+  portfolioCtx,
+  autoOpen = false,
+}: {
+  portfolioCtx: any
+  autoOpen?: boolean
+}) {
   const [isVisible, setIsVisible] = useState(true)
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [input, setInput] = useState('')
@@ -26,10 +128,53 @@ function ChatButtonCore({ portfolioCtx }: { portfolioCtx: any }) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
+  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading])
 
+  // Auto-open from landing page
+  useEffect(() => {
+    if (autoOpen) {
+      setIsChatOpen(true)
+    }
+  }, [autoOpen])
+
+  // Show greeting when auto-opened on landing page
+  useEffect(() => {
+    if (autoOpen && messages.length === 0 && !portfolioCtx) {
+      const greeting: ChatMessage = {
+        id: 'greeting',
+        role: 'assistant',
+        content: `**Hi! I'm WealthClaude AI** 👋\n\nI help investors make smarter decisions. Try one of the questions below, or ask me anything about investing, diversification, or debt management.`,
+        timestamp: new Date(),
+      }
+      setMessages([greeting])
+    }
+  }, [autoOpen, portfolioCtx])
+
+  // Demo response handler (no API call)
+  const handleDemoPrompt = useCallback((text: string) => {
+    const userMsg: ChatMessage = {
+      id: `demo-user-${Date.now()}`,
+      role: 'user',
+      content: text,
+      timestamp: new Date(),
+    }
+
+    const responseText = DEMO_RESPONSES[text] || DEFAULT_DEMO_RESPONSE
+
+    const assistantMsg: ChatMessage = {
+      id: `demo-assistant-${Date.now()}`,
+      role: 'assistant',
+      content: responseText,
+      timestamp: new Date(),
+    }
+
+    setMessages((prev) => [...prev, userMsg, assistantMsg])
+  }, [])
+
+  // Real message sender (calls API)
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim()) return
 
@@ -100,11 +245,21 @@ function ChatButtonCore({ portfolioCtx }: { portfolioCtx: any }) {
     }
   }, [portfolioCtx, messages])
 
-  const handleSend = () => sendMessage(input)
+  const handleSend = () => {
+    // If not logged in, use demo handler for typed messages too
+    if (!portfolioCtx) {
+      handleDemoPrompt(input)
+      setInput('')
+    } else {
+      sendMessage(input)
+    }
+  }
 
   if (!isVisible) return null
 
   const hasMessages = messages.length > 0
+  const isPublic = !portfolioCtx
+  const prompts = isPublic ? PUBLIC_PROMPTS : DASHBOARD_PROMPTS
 
   return (
     <>
@@ -154,22 +309,65 @@ function ChatButtonCore({ portfolioCtx }: { portfolioCtx: any }) {
 
           <div className="flex-1 overflow-y-auto p-3">
             {!hasMessages && !isLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center space-y-2">
-                  <div className="h-10 w-10 rounded-full bg-green-600/10 flex items-center justify-center mx-auto">
-                    <Sparkles className="h-5 w-5 text-green-500" />
-                  </div>
-                  <p className="text-sm font-medium text-foreground">
-                    How can I help?
+              /* ── Empty state with suggested prompts ─────────────────── */
+              <div className="flex flex-col items-center justify-center h-full space-y-4 px-1">
+                <div className="h-10 w-10 rounded-xl bg-green-600/15 flex items-center justify-center">
+                  <Sparkles className="h-5 w-5 text-green-500" />
+                </div>
+                <div className="text-center space-y-1">
+                  <p className="text-sm font-semibold text-foreground">
+                    {isPublic ? "Hi! I'm WealthClaude AI" : "How can I help?"}
                   </p>
-                  <p className="text-xs text-muted-foreground max-w-[220px]">
-                    Ask about your portfolio, goals, debts, or market trends.
+                  <p className="text-xs text-muted-foreground">
+                    {isPublic
+                      ? "Your personal financial assistant. Try asking me:"
+                      : "Ask about your portfolio, goals, or market trends"}
                   </p>
                 </div>
+                <div className="w-full space-y-2">
+                  {prompts.map((prompt) => (
+                    <button
+                      key={prompt.text}
+                      onClick={() =>
+                        isPublic
+                          ? handleDemoPrompt(prompt.text)
+                          : sendMessage(prompt.text)
+                      }
+                      className="w-full flex items-center gap-2.5 text-left px-3 py-2.5 rounded-xl border border-border/50 bg-muted/30 hover:bg-muted/60 hover:border-green-500/30 transition-all group"
+                    >
+                      <span className="text-base">{prompt.icon}</span>
+                      <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
+                        {prompt.text}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {isPublic && (
+                  <p className="text-[10px] text-muted-foreground text-center pt-1">
+                    Sign up free to get personalized insights from your real portfolio
+                  </p>
+                )}
               </div>
             ) : (
+              /* ── Messages + CTA ────────────────────────────────────── */
               <>
                 <ChatMessageList messages={messages} isLoading={isLoading} />
+
+                {/* Sign-up CTA for public visitors after demo responses */}
+                {isPublic && messages.length > 1 && (
+                  <div className="my-3 p-3 rounded-xl bg-green-600/10 border border-green-500/20 text-center space-y-2">
+                    <p className="text-xs font-medium text-foreground">
+                      Want personalized insights from <strong>your real portfolio</strong>?
+                    </p>
+                    <a
+                      href="/auth"
+                      className="inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-semibold rounded-lg px-4 py-2 transition-colors"
+                    >
+                      Sign Up Free — No Card Needed
+                    </a>
+                  </div>
+                )}
+
                 <div ref={messagesEndRef} />
               </>
             )}
@@ -187,7 +385,7 @@ function ChatButtonCore({ portfolioCtx }: { portfolioCtx: any }) {
                     handleSend()
                   }
                 }}
-                placeholder="Ask anything..."
+                placeholder={isPublic ? "Try asking a question..." : "Ask anything..."}
                 disabled={isLoading}
                 className="flex-1 h-9 rounded-lg border border-border/50 bg-muted/30 px-3 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-green-500/50 focus:border-green-500/50 transition-all disabled:opacity-50"
               />
@@ -232,13 +430,13 @@ function ChatButtonCore({ portfolioCtx }: { portfolioCtx: any }) {
 
 // ── Dashboard version — reads PortfolioContext ─────────────────────────────
 
-export function AIChatButton() {
+export function AIChatButton({ autoOpen = false }: { autoOpen?: boolean }) {
   const ctx = usePortfolioSafe()
-  return <ChatButtonCore portfolioCtx={ctx} />
+  return <ChatButtonCore portfolioCtx={ctx} autoOpen={autoOpen} />
 }
 
 // ── Public version — no portfolio data ────────────────────────────────────
 
-export function AIChatButtonPublic() {
-  return <ChatButtonCore portfolioCtx={null} />
+export function AIChatButtonPublic({ autoOpen = false }: { autoOpen?: boolean }) {
+  return <ChatButtonCore portfolioCtx={null} autoOpen={autoOpen} />
 }

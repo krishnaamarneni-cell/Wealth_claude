@@ -65,19 +65,6 @@ async function getPost(slug: string) {
 }
 
 
-async function getRecentPosts(currentSlug: string) {
-  const supabase = getSupabase()
-  const { data } = await supabase
-    .from('blog_posts')
-    .select('slug, title, excerpt, image_url, tags, published_at')
-    .eq('published', true)
-    .neq('slug', currentSlug)
-    .order('published_at', { ascending: false })
-    .limit(3)
-  return data ?? []
-}
-
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
   const post = await getPost(slug)
@@ -101,7 +88,6 @@ export default async function BlogPostPage({ params }: Props) {
 
 
   const readTime = estimateReadTime(post.content ?? '')
-  const recentPosts = await getRecentPosts(post.slug)
 
 
   return (
@@ -171,51 +157,7 @@ export default async function BlogPostPage({ params }: Props) {
           />
 
 
-          {/* Recent Posts Section */}
-          {recentPosts.length > 0 && (
-            <div className="mt-16 pt-8 border-t border-border">
-              <h2 className="text-2xl font-bold mb-6">More Articles</h2>
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {recentPosts.map((recentPost) => (
-                  <Link
-                    key={recentPost.slug}
-                    href={`/blog/${recentPost.slug}`}
-                    className="group block overflow-hidden rounded-lg border border-border bg-card hover:border-primary/50 transition-colors"
-                  >
-                    {recentPost.image_url && (
-                      <div className="aspect-video overflow-hidden">
-                        <img
-                          src={recentPost.image_url}
-                          alt={recentPost.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      </div>
-                    )}
-                    <div className="p-4">
-                      {recentPost.tags?.[0] && (
-                        <Badge variant="secondary" className="mb-2 text-xs">
-                          {recentPost.tags[0]}
-                        </Badge>
-                      )}
-                      <h3 className="font-semibold text-base leading-tight group-hover:text-primary transition-colors line-clamp-2">
-                        {recentPost.title}
-                      </h3>
-                      {recentPost.published_at && (
-                        <p className="text-sm text-muted-foreground mt-2">
-                          {new Date(recentPost.published_at).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                          })}
-                        </p>
-                      )}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="mt-10 pt-8 border-t border-border">
+          <div className="mt-16 pt-8 border-t border-border">
             <Link href="/news"
               className="inline-flex items-center gap-2 text-base text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="h-5 w-5" />

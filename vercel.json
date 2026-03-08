@@ -1,141 +1,127 @@
 {
   "crons": [
     {
-      "path": "/api/cron/run?job=blog&type=premarket",
-      "schedule": "30 11 * * 1-5"
+      "path": "/api/cron/run?job=blog",
+      "schedule": "0 11 * * *"
     },
     {
-      "path": "/api/cron/run?job=blog&type=market-analysis",
-      "schedule": "30 15 * * 1-5"
+      "path": "/api/cron/run?job=blog",
+      "schedule": "0 14 * * *"
     },
     {
-      "path": "/api/cron/run?job=blog&type=market-analysis",
-      "schedule": "0 18 * * 1-5"
+      "path": "/api/cron/run?job=blog",
+      "schedule": "7 0 * * *"
     },
     {
-      "path": "/api/cron/run?job=blog&type=aftermarket",
-      "schedule": "0 22 * * 1-5"
+      "path": "/api/cron/run?job=blog",
+      "schedule": "0 21 * * *"
     },
     {
-      "path": "/api/cron/run?job=blog&type=geopolitical",
-      "schedule": "0 0 * * 2-6"
+      "path": "/api/cron/run?job=blog",
+      "schedule": "0 23 * * *"
     },
     {
-      "path": "/api/cron/run?job=blog&type=education",
-      "schedule": "0 2 * * 2-6"
-    },
-    {
-      "path": "/api/cron/run?job=blog&type=geopolitical",
-      "schedule": "0 15 * * 0,6"
-    },
-    {
-      "path": "/api/cron/run?job=blog&type=education",
-      "schedule": "0 19 * * 0,6"
+      "path": "/api/cron/run?job=blog",
+      "schedule": "0 2 * * *"
     },
     {
       "path": "/api/cron/run?job=ships",
       "schedule": "0 3 * * *"
     }
+  ],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "wealthclaude.com" }],
+      "destination": "https://www.wealthclaude.com/:path*",
+      "permanent": true
+    }
+  ],
+  "headers": [
+    {
+      "source": "/favicon.ico",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/favicon-(:filename)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/android-icon-(:filename)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/apple-icon-(:filename)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/apple-icon.png",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/apple-touch-icon.png",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/ms-icon-(:filename)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/logo.png",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/site.webmanifest",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=1800, s-maxage=86400, stale-while-revalidate=604800"
+        },
+        {
+          "key": "Content-Type",
+          "value": "application/manifest+json"
+        }
+      ]
+    }
   ]
-},
-"redirects": [
-  {
-    "source": "/:path*",
-    "has": [
-      {
-        "type": "host",
-        "value": "wealthclaude.com"
-      }
-    ],
-    "destination": "https://www.wealthclaude.com/:path*",
-    "permanent": true
-  }
-],
-"headers": [
-  {
-    "source": "/favicon.ico",
-    "headers": [
-      {
-        "key": "Cache-Control",
-        "value": "public, max-age=31536000, immutable"
-      }
-    ]
-  },
-  {
-    "source": "/favicon-(:filename)",
-    "headers": [
-      {
-        "key": "Cache-Control",
-        "value": "public, max-age=31536000, immutable"
-      }
-    ]
-  },
-  {
-    "source": "/android-icon-(:filename)",
-    "headers": [
-      {
-        "key": "Cache-Control",
-        "value": "public, max-age=31536000, immutable"
-      }
-    ]
-  },
-  {
-    "source": "/apple-icon-(:filename)",
-    "headers": [
-      {
-        "key": "Cache-Control",
-        "value": "public, max-age=31536000, immutable"
-      }
-    ]
-  },
-  {
-    "source": "/apple-icon.png",
-    "headers": [
-      {
-        "key": "Cache-Control",
-        "value": "public, max-age=31536000, immutable"
-      }
-    ]
-  },
-  {
-    "source": "/apple-touch-icon.png",
-    "headers": [
-      {
-        "key": "Cache-Control",
-        "value": "public, max-age=31536000, immutable"
-      }
-    ]
-  },
-  {
-    "source": "/ms-icon-(:filename)",
-    "headers": [
-      {
-        "key": "Cache-Control",
-        "value": "public, max-age=31536000, immutable"
-      }
-    ]
-  },
-  {
-    "source": "/logo.png",
-    "headers": [
-      {
-        "key": "Cache-Control",
-        "value": "public, max-age=31536000, immutable"
-      }
-    ]
-  },
-  {
-    "source": "/site.webmanifest",
-    "headers": [
-      {
-        "key": "Cache-Control",
-        "value": "public, max-age=1800, s-maxage=86400, stale-while-revalidate=604800"
-      },
-      {
-        "key": "Content-Type",
-        "value": "application/manifest+json"
-      }
-    ]
-  }
-]
 }

@@ -23,9 +23,7 @@ export default function GoalsPage() {
   const [expectedReturn, setExpectedReturn] = useState(8)
   const [baseContributionAmount, setBaseContributionAmount] = useState(500)
   const [contributionType, setContributionType] = useState<"monthly" | "yearly">("monthly")
-  const [isDebtDeleting, setIsDebtDeleting] = useState(false)
   const [includePortfolio, setIncludePortfolio] = useState(true)
-
 
   // Debt Tracker state
   const [debts, setDebts] = useState<Debt[]>([])
@@ -191,14 +189,10 @@ export default function GoalsPage() {
 
         <TabsContent value="debts">
           <DebtTracker
-            debts={isDebtDeleting ? [] : debts}  // Empty array during delete
-            setDebts={(newDebts) => {
-              if (isDebtDeleting) return  // Block state updates during delete
-              setDebts(newDebts)
-            }}
+            debts={debts}
+            setDebts={setDebts}
           />
         </TabsContent>
-
 
         <TabsContent value="overview">
           <FinancialOverview

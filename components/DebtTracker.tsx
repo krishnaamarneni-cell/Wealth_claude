@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useMemo, useCallback } from "react"
-import { Pencil, Upload } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Pencil, Upload, CreditCard } from "lucide-react"
 import { ManualEntry } from "@/components/goals/debt/ManualEntry"
 import { UploadStatement } from "@/components/goals/debt/UploadStatement"
 import { DebtSummaryCards } from "@/components/goals/debt/DebtSummaryCards"
@@ -11,7 +12,7 @@ import { PayoffStrategy } from "@/components/goals/debt/PayoffStrategy"
 import { PayoffResults } from "@/components/goals/debt/PayoffResults"
 import type { Debt, PayoffStrategy as StrategyType } from "@/components/goals/types"
 import { calculatePayoffPlan } from "@/components/goals/types"
-import { postJSON, deleteJSON } from "@/components/goals/hooks"
+import { postJSON, deleteJSON, debtTypeToDb } from "@/components/goals/hooks"
 
 interface DebtTrackerProps {
   debts: Debt[]
@@ -23,9 +24,8 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
   const [strategy, setStrategy] = useState<StrategyType>("avalanche")
   const [extraPayment, setExtraPayment] = useState(200)
   const [showResults, setShowResults] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [deleteShield, setDeleteShield] = useState(false)
 
+  // Calculate both strategies for comparison
   const allResults = useMemo(
     () => ({
       avalanche: calculatePayoffPlan(debts, "avalanche", extraPayment),
@@ -38,18 +38,22 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
 
   const handleAddDebt = useCallback(
     async (debt: Debt) => {
+      // Optimistic UI update
       setDebts((prev) => [...prev, debt])
       setShowResults(false)
 
+      // Persist to Supabase
       const result = await postJSON<any>("/api/user-debts", {
         name: debt.name,
-        type: debt.type,
+        type: debtTypeToDb(debt.type),
         balance: debt.balance,
         apr: debt.apr,
         monthlyPayment: debt.monthlyPayment,
+        minimumPayment: debt.minimumPayment,
+        status: "active",
       })
-
       if (result?.debt?.id) {
+        // Replace temp ID with Supabase ID
         setDebts((prev) =>
           prev.map((d) => (d.id === debt.id ? { ...d, id: result.debt.id } : d))
         )
@@ -60,42 +64,30 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
 
   const handleDeleteDebt = useCallback(
     async (id: string) => {
-      setIsDeleting(true)
-      setDeleteShield(true)
       setDebts((prev) => prev.filter((d) => d.id !== id))
       setShowResults(false)
-
       await deleteJSON("/api/user-debts", id)
-
-      await fetch('/api/user-debts', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ debts: [] })
-      })
-
-      setTimeout(() => window.location.reload(), 500)
-
-      setTimeout(() => {
-        setIsDeleting(false)
-        setDeleteShield(false)
-      }, 2000)
     },
     [setDebts]
   )
 
   const handleApplyCards = useCallback(
     async (importedDebts: Debt[]) => {
+      // Optimistic UI update
       setDebts((prev) => [...prev, ...importedDebts].slice(0, 20))
       setEntryMode("manual")
       setTimeout(() => setShowResults(true), 100)
 
+      // Persist each imported debt to Supabase
       for (const debt of importedDebts) {
         const result = await postJSON<any>("/api/user-debts", {
           name: debt.name,
-          type: debt.type,
+          type: debtTypeToDb(debt.type),
           balance: debt.balance,
           apr: debt.apr,
           monthlyPayment: debt.monthlyPayment,
+          minimumPayment: debt.minimumPayment,
+          status: "active",
         })
         if (result?.debt?.id) {
           setDebts((prev) =>
@@ -124,6 +116,7 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
 
   return (
     <div className="space-y-6">
+      {/* Manual Entry / Upload Statement Toggle */}
       <div className="grid grid-cols-2 rounded-lg overflow-hidden border border-border">
         <button
           onClick={() => setEntryMode("manual")}
@@ -145,6 +138,7 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
         </button>
       </div>
 
+      {/* Entry Mode Content */}
       {entryMode === "manual" ? (
         <ManualEntry
           debts={debts}
@@ -155,10 +149,14 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
         <UploadStatement onApplyCards={handleApplyCards} />
       )}
 
+      {/* Summary Cards */}
       <DebtSummaryCards debts={debts} />
+
+      {/* Donut Charts */}
       <CreditCardDonut debts={debts} />
       <AllLoansDonut debts={debts} />
 
+      {/* Payoff Strategy */}
       <PayoffStrategy
         debts={debts}
         strategy={strategy}
@@ -169,6 +167,7 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
         allResults={allResults}
       />
 
+      {/* Results (only shown after Calculate is clicked) */}
       {showResults && debts.length > 0 && (
         <PayoffResults
           debts={debts}
@@ -178,6 +177,7 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
           allResults={allResults}
         />
       )}
+
     </div>
   )
 }

@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { ChatMessageList, type ChatMessage } from "@/components/ai-chat/chat-message-list"
 import { buildPortfolioSnapshot } from "@/components/ai-chat/financial-snapshot"
+import { usePortfolioSafe } from "@/lib/portfolio-context"
 
 // Try to import usePortfolio — will fail gracefully if not in provider
 let usePortfolioHook: (() => any) | null = null
@@ -61,6 +62,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("")
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const portfolioCtx = usePortfolioSafe()
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const portfolioCtx = usePortfolioSafe()

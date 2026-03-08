@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useMemo, useCallback } from "react"
-import { Pencil, Upload } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Pencil, Upload, CreditCard } from "lucide-react"
 import { ManualEntry } from "@/components/goals/debt/ManualEntry"
 import { UploadStatement } from "@/components/goals/debt/UploadStatement"
 import { DebtSummaryCards } from "@/components/goals/debt/DebtSummaryCards"
@@ -11,8 +12,7 @@ import { PayoffStrategy } from "@/components/goals/debt/PayoffStrategy"
 import { PayoffResults } from "@/components/goals/debt/PayoffResults"
 import type { Debt, PayoffStrategy as StrategyType } from "@/components/goals/types"
 import { calculatePayoffPlan } from "@/components/goals/types"
-import { postJSON, deleteJSON } from "@/components/goals/hooks"
-
+import { postJSON, deleteJSON, debtTypeToDb } from "@/components/goals/hooks"
 
 interface DebtTrackerProps {
   debts: Debt[]
@@ -24,8 +24,6 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
   const [strategy, setStrategy] = useState<StrategyType>("avalanche")
   const [extraPayment, setExtraPayment] = useState(200)
   const [showResults, setShowResults] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [deleteShield, setDeleteShield] = useState(false)
 
   // Calculate both strategies for comparison
   const allResults = useMemo(
@@ -47,12 +45,13 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
       // Persist to Supabase
       const result = await postJSON<any>("/api/user-debts", {
         name: debt.name,
-        type: debt.type,
+        type: debtTypeToDb(debt.type),
         balance: debt.balance,
         apr: debt.apr,
         monthlyPayment: debt.monthlyPayment,
+        minimumPayment: debt.minimumPayment,
+        status: "active",
       })
-
       if (result?.debt?.id) {
         // Replace temp ID with Supabase ID
         setDebts((prev) =>
@@ -65,31 +64,9 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
 
   const handleDeleteDebt = useCallback(
     async (id: string) => {
-      setIsDeleting(true)
-      setDeleteShield(true)
-
-      // Optimistic UI update
       setDebts((prev) => prev.filter((d) => d.id !== id))
       setShowResults(false)
-
-      // 1. Single record delete
       await deleteJSON("/api/user-debts", id)
-
-      // 2. NUKE entire table (kills any rogue inserts)
-      await fetch('/api/user-debts', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ debts: [] })
-      })
-
-      // 3. Hard reload - bypasses ALL caching/Realtime
-      setTimeout(() => window.location.reload(), 500)
-
-      // Reset shields
-      setTimeout(() => {
-        setIsDeleting(false)
-        setDeleteShield(false)
-      }, 2000)
     },
     [setDebts]
   )
@@ -105,12 +82,13 @@ export function DebtTracker({ debts, setDebts }: DebtTrackerProps) {
       for (const debt of importedDebts) {
         const result = await postJSON<any>("/api/user-debts", {
           name: debt.name,
-          type: debt.type,
+          type: debtTypeToDb(debt.type),
           balance: debt.balance,
           apr: debt.apr,
           monthlyPayment: debt.monthlyPayment,
+          minimumPayment: debt.minimumPayment,
+          status: "active",
         })
-
         if (result?.debt?.id) {
           setDebts((prev) =>
             prev.map((d) => (d.id === debt.id ? { ...d, id: result.debt.id } : d))

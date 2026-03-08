@@ -1,6 +1,7 @@
 'use client'
 
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Sparkles, User } from 'lucide-react'
 
 export interface ChatMessage {
@@ -52,8 +53,11 @@ function AssistantBubble({ content }: { content: string }) {
           prose-code:text-green-400 prose-code:bg-green-500/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:before:content-none prose-code:after:content-none
           prose-headings:text-foreground prose-headings:font-semibold prose-headings:mt-3 prose-headings:mb-1.5
           prose-a:text-green-400 prose-a:no-underline hover:prose-a:underline
+          prose-table:my-2
+          prose-th:text-foreground prose-th:font-semibold prose-th:text-xs prose-th:px-3 prose-th:py-1.5 prose-th:border prose-th:border-border/50 prose-th:bg-muted/80
+          prose-td:text-xs prose-td:px-3 prose-td:py-1.5 prose-td:border prose-td:border-border/30
         ">
-          <ReactMarkdown>{content}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
         </div>
       </div>
     </div>

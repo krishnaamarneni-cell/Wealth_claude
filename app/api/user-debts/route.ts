@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerSideClient } from '@/lib/supabase'
 
-// v21: ABSOLUTE FORCE REBUILD - Vercel cache must be invalidated
-// Debt types MUST be converted to lowercase: "Credit Card" → "credit card"
+// ===== v22 COMPLETE REBUILD =====
+// Cache invalidation timestamp: 2026-03-07-18:45:00
+// Debt types MUST be converted to lowercase before database insert
+// Database schema expects: user_id, name, type (lowercase), balance, apr, min_payment
+// v21: Convert debt types to lowercase for database constraint
 // Only insert 6 columns: user_id, name, type, balance, apr, min_payment
 export async function GET() {
   try {

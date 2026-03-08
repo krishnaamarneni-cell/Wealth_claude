@@ -1,4 +1,5 @@
 "use client"
+// Fixed: All imports use correct @/components/goals/ paths
 
 import { useState, useMemo, useCallback, useEffect } from "react"
 import { Pencil, Upload } from "lucide-react"

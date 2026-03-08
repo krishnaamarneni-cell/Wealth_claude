@@ -1,9 +1,9 @@
 /**
- * Phase 5 — Updated /api/ai-chat/route.ts
+ * Phase 6 — Updated /api/ai-chat/route.ts
  * 
- * Changes from Phase 4:
- *   - Step 18: Mistral fallback when Groq hits rate limits (429)
- *   - Step 20: Fallback portfolio fetch from Supabase transactions when PortfolioContext is empty
+ * Changes from Phase 5:
+ *   - Step 23-24: Logs every request to ai_chat_logs table
+ *   - Tracks response time, route, category, success/failure
  * 
  * Replace your existing: app/api/ai-chat/route.ts
  */
@@ -15,6 +15,7 @@ import { classifyQuestion } from '@/lib/ai-chat/question-classifier'
 import { queryPerplexity, formatMarketResponse, formatAsGroqContext } from '@/lib/ai-chat/perplexity-client'
 import { callMistral } from '@/lib/ai-chat/mistral-client'
 import { fetchFallbackPortfolio, buildFallbackPromptSection } from '@/lib/ai-chat/fallback-portfolio'
+import { logChatRequest } from '@/lib/ai-chat/chat-logger'
 import type { FinancialSnapshot } from '@/components/ai-chat/financial-snapshot'
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
@@ -51,6 +52,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
 
+    // ── Step 24: Start timing for logging ────────────────────────────────
+    const startTime = Date.now()
+
     // ── Step 15: Classify the question ─────────────────────────────────
     const holdingSymbols = portfolioSnapshot?.holdings?.map((h) => h.symbol) ?? []
     const classification = classifyQuestion(message, holdingSymbols)
@@ -61,7 +65,20 @@ export async function POST(req: NextRequest) {
 
     // MARKET ONLY → Perplexity handles it directly
     if (classification.category === 'market') {
-      return await handleMarketQuestion(message, classification.marketQuery!)
+      const result = await handleMarketQuestion(message, classification.marketQuery!)
+      // Log the request (fire-and-forget)
+      const responseBody = await result.clone().json()
+      logChatRequest(supabase, {
+        userId: user.id,
+        message,
+        response: responseBody.response || '',
+        category: 'market',
+        route: 'perplexity',
+        responseTimeMs: Date.now() - startTime,
+        success: responseBody.success ?? true,
+        errorMessage: responseBody.error,
+      })
+      return result
     }
 
     // ── Step 20: Fallback portfolio fetch if frontend didn't send data ──
@@ -78,7 +95,18 @@ export async function POST(req: NextRequest) {
         const reClassification = classifyQuestion(message, fallbackSymbols)
         if (reClassification.category === 'market' && classification.category !== 'market') {
           console.log('[AI Chat] Re-classified as market after fallback fetch')
-          return await handleMarketQuestion(message, reClassification.marketQuery!)
+          const result = await handleMarketQuestion(message, reClassification.marketQuery!)
+          const responseBody = await result.clone().json()
+          logChatRequest(supabase, {
+            userId: user.id,
+            message,
+            response: responseBody.response || '',
+            category: 'market',
+            route: 'perplexity',
+            responseTimeMs: Date.now() - startTime,
+            success: responseBody.success ?? true,
+          })
+          return result
         }
       }
     }
@@ -135,17 +163,39 @@ export async function POST(req: NextRequest) {
 
     // MIXED → Fetch market data from Perplexity, then combine with portfolio in Groq
     if (classification.category === 'mixed') {
-      return await handleMixedQuestion(
+      const result = await handleMixedQuestion(
         message,
         classification.marketQuery!,
         fullSnapshot,
         chatHistory,
         fallbackPromptSection
       )
+      const responseBody = await result.clone().json()
+      logChatRequest(supabase, {
+        userId: user.id,
+        message,
+        response: responseBody.response || '',
+        category: 'mixed',
+        route: responseBody.metadata?.route || 'perplexity+groq',
+        responseTimeMs: Date.now() - startTime,
+        success: responseBody.success ?? true,
+      })
+      return result
     }
 
-    // PORTFOLIO → Groq only (existing Phase 3 behavior)
-    return await handlePortfolioQuestion(message, fullSnapshot, chatHistory, fallbackPromptSection)
+    // PORTFOLIO → Groq only
+    const result = await handlePortfolioQuestion(message, fullSnapshot, chatHistory, fallbackPromptSection)
+    const responseBody = await result.clone().json()
+    logChatRequest(supabase, {
+      userId: user.id,
+      message,
+      response: responseBody.response || '',
+      category: 'portfolio',
+      route: responseBody.metadata?.route || 'groq',
+      responseTimeMs: Date.now() - startTime,
+      success: responseBody.success ?? true,
+    })
+    return result
 
   } catch (error) {
     console.error('[AI Chat] Error:', error)

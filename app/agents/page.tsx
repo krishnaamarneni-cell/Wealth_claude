@@ -220,8 +220,8 @@ export default function AgentsPage() {
                     <AgentCard
                       key={agent.id}
                       agent={agent}
-                      onEdit={handleEditAgent}
-                      onDelete={handleDeleteAgent}
+                      onEdit={() => handleEditAgent(agent)}
+                      onDelete={() => handleDeleteAgent(agent.id)}
                     />
                   ))}
                 </div>

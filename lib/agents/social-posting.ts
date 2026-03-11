@@ -153,8 +153,10 @@ async function postToX(
     if (post.image_url) {
       try {
         mediaId = await uploadXMedia(accessToken, post.image_url);
-      } catch (e) {
-        console.error('X media upload failed:', e);
+      } catch (e: any) {
+        console.error('[v0] X media upload failed:', e.message);
+        // Continue without media if upload fails - the tweet can still be posted
+        // But log it so user is aware
       }
     }
 
@@ -166,6 +168,7 @@ async function postToX(
       postId: tweet.id,
     };
   } catch (error: any) {
+    console.error('[v0] X post failed:', error);
     return {
       platform: 'x',
       success: false,

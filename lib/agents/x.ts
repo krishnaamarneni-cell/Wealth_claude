@@ -191,8 +191,16 @@ export async function uploadXMedia(
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Failed to upload media: ${error}`);
+    let errorMsg = '';
+    try {
+      const errorJson = await response.json();
+      errorMsg = JSON.stringify(errorJson);
+      console.error('[v0] X media upload error response:', errorJson);
+    } catch {
+      errorMsg = await response.text();
+      console.error('[v0] X media upload error text:', errorMsg);
+    }
+    throw new Error(`Failed to upload media to X: ${errorMsg || response.statusText}`);
   }
 
   const data = await response.json();

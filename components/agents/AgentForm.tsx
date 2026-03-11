@@ -19,7 +19,7 @@ import {
   Link2,
 } from 'lucide-react';
 import { Agent, AgentInsert, PostingStyle, TrendSource } from '@/types/database';
-import BufferAccountsPanel from './BufferAccountsPanel';
+import SocialAccountsPanel from './SocialAccountsPanel';
 
 interface AgentFormProps {
   agent?: Agent | null;
@@ -103,7 +103,7 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
   );
   const [trendKeywords, setTrendKeywords] = useState(agent?.trend_keywords?.join(', ') || '');
   const [winningContentUrl, setWinningContentUrl] = useState(agent?.winning_content_folder_url || '');
-  const [selectedBufferIds, setSelectedBufferIds] = useState<string[]>(agent?.buffer_profile_ids || []);
+  const [selectedSocialIds, setSelectedSocialIds] = useState<string[]>(agent?.social_account_ids || []);
   const [isAutoPosting, setIsAutoPosting] = useState(agent?.is_auto_posting ?? true);
   const [notifyOnTrendChange, setNotifyOnTrendChange] = useState(agent?.notify_on_trend_change ?? true);
 
@@ -123,7 +123,7 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
         trend_sources: trendSources,
         trend_keywords: trendKeywords ? trendKeywords.split(',').map(k => k.trim()).filter(Boolean) : null,
         winning_content_folder_url: winningContentUrl || null,
-        buffer_profile_ids: selectedBufferIds,
+        social_account_ids: selectedSocialIds,
         is_auto_posting: isAutoPosting,
         notify_on_trend_change: notifyOnTrendChange,
         status: agent?.status || 'draft',
@@ -265,9 +265,9 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
                 <p className="text-sm text-zinc-400">
                   Select which social accounts this agent will post to.
                 </p>
-                <BufferAccountsPanel
-                  selectedIds={selectedBufferIds}
-                  onSelectionChange={setSelectedBufferIds}
+                <SocialAccountsPanel
+                  selectedIds={selectedSocialIds}
+                  onSelectionChange={setSelectedSocialIds}
                   selectable
                 />
               </div>
@@ -497,7 +497,7 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
         {/* Footer */}
         <div className="flex-shrink-0 px-6 py-4 border-t border-zinc-800 flex items-center justify-between">
           <p className="text-sm text-zinc-500">
-            {selectedBufferIds.length} account{selectedBufferIds.length !== 1 ? 's' : ''} selected
+            {selectedSocialIds.length} account{selectedSocialIds.length !== 1 ? 's' : ''} selected
           </p>
           <div className="flex gap-3">
             <button

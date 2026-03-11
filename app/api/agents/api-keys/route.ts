@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase';
+import { createServerSideClient } from '@/lib/supabase';
 import { encryptApiKey, decryptApiKey, maskApiKey, getApiKeyDisplayName } from '@/lib/encryption';
 import { ApiKey, ApiKeyInsert, ApiKeyName } from '@/types/database';
 import { cookies } from 'next/headers';
@@ -12,7 +12,8 @@ import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 
 // Helper to get authenticated user
 async function getAuthenticatedUser() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
+  const { createServerComponentClient } = await import('@supabase/auth-helpers-nextjs');
   const supabase = createServerComponentClient({ cookies: () => cookieStore });
   const { data: { user }, error } = await supabase.auth.getUser();
 
@@ -33,7 +34,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createServerClient();
+    const cookieStore = await cookies();
+    const supabase = createServerSideClient(cookieStore);
     const { searchParams } = new URL(request.url);
     const agentId = searchParams.get('agent_id');
 
@@ -100,7 +102,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createServerClient();
+    const cookieStore = await cookies();
+    const supabase = createServerSideClient(cookieStore);
 
     // Check if key already exists for this user/agent combination
     const { data: existing } = await supabase
@@ -178,7 +181,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
-    const supabase = createServerClient();
+    const cookieStore = await cookies();
+    const supabase = createServerSideClient(cookieStore);
 
     // Verify ownership
     const { data: existing } = await supabase
@@ -251,7 +255,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
-    const supabase = createServerClient();
+    const cookieStore = await cookies();
+    const supabase = createServerSideClient(cookieStore);
 
     // Verify ownership
     const { data: existing } = await supabase

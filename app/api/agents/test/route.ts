@@ -4,7 +4,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase';
+import { createServerSideClient } from '@/lib/supabase';
 import { decryptApiKey } from '@/lib/encryption';
 import { ApiKeyName } from '@/types/database';
 import { cookies } from 'next/headers';
@@ -12,7 +12,8 @@ import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 
 // Helper to get authenticated user
 async function getAuthenticatedUser() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
+  const { createServerComponentClient } = await import('@supabase/auth-helpers-nextjs');
   const supabase = createServerComponentClient({ cookies: () => cookieStore });
   const { data: { user }, error } = await supabase.auth.getUser();
 
@@ -230,7 +231,8 @@ export async function POST(request: NextRequest) {
 
     // If key_id is provided, fetch the key from database
     if (key_id && !key_value) {
-      const supabase = createServerClient();
+      const cookieStore = await cookies();
+      const supabase = createServerSideClient(cookieStore);
       const { data, error } = await supabase
         .from('api_keys')
         .select('key_name, key_value')
@@ -267,7 +269,8 @@ export async function POST(request: NextRequest) {
 
     // Update last_used_at if test was successful and we have a key_id
     if (result.success && key_id) {
-      const supabase = createServerClient();
+      const cookieStore = await cookies();
+      const supabase = createServerSideClient(cookieStore);
       await supabase
         .from('api_keys')
         .update({ last_used_at: new Date().toISOString() })

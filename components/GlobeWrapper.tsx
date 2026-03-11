@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from "react"
+import * as THREE from "three"
 import { MarketDataMap } from "@/lib/mockData"
 import { pctToColor, pctToGlow } from "@/lib/colorScale"
 import { NO_EXCHANGE_COUNTRIES } from "@/lib/countryIndexMap"
@@ -35,16 +36,11 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
     if (typeof window === "undefined") return
 
     const loadGlobe = async () => {
-      // Load Three.js first so window.THREE is available for stars
+      // Attach THREE to window for Globe.gl
       if (!(window as any).THREE) {
-        await new Promise<void>((res, rej) => {
-          const s = document.createElement("script")
-          s.src = "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"
-          s.onload = () => res()
-          s.onerror = () => rej(new Error("Three.js CDN load failed"))
-          document.head.appendChild(s)
-        })
+        (window as any).THREE = THREE
       }
+      
       if (!(window as any).Globe) {
         await new Promise<void>((res, rej) => {
           const s = document.createElement("script")

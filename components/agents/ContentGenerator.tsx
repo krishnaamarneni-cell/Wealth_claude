@@ -60,7 +60,7 @@ export default function ContentGenerator({ onPostCreated }: ContentGeneratorProp
 
   const fetchAgents = async () => {
     try {
-      const response = await fetch('/api/agents?status=active');
+      const response = await fetch('/api/agents');
       const data = await response.json();
       if (data.success) {
         setAgents(data.data);

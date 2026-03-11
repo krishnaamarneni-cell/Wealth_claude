@@ -1,30 +1,25 @@
 'use client';
 
 // ============================================
-// Agent Form Component - Create/Edit Agents
+// Agent Form Component - WealthClaude Style
 // ============================================
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Bot,
   Save,
   X,
-  ChevronDown,
-  ChevronUp,
   Sparkles,
   Clock,
   MessageSquare,
   Image,
-  Folder,
-  Bell,
   Zap,
   Target,
   Palette,
-  Hash,
-  Smile,
-  type LucideIcon,
+  Link2,
 } from 'lucide-react';
 import { Agent, AgentInsert, PostingStyle, TrendSource } from '@/types/database';
+import BufferAccountsPanel from './BufferAccountsPanel';
 
 interface AgentFormProps {
   agent?: Agent | null;
@@ -100,15 +95,15 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
   const [postingStyle, setPostingStyle] = useState<PostingStyle>(agent?.posting_style || DEFAULT_POSTING_STYLE);
   const [imageStylePrompt, setImageStylePrompt] = useState(
     agent?.image_style_prompt ||
-    'Professional finance data visualization, clean minimal design, blue/white color scheme, modern chart style, white background'
+    'Professional finance data visualization, clean minimal design, green/dark color scheme, modern chart style, dark background'
   );
   const [postingFrequency, setPostingFrequency] = useState(agent?.posting_frequency_minutes || 120);
-  const [minGap, setMinGap] = useState(agent?.min_posting_gap_minutes || 60);
   const [trendSources, setTrendSources] = useState<TrendSource[]>(
     agent?.trend_sources || ['x_trending', 'perplexity', 'news_rss']
   );
   const [trendKeywords, setTrendKeywords] = useState(agent?.trend_keywords?.join(', ') || '');
   const [winningContentUrl, setWinningContentUrl] = useState(agent?.winning_content_folder_url || '');
+  const [selectedBufferIds, setSelectedBufferIds] = useState<string[]>(agent?.buffer_profile_ids || []);
   const [isAutoPosting, setIsAutoPosting] = useState(agent?.is_auto_posting ?? true);
   const [notifyOnTrendChange, setNotifyOnTrendChange] = useState(agent?.notify_on_trend_change ?? true);
 
@@ -125,10 +120,10 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
         posting_style: postingStyle,
         image_style_prompt: imageStylePrompt,
         posting_frequency_minutes: postingFrequency,
-        min_posting_gap_minutes: minGap,
         trend_sources: trendSources,
         trend_keywords: trendKeywords ? trendKeywords.split(',').map(k => k.trim()).filter(Boolean) : null,
         winning_content_folder_url: winningContentUrl || null,
+        buffer_profile_ids: selectedBufferIds,
         is_auto_posting: isAutoPosting,
         notify_on_trend_change: notifyOnTrendChange,
         status: agent?.status || 'draft',
@@ -156,6 +151,7 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
 
   const sections = [
     { id: 'basic', label: 'Basic Info', icon: Bot },
+    { id: 'accounts', label: 'Accounts', icon: Link2 },
     { id: 'style', label: 'Posting Style', icon: Palette },
     { id: 'platforms', label: 'Platform Copy', icon: MessageSquare },
     { id: 'image', label: 'Image Style', icon: Image },
@@ -164,14 +160,14 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="relative w-full max-w-4xl max-h-[90vh] bg-zinc-950 rounded-3xl border border-zinc-800 shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
+      <div className="relative w-full max-w-4xl max-h-[90vh] bg-zinc-950 rounded-2xl border border-zinc-800 shadow-2xl overflow-hidden flex flex-col">
 
         {/* Header */}
-        <div className="flex-shrink-0 px-6 py-5 border-b border-zinc-800 bg-zinc-900/50">
+        <div className="flex-shrink-0 px-6 py-5 border-b border-zinc-800">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl">
+              <div className="p-3 bg-emerald-500 rounded-xl">
                 <Bot className="w-6 h-6 text-white" />
               </div>
               <div>
@@ -183,21 +179,22 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
             </div>
             <button
               onClick={onCancel}
-              className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl transition-all"
+              className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Section Tabs */}
-          <div className="flex gap-1 mt-5 overflow-x-auto pb-1">
+          <div className="flex gap-1 mt-5 overflow-x-auto pb-1 -mb-1">
             {sections.map(section => (
               <button
                 key={section.id}
+                type="button"
                 onClick={() => setActiveSection(section.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${activeSection === section.id
-                  ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${activeSection === section.id
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
                   }`}
               >
                 <section.icon className="w-4 h-4" />
@@ -220,7 +217,7 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g., Finance News Bot"
-                    className="form-input"
+                    className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                     required
                   />
                 </FormField>
@@ -231,21 +228,21 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
                     value={niche}
                     onChange={(e) => setNiche(e.target.value)}
                     placeholder="e.g., Finance, AI Tools, Crypto, Tech"
-                    className="form-input"
+                    className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                   />
                 </FormField>
 
                 <FormField
                   label="Topic Instructions"
                   required
-                  hint="Tell the agent exactly what to post about and what to avoid"
+                  hint="Tell the agent exactly what to post about"
                 >
                   <textarea
                     value={topicInstructions}
                     onChange={(e) => setTopicInstructions(e.target.value)}
-                    placeholder="e.g., Focus on US stock market news, tech earnings reports, and Fed announcements. Avoid crypto and meme stocks. Emphasize actionable insights for retail investors. Always cite data sources."
+                    placeholder="e.g., Focus on US stock market news, tech earnings reports, and Fed announcements. Avoid crypto and meme stocks. Emphasize actionable insights."
                     rows={5}
-                    className="form-input resize-none"
+                    className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all resize-none"
                     required
                   />
                 </FormField>
@@ -256,9 +253,23 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Notes about this agent..."
                     rows={2}
-                    className="form-input resize-none"
+                    className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all resize-none"
                   />
                 </FormField>
+              </div>
+            )}
+
+            {/* Accounts Section */}
+            {activeSection === 'accounts' && (
+              <div className="space-y-5 animate-in fade-in duration-200">
+                <p className="text-sm text-zinc-400">
+                  Select which social accounts this agent will post to.
+                </p>
+                <BufferAccountsPanel
+                  selectedIds={selectedBufferIds}
+                  onSelectionChange={setSelectedBufferIds}
+                  selectable
+                />
               </div>
             )}
 
@@ -273,8 +284,8 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
                         type="button"
                         onClick={() => updatePostingStyle('tone', option.value)}
                         className={`p-4 rounded-xl border text-center transition-all ${postingStyle.tone === option.value
-                          ? 'border-blue-500 bg-blue-500/10 ring-1 ring-blue-500/50'
-                          : 'border-zinc-800 hover:border-zinc-700 bg-zinc-900/50'
+                            ? 'border-emerald-500 bg-emerald-500/10'
+                            : 'border-zinc-800 hover:border-zinc-700 bg-zinc-900/50'
                           }`}
                       >
                         <span className="text-2xl mb-2 block">{option.emoji}</span>
@@ -294,8 +305,8 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
                           type="button"
                           onClick={() => updatePostingStyle('emoji_usage', option.value)}
                           className={`p-3 rounded-xl border text-left transition-all ${postingStyle.emoji_usage === option.value
-                            ? 'border-blue-500 bg-blue-500/10'
-                            : 'border-zinc-800 hover:border-zinc-700'
+                              ? 'border-emerald-500 bg-emerald-500/10'
+                              : 'border-zinc-800 hover:border-zinc-700'
                             }`}
                         >
                           <div className="font-medium text-white text-sm">{option.label}</div>
@@ -313,8 +324,8 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
                           type="button"
                           onClick={() => updatePostingStyle('hashtag_style', option.value)}
                           className={`p-3 rounded-xl border text-left transition-all ${postingStyle.hashtag_style === option.value
-                            ? 'border-blue-500 bg-blue-500/10'
-                            : 'border-zinc-800 hover:border-zinc-700'
+                              ? 'border-emerald-500 bg-emerald-500/10'
+                              : 'border-zinc-800 hover:border-zinc-700'
                             }`}
                         >
                           <div className="font-medium text-white text-sm">{option.label}</div>
@@ -331,7 +342,7 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
             {activeSection === 'platforms' && (
               <div className="space-y-5 animate-in fade-in duration-200">
                 <p className="text-sm text-zinc-400">
-                  Customize how the AI writes for each platform. Be specific about length, style, and structure.
+                  Customize how the AI writes for each platform.
                 </p>
 
                 <FormField label="X / Twitter Style" hint="280 char limit">
@@ -340,7 +351,7 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
                     onChange={(e) => updatePostingStyle('x_style', e.target.value)}
                     placeholder="Short, punchy insights..."
                     rows={3}
-                    className="form-input resize-none"
+                    className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all resize-none"
                   />
                 </FormField>
 
@@ -350,7 +361,7 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
                     onChange={(e) => updatePostingStyle('linkedin_style', e.target.value)}
                     placeholder="Professional, thoughtful analysis..."
                     rows={3}
-                    className="form-input resize-none"
+                    className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all resize-none"
                   />
                 </FormField>
 
@@ -360,7 +371,7 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
                     onChange={(e) => updatePostingStyle('instagram_style', e.target.value)}
                     placeholder="Engaging caption with hashtags..."
                     rows={3}
-                    className="form-input resize-none"
+                    className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all resize-none"
                   />
                 </FormField>
               </div>
@@ -371,24 +382,23 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
               <div className="space-y-5 animate-in fade-in duration-200">
                 <FormField
                   label="Image Generation Prompt"
-                  hint="This template is used for all Fal.ai Flux image generations"
+                  hint="Used for Fal.ai Flux image generation"
                 >
                   <textarea
                     value={imageStylePrompt}
                     onChange={(e) => setImageStylePrompt(e.target.value)}
                     placeholder="Professional finance data visualization..."
                     rows={4}
-                    className="form-input resize-none font-mono text-sm"
+                    className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all resize-none font-mono text-sm"
                   />
                 </FormField>
 
                 <div className="p-4 bg-zinc-900 rounded-xl border border-zinc-800">
-                  <h4 className="text-sm font-medium text-zinc-300 mb-2">💡 Tips for good prompts:</h4>
+                  <h4 className="text-sm font-medium text-zinc-300 mb-2">💡 Tips:</h4>
                   <ul className="text-sm text-zinc-500 space-y-1">
-                    <li>• Include color scheme (e.g., "blue/white", "dark mode")</li>
+                    <li>• Include color scheme (e.g., "green/dark", "minimal")</li>
                     <li>• Specify chart types (e.g., "line chart", "candlestick")</li>
-                    <li>• Add style keywords (e.g., "minimal", "modern", "professional")</li>
-                    <li>• Mention background (e.g., "white background", "gradient")</li>
+                    <li>• Add style keywords (e.g., "professional", "modern")</li>
                   </ul>
                 </div>
               </div>
@@ -405,8 +415,8 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
                         type="button"
                         onClick={() => setPostingFrequency(option.value)}
                         className={`p-3 rounded-xl border text-center transition-all ${postingFrequency === option.value
-                          ? 'border-blue-500 bg-blue-500/10'
-                          : 'border-zinc-800 hover:border-zinc-700'
+                            ? 'border-emerald-500 bg-emerald-500/10'
+                            : 'border-zinc-800 hover:border-zinc-700'
                           }`}
                       >
                         <div className="font-medium text-white text-sm">{option.label}</div>
@@ -423,8 +433,8 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
                         type="button"
                         onClick={() => toggleTrendSource(option.value)}
                         className={`p-4 rounded-xl border text-left transition-all ${trendSources.includes(option.value)
-                          ? 'border-emerald-500 bg-emerald-500/10'
-                          : 'border-zinc-800 hover:border-zinc-700'
+                            ? 'border-emerald-500 bg-emerald-500/10'
+                            : 'border-zinc-800 hover:border-zinc-700'
                           }`}
                       >
                         <div className="flex items-center gap-3">
@@ -439,13 +449,13 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
                   </div>
                 </FormField>
 
-                <FormField label="Trend Keywords" hint="Comma-separated, optional filter">
+                <FormField label="Trend Keywords" hint="Comma-separated filter">
                   <input
                     type="text"
                     value={trendKeywords}
                     onChange={(e) => setTrendKeywords(e.target.value)}
-                    placeholder="e.g., AAPL, earnings, Fed, inflation, tech stocks"
-                    className="form-input"
+                    placeholder="e.g., AAPL, earnings, Fed, inflation"
+                    className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                   />
                 </FormField>
               </div>
@@ -454,13 +464,13 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
             {/* Advanced Section */}
             {activeSection === 'advanced' && (
               <div className="space-y-5 animate-in fade-in duration-200">
-                <FormField label="Winning Content Folder" hint="Google Drive URL for RAG learning">
+                <FormField label="Winning Content Folder" hint="Google Drive URL for RAG">
                   <input
                     type="url"
                     value={winningContentUrl}
                     onChange={(e) => setWinningContentUrl(e.target.value)}
                     placeholder="https://drive.google.com/drive/folders/..."
-                    className="form-input"
+                    className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                   />
                 </FormField>
 
@@ -473,7 +483,7 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
                   />
                   <ToggleOption
                     label="Trend Change Notifications"
-                    description="Get notified via Telegram when new trends are detected"
+                    description="Get notified via Telegram when new trends detected"
                     checked={notifyOnTrendChange}
                     onChange={setNotifyOnTrendChange}
                   />
@@ -485,22 +495,22 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
         </form>
 
         {/* Footer */}
-        <div className="flex-shrink-0 px-6 py-4 border-t border-zinc-800 bg-zinc-900/50 flex items-center justify-between">
+        <div className="flex-shrink-0 px-6 py-4 border-t border-zinc-800 flex items-center justify-between">
           <p className="text-sm text-zinc-500">
-            {agent ? 'Changes will be saved immediately' : 'Agent will be created in draft mode'}
+            {selectedBufferIds.length} account{selectedBufferIds.length !== 1 ? 's' : ''} selected
           </p>
           <div className="flex gap-3">
             <button
               type="button"
               onClick={onCancel}
-              className="px-5 py-2.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl transition-all font-medium"
+              className="px-5 py-2.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all font-medium"
             >
               Cancel
             </button>
             <button
               onClick={handleSubmit}
               disabled={loading || !name || !topicInstructions}
-              className="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {loading ? (
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -512,12 +522,6 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
           </div>
         </div>
       </div>
-
-      <style jsx>{`
-        .form-input {
-          @apply w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all;
-        }
-      `}</style>
     </div>
   );
 }
@@ -541,7 +545,7 @@ function FormField({
     <div>
       <label className="block text-sm font-medium text-zinc-300 mb-2">
         {label}
-        {required && <span className="text-red-400 ml-1">*</span>}
+        {required && <span className="text-emerald-400 ml-1">*</span>}
         {hint && <span className="text-zinc-600 font-normal ml-2">— {hint}</span>}
       </label>
       {children}
@@ -562,7 +566,7 @@ function ToggleOption({
 }) {
   return (
     <div
-      className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all ${checked ? 'border-blue-500/50 bg-blue-500/5' : 'border-zinc-800 hover:border-zinc-700'
+      className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all ${checked ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-zinc-800 hover:border-zinc-700'
         }`}
       onClick={() => onChange(!checked)}
     >
@@ -570,7 +574,7 @@ function ToggleOption({
         <div className="font-medium text-white">{label}</div>
         <div className="text-sm text-zinc-500">{description}</div>
       </div>
-      <div className={`w-12 h-7 rounded-full transition-all flex items-center px-1 ${checked ? 'bg-blue-500' : 'bg-zinc-700'
+      <div className={`w-12 h-7 rounded-full transition-all flex items-center px-1 ${checked ? 'bg-emerald-500' : 'bg-zinc-700'
         }`}>
         <div className={`w-5 h-5 rounded-full bg-white transition-transform ${checked ? 'translate-x-5' : 'translate-x-0'
           }`} />

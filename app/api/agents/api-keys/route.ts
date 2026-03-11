@@ -8,15 +8,14 @@ import { createServerSideClient } from '@/lib/supabase';
 import { encryptApiKey, decryptApiKey, maskApiKey, getApiKeyDisplayName } from '@/lib/encryption';
 import { ApiKey, ApiKeyInsert, ApiKeyName } from '@/types/database';
 import { cookies } from 'next/headers';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 
 // Helper to get authenticated user
 async function getAuthenticatedUser() {
   const cookieStore = await cookies();
-  const { createServerComponentClient } = await import('@supabase/auth-helpers-nextjs');
-  const supabase = createServerComponentClient({ cookies: () => cookieStore });
+  const supabase = createServerSideClient(cookieStore);
   const { data: { user }, error } = await supabase.auth.getUser();
 
+  console.log('[v0] Auth check:', { userId: user?.id, hasError: !!error });
   if (error || !user) {
     return null;
   }

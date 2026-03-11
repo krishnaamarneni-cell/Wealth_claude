@@ -509,7 +509,7 @@ export default function AgentForm({ agent, onSave, onCancel }: AgentFormProps) {
             </button>
             <button
               onClick={handleSubmit}
-              disabled={loading || !name || !topicInstructions}
+              disabled={loading}
               className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {loading ? (

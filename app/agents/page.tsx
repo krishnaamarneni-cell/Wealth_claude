@@ -23,7 +23,7 @@ import {
 import AgentCard from '@/components/agents/AgentCard';
 import AgentForm from '@/components/agents/AgentForm';
 import ApiKeysPanel from '@/components/agents/ApiKeysPanel';
-import BufferAccountsPanel from '@/components/agents/BufferAccountsPanel';
+import SocialAccountsPanel from '@/components/agents/SocialAccountsPanel';
 import PostQueue from '@/components/agents/PostQueue';
 import ContentGenerator from '@/components/agents/ContentGenerator';
 import SchedulerPanel from '@/components/agents/SchedulerPanel';
@@ -253,7 +253,7 @@ export default function AgentsPage() {
                 <ApiKeysPanel />
               </div>
               <div className="bg-zinc-900/50 rounded-2xl border border-zinc-800 p-6">
-                <BufferAccountsPanel />
+                <SocialAccountsPanel />
               </div>
             </div>
           )}

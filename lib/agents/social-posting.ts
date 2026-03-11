@@ -129,7 +129,7 @@ async function postToX(
   post: Post
 ): Promise<PostResult> {
   const accessToken = await getValidXToken(userId, accountId);
-
+  
   if (!accessToken) {
     return {
       platform: 'x',
@@ -159,7 +159,7 @@ async function postToX(
     }
 
     const tweet = await postTweet(accessToken, content, mediaId);
-
+    
     return {
       platform: 'x',
       success: true,
@@ -183,7 +183,7 @@ async function postToLinkedInPlatform(
   post: Post
 ): Promise<PostResult> {
   const tokenData = await getValidLinkedInToken(userId, accountId);
-
+  
   if (!tokenData) {
     return {
       platform: 'linkedin',
@@ -208,7 +208,7 @@ async function postToLinkedInPlatform(
       content,
       post.image_url || undefined
     );
-
+    
     return {
       platform: 'linkedin',
       success: true,

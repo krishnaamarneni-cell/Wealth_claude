@@ -2,7 +2,8 @@
 // Scheduler Service - Automated Tasks
 // ============================================
 
-import { createClient } from '@/lib/supabase/server';
+import { createServerSideClient } from '@/lib/supabase';
+import { cookies } from 'next/headers';
 import { Agent, Post, Trend } from '@/types/database';
 import { generatePostForAgent, discoverTrends } from './content-engine';
 import { publishPost } from './buffer';
@@ -26,7 +27,8 @@ export async function checkTrendsForAgent(
   userId: string,
   agent: Agent
 ): Promise<TrendCheckResult> {
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
 
   try {
     // Discover current trends
@@ -86,7 +88,8 @@ export async function checkTrendsForAgent(
  * Check trends for all active agents
  */
 export async function checkAllAgentTrends(userId: string): Promise<TrendCheckResult[]> {
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
 
   const { data: agents } = await supabase
     .from('agents')
@@ -149,7 +152,8 @@ export async function autoPostForAgent(
   userId: string,
   agent: Agent
 ): Promise<AutoPostResult> {
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
 
   try {
     // Get pending approved trend or discover new one
@@ -242,7 +246,8 @@ export async function autoPostForAgent(
  * Run auto-posting for all eligible agents
  */
 export async function runAutoPosting(userId: string): Promise<AutoPostResult[]> {
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
 
   const { data: agents } = await supabase
     .from('agents')
@@ -283,7 +288,8 @@ export async function processScheduledPosts(userId: string): Promise<{
   success: number;
   failed: number;
 }> {
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
 
   // Get posts scheduled for now or earlier
   const { data: duePosts } = await supabase

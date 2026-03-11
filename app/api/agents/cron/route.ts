@@ -9,7 +9,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerSideClient } from '@/lib/supabase';
+import { cookies } from 'next/headers';
 import {
   runSchedulerCycle,
   checkAllAgentTrends,
@@ -101,7 +102,8 @@ export async function GET(request: NextRequest) {
 // ============================================
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {

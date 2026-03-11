@@ -2,7 +2,8 @@
 // Buffer Service - Social Media Publishing
 // ============================================
 
-import { createClient } from '@/lib/supabase/server';
+import { createServerSideClient } from '@/lib/supabase';
+import { cookies } from 'next/headers';
 import { decryptApiKey } from '@/lib/encryption';
 import { Post, Platform } from '@/types/database';
 
@@ -23,7 +24,8 @@ export interface PublishResults {
  * Get Buffer API key for user
  */
 export async function getBufferKey(userId: string): Promise<string | null> {
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
 
   const { data } = await supabase
     .from('api_keys')
@@ -47,7 +49,8 @@ export async function getAgentBufferProfiles(
   userId: string,
   agentId: string
 ): Promise<string[]> {
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
 
   const { data: agent } = await supabase
     .from('agents')
@@ -66,7 +69,8 @@ export async function getProfilePlatform(
   userId: string,
   profileId: string
 ): Promise<Platform | null> {
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
 
   const { data } = await supabase
     .from('buffer_accounts')
@@ -140,7 +144,8 @@ export async function publishPost(
   post: Post,
   immediate = false
 ): Promise<PublishResults> {
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
   const results: BufferPublishResult[] = [];
 
   // Get Buffer API key
@@ -293,7 +298,8 @@ export async function schedulePost(
   postId: string,
   scheduledFor: Date
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
 
   const { error } = await supabase
     .from('posts')
@@ -327,7 +333,8 @@ export async function cancelPost(
   userId: string,
   postId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
 
   const { error } = await supabase
     .from('posts')

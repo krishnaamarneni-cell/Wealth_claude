@@ -2,7 +2,8 @@
 // Content Engine - Main Orchestrator
 // ============================================
 
-import { createClient } from '@/lib/supabase/server';
+import { createServerSideClient } from '@/lib/supabase';
+import { cookies } from 'next/headers';
 import { Agent, Post, PostInsert } from '@/types/database';
 import { getPerplexityKey, researchTopic, getTrendingTopics } from './perplexity';
 import { getGroqKey, generateContent, generateImagePrompt } from './groq';
@@ -34,7 +35,8 @@ export async function generatePostForAgent(
   agent: Agent,
   topic: string
 ): Promise<ContentGenerationResult> {
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
 
   try {
     // Step 1: Get API keys
@@ -205,7 +207,8 @@ export async function regeneratePostContent(
   userId: string,
   postId: string
 ): Promise<ContentGenerationResult> {
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
 
   // Get existing post and agent
   const { data: post, error: postError } = await supabase

@@ -4,7 +4,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerSideClient } from '@/lib/supabase';
+import { cookies } from 'next/headers';
 
 // ============================================
 // GET /api/agents/activity

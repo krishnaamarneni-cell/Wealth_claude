@@ -4,7 +4,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerSideClient } from '@/lib/supabase';
+import { cookies } from 'next/headers';
 import { publishPost, schedulePost, cancelPost } from '@/lib/agents/buffer';
 
 // ============================================
@@ -13,7 +14,8 @@ import { publishPost, schedulePost, cancelPost } from '@/lib/agents/buffer';
 // ============================================
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -76,7 +78,8 @@ export async function GET(request: NextRequest) {
 // ============================================
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -185,7 +188,8 @@ export async function PUT(request: NextRequest) {
 // ============================================
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {

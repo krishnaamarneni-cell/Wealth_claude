@@ -2,7 +2,8 @@
 // Fal.ai Service - Image Generation (Flux)
 // ============================================
 
-import { createClient } from '@/lib/supabase/server';
+import { createServerSideClient } from '@/lib/supabase';
+import { cookies } from 'next/headers';
 import { decryptApiKey } from '@/lib/encryption';
 
 export interface ImageGenerationResult {
@@ -15,7 +16,8 @@ export interface ImageGenerationResult {
  * Get Fal.ai API key for user (global or agent-specific)
  */
 export async function getFalKey(userId: string, agentId?: string): Promise<string | null> {
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
 
   // Try agent-specific key first
   if (agentId) {
@@ -214,7 +216,8 @@ export async function getCloudinaryCredentials(userId: string): Promise<{
   apiKey: string;
   apiSecret: string;
 } | null> {
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
 
   const { data: keys } = await supabase
     .from('api_keys')

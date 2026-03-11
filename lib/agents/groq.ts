@@ -2,7 +2,8 @@
 // Groq Service - AI Content Generation
 // ============================================
 
-import { createClient } from '@/lib/supabase/server';
+import { createServerSideClient } from '@/lib/supabase';
+import { cookies } from 'next/headers';
 import { decryptApiKey } from '@/lib/encryption';
 import { PostingStyle } from '@/types/database';
 
@@ -21,7 +22,8 @@ export interface GeneratedContent {
  * Get Groq API key for user (global or agent-specific)
  */
 export async function getGroqKey(userId: string, agentId?: string): Promise<string | null> {
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
 
   // Try agent-specific key first
   if (agentId) {

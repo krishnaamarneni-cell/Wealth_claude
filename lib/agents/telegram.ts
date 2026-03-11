@@ -2,7 +2,8 @@
 // Telegram Bot Service
 // ============================================
 
-import { createClient } from '@/lib/supabase/server';
+import { createServerSideClient } from '@/lib/supabase';
+import { cookies } from 'next/headers';
 import { decryptApiKey } from '@/lib/encryption';
 import { Agent } from '@/types/database';
 import { generatePostForAgent, discoverTrends } from './content-engine';
@@ -60,7 +61,8 @@ export interface TelegramResponse {
 // ============================================
 
 export async function getTelegramToken(userId: string): Promise<string | null> {
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
 
   const { data } = await supabase
     .from('api_keys')
@@ -166,7 +168,8 @@ export async function handleCommand(
   command: string,
   args: string[]
 ): Promise<void> {
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
 
   switch (command) {
     case '/start':
@@ -407,7 +410,8 @@ export async function handleCallbackQuery(
   token: string,
   callbackQuery: NonNullable<TelegramUpdate['callback_query']>
 ): Promise<void> {
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
   const { id, data, message } = callbackQuery;
   const chatId = message.chat.id;
   const messageId = message.message_id;
@@ -550,7 +554,8 @@ export async function sendTrendNotification(
   agentName: string,
   trends: string[]
 ): Promise<void> {
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const supabase = createServerSideClient(cookieStore);
   const token = await getTelegramToken(userId);
 
   if (!token) return;

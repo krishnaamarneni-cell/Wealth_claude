@@ -109,17 +109,29 @@ export async function PUT(request: NextRequest) {
         if (!accountIds || accountIds.length === 0) {
           return NextResponse.json({
             success: false,
-            error: 'No social accounts configured',
+            error: 'No social accounts configured for this agent',
           }, { status: 400 });
         }
 
-        const result = await publishPost(user.id, post, accountIds);
+        console.log('[v0] Publishing post:', { postId: id, accountIds });
 
-        return NextResponse.json({
-          success: result.success,
-          data: result,
-          message: result.success ? 'Post published!' : 'Failed to publish',
-        });
+        try {
+          const result = await publishPost(user.id, post, accountIds);
+          console.log('[v0] Publish result:', result);
+
+          return NextResponse.json({
+            success: result.success,
+            data: result,
+            message: result.success ? 'Post published!' : result.error || 'Failed to publish',
+            error: result.error,
+          });
+        } catch (publishError: any) {
+          console.error('[v0] Publish error:', publishError);
+          return NextResponse.json({
+            success: false,
+            error: publishError.message || 'Failed to publish post',
+          }, { status: 500 });
+        }
       }
 
       case 'schedule': {

@@ -100,14 +100,20 @@ export default function PostQueue({ agentId, showHistory = false }: PostQueuePro
       });
 
       const data = await response.json();
+      console.log('[v0] Post action response:', { postId, action, data });
 
       if (data.success) {
         await fetchPosts();
       } else {
-        alert(data.error || data.message || 'Action failed');
+        const errorMsg = data.error || data.message || 'Action failed';
+        setError(errorMsg);
+        alert(errorMsg);
       }
     } catch (err) {
-      alert('Action failed');
+      console.error('[v0] Post action error:', err);
+      const errorMsg = err instanceof Error ? err.message : 'Action failed';
+      setError(errorMsg);
+      alert(errorMsg);
     } finally {
       setActionLoading(prev => ({ ...prev, [postId]: false }));
     }

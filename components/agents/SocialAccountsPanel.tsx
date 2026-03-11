@@ -6,6 +6,7 @@
 // ============================================
 
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   RefreshCw,
   Check,
@@ -15,6 +16,7 @@ import {
   Link2,
   Unlink,
   ExternalLink,
+  CheckCircle,
 } from 'lucide-react';
 
 interface SocialAccount {
@@ -51,6 +53,16 @@ interface SocialAccountsPanelProps {
   selectable?: boolean;
 }
 
+const ERROR_MESSAGES: Record<string, string> = {
+  unauthorized: 'You must be logged in to connect social accounts.',
+  x_not_configured: 'X/Twitter credentials are not configured. Check X_CLIENT_ID and X_CLIENT_SECRET env vars.',
+  x_oauth_failed: 'Failed to start X/Twitter OAuth. Please try again.',
+  linkedin_not_configured: 'LinkedIn credentials are not configured. Check LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET env vars.',
+  linkedin_oauth_failed: 'Failed to start LinkedIn OAuth. Please try again.',
+  x_connected: 'X/Twitter account connected successfully!',
+  linkedin_connected: 'LinkedIn account connected successfully!',
+};
+
 export default function SocialAccountsPanel({
   selectedIds = [],
   onSelectionChange,
@@ -59,8 +71,19 @@ export default function SocialAccountsPanel({
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const searchParams = useSearchParams();
 
   useEffect(() => {
+    // Read error/success from URL params (set by OAuth callbacks)
+    const errorParam = searchParams?.get('error');
+    const successParam = searchParams?.get('connected');
+    if (errorParam) {
+      setError(ERROR_MESSAGES[errorParam] || `OAuth error: ${errorParam}`);
+    }
+    if (successParam) {
+      setSuccess(ERROR_MESSAGES[`${successParam}_connected`] || `${successParam} connected!`);
+    }
     fetchAccounts();
   }, []);
 
@@ -152,6 +175,17 @@ export default function SocialAccountsPanel({
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
+
+      {/* Success */}
+      {success && (
+        <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg flex items-center gap-2">
+          <CheckCircle className="w-4 h-4 text-emerald-400" />
+          <span className="text-sm text-emerald-300">{success}</span>
+          <button onClick={() => setSuccess(null)} className="ml-auto text-emerald-400 hover:text-emerald-300">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Error */}
       {error && (

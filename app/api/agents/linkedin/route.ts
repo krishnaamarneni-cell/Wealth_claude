@@ -13,28 +13,43 @@ import crypto from 'crypto';
 // GET /api/agents/linkedin - Start OAuth flow
 // ============================================
 export async function GET(request: NextRequest) {
-  const cookieStore = await cookies();
-  const supabase = createServerSideClient(cookieStore);
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL;
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const cookieStore = await cookies();
+    const supabase = createServerSideClient(cookieStore);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.redirect(`${appUrl}/agents?error=unauthorized`);
+    }
+
+    if (!process.env.LINKEDIN_CLIENT_ID) {
+      console.error('[v0] LINKEDIN_CLIENT_ID env var is missing');
+      return NextResponse.redirect(`${appUrl}/agents?error=linkedin_not_configured`);
+    }
+
+    // Generate state
+    const state = crypto.randomBytes(16).toString('hex');
+
+    const authUrl = getLinkedInAuthUrl(state);
+    console.log('[v0] LinkedIn OAuth redirect to:', authUrl);
+
+    // Store in cookie for callback verification
+    const response = NextResponse.redirect(authUrl);
+
+    response.cookies.set('linkedin_oauth_state', state, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 600,
+    });
+
+    return response;
+  } catch (error: any) {
+    console.error('[v0] LinkedIn OAuth initiation error:', error);
+    return NextResponse.redirect(`${appUrl}/agents?error=linkedin_oauth_failed&message=${encodeURIComponent(error.message)}`);
   }
-
-  // Generate state
-  const state = crypto.randomBytes(16).toString('hex');
-
-  // Store in cookie for callback verification
-  const response = NextResponse.redirect(getLinkedInAuthUrl(state));
-
-  response.cookies.set('linkedin_oauth_state', state, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    maxAge: 600,
-  });
-
-  return response;
 }
 
 // ============================================

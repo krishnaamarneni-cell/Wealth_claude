@@ -13,36 +13,51 @@ import crypto from 'crypto';
 // GET /api/agents/x - Start OAuth flow
 // ============================================
 export async function GET(request: NextRequest) {
-  const cookieStore = await cookies();
-  const supabase = createServerSideClient(cookieStore);
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL;
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const cookieStore = await cookies();
+    const supabase = createServerSideClient(cookieStore);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.redirect(`${appUrl}/agents?error=unauthorized`);
+    }
+
+    if (!process.env.X_CLIENT_ID) {
+      console.error('[v0] X_CLIENT_ID env var is missing');
+      return NextResponse.redirect(`${appUrl}/agents?error=x_not_configured`);
+    }
+
+    // Generate state and code verifier
+    const state = crypto.randomBytes(16).toString('hex');
+    const codeVerifier = crypto.randomBytes(32).toString('base64url');
+
+    const authUrl = getXAuthUrl(state, codeVerifier);
+    console.log('[v0] X OAuth redirect to:', authUrl);
+
+    // Store in cookie for callback verification
+    const response = NextResponse.redirect(authUrl);
+
+    response.cookies.set('x_oauth_state', state, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 600,
+    });
+
+    response.cookies.set('x_code_verifier', codeVerifier, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 600,
+    });
+
+    return response;
+  } catch (error: any) {
+    console.error('[v0] X OAuth initiation error:', error);
+    return NextResponse.redirect(`${appUrl}/agents?error=x_oauth_failed&message=${encodeURIComponent(error.message)}`);
   }
-
-  // Generate state and code verifier
-  const state = crypto.randomBytes(16).toString('hex');
-  const codeVerifier = crypto.randomBytes(32).toString('base64url');
-
-  // Store in cookie for callback verification
-  const response = NextResponse.redirect(getXAuthUrl(state, codeVerifier));
-
-  response.cookies.set('x_oauth_state', state, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    maxAge: 600, // 10 minutes
-  });
-
-  response.cookies.set('x_code_verifier', codeVerifier, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    maxAge: 600,
-  });
-
-  return response;
 }
 
 // ============================================

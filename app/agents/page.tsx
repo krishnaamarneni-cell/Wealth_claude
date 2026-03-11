@@ -260,7 +260,9 @@ export default function AgentsPage() {
                 <ApiKeysPanel />
               </div>
               <div className="bg-zinc-900/50 rounded-2xl border border-zinc-800 p-6">
-                <SocialAccountsPanel />
+                <React.Suspense fallback={<div className="animate-pulse h-32 bg-zinc-800 rounded-lg" />}>
+                  <SocialAccountsPanel />
+                </React.Suspense>
               </div>
             </div>
           )}

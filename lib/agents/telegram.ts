@@ -7,7 +7,7 @@ import { cookies } from 'next/headers';
 import { decryptApiKey } from '@/lib/encryption';
 import { Agent } from '@/types/database';
 import { generatePostForAgent, discoverTrends } from './content-engine';
-import { publishPost } from './buffer';
+import { publishPost } from './social-posting';
 import { runSchedulerCycle } from './scheduler';
 
 // ============================================

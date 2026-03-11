@@ -6,7 +6,7 @@ import { createServerSideClient } from '@/lib/supabase';
 import { cookies } from 'next/headers';
 import { Agent, Post, Trend } from '@/types/database';
 import { generatePostForAgent, discoverTrends } from './content-engine';
-import { publishPost } from './buffer';
+import { publishPost } from './social-posting';
 import { getPerplexityKey, getTrendingTopics } from './perplexity';
 
 // ============================================

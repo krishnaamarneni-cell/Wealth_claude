@@ -17,6 +17,7 @@ import {
   MessageCircle,
   Key,
   Loader2,
+  ArrowLeft,
 } from 'lucide-react';
 
 // Import components
@@ -133,6 +134,17 @@ export default function AgentsPage() {
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 py-8">
+        {/* Navigation */}
+        <div className="flex items-center gap-4 mb-6">
+          <a 
+            href="/dashboard" 
+            className="flex items-center gap-2 text-zinc-400 hover:text-white transition-all"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Back to Dashboard
+          </a>
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>

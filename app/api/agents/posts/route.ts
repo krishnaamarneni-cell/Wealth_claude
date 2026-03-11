@@ -1,21 +1,20 @@
 // ============================================
-// API Routes: Posts Management
-// /api/agents/posts/route.ts
+// API Routes: Posts Management (Updated)
+// app/api/agents/posts/route.ts
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSideClient } from '@/lib/supabase';
 import { cookies } from 'next/headers';
-import { publishPost, schedulePost, cancelPost } from '@/lib/agents/buffer';
+import { createServerSideClient } from '@/lib/supabase';
+import { publishPost, getAgentSocialAccountIds } from '@/lib/agents/social-posting';
 
 // ============================================
-// GET /api/agents/posts
-// List posts (queue, history, etc.)
+// GET /api/agents/posts - List posts
 // ============================================
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies();
-  const supabase = createServerSideClient(cookieStore);
+    const supabase = createServerSideClient(cookieStore);
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -28,10 +27,9 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    // Build query
     let query = supabase
       .from('posts')
-      .select('*, agents(name, niche)')
+      .select('*, agents(name, niche)', { count: 'exact' })
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
@@ -42,7 +40,6 @@ export async function GET(request: NextRequest) {
 
     if (status) {
       if (status === 'queue') {
-        // Queue = scheduled + draft
         query = query.in('status', ['scheduled', 'draft']);
       } else {
         query = query.eq('status', status);
@@ -52,18 +49,13 @@ export async function GET(request: NextRequest) {
     const { data: posts, error, count } = await query;
 
     if (error) {
-      console.error('Error fetching posts:', error);
       return NextResponse.json({ error: 'Failed to fetch posts' }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
       data: posts,
-      pagination: {
-        limit,
-        offset,
-        total: count,
-      },
+      pagination: { limit, offset, total: count },
     });
 
   } catch (error) {
@@ -73,13 +65,12 @@ export async function GET(request: NextRequest) {
 }
 
 // ============================================
-// PUT /api/agents/posts
-// Update post (edit content, schedule, status)
+// PUT /api/agents/posts - Update/Publish post
 // ============================================
 export async function PUT(request: NextRequest) {
   try {
     const cookieStore = await cookies();
-  const supabase = createServerSideClient(cookieStore);
+    const supabase = createServerSideClient(cookieStore);
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -93,22 +84,37 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
-    // Verify ownership
-    const { data: existing } = await supabase
+    // Get existing post
+    const { data: post } = await supabase
       .from('posts')
       .select('*')
       .eq('id', id)
       .eq('user_id', user.id)
       .single();
 
-    if (!existing) {
+    if (!post) {
       return NextResponse.json({ error: 'Post not found' }, { status: 404 });
     }
 
-    // Handle special actions
+    // Handle actions
     switch (action) {
       case 'publish_now': {
-        const result = await publishPost(user.id, existing, true);
+        // Get account IDs from agent or use provided ones
+        let accountIds = updates.account_ids;
+
+        if (!accountIds || accountIds.length === 0) {
+          accountIds = await getAgentSocialAccountIds(user.id, post.agent_id);
+        }
+
+        if (!accountIds || accountIds.length === 0) {
+          return NextResponse.json({
+            success: false,
+            error: 'No social accounts configured',
+          }, { status: 400 });
+        }
+
+        const result = await publishPost(user.id, post, accountIds);
+
         return NextResponse.json({
           success: result.success,
           data: result,
@@ -118,33 +124,46 @@ export async function PUT(request: NextRequest) {
 
       case 'schedule': {
         if (!updates.scheduled_for) {
-          return NextResponse.json({ error: 'scheduled_for is required' }, { status: 400 });
+          return NextResponse.json({ error: 'scheduled_for required' }, { status: 400 });
         }
-        const result = await schedulePost(user.id, id, new Date(updates.scheduled_for));
+
+        await supabase
+          .from('posts')
+          .update({
+            status: 'scheduled',
+            scheduled_for: updates.scheduled_for,
+          })
+          .eq('id', id);
+
         return NextResponse.json({
-          success: result.success,
-          message: result.success ? 'Post scheduled!' : result.error,
+          success: true,
+          message: 'Post scheduled!',
         });
       }
 
       case 'cancel': {
-        const result = await cancelPost(user.id, id);
+        await supabase
+          .from('posts')
+          .update({
+            status: 'cancelled',
+            scheduled_for: null,
+          })
+          .eq('id', id);
+
         return NextResponse.json({
-          success: result.success,
-          message: result.success ? 'Post cancelled' : result.error,
+          success: true,
+          message: 'Post cancelled',
         });
       }
 
       default: {
-        // Regular update (edit content)
+        // Regular update
         const allowedUpdates: Record<string, any> = {};
 
         if (updates.x_content !== undefined) allowedUpdates.x_content = updates.x_content;
         if (updates.linkedin_content !== undefined) allowedUpdates.linkedin_content = updates.linkedin_content;
-        if (updates.instagram_content !== undefined) allowedUpdates.instagram_content = updates.instagram_content;
         if (updates.image_url !== undefined) allowedUpdates.image_url = updates.image_url;
         if (updates.scheduled_for !== undefined) allowedUpdates.scheduled_for = updates.scheduled_for;
-        if (updates.platforms !== undefined) allowedUpdates.platforms = updates.platforms;
 
         const { data, error } = await supabase
           .from('posts')
@@ -154,19 +173,8 @@ export async function PUT(request: NextRequest) {
           .single();
 
         if (error) {
-          return NextResponse.json({ error: 'Failed to update post' }, { status: 500 });
+          return NextResponse.json({ error: 'Failed to update' }, { status: 500 });
         }
-
-        // Log edit
-        await supabase.from('activity_logs').insert({
-          user_id: user.id,
-          agent_id: existing.agent_id,
-          action_type: 'post_edited',
-          action_description: 'Post content edited',
-          related_entity_type: 'post',
-          related_entity_id: id,
-          status: 'success',
-        });
 
         return NextResponse.json({
           success: true,
@@ -183,13 +191,12 @@ export async function PUT(request: NextRequest) {
 }
 
 // ============================================
-// DELETE /api/agents/posts
-// Delete a post
+// DELETE /api/agents/posts - Delete post
 // ============================================
 export async function DELETE(request: NextRequest) {
   try {
     const cookieStore = await cookies();
-  const supabase = createServerSideClient(cookieStore);
+    const supabase = createServerSideClient(cookieStore);
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -203,15 +210,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
-    const { error } = await supabase
+    await supabase
       .from('posts')
       .delete()
       .eq('id', id)
       .eq('user_id', user.id);
-
-    if (error) {
-      return NextResponse.json({ error: 'Failed to delete post' }, { status: 500 });
-    }
 
     return NextResponse.json({
       success: true,

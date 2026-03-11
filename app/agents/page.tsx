@@ -30,10 +30,11 @@ import SchedulerPanel from '@/components/agents/SchedulerPanel';
 import TelegramSetup from '@/components/agents/TelegramSetup';
 import ActivityLog from '@/components/agents/ActivityLog';
 import StatsDashboard from '@/components/agents/StatsDashboard';
+import CommentsPanel from '@/components/agents/CommentsPanel';
 
 import { Agent, AgentInsert } from '@/types/database';
 
-type TabId = 'overview' | 'agents' | 'generate' | 'queue' | 'automation' | 'telegram' | 'settings';
+type TabId = 'overview' | 'agents' | 'generate' | 'queue' | 'automation' | 'telegram' | 'comments' | 'settings';
 
 export default function AgentsPage() {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
@@ -119,6 +120,7 @@ export default function AgentsPage() {
     { id: 'queue', label: 'Queue', icon: <Send className="w-4 h-4" /> },
     { id: 'automation', label: 'Automation', icon: <Activity className="w-4 h-4" /> },
     { id: 'telegram', label: 'Telegram', icon: <MessageCircle className="w-4 h-4" /> },
+    { id: 'comments', label: 'Comments', icon: <MessageCircle className="w-4 h-4" /> },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> },
   ];
 
@@ -240,6 +242,11 @@ export default function AgentsPage() {
             <div className="max-w-2xl">
               <TelegramSetup />
             </div>
+          )}
+
+          {/* Comments Tab */}
+          {activeTab === 'comments' && (
+            <CommentsPanel />
           )}
 
           {/* Settings Tab */}

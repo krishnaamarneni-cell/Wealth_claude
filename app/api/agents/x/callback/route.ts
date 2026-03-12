@@ -6,7 +6,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerSideClient } from '@/lib/supabase';
-import { exchangeXCode, getXUser } from '@/lib/agents/x';
 
 export async function GET(request: NextRequest) {
   try {

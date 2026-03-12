@@ -6,7 +6,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerSideClient } from '@/lib/supabase';
-import { getXAuthUrl, postTweet, uploadXMedia, getValidXToken } from '@/lib/agents/x';
 import crypto from 'crypto';
 
 // ============================================

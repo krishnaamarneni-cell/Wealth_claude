@@ -706,6 +706,18 @@ async function getBotToken(): Promise<string | null> {
 }
 
 async function getApiKey(keyType: string): Promise<string | null> {
+  // Try environment variables first (most reliable)
+  const envKeyMap: Record<string, string | undefined> = {
+    'groq': process.env.GROQ_API_KEY,
+    'perplexity': process.env.PERPLEXITY_API_KEY,
+    'fal_ai': process.env.FAL_AI_API_KEY,
+  };
+
+  if (envKeyMap[keyType]) {
+    return envKeyMap[keyType]!;
+  }
+
+  // Fallback to database
   const ownerId = process.env.AGENT_OWNER_USER_ID;
 
   const { data } = await supabase
@@ -719,7 +731,8 @@ async function getApiKey(keyType: string): Promise<string | null> {
 
   try {
     return decrypt(data.encrypted_value);
-  } catch {
+  } catch (e) {
+    console.error(`Failed to decrypt ${keyType}:`, e);
     return null;
   }
 }

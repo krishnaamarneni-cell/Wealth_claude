@@ -27,7 +27,7 @@ export function getLinkedInAuthUrl(state: string): string {
     client_id: clientId,
     redirect_uri: redirectUri,
     // Updated scopes: personal + organization posting
-    scope: 'openid profile w_member_social w_organization_social r_organization_social rw_organization_admin',
+    scope: 'openid profile w_member_social',
     state: state,
   });
 

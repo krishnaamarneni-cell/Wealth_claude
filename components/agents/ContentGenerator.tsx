@@ -40,7 +40,13 @@ export default function ContentGenerator({ onPostCreated }: ContentGeneratorProp
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<string>('');
   const [topic, setTopic] = useState('');
-  const [trends, setTrends] = useState<string[]>([]);
+  const [trends, setTrends] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('agent_trends');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
 
   const [loading, setLoading] = useState(false);
   const [loadingTrends, setLoadingTrends] = useState(false);
@@ -51,6 +57,12 @@ export default function ContentGenerator({ onPostCreated }: ContentGeneratorProp
   useEffect(() => {
     fetchAgents();
   }, []);
+
+  useEffect(() => {
+    if (trends.length > 0) {
+      localStorage.setItem('agent_trends', JSON.stringify(trends));
+    }
+  }, [trends]);
 
 
 

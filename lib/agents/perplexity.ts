@@ -4,7 +4,7 @@
 // ============================================
 
 import { createClient } from '@supabase/supabase-js';
-import { decrypt } from '@/lib/encryption';
+import { decryptApiKey } from '@/lib/encryption';
 
 const PERPLEXITY_API_URL = 'https://api.perplexity.ai/chat/completions';
 

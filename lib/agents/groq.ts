@@ -4,7 +4,7 @@
 // ============================================
 
 import { createClient } from '@supabase/supabase-js';
-import { decrypt } from '@/lib/encryption';
+import { decryptApiKey } from '@/lib/encryption';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const DEFAULT_MODEL = 'llama-3.3-70b-versatile';

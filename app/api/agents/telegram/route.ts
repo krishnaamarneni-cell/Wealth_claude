@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { decrypt } from '@/lib/encryption';
+import { decryptApiKey } from '@/lib/encryption';
 
 // Use service role client for Telegram (no user session)
 const supabase = createClient(

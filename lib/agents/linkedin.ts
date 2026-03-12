@@ -1,5 +1,5 @@
 // ============================================
-// LinkedIn API - OAuth & Posting
+// LinkedIn API - OAuth & Posting (2025 Posts API)
 // lib/agents/linkedin.ts
 // ============================================
 
@@ -17,13 +17,13 @@ export interface LinkedInPostResult {
  */
 export async function postToLinkedIn(
   accessToken: string,
-  platformUserId: string,
+  accountId: string,
   content: string,
   accountType: 'person' | 'organization' = 'person'
 ): Promise<LinkedInPostResult> {
   try {
     // Build the author URN correctly
-    const authorUrn = buildAuthorUrn(platformUserId, accountType);
+    const authorUrn = buildAuthorUrn(accountId, accountType);
 
     console.log(`[LinkedIn] Posting as ${accountType}: ${authorUrn}`);
     console.log(`[LinkedIn] Content length: ${content.length}`);
@@ -57,8 +57,6 @@ export async function postToLinkedIn(
     // LinkedIn returns 201 for success with x-restli-id header
     if (response.status === 201) {
       const postId = response.headers.get('x-restli-id') || '';
-      // Extract the share ID from the URN
-      const shareId = postId.replace('urn:li:share:', '');
 
       return {
         success: true,
@@ -89,13 +87,13 @@ export async function postToLinkedIn(
  */
 export async function postToLinkedInWithImage(
   accessToken: string,
-  platformUserId: string,
+  accountId: string,
   content: string,
   imageUrl: string,
   accountType: 'person' | 'organization' = 'person'
 ): Promise<LinkedInPostResult> {
   try {
-    const authorUrn = buildAuthorUrn(platformUserId, accountType);
+    const authorUrn = buildAuthorUrn(accountId, accountType);
 
     console.log(`[LinkedIn] Posting with image as ${accountType}: ${authorUrn}`);
 
@@ -119,7 +117,7 @@ export async function postToLinkedInWithImage(
       const error = await initResponse.json().catch(() => ({}));
       console.error('[LinkedIn] Image init error:', error);
       // Fall back to text-only post
-      return postToLinkedIn(accessToken, platformUserId, content, accountType);
+      return postToLinkedIn(accessToken, accountId, content, accountType);
     }
 
     const initData = await initResponse.json();
@@ -128,14 +126,14 @@ export async function postToLinkedInWithImage(
 
     if (!uploadUrl || !imageUrn) {
       console.error('[LinkedIn] No upload URL returned');
-      return postToLinkedIn(accessToken, platformUserId, content, accountType);
+      return postToLinkedIn(accessToken, accountId, content, accountType);
     }
 
     // Step 2: Download the image
     const imageResponse = await fetch(imageUrl);
     if (!imageResponse.ok) {
       console.error('[LinkedIn] Failed to fetch image');
-      return postToLinkedIn(accessToken, platformUserId, content, accountType);
+      return postToLinkedIn(accessToken, accountId, content, accountType);
     }
 
     const imageBuffer = await imageResponse.arrayBuffer();
@@ -152,7 +150,7 @@ export async function postToLinkedInWithImage(
 
     if (!uploadResponse.ok) {
       console.error('[LinkedIn] Image upload failed');
-      return postToLinkedIn(accessToken, platformUserId, content, accountType);
+      return postToLinkedIn(accessToken, accountId, content, accountType);
     }
 
     // Step 4: Create post with image
@@ -206,25 +204,25 @@ export async function postToLinkedInWithImage(
   } catch (error: any) {
     console.error('[LinkedIn] Post with image error:', error);
     // Fall back to text-only
-    return postToLinkedIn(accessToken, platformUserId, content, accountType);
+    return postToLinkedIn(accessToken, accountId, content, accountType);
   }
 }
 
 /**
  * Build the correct author URN
  */
-function buildAuthorUrn(platformUserId: string, accountType: 'person' | 'organization'): string {
+function buildAuthorUrn(accountId: string, accountType: 'person' | 'organization'): string {
   // If already a full URN, return as-is
-  if (platformUserId.startsWith('urn:li:')) {
-    return platformUserId;
+  if (accountId.startsWith('urn:li:')) {
+    return accountId;
   }
 
   // Build URN based on account type
   if (accountType === 'organization') {
-    return `urn:li:organization:${platformUserId}`;
+    return `urn:li:organization:${accountId}`;
   }
 
-  return `urn:li:person:${platformUserId}`;
+  return `urn:li:person:${accountId}`;
 }
 
 /**

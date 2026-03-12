@@ -1,6 +1,6 @@
 // ============================================
 // API Routes: Content Generation
-// /api/agents/generate/route.ts
+// app/api/agents/generate/route.ts
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -54,11 +54,12 @@ export async function POST(request: NextRequest) {
       userId = user.id;
     }
 
-    const { agent_id, topic, action, source } = body as {
+    const { agent_id, topic, action, source, includeImage = true } = body as {
       agent_id?: string;
       topic?: string;
       action?: 'generate' | 'discover_trends' | 'batch_generate';
       source?: string;
+      includeImage?: boolean;
     };
 
     // Get agent - either by ID or get the first active agent
@@ -120,7 +121,7 @@ export async function POST(request: NextRequest) {
 
       case 'batch_generate': {
         const trends = await discoverTrends(userId, agent);
-        const results = await generateBatchPosts(userId, agent, trends, 3);
+        const results = await generateBatchPosts(userId, agent, trends, 3, { includeImage });
         return NextResponse.json({
           success: true,
           data: {
@@ -139,9 +140,9 @@ export async function POST(request: NextRequest) {
           }, { status: 400 });
         }
 
-        console.log(`[Generate] Creating post for topic: "${topic}", source: ${source || 'web'}`);
+        console.log(`[Generate] Creating post for topic: "${topic}", source: ${source || 'web'}, includeImage: ${includeImage}`);
 
-        const result = await generatePostForAgent(userId, agent, topic);
+        const result = await generatePostForAgent(userId, agent, topic, { includeImage });
 
         if (!result.success) {
           return NextResponse.json({

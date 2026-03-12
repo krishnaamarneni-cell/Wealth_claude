@@ -69,15 +69,35 @@ export async function GET(request: NextRequest) {
 // ============================================
 export async function PUT(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerSideClient(cookieStore);
+    // Check for service auth (Telegram, Cron)
+    const authHeader = request.headers.get('Authorization');
+    const isServiceAuth = authHeader === `Bearer ${process.env.CRON_SECRET}`;
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    let userId: string;
+    let supabase: any;
 
     const body = await request.json();
+
+    if (isServiceAuth) {
+      // Service call - use service role client
+      const { createClient } = await import('@supabase/supabase-js');
+      supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+      userId = body.user_id || process.env.AGENT_OWNER_USER_ID!;
+      console.log('[v0] Service auth accepted for posts, userId:', userId);
+    } else {
+      // Normal user call
+      const cookieStore = await cookies();
+      supabase = createServerSideClient(cookieStore);
+
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      userId = user.id;
+    }
     const { id, action, ...updates } = body;
 
     if (!id) {
@@ -89,7 +109,7 @@ export async function PUT(request: NextRequest) {
       .from('posts')
       .select('*')
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single();
 
     if (!post) {
@@ -103,7 +123,7 @@ export async function PUT(request: NextRequest) {
         let accountIds = updates.account_ids;
 
         if (!accountIds || accountIds.length === 0) {
-          accountIds = await getAgentSocialAccountIds(user.id, post.agent_id);
+          accountIds = await getAgentSocialAccountIds(userId, post.agent_id);
         }
 
         if (!accountIds || accountIds.length === 0) {
@@ -116,7 +136,7 @@ export async function PUT(request: NextRequest) {
         console.log('[v0] Publishing post:', { postId: id, accountIds });
 
         try {
-          const result = await publishPost(user.id, post, accountIds);
+          const result = await publishPost(userId, post, accountIds);
           console.log('[v0] Publish result:', result);
 
           return NextResponse.json({

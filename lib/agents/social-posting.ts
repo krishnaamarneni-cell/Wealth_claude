@@ -1,5 +1,6 @@
 // ============================================
-// Social Posting Service - Direct X + LinkedIn
+// Social Posting Service - Updated
+// Supports LinkedIn Personal + Company Pages
 // lib/agents/social-posting.ts
 // ============================================
 
@@ -7,12 +8,13 @@ import { cookies } from 'next/headers';
 import { createServerSideClient } from '@/lib/supabase';
 import { Post } from '@/types/database';
 import { postTweet, uploadXMedia, getValidXToken } from './x';
-import { postToLinkedIn, getValidLinkedInToken } from './linkedin';
+import { postToLinkedIn, getValidLinkedInToken, LinkedInAuthorType } from './linkedin';
 
 export interface PostResult {
   platform: 'x' | 'linkedin';
   success: boolean;
   postId?: string;
+  accountName?: string;
   error?: string;
 }
 
@@ -34,7 +36,7 @@ export async function publishPost(
   const supabase = createServerSideClient(cookieStore);
   const results: PostResult[] = [];
 
-  // Get accounts
+  // Get accounts with account_type
   const { data: accounts } = await supabase
     .from('social_accounts')
     .select('*')
@@ -58,15 +60,23 @@ export async function publishPost(
     try {
       if (account.platform === 'x') {
         const result = await postToX(userId, account.id, post);
+        result.accountName = account.account_name;
         results.push(result);
       } else if (account.platform === 'linkedin') {
-        const result = await postToLinkedInPlatform(userId, account.id, post);
+        const result = await postToLinkedInPlatform(
+          userId,
+          account.id,
+          post,
+          account.account_type as LinkedInAuthorType || 'person'
+        );
+        result.accountName = account.account_name;
         results.push(result);
       }
     } catch (error: any) {
       results.push({
         platform: account.platform,
         success: false,
+        accountName: account.account_name,
         error: error.message,
       });
     }
@@ -105,8 +115,8 @@ export async function publishPost(
     agent_id: post.agent_id,
     action_type: allSuccess ? 'post_published' : 'post_failed',
     action_description: allSuccess
-      ? `Published to ${results.length} platform(s)`
-      : `Failed: ${results.filter(r => !r.success).map(r => r.error).join(', ')}`,
+      ? `Published to: ${results.filter(r => r.success).map(r => r.accountName).join(', ')}`
+      : `Failed: ${results.filter(r => !r.success).map(r => `${r.accountName}: ${r.error}`).join(', ')}`,
     related_entity_type: 'post',
     related_entity_id: post.id,
     status: allSuccess ? 'success' : 'failed',
@@ -129,7 +139,7 @@ async function postToX(
   post: Post
 ): Promise<PostResult> {
   const accessToken = await getValidXToken(userId, accountId);
-  
+
   if (!accessToken) {
     return {
       platform: 'x',
@@ -153,22 +163,19 @@ async function postToX(
     if (post.image_url) {
       try {
         mediaId = await uploadXMedia(accessToken, post.image_url);
-      } catch (e: any) {
-        console.error('[v0] X media upload failed:', e.message);
-        // Continue without media if upload fails - the tweet can still be posted
-        // But log it so user is aware
+      } catch (e) {
+        console.error('X media upload failed:', e);
       }
     }
 
     const tweet = await postTweet(accessToken, content, mediaId);
-    
+
     return {
       platform: 'x',
       success: true,
       postId: tweet.id,
     };
   } catch (error: any) {
-    console.error('[v0] X post failed:', error);
     return {
       platform: 'x',
       success: false,
@@ -178,15 +185,16 @@ async function postToX(
 }
 
 /**
- * Post to LinkedIn
+ * Post to LinkedIn (Personal or Company Page)
  */
 async function postToLinkedInPlatform(
   userId: string,
   accountId: string,
-  post: Post
+  post: Post,
+  authorType: LinkedInAuthorType = 'person'
 ): Promise<PostResult> {
   const tokenData = await getValidLinkedInToken(userId, accountId);
-  
+
   if (!tokenData) {
     return {
       platform: 'linkedin',
@@ -209,9 +217,10 @@ async function postToLinkedInPlatform(
       tokenData.token,
       tokenData.authorId,
       content,
-      post.image_url || undefined
+      post.image_url || undefined,
+      tokenData.authorType // Use the account type from DB
     );
-    
+
     return {
       platform: 'linkedin',
       success: true,

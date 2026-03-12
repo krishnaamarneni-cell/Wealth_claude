@@ -5,7 +5,7 @@
 
 import { cookies } from 'next/headers';
 import { createServerSideClient } from '@/lib/supabase';
-import { decrypt } from '@/lib/encryption';
+import { decryptApiKey } from '@/lib/encryption';
 
 export interface ImageResult {
   success: boolean;
@@ -383,7 +383,7 @@ async function getApiKey(userId: string, keyType: string): Promise<string | null
 
     if (!data?.encrypted_value) return null;
 
-    return decrypt(data.encrypted_value);
+    return decryptApiKey(data.encrypted_value);
   } catch {
     return null;
   }

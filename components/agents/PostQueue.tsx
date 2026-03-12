@@ -61,6 +61,7 @@ export default function PostQueue({ agentId, showHistory = false }: PostQueuePro
   const [expandedPost, setExpandedPost] = useState<string | null>(null);
   const [editingPost, setEditingPost] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
+  const [regeneratingImage, setRegeneratingImage] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPosts();
@@ -140,6 +141,39 @@ export default function PostQueue({ agentId, showHistory = false }: PostQueuePro
       alert('Delete failed');
     } finally {
       setActionLoading(prev => ({ ...prev, [postId]: false }));
+    }
+  };
+
+  const regenerateImage = async (postId: string, topic: string | null) => {
+    if (!topic) {
+      alert('Cannot regenerate image without topic');
+      return;
+    }
+
+    setRegeneratingImage(postId);
+
+    try {
+      const response = await fetch('/api/agents/posts', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          id: postId, 
+          action: 'regenerate_image',
+          topic 
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchPosts();
+      } else {
+        alert(data.error || 'Image regeneration failed');
+      }
+    } catch (err) {
+      alert('Image regeneration failed');
+    } finally {
+      setRegeneratingImage(null);
     }
   };
 

@@ -448,6 +448,12 @@ async function publishPost(botToken: string, chatId: number, postId: string) {
 // ============================================
 
 async function getBotToken(): Promise<string | null> {
+  // Try environment variable first (most reliable)
+  if (process.env.TELEGRAM_BOT_TOKEN) {
+    return process.env.TELEGRAM_BOT_TOKEN;
+  }
+
+  // Fallback to database
   const ownerId = process.env.AGENT_OWNER_USER_ID;
 
   const { data } = await supabase
@@ -460,8 +466,9 @@ async function getBotToken(): Promise<string | null> {
   if (!data?.encrypted_value) return null;
 
   try {
-    return decryptApiKey(data.encrypted_value);
-  } catch {
+    return decrypt(data.encrypted_value);
+  } catch (e) {
+    console.error('Failed to decrypt bot token:', e);
     return null;
   }
 }

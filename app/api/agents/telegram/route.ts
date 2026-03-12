@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { decrypt } from '@/lib/encryption';
+import { decryptApiKey } from '@/lib/encryption';
 
 // Use service role client for Telegram (no user session)
 const supabase = createClient(
@@ -460,7 +460,7 @@ async function getBotToken(): Promise<string | null> {
   if (!data?.encrypted_value) return null;
 
   try {
-    return decrypt(data.encrypted_value);
+    return decryptApiKey(data.encrypted_value);
   } catch {
     return null;
   }

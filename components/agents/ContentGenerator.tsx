@@ -54,6 +54,7 @@ export default function ContentGenerator({ onPostCreated }: ContentGeneratorProp
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generatedPost, setGeneratedPost] = useState<GeneratedPost | null>(null);
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAgents();
@@ -128,6 +129,7 @@ export default function ContentGenerator({ onPostCreated }: ContentGeneratorProp
           agent_id: selectedAgent,
           topic: finalTopic,
           action: 'generate',
+          image_url: generatedImage,
         }),
       });
 
@@ -254,6 +256,16 @@ export default function ContentGenerator({ onPostCreated }: ContentGeneratorProp
           </button>
         </div>
       </div>
+
+      {/* Image Selector */}
+      {selectedAgent && (
+        <ImageSelector
+          imageUrl={generatedImage}
+          topic={topic}
+          onImageChange={setGeneratedImage}
+          disabled={generating}
+        />
+      )}
 
       {/* Error */}
       {error && (

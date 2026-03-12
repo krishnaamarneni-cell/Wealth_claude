@@ -1,13 +1,19 @@
 // ============================================
 // Content Engine - Main Orchestrator
+// lib/agents/content-engine.ts
 // ============================================
 
-import { createServerSideClient } from '@/lib/supabase';
-import { cookies } from 'next/headers';
+import { createClient } from '@supabase/supabase-js';
 import { Agent, Post, PostInsert } from '@/types/database';
 import { getPerplexityKey, researchTopic, getTrendingTopics } from './perplexity';
 import { getGroqKey, generateContent, generateImagePrompt } from './groq';
 import { generateImage } from './image-generator';
+
+// Use service role client (works without user session)
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export interface ContentGenerationResult {
   success: boolean;
@@ -26,17 +32,22 @@ export interface ContentPipeline {
   imageUrl: string;
 }
 
+export interface GenerationOptions {
+  includeImage?: boolean;  // Default: true
+  platforms?: ('x' | 'linkedin' | 'instagram')[];
+}
+
 /**
  * Main content generation pipeline
- * Research → Generate Content → Generate Image → Create Post
+ * Research → Generate Content → Generate Image (optional) → Create Post
  */
 export async function generatePostForAgent(
   userId: string,
   agent: Agent,
-  topic: string
+  topic: string,
+  options: GenerationOptions = {}
 ): Promise<ContentGenerationResult> {
-  const cookieStore = await cookies();
-  const supabase = createServerSideClient(cookieStore);
+  const { includeImage = true, platforms = ['x', 'linkedin'] } = options;
 
   try {
     // Step 1: Get API keys
@@ -66,19 +77,28 @@ export async function generatePostForAgent(
       agent.topic_instructions
     );
 
-    // Step 4: Generate image prompt and image
-    console.log(`[ContentEngine] Generating image...`);
-    const imagePrompt = await generateImagePrompt(
-      groqKey,
-      topic,
-      agent.image_style_prompt,
-      research.summary
-    );
+    // Step 4: Generate image (optional)
+    let imageUrl: string | null = null;
+    let imagePrompt: string | null = null;
 
-    const imageResult = await generateImage(userId, imagePrompt);
+    if (includeImage) {
+      console.log(`[ContentEngine] Generating image...`);
+      imagePrompt = await generateImagePrompt(
+        groqKey,
+        topic,
+        agent.image_style_prompt,
+        research.summary
+      );
 
-    // The imageResult.url is already a usable URL (either Cloudinary, Fal.ai, or stock photo)
+      const imageResult = await generateImage(userId, imagePrompt);
+      imageUrl = imageResult?.url || null;
+    } else {
+      console.log(`[ContentEngine] Skipping image generation`);
+    }
+
+    // Step 5: Create post in database
     const postData: PostInsert = {
+      user_id: userId,
       agent_id: agent.id,
       topic,
       research_summary: research.summary,
@@ -86,18 +106,19 @@ export async function generatePostForAgent(
       linkedin_content: content.linkedin,
       instagram_content: content.instagram,
       image_prompt: imagePrompt,
-      image_url: imageResult?.url || null,
+      image_url: imageUrl,
       status: 'draft',
-      platforms: ['x', 'linkedin', 'instagram'],
+      platforms: platforms,
     };
 
     const { data: post, error: postError } = await supabase
       .from('posts')
-      .insert({ ...postData, user_id: userId })
+      .insert(postData)
       .select()
       .single();
 
     if (postError) {
+      console.error('[ContentEngine] Post insert error:', postError);
       throw new Error(`Failed to create post: ${postError.message}`);
     }
 
@@ -112,8 +133,9 @@ export async function generatePostForAgent(
       status: 'success',
       metadata: {
         topic,
-        has_image: !!(imageResult?.url),
-        research_sources: research.sources.length,
+        has_image: !!imageUrl,
+        platforms,
+        research_sources: research.sources?.length || 0,
       },
     });
 
@@ -166,13 +188,14 @@ export async function generateBatchPosts(
   userId: string,
   agent: Agent,
   topics: string[],
-  limit = 3
+  limit = 3,
+  options: GenerationOptions = {}
 ): Promise<ContentGenerationResult[]> {
   const results: ContentGenerationResult[] = [];
   const topicsToProcess = topics.slice(0, limit);
 
   for (const topic of topicsToProcess) {
-    const result = await generatePostForAgent(userId, agent, topic);
+    const result = await generatePostForAgent(userId, agent, topic, options);
     results.push(result);
 
     // Small delay between generations
@@ -187,11 +210,9 @@ export async function generateBatchPosts(
  */
 export async function regeneratePostContent(
   userId: string,
-  postId: string
+  postId: string,
+  options: GenerationOptions = {}
 ): Promise<ContentGenerationResult> {
-  const cookieStore = await cookies();
-  const supabase = createServerSideClient(cookieStore);
-
   // Get existing post and agent
   const { data: post, error: postError } = await supabase
     .from('posts')
@@ -210,5 +231,16 @@ export async function regeneratePostContent(
   }
 
   // Regenerate
-  return generatePostForAgent(userId, agent, post.topic);
+  return generatePostForAgent(userId, agent, post.topic, options);
+}
+
+/**
+ * Generate text-only post (no image) - convenience function
+ */
+export async function generateTextOnlyPost(
+  userId: string,
+  agent: Agent,
+  topic: string
+): Promise<ContentGenerationResult> {
+  return generatePostForAgent(userId, agent, topic, { includeImage: false });
 }

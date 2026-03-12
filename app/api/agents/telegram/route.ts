@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { decryptApiKey } from '@/lib/encryption';
+import { decrypt } from '@/lib/encryption';
 
 // Use service role client for Telegram (no user session)
 const supabase = createClient(
@@ -66,9 +66,6 @@ export async function POST(request: NextRequest) {
 // AI Message Handler - Natural Language
 // ============================================
 async function handleAIMessage(botToken: string, chatId: number, text: string, from: any) {
-  const ownerId = process.env.AGENT_OWNER_USER_ID;
-
-  // Get API keys
   const groqKey = await getApiKey('groq');
   const perplexityKey = await getApiKey('perplexity');
 
@@ -136,7 +133,8 @@ Respond with JSON only: {"intent": "INTENT_NAME", "topic": "extracted topic if r
         break;
 
       case 'CREATE_POST':
-        await handleGenerateCommand(botToken, chatId, topic || text);
+        // Ask user about image preference
+        await askImagePreference(botToken, chatId, topic || text);
         break;
 
       case 'DISCOVER_TRENDS':
@@ -183,6 +181,32 @@ Respond with JSON only: {"intent": "INTENT_NAME", "topic": "extracted topic if r
 }
 
 // ============================================
+// Ask Image Preference (before generating)
+// ============================================
+async function askImagePreference(botToken: string, chatId: number, topic: string) {
+  // Store topic temporarily (we'll use callback data)
+  const encodedTopic = encodeURIComponent(topic.substring(0, 50));
+
+  await sendMessage(botToken, chatId,
+    `✍️ *Create post about:*\n"${topic}"\n\nInclude an AI-generated image?`,
+    {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '🖼 With Image', callback_data: `gen_img:${encodedTopic}` },
+            { text: '📝 Text Only', callback_data: `gen_txt:${encodedTopic}` },
+          ],
+          [
+            { text: '❌ Cancel', callback_data: 'cancel' },
+          ],
+        ],
+      },
+    }
+  );
+}
+
+// ============================================
 // Search Query Handler (Perplexity)
 // ============================================
 async function handleSearchQuery(
@@ -224,8 +248,7 @@ async function handleSearchQuery(
     const answer = data.choices?.[0]?.message?.content;
 
     if (answer) {
-      // Format for Telegram (escape markdown)
-      const formattedAnswer = answer.substring(0, 4000); // Telegram limit
+      const formattedAnswer = answer.substring(0, 4000);
       await sendMessage(botToken, chatId, `📊 ${formattedAnswer}`);
     } else {
       await sendMessage(botToken, chatId, '❌ Could not find an answer.');
@@ -246,11 +269,9 @@ async function handleGeneralQuery(
   groqKey: string,
   perplexityKey: string | null
 ) {
-  // Use Perplexity if available for better answers, otherwise Groq
   if (perplexityKey) {
     await handleSearchQuery(botToken, chatId, query, perplexityKey, groqKey);
   } else {
-    // Fallback to Groq
     try {
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -326,7 +347,18 @@ async function handleCommand(botToken: string, chatId: number, text: string, fro
       break;
 
     case '/generate':
-      await handleGenerateCommand(botToken, chatId, args);
+      if (args) {
+        await askImagePreference(botToken, chatId, args);
+      } else {
+        await sendMessage(botToken, chatId,
+          `✍️ *Generate a Post*\n\n` +
+          `Tell me what to write about:\n` +
+          `• "Create a post about AI investments"\n` +
+          `• /generate Nvidia vs AMD comparison\n\n` +
+          `Or use /discover to find trending topics!`,
+          { parse_mode: 'Markdown' }
+        );
+      }
       break;
 
     case '/queue':
@@ -349,7 +381,7 @@ async function handleCommand(botToken: string, chatId: number, text: string, fro
 }
 
 // ============================================
-// Discover Trends Command (NEW!)
+// Discover Trends Command
 // ============================================
 async function handleDiscoverCommand(botToken: string, chatId: number) {
   const perplexityKey = await getApiKey('perplexity');
@@ -389,9 +421,6 @@ async function handleDiscoverCommand(botToken: string, chatId: number) {
     const trends = data.choices?.[0]?.message?.content;
 
     if (trends) {
-      // Save trends to database
-      const ownerId = process.env.AGENT_OWNER_USER_ID;
-
       await sendMessage(botToken, chatId,
         `📈 *Trending Now*\n\n${trends}\n\n` +
         `💡 Reply with "Create a post about [topic]" to generate content!`,
@@ -497,22 +526,12 @@ async function handleTrendsCommand(botToken: string, chatId: number) {
 }
 
 // ============================================
-// Generate Command
+// Generate Post (with or without image)
 // ============================================
-async function handleGenerateCommand(botToken: string, chatId: number, topic: string) {
-  if (!topic) {
-    await sendMessage(botToken, chatId,
-      `✍️ *Generate a Post*\n\n` +
-      `Tell me what to write about:\n` +
-      `• "Create a post about AI investments"\n` +
-      `• /generate Nvidia vs AMD comparison\n\n` +
-      `Or use /discover to find trending topics!`,
-      { parse_mode: 'Markdown' }
-    );
-    return;
-  }
-
-  await sendMessage(botToken, chatId, `⏳ Generating post about: "${topic}"...`);
+async function doGeneratePost(botToken: string, chatId: number, topic: string, includeImage: boolean) {
+  await sendMessage(botToken, chatId,
+    `⏳ Generating ${includeImage ? 'post with image' : 'text-only post'} about:\n"${topic}"...`
+  );
 
   try {
     const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/agents/generate`, {
@@ -525,6 +544,7 @@ async function handleGenerateCommand(botToken: string, chatId: number, topic: st
         topic,
         user_id: process.env.AGENT_OWNER_USER_ID,
         source: 'telegram',
+        includeImage,
       }),
     });
 
@@ -607,7 +627,10 @@ async function handlePublishCommand(botToken: string, chatId: number) {
   try {
     const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/agents/posts`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.CRON_SECRET}`,
+      },
       body: JSON.stringify({
         id: post.id,
         action: 'publish_now',
@@ -658,9 +681,10 @@ async function handleAgentsCommand(botToken: string, chatId: number) {
 }
 
 // ============================================
-// Callback Handler
+// Callback Handler (Button clicks)
 // ============================================
 async function handleCallback(botToken: string, chatId: number, data: string, callbackId: string) {
+  // Answer callback to remove loading state
   await fetch(`${TELEGRAM_API}${botToken}/answerCallbackQuery`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -670,11 +694,23 @@ async function handleCallback(botToken: string, chatId: number, data: string, ca
   const [action, ...params] = data.split(':');
 
   switch (action) {
+    case 'gen_img': {
+      // Generate with image
+      const topic = decodeURIComponent(params.join(':'));
+      await doGeneratePost(botToken, chatId, topic, true);
+      break;
+    }
+    case 'gen_txt': {
+      // Generate text only
+      const topic = decodeURIComponent(params.join(':'));
+      await doGeneratePost(botToken, chatId, topic, false);
+      break;
+    }
     case 'publish':
       await handlePublishCommand(botToken, chatId);
       break;
     case 'cancel':
-      await sendMessage(botToken, chatId, '❌ Action cancelled.');
+      await sendMessage(botToken, chatId, '❌ Cancelled.');
       break;
     default:
       await sendMessage(botToken, chatId, 'Unknown action.');
@@ -709,7 +745,7 @@ async function getBotToken(): Promise<string | null> {
 }
 
 async function getApiKey(keyType: string): Promise<string | null> {
-  // Try environment variables first (most reliable)
+  // Try environment variables first
   const envKeyMap: Record<string, string | undefined> = {
     'groq': process.env.GROQ_API_KEY,
     'perplexity': process.env.PERPLEXITY_API_KEY,
@@ -734,8 +770,7 @@ async function getApiKey(keyType: string): Promise<string | null> {
 
   try {
     return decrypt(data.encrypted_value);
-  } catch (e) {
-    console.error(`Failed to decrypt ${keyType}:`, e);
+  } catch {
     return null;
   }
 }

@@ -1,5 +1,6 @@
 // ============================================
-// LinkedIn Service - OAuth + Posting
+// LinkedIn Service - OAuth + Posting (Updated)
+// Supports Personal Profile + Company Pages
 // lib/agents/linkedin.ts
 // ============================================
 
@@ -15,6 +16,7 @@ const LINKEDIN_OAUTH_BASE = 'https://www.linkedin.com/oauth/v2';
 
 /**
  * Generate OAuth 2.0 authorization URL
+ * Updated scopes to include organization access
  */
 export function getLinkedInAuthUrl(state: string): string {
   const clientId = process.env.LINKEDIN_CLIENT_ID!;
@@ -24,7 +26,8 @@ export function getLinkedInAuthUrl(state: string): string {
     response_type: 'code',
     client_id: clientId,
     redirect_uri: redirectUri,
-    scope: 'openid profile w_member_social',
+    // Updated scopes: personal + organization posting
+    scope: 'openid profile w_member_social w_organization_social r_organization_social rw_organization_admin',
     state: state,
   });
 
@@ -118,21 +121,71 @@ export async function getLinkedInUser(accessToken: string): Promise<{
   return response.json();
 }
 
+/**
+ * Get user's administered company pages
+ */
+export async function getLinkedInOrganizations(accessToken: string): Promise<Array<{
+  id: string;
+  name: string;
+  logo_url?: string;
+}>> {
+  try {
+    // Get organizations where user is admin
+    const response = await fetch(
+      `${LINKEDIN_API_BASE}/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&projection=(elements*(organization~(id,localizedName,logoV2(original~:playableStreams))))`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'X-Restli-Protocol-Version': '2.0.0',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.error('Failed to fetch LinkedIn organizations:', await response.text());
+      return [];
+    }
+
+    const data = await response.json();
+
+    return (data.elements || []).map((el: any) => {
+      const org = el['organization~'];
+      const orgId = org?.id || el.organization?.split(':').pop();
+
+      return {
+        id: orgId,
+        name: org?.localizedName || 'Unknown Organization',
+        logo_url: org?.logoV2?.['original~']?.elements?.[0]?.identifiers?.[0]?.identifier,
+      };
+    });
+  } catch (error) {
+    console.error('Error fetching LinkedIn organizations:', error);
+    return [];
+  }
+}
+
 // ============================================
 // Posting Functions
 // ============================================
 
+export type LinkedInAuthorType = 'person' | 'organization';
+
 /**
- * Post to LinkedIn
+ * Post to LinkedIn (Personal or Company Page)
  */
 export async function postToLinkedIn(
   accessToken: string,
   authorId: string,
   text: string,
-  imageUrl?: string
+  imageUrl?: string,
+  authorType: LinkedInAuthorType = 'person'
 ): Promise<{ id: string }> {
+  const authorUrn = authorType === 'organization'
+    ? `urn:li:organization:${authorId}`
+    : `urn:li:person:${authorId}`;
+
   const postBody: any = {
-    author: `urn:li:person:${authorId}`,
+    author: authorUrn,
     lifecycleState: 'PUBLISHED',
     specificContent: {
       'com.linkedin.ugc.ShareContent': {
@@ -149,7 +202,7 @@ export async function postToLinkedIn(
 
   // If image, upload first then attach
   if (imageUrl) {
-    const asset = await uploadLinkedInImage(accessToken, authorId, imageUrl);
+    const asset = await uploadLinkedInImage(accessToken, authorId, imageUrl, authorType);
     postBody.specificContent['com.linkedin.ugc.ShareContent'].media = [{
       status: 'READY',
       media: asset,
@@ -181,8 +234,13 @@ export async function postToLinkedIn(
 async function uploadLinkedInImage(
   accessToken: string,
   authorId: string,
-  imageUrl: string
+  imageUrl: string,
+  authorType: LinkedInAuthorType = 'person'
 ): Promise<string> {
+  const ownerUrn = authorType === 'organization'
+    ? `urn:li:organization:${authorId}`
+    : `urn:li:person:${authorId}`;
+
   // Step 1: Register upload
   const registerResponse = await fetch(`${LINKEDIN_API_BASE}/assets?action=registerUpload`, {
     method: 'POST',
@@ -193,7 +251,7 @@ async function uploadLinkedInImage(
     body: JSON.stringify({
       registerUploadRequest: {
         recipes: ['urn:li:digitalmediaRecipe:feedshare-image'],
-        owner: `urn:li:person:${authorId}`,
+        owner: ownerUrn,
         serviceRelationships: [{
           relationshipType: 'OWNER',
           identifier: 'urn:li:userGeneratedContent',
@@ -277,8 +335,13 @@ export async function replyToLinkedInComment(
   postId: string,
   commentId: string,
   text: string,
-  authorId: string
+  authorId: string,
+  authorType: LinkedInAuthorType = 'person'
 ): Promise<{ id: string }> {
+  const actorUrn = authorType === 'organization'
+    ? `urn:li:organization:${authorId}`
+    : `urn:li:person:${authorId}`;
+
   const response = await fetch(
     `${LINKEDIN_API_BASE}/socialActions/${encodeURIComponent(postId)}/comments`,
     {
@@ -288,7 +351,7 @@ export async function replyToLinkedInComment(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        actor: `urn:li:person:${authorId}`,
+        actor: actorUrn,
         message: { text },
         parentComment: commentId,
       }),
@@ -311,6 +374,7 @@ export async function replyToLinkedInComment(
 export async function getValidLinkedInToken(userId: string, accountId: string): Promise<{
   token: string;
   authorId: string;
+  authorType: LinkedInAuthorType;
 } | null> {
   const cookieStore = await cookies();
   const supabase = createServerSideClient(cookieStore);
@@ -342,11 +406,19 @@ export async function getValidLinkedInToken(userId: string, accountId: string): 
         })
         .eq('id', accountId);
 
-      return { token: tokens.access_token, authorId: account.account_id };
+      return {
+        token: tokens.access_token,
+        authorId: account.account_id,
+        authorType: account.account_type || 'person',
+      };
     } catch {
       return null;
     }
   }
 
-  return { token: account.access_token, authorId: account.account_id };
+  return {
+    token: account.access_token,
+    authorId: account.account_id,
+    authorType: account.account_type || 'person',
+  };
 }

@@ -5,6 +5,8 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { Post, Agent, SocialAccount } from '@/types/database';
+import { postToX, postToXWithMedia } from './x';
+import { postToLinkedIn, postToLinkedInWithImage } from './linkedin';
 
 // Service role client
 const supabase = createClient(
@@ -97,9 +99,7 @@ export async function publishPost(
           if (result.success && result.postId) {
             await supabase
               .from('posts')
-              .update({
-                x_post_id: result.postId,
-              })
+              .update({ x_post_id: result.postId })
               .eq('id', postId);
           }
         } else if (account.platform === 'linkedin') {
@@ -110,9 +110,7 @@ export async function publishPost(
           if (result.success && result.postId) {
             await supabase
               .from('posts')
-              .update({
-                linkedin_post_id: result.postId,
-              })
+              .update({ linkedin_post_id: result.postId })
               .eq('id', postId);
           }
         }
@@ -165,7 +163,7 @@ export async function publishPost(
 }
 
 /**
- * Publish to X/Twitter using x.ts functions
+ * Publish to X/Twitter
  */
 async function publishToXPlatform(post: Post, account: SocialAccount): Promise<PublishResult> {
   try {
@@ -179,7 +177,6 @@ async function publishToXPlatform(post: Post, account: SocialAccount): Promise<P
 
     let result;
     if (post.image_url) {
-      // Post with image
       result = await postToXWithMedia(
         account.access_token,
         account.refresh_token || '',
@@ -187,7 +184,6 @@ async function publishToXPlatform(post: Post, account: SocialAccount): Promise<P
         post.image_url
       );
     } else {
-      // Text only
       result = await postToX(
         account.access_token,
         account.refresh_token || '',
@@ -195,20 +191,14 @@ async function publishToXPlatform(post: Post, account: SocialAccount): Promise<P
       );
     }
 
-    if (result.success) {
-      return {
-        platform: 'x',
-        success: true,
-        postId: result.id,
-        postUrl: result.url,
-      };
-    } else {
-      return {
-        platform: 'x',
-        success: false,
-        error: result.error || 'Failed to post to X',
-      };
-    }
+    return {
+      platform: 'x',
+      success: result.success,
+      postId: result.id,
+      postUrl: result.url,
+      error: result.error,
+    };
+
   } catch (error: any) {
     console.error('[SocialPosting] X error:', error);
     return {
@@ -220,7 +210,7 @@ async function publishToXPlatform(post: Post, account: SocialAccount): Promise<P
 }
 
 /**
- * Publish to LinkedIn using linkedin.ts functions (new Posts API)
+ * Publish to LinkedIn
  */
 async function publishToLinkedInPlatform(post: Post, account: SocialAccount): Promise<PublishResult> {
   try {
@@ -237,7 +227,6 @@ async function publishToLinkedInPlatform(post: Post, account: SocialAccount): Pr
 
     let result;
     if (post.image_url) {
-      // Post with image
       result = await postToLinkedInWithImage(
         account.access_token,
         accountId,
@@ -246,7 +235,6 @@ async function publishToLinkedInPlatform(post: Post, account: SocialAccount): Pr
         accountType
       );
     } else {
-      // Text only
       result = await postToLinkedIn(
         account.access_token,
         accountId,
@@ -255,20 +243,14 @@ async function publishToLinkedInPlatform(post: Post, account: SocialAccount): Pr
       );
     }
 
-    if (result.success) {
-      return {
-        platform: 'linkedin',
-        success: true,
-        postId: result.id,
-        postUrl: result.url,
-      };
-    } else {
-      return {
-        platform: 'linkedin',
-        success: false,
-        error: result.error || 'Failed to post to LinkedIn',
-      };
-    }
+    return {
+      platform: 'linkedin',
+      success: result.success,
+      postId: result.id,
+      postUrl: result.url,
+      error: result.error,
+    };
+
   } catch (error: any) {
     console.error('[SocialPosting] LinkedIn error:', error);
     return {
@@ -288,7 +270,6 @@ export async function publishToSinglePlatform(
   platform: 'x' | 'linkedin'
 ): Promise<PublishResult> {
   try {
-    // Get post with agent
     const { data: post, error: postError } = await supabase
       .from('posts')
       .select('*, agents(*)')
@@ -305,7 +286,6 @@ export async function publishToSinglePlatform(
       return { platform, success: false, error: 'No social accounts configured' };
     }
 
-    // Find account for this platform
     const { data: account } = await supabase
       .from('social_accounts')
       .select('*')

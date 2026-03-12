@@ -63,15 +63,15 @@ export async function GET() {
   )
 
   const working = results.filter(r => r.ok)
-  const broken  = results.filter(r => !r.ok)
+  const broken = results.filter(r => !r.ok)
 
   return NextResponse.json({
     summary: {
-      total:   tickers.length,
+      total: tickers.length,
       working: working.length,
-      broken:  broken.length,
+      broken: broken.length,
     },
     working: working.map(r => ({ ticker: r.ticker, country: r.country, price: (r as any).price, name: (r as any).name })),
-    broken:  broken.map(r  => ({ ticker: r.ticker, country: r.country, reason: (r as any).reason })),
+    broken: broken.map(r => ({ ticker: r.ticker, country: r.country, reason: (r as any).reason })),
   }, { headers: { "Cache-Control": "no-store" } })
 }

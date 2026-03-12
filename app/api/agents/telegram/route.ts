@@ -1,11 +1,11 @@
 // ============================================
-// Telegram Bot Webhook - Fixed Version
+// Telegram Bot - Full AI Assistant
 // app/api/agents/telegram/route.ts
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { decryptApiKey } from '@/lib/encryption';
+import { decrypt } from '@/lib/encryption';
 
 // Use service role client for Telegram (no user session)
 const supabase = createClient(
@@ -23,7 +23,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     console.log('Telegram webhook received:', JSON.stringify(body, null, 2));
 
-    // Get message or callback query
     const message = body.message || body.callback_query?.message;
     const callbackData = body.callback_query?.data;
     const chatId = message?.chat?.id;
@@ -35,7 +34,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    // Get bot token from database
     const botToken = await getBotToken();
     if (!botToken) {
       console.error('No bot token configured');
@@ -54,13 +52,233 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    // Handle regular messages (conversational)
-    await handleMessage(botToken, chatId, text, fromUser);
+    // Handle natural language with AI
+    await handleAIMessage(botToken, chatId, text, fromUser);
     return NextResponse.json({ ok: true });
 
   } catch (error) {
     console.error('Telegram webhook error:', error);
-    return NextResponse.json({ ok: true }); // Always return 200 to Telegram
+    return NextResponse.json({ ok: true });
+  }
+}
+
+// ============================================
+// AI Message Handler - Natural Language
+// ============================================
+async function handleAIMessage(botToken: string, chatId: number, text: string, from: any) {
+  const ownerId = process.env.AGENT_OWNER_USER_ID;
+
+  // Get API keys
+  const groqKey = await getApiKey('groq');
+  const perplexityKey = await getApiKey('perplexity');
+
+  if (!groqKey) {
+    await sendMessage(botToken, chatId, '❌ Groq API key not configured. Add it in Settings.');
+    return;
+  }
+
+  // Send typing indicator
+  await sendChatAction(botToken, chatId, 'typing');
+
+  try {
+    // Step 1: Determine intent with Groq
+    const intentResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${groqKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an intent classifier. Classify the user's message into one of these intents:
+            
+- SEARCH: User wants information, news, prices, data (e.g., "What is AMD stock price?", "Latest AI news")
+- CREATE_POST: User wants to create a social media post (e.g., "Create a post about...", "Write about...")
+- DISCOVER_TRENDS: User wants to see trending topics (e.g., "What's trending?", "Find trends")
+- CHECK_STATUS: User wants system status (e.g., "status", "how are things")
+- VIEW_QUEUE: User wants to see pending posts (e.g., "show queue", "pending posts")
+- PUBLISH: User wants to publish a post (e.g., "publish", "post it", "send it")
+- GREETING: User is greeting (e.g., "hi", "hello")
+- HELP: User needs help
+- OTHER: Doesn't fit above categories
+
+Respond with JSON only: {"intent": "INTENT_NAME", "topic": "extracted topic if relevant"}`
+          },
+          { role: 'user', content: text }
+        ],
+        temperature: 0.1,
+        max_tokens: 100,
+      }),
+    });
+
+    const intentData = await intentResponse.json();
+    const intentText = intentData.choices?.[0]?.message?.content || '{"intent": "OTHER"}';
+
+    let intent, topic;
+    try {
+      const parsed = JSON.parse(intentText.replace(/```json\n?|\n?```/g, '').trim());
+      intent = parsed.intent;
+      topic = parsed.topic;
+    } catch {
+      intent = 'OTHER';
+      topic = text;
+    }
+
+    console.log(`Intent: ${intent}, Topic: ${topic}`);
+
+    // Step 2: Handle based on intent
+    switch (intent) {
+      case 'SEARCH':
+        await handleSearchQuery(botToken, chatId, text, perplexityKey, groqKey);
+        break;
+
+      case 'CREATE_POST':
+        await handleGenerateCommand(botToken, chatId, topic || text);
+        break;
+
+      case 'DISCOVER_TRENDS':
+        await handleDiscoverCommand(botToken, chatId);
+        break;
+
+      case 'CHECK_STATUS':
+        await handleStatusCommand(botToken, chatId);
+        break;
+
+      case 'VIEW_QUEUE':
+        await handleQueueCommand(botToken, chatId);
+        break;
+
+      case 'PUBLISH':
+        await handlePublishCommand(botToken, chatId);
+        break;
+
+      case 'GREETING':
+        await sendMessage(botToken, chatId,
+          `👋 Hey! I'm your AI assistant.\n\n` +
+          `I can:\n` +
+          `• Answer questions (prices, news, research)\n` +
+          `• Create social media posts\n` +
+          `• Discover trends\n` +
+          `• Publish to X & LinkedIn\n\n` +
+          `Just ask me anything!`
+        );
+        break;
+
+      case 'HELP':
+        await handleHelpCommand(botToken, chatId);
+        break;
+
+      default:
+        // General conversation - use AI to respond
+        await handleGeneralQuery(botToken, chatId, text, groqKey, perplexityKey);
+    }
+
+  } catch (error: any) {
+    console.error('AI message error:', error);
+    await sendMessage(botToken, chatId, `❌ Error: ${error.message}`);
+  }
+}
+
+// ============================================
+// Search Query Handler (Perplexity)
+// ============================================
+async function handleSearchQuery(
+  botToken: string,
+  chatId: number,
+  query: string,
+  perplexityKey: string | null,
+  groqKey: string
+) {
+  if (!perplexityKey) {
+    await sendMessage(botToken, chatId, '❌ Perplexity API key not configured for web search.');
+    return;
+  }
+
+  await sendMessage(botToken, chatId, '🔍 Searching...');
+
+  try {
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${perplexityKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'sonar',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful assistant. Provide concise, accurate answers. Include specific numbers, dates, and facts when available. Keep responses under 300 words.'
+          },
+          { role: 'user', content: query }
+        ],
+        temperature: 0.2,
+        max_tokens: 500,
+      }),
+    });
+
+    const data = await response.json();
+    const answer = data.choices?.[0]?.message?.content;
+
+    if (answer) {
+      // Format for Telegram (escape markdown)
+      const formattedAnswer = answer.substring(0, 4000); // Telegram limit
+      await sendMessage(botToken, chatId, `📊 ${formattedAnswer}`);
+    } else {
+      await sendMessage(botToken, chatId, '❌ Could not find an answer.');
+    }
+
+  } catch (error: any) {
+    await sendMessage(botToken, chatId, `❌ Search failed: ${error.message}`);
+  }
+}
+
+// ============================================
+// General Query Handler
+// ============================================
+async function handleGeneralQuery(
+  botToken: string,
+  chatId: number,
+  query: string,
+  groqKey: string,
+  perplexityKey: string | null
+) {
+  // Use Perplexity if available for better answers, otherwise Groq
+  if (perplexityKey) {
+    await handleSearchQuery(botToken, chatId, query, perplexityKey, groqKey);
+  } else {
+    // Fallback to Groq
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${groqKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a helpful AI assistant. Be concise and friendly.'
+            },
+            { role: 'user', content: query }
+          ],
+          temperature: 0.7,
+          max_tokens: 500,
+        }),
+      });
+
+      const data = await response.json();
+      const answer = data.choices?.[0]?.message?.content || 'I couldn\'t process that.';
+      await sendMessage(botToken, chatId, answer);
+
+    } catch (error: any) {
+      await sendMessage(botToken, chatId, `❌ Error: ${error.message}`);
+    }
   }
 }
 
@@ -74,37 +292,29 @@ async function handleCommand(botToken: string, chatId: number, text: string, fro
   switch (command) {
     case '/start':
       await sendMessage(botToken, chatId,
-        `👋 Welcome to WealthClaude AI Agent!\n\n` +
-        `I can help you:\n` +
-        `• 📊 Check trending topics\n` +
-        `• ✍️ Generate social media posts\n` +
-        `• 📤 Publish to X & LinkedIn\n` +
-        `• 📬 View your post queue\n\n` +
-        `Commands:\n` +
-        `/status - Check agent status\n` +
-        `/trends - View current trends\n` +
-        `/generate - Create a new post\n` +
-        `/queue - View queued posts\n` +
-        `/publish - Publish next post\n` +
-        `/help - Show this message\n\n` +
-        `Or just type naturally and I'll help!`
+        `👋 Welcome to WealthClaude AI!\n\n` +
+        `I'm your intelligent assistant. I can:\n\n` +
+        `🔍 *Answer Questions*\n` +
+        `"What's AMD stock price?"\n` +
+        `"Latest AI news"\n\n` +
+        `✍️ *Create Posts*\n` +
+        `"Create a post about Nvidia vs AMD"\n\n` +
+        `📊 *Discover Trends*\n` +
+        `/discover - Find trending topics\n\n` +
+        `📤 *Publish*\n` +
+        `/queue - View pending posts\n` +
+        `/publish - Post to X & LinkedIn\n\n` +
+        `Just chat naturally or use commands!`,
+        { parse_mode: 'Markdown' }
       );
       break;
 
     case '/help':
-      await sendMessage(botToken, chatId,
-        `📚 *Available Commands*\n\n` +
-        `/status - Check system status\n` +
-        `/trends - Discover trending topics\n` +
-        `/generate [topic] - Generate a post\n` +
-        `/queue - View pending posts\n` +
-        `/publish - Publish next queued post\n` +
-        `/agents - List your agents\n\n` +
-        `💡 *Tips:*\n` +
-        `• You can also chat naturally\n` +
-        `• Ask "What's trending?" or "Create a post about AI"`,
-        { parse_mode: 'Markdown' }
-      );
+      await handleHelpCommand(botToken, chatId);
+      break;
+
+    case '/discover':
+      await handleDiscoverCommand(botToken, chatId);
       break;
 
     case '/status':
@@ -133,83 +343,96 @@ async function handleCommand(botToken: string, chatId: number, text: string, fro
 
     default:
       await sendMessage(botToken, chatId,
-        `❓ Unknown command: ${command}\n\nType /help to see available commands.`
+        `❓ Unknown command. Type /help or just ask me anything!`
       );
   }
 }
 
 // ============================================
-// Message Handler (Conversational)
+// Discover Trends Command (NEW!)
 // ============================================
-async function handleMessage(botToken: string, chatId: number, text: string, from: any) {
-  const lowerText = text.toLowerCase();
+async function handleDiscoverCommand(botToken: string, chatId: number) {
+  const perplexityKey = await getApiKey('perplexity');
 
-  // Simple intent detection
-  if (lowerText.includes('trend') || lowerText.includes('what\'s hot') || lowerText.includes('trending')) {
-    await handleTrendsCommand(botToken, chatId);
-  } else if (lowerText.includes('status') || lowerText.includes('how are')) {
-    await handleStatusCommand(botToken, chatId);
-  } else if (lowerText.includes('queue') || lowerText.includes('pending')) {
-    await handleQueueCommand(botToken, chatId);
-  } else if (lowerText.includes('generate') || lowerText.includes('create') || lowerText.includes('write') || lowerText.includes('post about')) {
-    // Extract topic from message
-    const topic = text.replace(/generate|create|write|post about|a post|make/gi, '').trim();
-    await handleGenerateCommand(botToken, chatId, topic || '');
-  } else if (lowerText.includes('publish') || lowerText.includes('send') || lowerText.includes('post it')) {
-    await handlePublishCommand(botToken, chatId);
-  } else if (lowerText.includes('agent')) {
-    await handleAgentsCommand(botToken, chatId);
-  } else if (lowerText.includes('hello') || lowerText.includes('hi') || lowerText.includes('hey')) {
-    await sendMessage(botToken, chatId,
-      `👋 Hey! I'm your AI social media assistant.\n\n` +
-      `What would you like to do?\n` +
-      `• Check trends\n` +
-      `• Generate a post\n` +
-      `• View your queue\n\n` +
-      `Just ask or use /help for commands.`
-    );
-  } else {
-    await sendMessage(botToken, chatId,
-      `🤔 I'm not sure what you mean.\n\n` +
-      `Try:\n` +
-      `• "What's trending?"\n` +
-      `• "Create a post about AI"\n` +
-      `• "Show my queue"\n\n` +
-      `Or type /help for commands.`
-    );
+  if (!perplexityKey) {
+    await sendMessage(botToken, chatId, '❌ Perplexity API key needed for trend discovery.');
+    return;
+  }
+
+  await sendMessage(botToken, chatId, '🔍 Discovering trending topics...');
+
+  try {
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${perplexityKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'sonar',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a trend analyst. Find the top 5 trending topics in AI, tech, and finance from today. For each topic, provide a brief 1-sentence description. Format as a numbered list.'
+          },
+          {
+            role: 'user',
+            content: 'What are the top 5 trending topics in AI, technology, and finance right now?'
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 500,
+      }),
+    });
+
+    const data = await response.json();
+    const trends = data.choices?.[0]?.message?.content;
+
+    if (trends) {
+      // Save trends to database
+      const ownerId = process.env.AGENT_OWNER_USER_ID;
+
+      await sendMessage(botToken, chatId,
+        `📈 *Trending Now*\n\n${trends}\n\n` +
+        `💡 Reply with "Create a post about [topic]" to generate content!`,
+        { parse_mode: 'Markdown' }
+      );
+    } else {
+      await sendMessage(botToken, chatId, '❌ Could not discover trends.');
+    }
+
+  } catch (error: any) {
+    await sendMessage(botToken, chatId, `❌ Error: ${error.message}`);
   }
 }
 
 // ============================================
-// Callback Handler (Button clicks)
+// Help Command
 // ============================================
-async function handleCallback(botToken: string, chatId: number, data: string, callbackId: string) {
-  // Answer callback to remove loading state
-  await fetch(`${TELEGRAM_API}${botToken}/answerCallbackQuery`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ callback_query_id: callbackId }),
-  });
-
-  const [action, ...params] = data.split(':');
-
-  switch (action) {
-    case 'publish':
-      const postId = params[0];
-      await publishPost(botToken, chatId, postId);
-      break;
-    case 'cancel':
-      await sendMessage(botToken, chatId, '❌ Action cancelled.');
-      break;
-    default:
-      await sendMessage(botToken, chatId, 'Unknown action.');
-  }
+async function handleHelpCommand(botToken: string, chatId: number) {
+  await sendMessage(botToken, chatId,
+    `📚 *WealthClaude AI Assistant*\n\n` +
+    `*Commands:*\n` +
+    `/discover - Find trending topics\n` +
+    `/generate [topic] - Create a post\n` +
+    `/queue - View pending posts\n` +
+    `/publish - Publish next post\n` +
+    `/status - System status\n` +
+    `/agents - List agents\n\n` +
+    `*Or just chat:*\n` +
+    `• "What's Tesla stock price?"\n` +
+    `• "Latest OpenAI news"\n` +
+    `• "Create a post about AI trends"\n` +
+    `• "What's trending?"\n` +
+    `• "Show my queue"\n` +
+    `• "Publish it"`,
+    { parse_mode: 'Markdown' }
+  );
 }
 
 // ============================================
-// Command Implementations
+// Status Command
 // ============================================
-
 async function handleStatusCommand(botToken: string, chatId: number) {
   const ownerId = process.env.AGENT_OWNER_USER_ID;
 
@@ -244,9 +467,10 @@ async function handleStatusCommand(botToken: string, chatId: number) {
   );
 }
 
+// ============================================
+// Trends Command (from DB)
+// ============================================
 async function handleTrendsCommand(botToken: string, chatId: number) {
-  await sendMessage(botToken, chatId, '🔍 Checking trends...');
-
   const ownerId = process.env.AGENT_OWNER_USER_ID;
 
   const { data: trends } = await supabase
@@ -258,27 +482,31 @@ async function handleTrendsCommand(botToken: string, chatId: number) {
 
   if (!trends || trends.length === 0) {
     await sendMessage(botToken, chatId,
-      `📊 No trends found.\n\nVisit the dashboard to discover trends.`
+      `📊 No saved trends.\n\nUse /discover to find new trends!`
     );
     return;
   }
 
-  let message = `📈 *Top Trends*\n\n`;
+  let message = `📈 *Saved Trends*\n\n`;
   trends.forEach((t, i) => {
     message += `${i + 1}. ${t.topic}\n   Score: ${t.relevance_score}/100\n\n`;
   });
-  message += `\n💡 Reply with /generate [topic] to create a post`;
+  message += `\n💡 "Create a post about [topic]" to generate content`;
 
   await sendMessage(botToken, chatId, message, { parse_mode: 'Markdown' });
 }
 
+// ============================================
+// Generate Command
+// ============================================
 async function handleGenerateCommand(botToken: string, chatId: number, topic: string) {
   if (!topic) {
     await sendMessage(botToken, chatId,
       `✍️ *Generate a Post*\n\n` +
-      `Please provide a topic:\n` +
-      `/generate AI investment trends\n\n` +
-      `Or just tell me what to write about!`,
+      `Tell me what to write about:\n` +
+      `• "Create a post about AI investments"\n` +
+      `• /generate Nvidia vs AMD comparison\n\n` +
+      `Or use /discover to find trending topics!`,
       { parse_mode: 'Markdown' }
     );
     return;
@@ -303,10 +531,10 @@ async function handleGenerateCommand(botToken: string, chatId: number, topic: st
       const post = data.data;
       await sendMessage(botToken, chatId,
         `✅ *Post Generated!*\n\n` +
-        `📝 *X/Twitter:*\n${post.x_content || 'N/A'}\n\n` +
-        `💼 *LinkedIn:*\n${post.linkedin_content?.substring(0, 200) || 'N/A'}...\n\n` +
-        `🖼 Image: ${post.image_url ? 'Generated' : 'None'}\n\n` +
-        `Use /queue to view or /publish to post now.`,
+        `*𝕏 Twitter:*\n${post.x_content || 'N/A'}\n\n` +
+        `*💼 LinkedIn:*\n${post.linkedin_content?.substring(0, 300) || 'N/A'}...\n\n` +
+        `🖼 Image: ${post.image_url ? '✓ Generated' : '✗ None'}\n\n` +
+        `Use /publish to post now or /queue to view all.`,
         { parse_mode: 'Markdown' }
       );
     } else {
@@ -317,6 +545,9 @@ async function handleGenerateCommand(botToken: string, chatId: number, topic: st
   }
 }
 
+// ============================================
+// Queue Command
+// ============================================
 async function handleQueueCommand(botToken: string, chatId: number) {
   const ownerId = process.env.AGENT_OWNER_USER_ID;
 
@@ -329,7 +560,10 @@ async function handleQueueCommand(botToken: string, chatId: number) {
     .limit(5);
 
   if (!posts || posts.length === 0) {
-    await sendMessage(botToken, chatId, `📭 Your queue is empty.\n\nUse /generate to create a post.`);
+    await sendMessage(botToken, chatId,
+      `📭 Your queue is empty.\n\n` +
+      `Use /discover to find trends, then create a post!`
+    );
     return;
   }
 
@@ -343,10 +577,12 @@ async function handleQueueCommand(botToken: string, chatId: number) {
   await sendMessage(botToken, chatId, message, { parse_mode: 'Markdown' });
 }
 
+// ============================================
+// Publish Command
+// ============================================
 async function handlePublishCommand(botToken: string, chatId: number) {
   const ownerId = process.env.AGENT_OWNER_USER_ID;
 
-  // Get first queued post
   const { data: post } = await supabase
     .from('posts')
     .select('*')
@@ -357,14 +593,12 @@ async function handlePublishCommand(botToken: string, chatId: number) {
     .single();
 
   if (!post) {
-    await sendMessage(botToken, chatId, `📭 No posts to publish.\n\nUse /generate to create one.`);
+    await sendMessage(botToken, chatId, `📭 No posts to publish.\n\nCreate one with /generate or ask me!`);
     return;
   }
 
   await sendMessage(botToken, chatId,
-    `📤 *Ready to Publish:*\n\n` +
-    `${post.x_content?.substring(0, 100)}...\n\n` +
-    `Publishing...`
+    `📤 *Publishing:*\n\n${post.x_content?.substring(0, 100)}...\n\n⏳ Sending...`
   );
 
   try {
@@ -395,6 +629,9 @@ async function handlePublishCommand(botToken: string, chatId: number) {
   }
 }
 
+// ============================================
+// Agents Command
+// ============================================
 async function handleAgentsCommand(botToken: string, chatId: number) {
   const ownerId = process.env.AGENT_OWNER_USER_ID;
 
@@ -409,7 +646,7 @@ async function handleAgentsCommand(botToken: string, chatId: number) {
   }
 
   let message = `🤖 *Your Agents*\n\n`;
-  agents.forEach((a, i) => {
+  agents.forEach((a) => {
     const statusEmoji = a.status === 'active' ? '🟢' : '⚪';
     message += `${statusEmoji} *${a.name}*\n   ${a.niche || 'No niche'}\n\n`;
   });
@@ -417,29 +654,27 @@ async function handleAgentsCommand(botToken: string, chatId: number) {
   await sendMessage(botToken, chatId, message, { parse_mode: 'Markdown' });
 }
 
-async function publishPost(botToken: string, chatId: number, postId: string) {
-  await sendMessage(botToken, chatId, '📤 Publishing...');
+// ============================================
+// Callback Handler
+// ============================================
+async function handleCallback(botToken: string, chatId: number, data: string, callbackId: string) {
+  await fetch(`${TELEGRAM_API}${botToken}/answerCallbackQuery`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ callback_query_id: callbackId }),
+  });
 
-  try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/agents/posts`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: postId,
-        action: 'publish_now',
-        user_id: process.env.AGENT_OWNER_USER_ID,
-      }),
-    });
+  const [action, ...params] = data.split(':');
 
-    const data = await response.json();
-
-    if (data.success) {
-      await sendMessage(botToken, chatId, `✅ Published successfully!`);
-    } else {
-      await sendMessage(botToken, chatId, `❌ Failed: ${data.error}`);
-    }
-  } catch (error: any) {
-    await sendMessage(botToken, chatId, `❌ Error: ${error.message}`);
+  switch (action) {
+    case 'publish':
+      await handlePublishCommand(botToken, chatId);
+      break;
+    case 'cancel':
+      await sendMessage(botToken, chatId, '❌ Action cancelled.');
+      break;
+    default:
+      await sendMessage(botToken, chatId, 'Unknown action.');
   }
 }
 
@@ -448,12 +683,10 @@ async function publishPost(botToken: string, chatId: number, postId: string) {
 // ============================================
 
 async function getBotToken(): Promise<string | null> {
-  // Try environment variable first (most reliable)
   if (process.env.TELEGRAM_BOT_TOKEN) {
     return process.env.TELEGRAM_BOT_TOKEN;
   }
 
-  // Fallback to database
   const ownerId = process.env.AGENT_OWNER_USER_ID;
 
   const { data } = await supabase
@@ -467,8 +700,26 @@ async function getBotToken(): Promise<string | null> {
 
   try {
     return decrypt(data.encrypted_value);
-  } catch (e) {
-    console.error('Failed to decrypt bot token:', e);
+  } catch {
+    return null;
+  }
+}
+
+async function getApiKey(keyType: string): Promise<string | null> {
+  const ownerId = process.env.AGENT_OWNER_USER_ID;
+
+  const { data } = await supabase
+    .from('api_keys')
+    .select('encrypted_value')
+    .eq('user_id', ownerId)
+    .eq('key_type', keyType)
+    .single();
+
+  if (!data?.encrypted_value) return null;
+
+  try {
+    return decrypt(data.encrypted_value);
+  } catch {
     return null;
   }
 }
@@ -498,6 +749,21 @@ async function sendMessage(
     return result;
   } catch (error) {
     console.error('Failed to send Telegram message:', error);
+  }
+}
+
+async function sendChatAction(botToken: string, chatId: number, action: string) {
+  try {
+    await fetch(`${TELEGRAM_API}${botToken}/sendChatAction`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        action,
+      }),
+    });
+  } catch (error) {
+    console.error('Failed to send chat action:', error);
   }
 }
 
@@ -541,7 +807,7 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({
-    status: 'Telegram webhook endpoint',
+    status: 'Telegram AI Assistant webhook',
     setup: '/api/agents/telegram?action=setup',
     info: '/api/agents/telegram?action=info',
   });

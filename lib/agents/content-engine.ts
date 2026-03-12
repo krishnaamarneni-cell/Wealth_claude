@@ -7,7 +7,7 @@ import { cookies } from 'next/headers';
 import { Agent, Post, PostInsert } from '@/types/database';
 import { getPerplexityKey, researchTopic, getTrendingTopics } from './perplexity';
 import { getGroqKey, generateContent, generateImagePrompt } from './groq';
-import { getFalKey, generateImage, getCloudinaryCredentials, uploadToCloudinary } from './fal';
+import { generateImage } from './image-generator';
 
 export interface ContentGenerationResult {
   success: boolean;

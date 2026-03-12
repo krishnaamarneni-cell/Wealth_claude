@@ -1,22 +1,21 @@
 'use client';
 
 // ============================================
-// Social Accounts Panel - WealthClaude Style
+// Social Accounts Panel - Multiple Accounts Support
 // components/agents/SocialAccountsPanel.tsx
 // ============================================
 
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
 import {
   RefreshCw,
   Check,
   X,
   AlertCircle,
   Loader2,
-  Link2,
   Unlink,
-  ExternalLink,
-  CheckCircle,
+  Plus,
+  Building2,
+  User,
 } from 'lucide-react';
 
 interface SocialAccount {
@@ -26,6 +25,7 @@ interface SocialAccount {
   account_name: string | null;
   account_handle: string | null;
   account_avatar_url: string | null;
+  account_type: 'person' | 'organization' | null;
   is_active: boolean;
   token_expires_at: string | null;
 }
@@ -51,39 +51,21 @@ interface SocialAccountsPanelProps {
   selectedIds?: string[];
   onSelectionChange?: (ids: string[]) => void;
   selectable?: boolean;
+  showAddButtons?: boolean;
 }
-
-const ERROR_MESSAGES: Record<string, string> = {
-  unauthorized: 'You must be logged in to connect social accounts.',
-  x_not_configured: 'X/Twitter credentials are not configured. Check X_CLIENT_ID and X_CLIENT_SECRET env vars.',
-  x_oauth_failed: 'Failed to start X/Twitter OAuth. Please try again.',
-  linkedin_not_configured: 'LinkedIn credentials are not configured. Check LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET env vars.',
-  linkedin_oauth_failed: 'Failed to start LinkedIn OAuth. Please try again.',
-  x_connected: 'X/Twitter account connected successfully!',
-  linkedin_connected: 'LinkedIn account connected successfully!',
-};
 
 export default function SocialAccountsPanel({
   selectedIds = [],
   onSelectionChange,
   selectable = false,
+  showAddButtons = true,
 }: SocialAccountsPanelProps) {
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const searchParams = useSearchParams();
+  const [disconnecting, setDisconnecting] = useState<string | null>(null);
 
   useEffect(() => {
-    // Read error/success from URL params (set by OAuth callbacks)
-    const errorParam = searchParams?.get('error');
-    const successParam = searchParams?.get('connected');
-    if (errorParam) {
-      setError(ERROR_MESSAGES[errorParam] || `OAuth error: ${errorParam}`);
-    }
-    if (successParam) {
-      setSuccess(ERROR_MESSAGES[`${successParam}_connected`] || `${successParam} connected!`);
-    }
     fetchAccounts();
   }, []);
 
@@ -108,6 +90,7 @@ export default function SocialAccountsPanel({
   const disconnectAccount = async (accountId: string) => {
     if (!confirm('Disconnect this account?')) return;
 
+    setDisconnecting(accountId);
     try {
       const response = await fetch(`/api/agents/social?id=${accountId}`, {
         method: 'DELETE',
@@ -125,6 +108,8 @@ export default function SocialAccountsPanel({
       }
     } catch (err) {
       setError('Failed to disconnect account');
+    } finally {
+      setDisconnecting(null);
     }
   };
 
@@ -155,11 +140,11 @@ export default function SocialAccountsPanel({
     );
   }
 
-  const xAccount = accounts.find(a => a.platform === 'x');
-  const linkedinAccount = accounts.find(a => a.platform === 'linkedin');
+  const xAccounts = accounts.filter(a => a.platform === 'x');
+  const linkedinAccounts = accounts.filter(a => a.platform === 'linkedin');
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -176,17 +161,6 @@ export default function SocialAccountsPanel({
         </button>
       </div>
 
-      {/* Success */}
-      {success && (
-        <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg flex items-center gap-2">
-          <CheckCircle className="w-4 h-4 text-emerald-400" />
-          <span className="text-sm text-emerald-300">{success}</span>
-          <button onClick={() => setSuccess(null)} className="ml-auto text-emerald-400 hover:text-emerald-300">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
       {/* Error */}
       {error && (
         <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-2">
@@ -198,76 +172,137 @@ export default function SocialAccountsPanel({
         </div>
       )}
 
-      {/* Platform Cards */}
-      <div className="grid gap-3">
-        {/* X / Twitter */}
-        <PlatformCard
-          platform="x"
-          account={xAccount}
-          config={PLATFORM_CONFIG.x}
-          selectable={selectable}
-          isSelected={xAccount ? selectedIds.includes(xAccount.id) : false}
-          isExpired={xAccount ? isTokenExpired(xAccount.token_expires_at) : false}
-          onConnect={() => connectAccount('x')}
-          onDisconnect={() => xAccount && disconnectAccount(xAccount.id)}
-          onToggleSelect={() => xAccount && toggleSelection(xAccount.id)}
-        />
+      {/* X / Twitter Section */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-white font-bold">
+              𝕏
+            </div>
+            <span className="font-medium text-white">X / Twitter</span>
+            <span className="text-xs text-zinc-500">({xAccounts.length} connected)</span>
+          </div>
+          {showAddButtons && (
+            <button
+              onClick={() => connectAccount('x')}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm rounded-lg transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              Add Account
+            </button>
+          )}
+        </div>
 
-        {/* LinkedIn */}
-        <PlatformCard
-          platform="linkedin"
-          account={linkedinAccount}
-          config={PLATFORM_CONFIG.linkedin}
-          selectable={selectable}
-          isSelected={linkedinAccount ? selectedIds.includes(linkedinAccount.id) : false}
-          isExpired={linkedinAccount ? isTokenExpired(linkedinAccount.token_expires_at) : false}
-          onConnect={() => connectAccount('linkedin')}
-          onDisconnect={() => linkedinAccount && disconnectAccount(linkedinAccount.id)}
-          onToggleSelect={() => linkedinAccount && toggleSelection(linkedinAccount.id)}
-        />
+        {xAccounts.length === 0 ? (
+          <div className="p-4 border border-dashed border-zinc-700 rounded-xl text-center">
+            <p className="text-sm text-zinc-500">No X accounts connected</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {xAccounts.map(account => (
+              <AccountCard
+                key={account.id}
+                account={account}
+                config={PLATFORM_CONFIG.x}
+                selectable={selectable}
+                isSelected={selectedIds.includes(account.id)}
+                isExpired={isTokenExpired(account.token_expires_at)}
+                isDisconnecting={disconnecting === account.id}
+                onToggleSelect={() => toggleSelection(account.id)}
+                onDisconnect={() => disconnectAccount(account.id)}
+                onReconnect={() => connectAccount('x')}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* LinkedIn Section */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-[#0A66C2] flex items-center justify-center text-white font-bold text-sm">
+              in
+            </div>
+            <span className="font-medium text-white">LinkedIn</span>
+            <span className="text-xs text-zinc-500">({linkedinAccounts.length} connected)</span>
+          </div>
+          {showAddButtons && (
+            <button
+              onClick={() => connectAccount('linkedin')}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm rounded-lg transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              Add Account
+            </button>
+          )}
+        </div>
+
+        {linkedinAccounts.length === 0 ? (
+          <div className="p-4 border border-dashed border-zinc-700 rounded-xl text-center">
+            <p className="text-sm text-zinc-500">No LinkedIn accounts connected</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {linkedinAccounts.map(account => (
+              <AccountCard
+                key={account.id}
+                account={account}
+                config={PLATFORM_CONFIG.linkedin}
+                selectable={selectable}
+                isSelected={selectedIds.includes(account.id)}
+                isExpired={isTokenExpired(account.token_expires_at)}
+                isDisconnecting={disconnecting === account.id}
+                onToggleSelect={() => toggleSelection(account.id)}
+                onDisconnect={() => disconnectAccount(account.id)}
+                onReconnect={() => connectAccount('linkedin')}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Help Text */}
       <p className="text-xs text-zinc-600 text-center">
-        Click Connect to authorize posting to your accounts
+        Connect multiple accounts to post to different profiles. Each agent can be assigned specific accounts.
       </p>
     </div>
   );
 }
 
 // ============================================
-// Platform Card Component
+// Account Card Component
 // ============================================
 
-function PlatformCard({
-  platform,
+function AccountCard({
   account,
   config,
   selectable,
   isSelected,
   isExpired,
-  onConnect,
-  onDisconnect,
+  isDisconnecting,
   onToggleSelect,
+  onDisconnect,
+  onReconnect,
 }: {
-  platform: 'x' | 'linkedin';
-  account: SocialAccount | undefined;
+  account: SocialAccount;
   config: typeof PLATFORM_CONFIG.x;
   selectable: boolean;
   isSelected: boolean;
   isExpired: boolean;
-  onConnect: () => void;
-  onDisconnect: () => void;
+  isDisconnecting: boolean;
   onToggleSelect: () => void;
+  onDisconnect: () => void;
+  onReconnect: () => void;
 }) {
-  const isConnected = !!account && !isExpired;
+  const isOrganization = account.account_type === 'organization';
 
   return (
     <div
-      onClick={selectable && isConnected ? onToggleSelect : undefined}
+      onClick={selectable ? onToggleSelect : undefined}
       className={`
-        relative flex items-center gap-4 p-4 rounded-xl border transition-all
-        ${selectable && isConnected ? 'cursor-pointer' : ''}
+        relative flex items-center gap-3 p-3 rounded-xl border transition-all
+        ${selectable ? 'cursor-pointer' : ''}
         ${isSelected
           ? 'bg-emerald-500/10 border-emerald-500/50'
           : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700'
@@ -275,9 +310,9 @@ function PlatformCard({
       `}
     >
       {/* Selection Checkbox */}
-      {selectable && isConnected && (
+      {selectable && (
         <div className={`
-          w-5 h-5 rounded border-2 flex items-center justify-center transition-all
+          w-5 h-5 rounded border-2 flex items-center justify-center transition-all flex-shrink-0
           ${isSelected
             ? 'bg-emerald-500 border-emerald-500'
             : 'border-zinc-600 hover:border-zinc-500'
@@ -287,76 +322,80 @@ function PlatformCard({
         </div>
       )}
 
-      {/* Platform Icon */}
+      {/* Avatar */}
       <div className="relative flex-shrink-0">
-        {account?.account_avatar_url ? (
+        {account.account_avatar_url ? (
           <img
             src={account.account_avatar_url}
             alt={account.account_name || ''}
-            className="w-12 h-12 rounded-full object-cover"
+            className="w-10 h-10 rounded-full object-cover"
           />
         ) : (
-          <div className={`w-12 h-12 rounded-full ${config.color} flex items-center justify-center ${config.textColor} font-bold text-lg`}>
+          <div className={`w-10 h-10 rounded-full ${config.color} flex items-center justify-center ${config.textColor} font-bold`}>
             {config.icon}
           </div>
         )}
-        {/* Platform badge */}
-        <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full ${config.color} flex items-center justify-center text-[10px] ${config.textColor} border-2 border-zinc-900`}>
-          {config.icon}
+        {/* Type badge */}
+        <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-zinc-900 border-2 border-zinc-800 flex items-center justify-center`}>
+          {isOrganization ? (
+            <Building2 className="w-3 h-3 text-blue-400" />
+          ) : (
+            <User className="w-3 h-3 text-zinc-400" />
+          )}
         </div>
       </div>
 
       {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-white">
-            {config.name}
+          <span className="font-medium text-white truncate">
+            {account.account_name || account.account_handle || 'Unknown'}
           </span>
-          {isConnected && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
-              Connected
+          {isOrganization && (
+            <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">
+              Company
             </span>
           )}
           {isExpired && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400">
+            <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400">
               Expired
             </span>
           )}
         </div>
-        {account ? (
-          <div className="text-sm text-zinc-500">
-            {account.account_name || account.account_handle}
-            {account.account_handle && account.account_name && (
-              <span> • @{account.account_handle}</span>
-            )}
-          </div>
-        ) : (
-          <div className="text-sm text-zinc-600">Not connected</div>
+        {account.account_handle && (
+          <p className="text-sm text-zinc-500 truncate">@{account.account_handle}</p>
         )}
       </div>
 
-      {/* Action Button */}
+      {/* Actions */}
       {!selectable && (
-        <div>
-          {isConnected ? (
+        <div className="flex items-center gap-1">
+          {isExpired && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onDisconnect();
+                onReconnect();
               }}
-              className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-              title="Disconnect"
+              className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 text-xs rounded-lg transition-all"
             >
-              <Unlink className="w-4 h-4" />
-            </button>
-          ) : (
-            <button
-              onClick={onConnect}
-              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition-all"
-            >
-              Connect
+              Reconnect
             </button>
           )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDisconnect();
+            }}
+            disabled={isDisconnecting}
+            className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all disabled:opacity-50"
+            title="Disconnect"
+          >
+            {isDisconnecting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Unlink className="w-4 h-4" />
+            )}
+          </button>
         </div>
       )}
     </div>

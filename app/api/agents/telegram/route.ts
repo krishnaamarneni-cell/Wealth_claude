@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { decryptApiKey } from '@/lib/encryption';
+// No decrypt needed - using env vars
 
 // Use service role client for Telegram (no user session)
 const supabase = createClient(
@@ -722,57 +722,17 @@ async function handleCallback(botToken: string, chatId: number, data: string, ca
 // ============================================
 
 async function getBotToken(): Promise<string | null> {
-  if (process.env.TELEGRAM_BOT_TOKEN) {
-    return process.env.TELEGRAM_BOT_TOKEN;
-  }
-
-  const ownerId = process.env.AGENT_OWNER_USER_ID;
-
-  const { data } = await supabase
-    .from('api_keys')
-    .select('encrypted_value')
-    .eq('user_id', ownerId)
-    .eq('key_type', 'telegram_bot_token')
-    .single();
-
-  if (!data?.encrypted_value) return null;
-
-  try {
-    return decrypt(data.encrypted_value);
-  } catch {
-    return null;
-  }
+  return process.env.TELEGRAM_BOT_TOKEN || null;
 }
 
 async function getApiKey(keyType: string): Promise<string | null> {
-  // Try environment variables first
   const envKeyMap: Record<string, string | undefined> = {
     'groq': process.env.GROQ_API_KEY,
     'perplexity': process.env.PERPLEXITY_API_KEY,
     'fal_ai': process.env.FAL_AI_API_KEY,
   };
 
-  if (envKeyMap[keyType]) {
-    return envKeyMap[keyType]!;
-  }
-
-  // Fallback to database
-  const ownerId = process.env.AGENT_OWNER_USER_ID;
-
-  const { data } = await supabase
-    .from('api_keys')
-    .select('encrypted_value')
-    .eq('user_id', ownerId)
-    .eq('key_type', keyType)
-    .single();
-
-  if (!data?.encrypted_value) return null;
-
-  try {
-    return decrypt(data.encrypted_value);
-  } catch {
-    return null;
-  }
+  return envKeyMap[keyType] || null;
 }
 
 async function sendMessage(

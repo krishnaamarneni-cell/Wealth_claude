@@ -11,11 +11,7 @@ const supabase = createClient(
 
 const CACHE_MS = 60 * 60 * 1000 // 1 hour
 
-// Single source of truth — ticker → ISO3 country code
-// Fixes: ISR, NOR, SWE, ZAF, LKA, VNM (wrong symbols)
-// Fixes: IND duplicate (removed ^BSESN, kept ^NSEI)
-// Added: COL, PER, ITA, ROU, TUR, RUS, THA, PRT, GRC, PAK, BGD, NGA, KEN, QAT, KWT, MAR
-// Added: HRV, BGR, EST, LVA, LTU, SRB, SVN, KAZ, OMN, BHR, JOR, MUS, GHA, TUN
+// 51 tickers — all verified working against Yahoo Finance 2026-03
 const TICKER_MAP: Record<string, string> = {
   // ── Americas ────────────────────────────────────────────
   "^GSPC": "USA",
@@ -24,7 +20,7 @@ const TICKER_MAP: Record<string, string> = {
   "^BVSP": "BRA",
   "^MERV": "ARG",
   "^IPSA": "CHL",
-  "^COLCAP": "COL",
+  "^SPCOSLCP": "COL",
   "^SPBLPGPT": "PER",
 
   // ── Europe ──────────────────────────────────────────────
@@ -35,33 +31,29 @@ const TICKER_MAP: Record<string, string> = {
   "^IBEX": "ESP",
   "^AEX": "NLD",
   "^SSMI": "CHE",
-  "^OMX": "SWE",   // was ^OMXS30 (wrong)
-  "^OBX": "NOR",   // was ^OSEAX (wrong)
+  "^OMX": "SWE",
+  "OSEBX.OL": "NOR",
   "^OMXC25": "DNK",
   "^OMXH25": "FIN",
   "^BFX": "BEL",
   "^ATX": "AUT",
-  "^PSI20": "PRT",
-  "^ATG": "GRC",
-  "^WIG20": "POL",
-  "^PX": "CZE",
-  "^BUX": "HUN",
-  "^BETI": "ROU",
+  "PSI20.LS": "PRT",
+  "GD.AT": "GRC",
+  "WIG20.WA": "POL",
+  "FPXAA.PR": "CZE",
+  "^BUX.BD": "HUN",
+  "^BET.RO": "ROU",
   "^XU100": "TUR",
   "IMOEX.ME": "RUS",
-  "^CROBEX": "HRV",
-  "SOFIX.SO": "BGR",
   "^OMXT": "EST",
   "^OMXR": "LVA",
   "^OMXV": "LTU",
-  "^BELEX15": "SRB",
-  "^SBITOP": "SVN",
 
   // ── Asia-Pacific ────────────────────────────────────────
   "^N225": "JPN",
   "000001.SS": "CHN",
   "^HSI": "HKG",
-  "^NSEI": "IND",   // was duplicated with ^BSESN — removed duplicate
+  "^NSEI": "IND",
   "^KS11": "KOR",
   "^AXJO": "AUS",
   "^NZ50": "NZL",
@@ -71,29 +63,14 @@ const TICKER_MAP: Record<string, string> = {
   "^SET.BK": "THA",
   "^JKSE": "IDN",
   "PSEI.PS": "PHL",
-  "^VNINDEX": "VNM",   // was ^VNINDEX.VN (wrong)
-  "^KSE100": "PAK",
-  "^DSEX": "BGD",
-  "^CSEALL": "LKA",   // was ^SPLK20LP (wrong)
-  "^KASE": "KAZ",
+  "^VNINDEX.VN": "VNM",
 
   // ── Middle East & Africa ────────────────────────────────
   "^TASI.SR": "SAU",
-  "^DFMGI": "ARE",
-  "^TA125.TA": "ISR",   // was TA35.TA (wrong)
-  "^J203.JO": "ZAF",   // was ^J200.JO (wrong)
+  "FADGI.FGI": "ARE",
+  "^TA125.TA": "ISR",
+  "^J203.JO": "ZAF",
   "^CASE30": "EGY",
-  "^NGSEINDEX": "NGA",
-  "^NSE20": "KEN",
-  "^QSI": "QAT",
-  "^KWSE": "KWT",
-  "^MASI.CS": "MAR",
-  "^MSM30": "OMN",
-  "^BHSEASI": "BHR",
-  "^AMGNRLX": "JOR",
-  "^SEMDEX": "MUS",
-  "^GGSECI": "GHA",
-  "TUNINDEX.TN": "TUN",
 }
 
 async function fetchQuote(ticker: string) {
@@ -117,13 +94,11 @@ async function fetchQuote(ticker: string) {
 
 async function fetchFreshData() {
   const results: Record<string, any> = {}
-  const tickers = Object.keys(TICKER_MAP)
 
   await Promise.allSettled(
-    tickers.map(async (ticker) => {
+    Object.entries(TICKER_MAP).map(async ([ticker, iso]) => {
       try {
         const q = await fetchQuote(ticker)
-        const iso = TICKER_MAP[ticker]
         const change = q.price - q.previousClose
         const changePct = q.previousClose ? (change / q.previousClose) * 100 : 0
         results[iso] = {
@@ -140,7 +115,7 @@ async function fetchFreshData() {
           isOpen: true,
         }
       } catch {
-        // silently skip — country won't appear on globe
+        // silently skip — country stays gray on globe
       }
     })
   )
@@ -149,7 +124,7 @@ async function fetchFreshData() {
 }
 
 export async function GET() {
-  // 1. Check Supabase cache first
+  // 1. Check Supabase cache
   const { data: cached } = await supabase
     .from("market_cache")
     .select("data, fetched_at")
@@ -170,7 +145,7 @@ export async function GET() {
     }
   }
 
-  // 2. Cache stale or empty — fetch fresh
+  // 2. Fetch fresh from Yahoo
   const data = await fetchFreshData()
   const fetchedAt = new Date().toISOString()
 

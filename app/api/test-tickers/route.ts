@@ -4,17 +4,12 @@ export const runtime = "nodejs"
 export const maxDuration = 30
 
 const ALTERNATIVES: Record<string, string> = {
-  "OSEBX.OL": "NOR",
-  "PSI20.LS": "PRT",
-  "GD.AT": "GRC",
-  "WIG20.WA": "POL",
-  "PX.PR": "CZE",
-  "BUX.BD": "HUN",
-  "BET.RO": "ROU",
-  "VNI": "VNM",
-  "KSE.PK": "PAK",
-  "ADSMI.AE": "ARE",
-  "COLCAP.CO": "COL",
+  "FPXAA.PR": "CZE",  // PX Index Prague
+  "^BUX.BD": "HUN",  // Budapest Stock Index (with ^ this time)
+  "^BET.RO": "ROU",  // BET Bucharest (with ^ this time)
+  "^VNINDEX.VN": "VNM",  // VN-Index Vietnam
+  "FADGI.FGI": "ARE",  // FTSE ADX General Index
+  "^SPCOSLCP": "COL",  // S&P Colombia Select
 }
 
 async function testTicker(ticker: string) {

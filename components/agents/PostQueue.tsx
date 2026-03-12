@@ -106,7 +106,15 @@ export default function PostQueue({ agentId, showHistory = false }: PostQueuePro
       if (data.success) {
         await fetchPosts();
       } else {
-        const errorMsg = data.error || data.message || 'Action failed';
+        // Build detailed error message showing per-platform results
+        let errorMsg = '';
+        if (data.results && Array.isArray(data.results)) {
+          errorMsg = 'Posting results:\n' + data.results
+            .map(r => `${r.platform}: ${r.success ? '✓ Posted' : `✗ ${r.error || 'Failed'}`}`)
+            .join('\n');
+        } else {
+          errorMsg = data.error || data.message || 'Action failed';
+        }
         setError(errorMsg);
         alert(errorMsg);
       }

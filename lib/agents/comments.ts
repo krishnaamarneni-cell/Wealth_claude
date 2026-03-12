@@ -1,361 +1,375 @@
 // ============================================
-// Comment Automation Service
+// Comments Service - Fetch & Reply
 // lib/agents/comments.ts
 // ============================================
 
-import { cookies } from 'next/headers';
-import { createServerSideClient } from '@/lib/supabase';
-import { getGroqKey } from './groq';
+import { createClient } from '@supabase/supabase-js';
 
-// ============================================
-// Fetch Comments
-// ============================================
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
-/**
- * Fetch comments for all recent posts
- */
-export async function fetchCommentsForUser(userId: string): Promise<{
-  fetched: number;
-  newComments: number;
-}> {
-  const cookieStore = await cookies();
-  const supabase = createServerSideClient(cookieStore);
+const LINKEDIN_API_URL = 'https://api.linkedin.com';
 
-  // Get recent posts with platform IDs
-  const { data: posts } = await supabase
-    .from('posts')
-    .select('id, agent_id, x_post_id, linkedin_post_id')
-    .eq('user_id', userId)
-    .eq('status', 'posted')
-    .gte('posted_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
+export interface Comment {
+  id: string;
+  platform: 'x' | 'linkedin';
+  platform_comment_id: string;
+  platform_post_id: string;
+  author_id: string;
+  author_name: string;
+  author_avatar_url?: string;
+  content: string;
+  created_at: string;
+}
 
-  if (!posts || posts.length === 0) {
-    return { fetched: 0, newComments: 0 };
-  }
-
-  let fetched = 0;
-  let newComments = 0;
-
-  // Get social accounts
-  const { data: accounts } = await supabase
-    .from('social_accounts')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('is_active', true);
-
-  const xAccount = accounts?.find(a => a.platform === 'x');
-  const linkedinAccount = accounts?.find(a => a.platform === 'linkedin');
-
-  for (const post of posts) {
-    // Fetch X comments
-    if (post.x_post_id && xAccount) {
-      const xToken = await getValidXToken(userId, xAccount.id);
-      if (xToken) {
-        try {
-          const replies = await getTweetReplies(xToken, post.x_post_id);
-          fetched += replies.length;
-
-          for (const reply of replies) {
-            const { data: existing } = await supabase
-              .from('comments')
-              .select('id')
-              .eq('platform_comment_id', reply.id)
-              .single();
-
-            if (!existing) {
-              await supabase.from('comments').insert({
-                user_id: userId,
-                post_id: post.id,
-                platform: 'x',
-                platform_comment_id: reply.id,
-                platform_post_id: post.x_post_id,
-                author_id: reply.author_id,
-                content: reply.text,
-              });
-              newComments++;
-            }
-          }
-        } catch (e) {
-          console.error('Failed to fetch X comments:', e);
-        }
-      }
-    }
-
-    // Fetch LinkedIn comments
-    if (post.linkedin_post_id && linkedinAccount) {
-      const linkedinData = await getValidLinkedInToken(userId, linkedinAccount.id);
-      if (linkedinData) {
-        try {
-          const comments = await getLinkedInComments(linkedinData.token, post.linkedin_post_id);
-          fetched += comments.length;
-
-          for (const comment of comments) {
-            const { data: existing } = await supabase
-              .from('comments')
-              .select('id')
-              .eq('platform_comment_id', comment.id)
-              .single();
-
-            if (!existing) {
-              await supabase.from('comments').insert({
-                user_id: userId,
-                post_id: post.id,
-                platform: 'linkedin',
-                platform_comment_id: comment.id,
-                platform_post_id: post.linkedin_post_id,
-                author_id: comment.author,
-                content: comment.text,
-              });
-              newComments++;
-            }
-          }
-        } catch (e) {
-          console.error('Failed to fetch LinkedIn comments:', e);
-        }
-      }
-    }
-  }
-
-  return { fetched, newComments };
+export interface CommentReplyResult {
+  success: boolean;
+  replyId?: string;
+  error?: string;
 }
 
 // ============================================
-// Generate Reply
+// Fetch LinkedIn Comments
 // ============================================
-
-/**
- * Generate AI reply for a comment
- */
-export async function generateReply(
-  userId: string,
-  commentId: string
-): Promise<{ reply: string } | { error: string }> {
-  const cookieStore = await cookies();
-  const supabase = createServerSideClient(cookieStore);
-
-  // Get comment with post context
-  const { data: comment } = await supabase
-    .from('comments')
-    .select('*, posts(topic, x_content, linkedin_content, agents(name, posting_style))')
-    .eq('id', commentId)
-    .eq('user_id', userId)
-    .single();
-
-  if (!comment) {
-    return { error: 'Comment not found' };
-  }
-
-  const groqKey = await getGroqKey(userId);
-  if (!groqKey) {
-    return { error: 'Groq API key not configured' };
-  }
-
-  const post = comment.posts;
-  const agent = post?.agents;
-  const postContent = comment.platform === 'x' ? post?.x_content : post?.linkedin_content;
-
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${groqKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        {
-          role: 'system',
-          content: `You are a helpful social media manager. Generate a friendly, professional reply to a comment on a social media post.
-
-Style: ${agent?.posting_style?.tone || 'professional'}
-Platform: ${comment.platform === 'x' ? 'Twitter/X (keep under 280 chars)' : 'LinkedIn'}
-
-Rules:
-- Be genuine and engaging
-- Address the commenter's point
-- Keep it concise
-- No hashtags in replies
-- Sound human, not robotic`,
-        },
-        {
-          role: 'user',
-          content: `Original post: "${postContent}"
-
-Comment to reply to: "${comment.content}"
-
-Generate a reply:`,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: 200,
-    }),
-  });
-
-  if (!response.ok) {
-    return { error: 'Failed to generate reply' };
-  }
-
-  const data = await response.json();
-  const reply = data.choices[0]?.message?.content?.trim() || '';
-
-  return { reply };
-}
-
-// ============================================
-// Post Reply
-// ============================================
-
-/**
- * Post a reply to a comment
- */
-export async function postReply(
-  userId: string,
-  commentId: string,
-  replyText: string,
-  autoReplied = false
-): Promise<{ success: boolean; error?: string }> {
-  const cookieStore = await cookies();
-  const supabase = createServerSideClient(cookieStore);
-
-  // Get comment
-  const { data: comment } = await supabase
-    .from('comments')
-    .select('*')
-    .eq('id', commentId)
-    .eq('user_id', userId)
-    .single();
-
-  if (!comment) {
-    return { success: false, error: 'Comment not found' };
-  }
-
-  // Get social account
-  const { data: account } = await supabase
-    .from('social_accounts')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('platform', comment.platform)
-    .eq('is_active', true)
-    .single();
-
-  if (!account) {
-    return { success: false, error: 'No connected account for this platform' };
-  }
-
+export async function fetchLinkedInComments(
+  accessToken: string,
+  postUrn: string
+): Promise<Comment[]> {
   try {
-    let replyPlatformId: string;
+    console.log(`[Comments] Fetching LinkedIn comments for: ${postUrn}`);
 
-    if (comment.platform === 'x') {
-      const token = await getValidXToken(userId, account.id);
-      if (!token) {
-        return { success: false, error: 'X token expired' };
+    // LinkedIn API for fetching comments
+    const response = await fetch(
+      `${LINKEDIN_API_URL}/rest/socialActions/${encodeURIComponent(postUrn)}/comments?count=50`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'X-Restli-Protocol-Version': '2.0.0',
+          'LinkedIn-Version': '202504',
+        },
       }
-      const result = await replyToTweet(token, comment.platform_comment_id, replyText);
-      replyPlatformId = result.id;
-    } else {
-      const tokenData = await getValidLinkedInToken(userId, account.id);
-      if (!tokenData) {
-        return { success: false, error: 'LinkedIn token expired' };
-      }
-      const result = await replyToLinkedInComment(
-        tokenData.token,
-        comment.platform_post_id,
-        comment.platform_comment_id,
-        replyText,
-        tokenData.authorId
-      );
-      replyPlatformId = result.id;
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('[Comments] LinkedIn API error:', error);
+      return [];
     }
 
-    // Update comment record
-    await supabase
-      .from('comments')
-      .update({
-        replied: true,
-        reply_content: replyText,
-        reply_platform_id: replyPlatformId,
-        replied_at: new Date().toISOString(),
-        auto_replied: autoReplied,
-      })
-      .eq('id', commentId);
+    const data = await response.json();
+    const comments: Comment[] = [];
 
-    // Log activity
-    await supabase.from('activity_logs').insert({
-      user_id: userId,
-      action_type: 'comment_replied',
-      action_description: `Replied to ${comment.platform} comment`,
-      status: 'success',
-    });
+    for (const element of data.elements || []) {
+      comments.push({
+        id: element.$URN || element.commentUrn || '',
+        platform: 'linkedin',
+        platform_comment_id: element.$URN || element.commentUrn || '',
+        platform_post_id: postUrn,
+        author_id: element.actor || '',
+        author_name: element.actorName || 'LinkedIn User',
+        content: element.message?.text || element.comment || '',
+        created_at: new Date(element.created?.time || Date.now()).toISOString(),
+      });
+    }
 
-    return { success: true };
+    console.log(`[Comments] Found ${comments.length} LinkedIn comments`);
+    return comments;
 
   } catch (error: any) {
+    console.error('[Comments] Fetch error:', error);
+    return [];
+  }
+}
+
+// ============================================
+// Reply to LinkedIn Comment
+// ============================================
+export async function replyToLinkedInComment(
+  accessToken: string,
+  postUrn: string,
+  commentUrn: string,
+  replyText: string,
+  authorUrn: string
+): Promise<CommentReplyResult> {
+  try {
+    console.log(`[Comments] Replying to LinkedIn comment: ${commentUrn}`);
+
+    const response = await fetch(
+      `${LINKEDIN_API_URL}/rest/socialActions/${encodeURIComponent(postUrn)}/comments`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'X-Restli-Protocol-Version': '2.0.0',
+          'LinkedIn-Version': '202504',
+        },
+        body: JSON.stringify({
+          actor: authorUrn,
+          message: {
+            text: replyText,
+          },
+          parentComment: commentUrn,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('[Comments] Reply error:', error);
+      return { success: false, error };
+    }
+
+    const replyId = response.headers.get('x-restli-id') || '';
+    console.log(`[Comments] Reply posted: ${replyId}`);
+
+    return { success: true, replyId };
+
+  } catch (error: any) {
+    console.error('[Comments] Reply error:', error);
     return { success: false, error: error.message };
   }
 }
 
 // ============================================
-// Auto-Reply Job
+// Generate AI Reply using Groq
 // ============================================
+export async function generateAIReply(
+  comment: string,
+  postContent: string,
+  replyStyle: string = 'professional and helpful'
+): Promise<string> {
+  const groqKey = process.env.GROQ_API_KEY;
 
-/**
- * Process pending comments and auto-reply
- */
-export async function processAutoReplies(userId: string): Promise<{
-  processed: number;
-  replied: number;
-}> {
-  const cookieStore = await cookies();
-  const supabase = createServerSideClient(cookieStore);
-
-  // Get agents with auto-reply enabled
-  const { data: agents } = await supabase
-    .from('agents')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('auto_reply_enabled', true);
-
-  if (!agents || agents.length === 0) {
-    return { processed: 0, replied: 0 };
+  if (!groqKey) {
+    throw new Error('Groq API key not configured');
   }
 
-  const agentIds = agents.map(a => a.id);
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${groqKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a social media manager replying to comments. 
+Your reply style: ${replyStyle}
 
-  // Get unreplied comments for these agents
-  const { data: comments } = await supabase
-    .from('comments')
-    .select('*, posts!inner(agent_id)')
-    .eq('user_id', userId)
-    .eq('replied', false)
-    .in('posts.agent_id', agentIds)
-    .order('created_at', { ascending: true })
-    .limit(10);
+Rules:
+- Keep replies concise (1-3 sentences)
+- Be genuine and engaging
+- Address the commenter's point
+- Don't be overly promotional
+- Match the tone of the original post
+- Use emojis sparingly (0-1 per reply)
+- Never be defensive or argumentative`
+          },
+          {
+            role: 'user',
+            content: `Original post: "${postContent}"
 
-  if (!comments || comments.length === 0) {
-    return { processed: 0, replied: 0 };
-  }
+Comment to reply to: "${comment}"
 
-  let replied = 0;
+Generate a reply:`
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 150,
+      }),
+    });
 
-  for (const comment of comments) {
-    // Generate reply
-    const replyResult = await generateReply(userId, comment.id);
-
-    if ('error' in replyResult) {
-      console.error('Failed to generate reply:', replyResult.error);
-      continue;
+    if (!response.ok) {
+      throw new Error('Groq API error');
     }
 
-    // Post reply
-    const postResult = await postReply(userId, comment.id, replyResult.reply, true);
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content?.trim() || 'Thanks for your comment!';
 
-    if (postResult.success) {
-      replied++;
+  } catch (error: any) {
+    console.error('[Comments] AI reply error:', error);
+    return 'Thanks for your comment! 🙏';
+  }
+}
+
+// ============================================
+// Fetch and Store Comments for All Published Posts
+// ============================================
+export async function fetchAllComments(userId: string): Promise<number> {
+  try {
+    console.log(`[Comments] Fetching comments for user: ${userId}`);
+
+    // Get published posts with LinkedIn post IDs
+    const { data: posts } = await supabase
+      .from('posts')
+      .select('id, linkedin_post_id, linkedin_content, agents(social_account_ids)')
+      .eq('user_id', userId)
+      .eq('status', 'published')
+      .not('linkedin_post_id', 'is', null);
+
+    if (!posts || posts.length === 0) {
+      console.log('[Comments] No published posts found');
+      return 0;
     }
 
-    // Small delay between replies
-    await new Promise(resolve => setTimeout(resolve, 2000));
-  }
+    // Get LinkedIn accounts
+    const { data: accounts } = await supabase
+      .from('social_accounts')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('platform', 'linkedin')
+      .eq('is_active', true);
 
-  return { processed: comments.length, replied };
+    if (!accounts || accounts.length === 0) {
+      console.log('[Comments] No LinkedIn accounts found');
+      return 0;
+    }
+
+    const account = accounts[0];
+    let totalComments = 0;
+
+    for (const post of posts) {
+      if (!post.linkedin_post_id) continue;
+
+      const comments = await fetchLinkedInComments(
+        account.access_token,
+        post.linkedin_post_id
+      );
+
+      // Store new comments
+      for (const comment of comments) {
+        const { error } = await supabase
+          .from('comments')
+          .upsert({
+            user_id: userId,
+            post_id: post.id,
+            platform: 'linkedin',
+            platform_comment_id: comment.platform_comment_id,
+            platform_post_id: comment.platform_post_id,
+            author_id: comment.author_id,
+            author_name: comment.author_name,
+            content: comment.content,
+            fetched_at: new Date().toISOString(),
+          }, {
+            onConflict: 'platform,platform_comment_id',
+          });
+
+        if (!error) totalComments++;
+      }
+    }
+
+    console.log(`[Comments] Stored ${totalComments} comments`);
+    return totalComments;
+
+  } catch (error: any) {
+    console.error('[Comments] Fetch all error:', error);
+    return 0;
+  }
+}
+
+// ============================================
+// Auto-Reply to Unreplied Comments
+// ============================================
+export async function autoReplyToComments(userId: string): Promise<number> {
+  try {
+    console.log(`[Comments] Auto-replying for user: ${userId}`);
+
+    // Get agent settings
+    const { data: agents } = await supabase
+      .from('agents')
+      .select('id, auto_reply_enabled, auto_reply_style, social_account_ids')
+      .eq('user_id', userId)
+      .eq('auto_reply_enabled', true);
+
+    if (!agents || agents.length === 0) {
+      console.log('[Comments] No agents with auto-reply enabled');
+      return 0;
+    }
+
+    // Get unreplied comments
+    const { data: comments } = await supabase
+      .from('comments')
+      .select('*, posts(linkedin_content, agent_id)')
+      .eq('user_id', userId)
+      .eq('replied', false)
+      .eq('platform', 'linkedin')
+      .limit(10); // Process 10 at a time
+
+    if (!comments || comments.length === 0) {
+      console.log('[Comments] No unreplied comments');
+      return 0;
+    }
+
+    // Get LinkedIn account
+    const { data: accounts } = await supabase
+      .from('social_accounts')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('platform', 'linkedin')
+      .eq('is_active', true);
+
+    if (!accounts || accounts.length === 0) {
+      console.log('[Comments] No LinkedIn accounts');
+      return 0;
+    }
+
+    const account = accounts[0];
+    const authorUrn = `urn:li:person:${account.account_id}`;
+    let repliedCount = 0;
+
+    for (const comment of comments) {
+      const post = comment.posts as any;
+      const agent = agents.find(a => a.id === post?.agent_id);
+
+      if (!agent) continue;
+
+      // Generate AI reply
+      const replyText = await generateAIReply(
+        comment.content,
+        post?.linkedin_content || '',
+        agent.auto_reply_style || 'professional and helpful'
+      );
+
+      // Post reply
+      const result = await replyToLinkedInComment(
+        account.access_token,
+        comment.platform_post_id,
+        comment.platform_comment_id,
+        replyText,
+        authorUrn
+      );
+
+      if (result.success) {
+        // Update comment as replied
+        await supabase
+          .from('comments')
+          .update({
+            replied: true,
+            reply_content: replyText,
+            reply_platform_id: result.replyId,
+            replied_at: new Date().toISOString(),
+            auto_replied: true,
+          })
+          .eq('id', comment.id);
+
+        repliedCount++;
+      }
+
+      // Rate limit: wait 2 seconds between replies
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+
+    console.log(`[Comments] Auto-replied to ${repliedCount} comments`);
+    return repliedCount;
+
+  } catch (error: any) {
+    console.error('[Comments] Auto-reply error:', error);
+    return 0;
+  }
 }

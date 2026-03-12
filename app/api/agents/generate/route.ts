@@ -14,15 +14,35 @@ import { generatePostForAgent, discoverTrends, generateBatchPosts } from '@/lib/
 // ============================================
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-  const supabase = createServerSideClient(cookieStore);
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Check for service auth (Telegram, Cron)
+    const authHeader = request.headers.get('Authorization');
+    const isServiceAuth = authHeader === `Bearer ${process.env.CRON_SECRET}`;
+    let userId: string;
 
     const body = await request.json();
+
+    if (isServiceAuth) {
+      // Service call - use provided user_id
+      userId = body.user_id || process.env.AGENT_OWNER_USER_ID;
+      if (!userId) {
+        return NextResponse.json(
+          { error: 'user_id required for service auth' },
+          { status: 400 }
+        );
+      }
+      console.log('[v0] Service auth accepted, userId:', userId);
+    } else {
+      // Normal user call - check session
+      const cookieStore = await cookies();
+      const supabase = createServerSideClient(cookieStore);
+
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      userId = user.id;
+    }
+
     const { agent_id, topic, action } = body as {
       agent_id: string;
       topic?: string;
@@ -33,12 +53,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'agent_id is required' }, { status: 400 });
     }
 
+    // Get Supabase client for database queries
+    const cookieStore = await cookies();
+    const supabase = createServerSideClient(cookieStore);
+
     // Get agent
     const { data: agent, error: agentError } = await supabase
       .from('agents')
       .select('*')
       .eq('id', agent_id)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single();
 
     if (agentError || !agent) {

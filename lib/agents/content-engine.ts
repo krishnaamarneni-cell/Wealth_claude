@@ -8,7 +8,6 @@ import { Agent, Post, PostInsert } from '@/types/database';
 import { getPerplexityKey, researchTopic, getTrendingTopics } from './perplexity';
 import { getGroqKey, generateContent, generateImagePrompt } from './groq';
 import { generateImage } from './image-generator';
-import { getCloudinaryCredentials } from './fal';
 
 export interface ContentGenerationResult {
   success: boolean;
@@ -78,22 +77,10 @@ export async function generatePostForAgent(
 
     const imageResult = await generateImage(userId, imagePrompt);
 
-    // Step 5: Upload image to Cloudinary
-    let finalImageUrl = imageResult.imageUrl;
-    const cloudinaryCredentials = await getCloudinaryCredentials(userId);
+    // The imageResult.url is already a usable URL (either Cloudinary, Fal.ai, or stock photo)
+    const imageUrl = imageResult.imageUrl;
 
-    if (cloudinaryCredentials) {
-      console.log(`[ContentEngine] Uploading to Cloudinary...`);
-      finalImageUrl = await uploadToCloudinary(
-        imageResult.imageUrl,
-        cloudinaryCredentials.cloudName,
-        cloudinaryCredentials.apiKey,
-        cloudinaryCredentials.apiSecret,
-        `wealthclaude/agents/${agent.id}`
-      );
-    }
-
-    // Step 6: Create post in database
+    // Step 5: Create post in database
     const postData: PostInsert = {
       agent_id: agent.id,
       topic,
@@ -102,7 +89,7 @@ export async function generatePostForAgent(
       linkedin_content: content.linkedin,
       instagram_content: content.instagram,
       image_prompt: imagePrompt,
-      image_url: finalImageUrl,
+      image_url: imageUrl,
       status: 'draft',
       platforms: ['x', 'linkedin', 'instagram'],
     };

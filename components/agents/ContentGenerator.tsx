@@ -16,6 +16,7 @@ import {
   Check,
   Image as ImageIcon,
 } from 'lucide-react';
+import ImageSelector from './ImageSelector';
 
 interface Agent {
   id: string;

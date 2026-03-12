@@ -5,8 +5,9 @@
 // ============================================
 
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, Loader2 } from 'lucide-react';
 import {
+  RefreshCw,
+  Loader2,
   Clock,
   Send,
   Edit3,
@@ -14,8 +15,6 @@ import {
   X,
   Check,
   AlertCircle,
-  Loader2,
-  RefreshCw,
   Calendar,
   Image as ImageIcon,
   Play,

@@ -78,9 +78,6 @@ export async function generatePostForAgent(
     const imageResult = await generateImage(userId, imagePrompt);
 
     // The imageResult.url is already a usable URL (either Cloudinary, Fal.ai, or stock photo)
-    const imageUrl = imageResult.imageUrl;
-
-    // Step 5: Create post in database
     const postData: PostInsert = {
       agent_id: agent.id,
       topic,
@@ -89,7 +86,7 @@ export async function generatePostForAgent(
       linkedin_content: content.linkedin,
       instagram_content: content.instagram,
       image_prompt: imagePrompt,
-      image_url: imageUrl,
+      image_url: imageResult?.url || null,
       status: 'draft',
       platforms: ['x', 'linkedin', 'instagram'],
     };
@@ -115,7 +112,7 @@ export async function generatePostForAgent(
       status: 'success',
       metadata: {
         topic,
-        has_image: !!finalImageUrl,
+        has_image: !!(imageResult?.url),
         research_sources: research.sources.length,
       },
     });

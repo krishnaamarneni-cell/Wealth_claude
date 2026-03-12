@@ -5,8 +5,6 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { Post, Agent, SocialAccount } from '@/types/database';
-import { postToX, postToXWithMedia } from './x';
-import { postToLinkedIn, postToLinkedInWithImage } from './linkedin';
 
 // Service role client
 const supabase = createClient(

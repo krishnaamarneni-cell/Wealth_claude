@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
 export const runtime = "nodejs"
-export const maxDuration = 30
+export const maxDuration = 45
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,55 +11,89 @@ const supabase = createClient(
 
 const CACHE_MS = 60 * 60 * 1000 // 1 hour
 
+// Single source of truth — ticker → ISO3 country code
+// Fixes: ISR, NOR, SWE, ZAF, LKA, VNM (wrong symbols)
+// Fixes: IND duplicate (removed ^BSESN, kept ^NSEI)
+// Added: COL, PER, ITA, ROU, TUR, RUS, THA, PRT, GRC, PAK, BGD, NGA, KEN, QAT, KWT, MAR
+// Added: HRV, BGR, EST, LVA, LTU, SRB, SVN, KAZ, OMN, BHR, JOR, MUS, GHA, TUN
 const TICKER_MAP: Record<string, string> = {
-  // Americas
+  // ── Americas ────────────────────────────────────────────
   "^GSPC": "USA",
   "^GSPTSE": "CAN",
-  "^BVSP": "BRA",
   "^MXX": "MEX",
+  "^BVSP": "BRA",
   "^MERV": "ARG",
   "^IPSA": "CHL",
+  "^COLCAP": "COL",
+  "^SPBLPGPT": "PER",
 
-  // Europe
+  // ── Europe ──────────────────────────────────────────────
   "^FTSE": "GBR",
   "^GDAXI": "DEU",
   "^FCHI": "FRA",
+  "FTSEMIB.MI": "ITA",
   "^IBEX": "ESP",
   "^AEX": "NLD",
-  "^BFX": "BEL",
   "^SSMI": "CHE",
-  "^OSEAX": "NOR",
-  "^OMXS30": "SWE",
+  "^OMX": "SWE",   // was ^OMXS30 (wrong)
+  "^OBX": "NOR",   // was ^OSEAX (wrong)
   "^OMXC25": "DNK",
   "^OMXH25": "FIN",
+  "^BFX": "BEL",
   "^ATX": "AUT",
+  "^PSI20": "PRT",
+  "^ATG": "GRC",
   "^WIG20": "POL",
   "^PX": "CZE",
   "^BUX": "HUN",
+  "^BETI": "ROU",
+  "^XU100": "TUR",
+  "IMOEX.ME": "RUS",
+  "^CROBEX": "HRV",
+  "SOFIX.SO": "BGR",
+  "^OMXT": "EST",
+  "^OMXR": "LVA",
+  "^OMXV": "LTU",
+  "^BELEX15": "SRB",
+  "^SBITOP": "SVN",
 
-  // Middle East & Africa
-  "TA35.TA": "ISR",
-  "^TASI.SR": "SAU",
-  "^DFMGI": "ARE",
-  "^CASE30": "EGY",
-  "^J200.JO": "ZAF",
-  "^SPLK20LP": "LKA",
-
-  // Asia Pacific
+  // ── Asia-Pacific ────────────────────────────────────────
   "^N225": "JPN",
-  "^HSI": "HKG",
   "000001.SS": "CHN",
-  "^BSESN": "IND",
-  "^AXJO": "AUS",
+  "^HSI": "HKG",
+  "^NSEI": "IND",   // was duplicated with ^BSESN — removed duplicate
   "^KS11": "KOR",
+  "^AXJO": "AUS",
+  "^NZ50": "NZL",
   "^TWII": "TWN",
   "^STI": "SGP",
   "^KLSE": "MYS",
+  "^SET.BK": "THA",
   "^JKSE": "IDN",
-  "^VNINDEX.VN": "VNM",
   "PSEI.PS": "PHL",
-  "^NZ50": "NZL",
-  "^NSEI": "IND",
+  "^VNINDEX": "VNM",   // was ^VNINDEX.VN (wrong)
+  "^KSE100": "PAK",
+  "^DSEX": "BGD",
+  "^CSEALL": "LKA",   // was ^SPLK20LP (wrong)
+  "^KASE": "KAZ",
+
+  // ── Middle East & Africa ────────────────────────────────
+  "^TASI.SR": "SAU",
+  "^DFMGI": "ARE",
+  "^TA125.TA": "ISR",   // was TA35.TA (wrong)
+  "^J203.JO": "ZAF",   // was ^J200.JO (wrong)
+  "^CASE30": "EGY",
+  "^NGSEINDEX": "NGA",
+  "^NSE20": "KEN",
+  "^QSI": "QAT",
+  "^KWSE": "KWT",
+  "^MASI.CS": "MAR",
+  "^MSM30": "OMN",
+  "^BHSEASI": "BHR",
+  "^AMGNRLX": "JOR",
+  "^SEMDEX": "MUS",
+  "^GGSECI": "GHA",
+  "TUNINDEX.TN": "TUN",
 }
 
 async function fetchQuote(ticker: string) {
@@ -105,9 +139,12 @@ async function fetchFreshData() {
           lastUpdated: new Date().toISOString(),
           isOpen: true,
         }
-      } catch { /* skip */ }
+      } catch {
+        // silently skip — country won't appear on globe
+      }
     })
   )
+
   return results
 }
 
@@ -122,7 +159,6 @@ export async function GET() {
   if (cached?.fetched_at) {
     const age = Date.now() - new Date(cached.fetched_at).getTime()
     if (age < CACHE_MS && Object.keys(cached.data).length > 0) {
-      // Return cached data instantly
       return NextResponse.json({
         data: cached.data,
         fetchedAt: cached.fetched_at,
@@ -134,7 +170,7 @@ export async function GET() {
     }
   }
 
-  // 2. Cache stale or empty — fetch fresh from Yahoo
+  // 2. Cache stale or empty — fetch fresh
   const data = await fetchFreshData()
   const fetchedAt = new Date().toISOString()
 

@@ -8,6 +8,7 @@ import { Agent, Post, PostInsert } from '@/types/database';
 import { getPerplexityKey, researchTopic, getTrendingTopics } from './perplexity';
 import { getGroqKey, generateContent, generateImagePrompt } from './groq';
 import { generateImage } from './image-generator';
+import { getCloudinaryCredentials } from './fal';
 
 export interface ContentGenerationResult {
   success: boolean;

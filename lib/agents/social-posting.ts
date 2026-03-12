@@ -1,272 +1,334 @@
 // ============================================
-// Social Posting Service - Updated
-// Supports LinkedIn Personal + Company Pages
+// Social Posting Service - Unified X + LinkedIn
 // lib/agents/social-posting.ts
 // ============================================
 
-import { cookies } from 'next/headers';
-import { createServerSideClient } from '@/lib/supabase';
-import { Post } from '@/types/database';
-import { postTweet, uploadXMedia, getValidXToken } from './x';
-import { postToLinkedIn, getValidLinkedInToken, LinkedInAuthorType } from './linkedin';
+import { createClient } from '@supabase/supabase-js';
+import { Post, Agent, SocialAccount } from '@/types/database';
+import { postToX, postToXWithMedia } from './x';
+import { postToLinkedIn, postToLinkedInWithImage } from './linkedin';
 
-export interface PostResult {
+// Service role client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+export interface PublishResult {
   platform: 'x' | 'linkedin';
   success: boolean;
   postId?: string;
-  accountName?: string;
+  postUrl?: string;
   error?: string;
 }
 
-export interface PublishResults {
+export interface PublishAllResult {
   success: boolean;
-  results: PostResult[];
-  postedAt?: string;
+  results: PublishResult[];
+  error?: string;
 }
 
 /**
- * Publish post to all connected platforms
+ * Publish a post to all configured platforms
  */
 export async function publishPost(
-  userId: string,
-  post: Post,
-  accountIds: string[]
-): Promise<PublishResults> {
-  const cookieStore = await cookies();
-  const supabase = createServerSideClient(cookieStore);
-  const results: PostResult[] = [];
+  postId: string,
+  userId: string
+): Promise<PublishAllResult> {
+  try {
+    console.log(`[SocialPosting] Publishing post ${postId} for user ${userId}`);
 
-  // Get accounts with account_type
-  const { data: accounts } = await supabase
-    .from('social_accounts')
-    .select('*')
-    .eq('user_id', userId)
-    .in('id', accountIds)
-    .eq('is_active', true);
+    // Get the post with agent info
+    const { data: post, error: postError } = await supabase
+      .from('posts')
+      .select('*, agents(*)')
+      .eq('id', postId)
+      .eq('user_id', userId)
+      .single();
 
-  if (!accounts || accounts.length === 0) {
+    if (postError || !post) {
+      console.error('[SocialPosting] Post not found:', postError);
+      return { success: false, results: [], error: 'Post not found' };
+    }
+
+    const agent = post.agents as Agent;
+    if (!agent) {
+      console.error('[SocialPosting] No agent found for post');
+      return { success: false, results: [], error: 'No agent associated with this post' };
+    }
+
+    console.log(`[SocialPosting] Agent: ${agent.name}, social_account_ids:`, agent.social_account_ids);
+
+    // Get social accounts linked to this agent
+    if (!agent.social_account_ids || agent.social_account_ids.length === 0) {
+      console.error('[SocialPosting] No social_account_ids on agent');
+      return { success: false, results: [], error: 'No social accounts configured for this agent' };
+    }
+
+    // Query accounts using .in() for array of IDs
+    const { data: accounts, error: accountsError } = await supabase
+      .from('social_accounts')
+      .select('*')
+      .in('id', agent.social_account_ids)
+      .eq('is_active', true);
+
+    if (accountsError) {
+      console.error('[SocialPosting] Error fetching accounts:', accountsError);
+      return { success: false, results: [], error: 'Failed to fetch social accounts' };
+    }
+
+    if (!accounts || accounts.length === 0) {
+      console.error('[SocialPosting] No active accounts found for IDs:', agent.social_account_ids);
+      return { success: false, results: [], error: 'No active social accounts found' };
+    }
+
+    console.log(`[SocialPosting] Found ${accounts.length} active accounts`);
+
+    const results: PublishResult[] = [];
+
+    // Publish to each platform
+    for (const account of accounts) {
+      console.log(`[SocialPosting] Publishing to ${account.platform} (${account.account_name})`);
+
+      try {
+        if (account.platform === 'x') {
+          const result = await publishToX(post, account);
+          results.push(result);
+
+          // Update post with X post ID
+          if (result.success && result.postId) {
+            await supabase
+              .from('posts')
+              .update({
+                x_post_id: result.postId,
+                platforms_posted: supabase.rpc('array_append_unique', {
+                  arr: post.platforms_posted || [],
+                  elem: 'x'
+                })
+              })
+              .eq('id', postId);
+          }
+        } else if (account.platform === 'linkedin') {
+          const result = await publishToLinkedIn(post, account);
+          results.push(result);
+
+          // Update post with LinkedIn post ID
+          if (result.success && result.postId) {
+            await supabase
+              .from('posts')
+              .update({
+                linkedin_post_id: result.postId,
+                platforms_posted: supabase.rpc('array_append_unique', {
+                  arr: post.platforms_posted || [],
+                  elem: 'linkedin'
+                })
+              })
+              .eq('id', postId);
+          }
+        }
+      } catch (err: any) {
+        console.error(`[SocialPosting] Error posting to ${account.platform}:`, err);
+        results.push({
+          platform: account.platform as 'x' | 'linkedin',
+          success: false,
+          error: err.message || 'Unknown error',
+        });
+      }
+    }
+
+    // Update post status
+    const allSuccess = results.every(r => r.success);
+    const anySuccess = results.some(r => r.success);
+
+    await supabase
+      .from('posts')
+      .update({
+        status: anySuccess ? 'published' : 'failed',
+        published_at: anySuccess ? new Date().toISOString() : null,
+      })
+      .eq('id', postId);
+
+    // Log activity
+    await supabase.from('activity_logs').insert({
+      user_id: userId,
+      agent_id: agent.id,
+      action_type: 'post_published',
+      action_description: `Published to ${results.filter(r => r.success).map(r => r.platform).join(', ')}`,
+      related_entity_type: 'post',
+      related_entity_id: postId,
+      status: anySuccess ? 'success' : 'failed',
+      metadata: { results },
+    });
+
+    return {
+      success: anySuccess,
+      results,
+    };
+
+  } catch (error: any) {
+    console.error('[SocialPosting] Error:', error);
     return {
       success: false,
-      results: [{
+      results: [],
+      error: error.message || 'Failed to publish post',
+    };
+  }
+}
+
+/**
+ * Publish to X/Twitter
+ */
+async function publishToX(post: Post, account: SocialAccount): Promise<PublishResult> {
+  try {
+    if (!account.access_token) {
+      return { platform: 'x', success: false, error: 'No access token' };
+    }
+
+    const content = post.x_content || post.topic || '';
+
+    let result;
+    if (post.image_url) {
+      // Post with image
+      result = await postToXWithMedia(
+        account.access_token,
+        account.refresh_token || '',
+        content,
+        post.image_url
+      );
+    } else {
+      // Text only
+      result = await postToX(
+        account.access_token,
+        account.refresh_token || '',
+        content
+      );
+    }
+
+    if (result.success) {
+      return {
+        platform: 'x',
+        success: true,
+        postId: result.id,
+        postUrl: result.url,
+      };
+    } else {
+      return {
         platform: 'x',
         success: false,
-        error: 'No connected accounts found',
-      }],
+        error: result.error || 'Failed to post to X',
+      };
+    }
+  } catch (error: any) {
+    return {
+      platform: 'x',
+      success: false,
+      error: error.message || 'X posting error',
     };
   }
-
-  // Post to each platform
-  for (const account of accounts) {
-    try {
-      if (account.platform === 'x') {
-        const result = await postToX(userId, account.id, post);
-        result.accountName = account.account_name;
-        results.push(result);
-      } else if (account.platform === 'linkedin') {
-        const result = await postToLinkedInPlatform(
-          userId,
-          account.id,
-          post,
-          account.account_type as LinkedInAuthorType || 'person'
-        );
-        result.accountName = account.account_name;
-        results.push(result);
-      }
-    } catch (error: any) {
-      results.push({
-        platform: account.platform,
-        success: false,
-        accountName: account.account_name,
-        error: error.message,
-      });
-    }
-  }
-
-  const allSuccess = results.every(r => r.success);
-  const anySuccess = results.some(r => r.success);
-  const postedAt = anySuccess ? new Date().toISOString() : undefined;
-
-  // Update post record
-  const updateData: any = {
-    status: allSuccess ? 'posted' : (anySuccess ? 'posted' : 'failed'),
-    posted_at: postedAt,
-    platforms_posted: results.filter(r => r.success).map(r => r.platform),
-  };
-
-  // Store platform post IDs
-  for (const result of results) {
-    if (result.success && result.postId) {
-      if (result.platform === 'x') {
-        updateData.x_post_id = result.postId;
-      } else if (result.platform === 'linkedin') {
-        updateData.linkedin_post_id = result.postId;
-      }
-    }
-  }
-
-  await supabase
-    .from('posts')
-    .update(updateData)
-    .eq('id', post.id);
-
-  // Log activity
-  await supabase.from('activity_logs').insert({
-    user_id: userId,
-    agent_id: post.agent_id,
-    action_type: allSuccess ? 'post_published' : 'post_failed',
-    action_description: allSuccess
-      ? `Published to: ${results.filter(r => r.success).map(r => r.accountName).join(', ')}`
-      : `Failed: ${results.filter(r => !r.success).map(r => `${r.accountName}: ${r.error}`).join(', ')}`,
-    related_entity_type: 'post',
-    related_entity_id: post.id,
-    status: allSuccess ? 'success' : 'failed',
-    metadata: { results },
-  });
-
-  return {
-    success: allSuccess,
-    results,
-    postedAt,
-  };
 }
 
 /**
- * Post to X/Twitter
+ * Publish to LinkedIn
  */
-async function postToX(
-  userId: string,
-  accountId: string,
-  post: Post
-): Promise<PostResult> {
-  const accessToken = await getValidXToken(userId, accountId);
-
-  if (!accessToken) {
-    return {
-      platform: 'x',
-      success: false,
-      error: 'X token expired or invalid',
-    };
-  }
-
-  const content = post.x_content;
-  if (!content) {
-    return {
-      platform: 'x',
-      success: false,
-      error: 'No X content provided',
-    };
-  }
-
+async function publishToLinkedIn(post: Post, account: SocialAccount): Promise<PublishResult> {
   try {
-    // Upload media if image exists
-    let mediaId: string | undefined;
+    if (!account.access_token) {
+      return { platform: 'linkedin', success: false, error: 'No access token' };
+    }
+
+    const content = post.linkedin_content || post.topic || '';
+    const accountType = account.account_type || 'person';
+
+    let result;
     if (post.image_url) {
-      try {
-        mediaId = await uploadXMedia(accessToken, post.image_url);
-      } catch (e) {
-        console.error('X media upload failed:', e);
-      }
+      // Post with image
+      result = await postToLinkedInWithImage(
+        account.access_token,
+        account.platform_user_id || '',
+        content,
+        post.image_url,
+        accountType as 'person' | 'organization'
+      );
+    } else {
+      // Text only
+      result = await postToLinkedIn(
+        account.access_token,
+        account.platform_user_id || '',
+        content,
+        accountType as 'person' | 'organization'
+      );
     }
 
-    const tweet = await postTweet(accessToken, content, mediaId);
-
-    return {
-      platform: 'x',
-      success: true,
-      postId: tweet.id,
-    };
+    if (result.success) {
+      return {
+        platform: 'linkedin',
+        success: true,
+        postId: result.id,
+        postUrl: result.url,
+      };
+    } else {
+      return {
+        platform: 'linkedin',
+        success: false,
+        error: result.error || 'Failed to post to LinkedIn',
+      };
+    }
   } catch (error: any) {
     return {
-      platform: 'x',
+      platform: 'linkedin',
       success: false,
-      error: error.message,
+      error: error.message || 'LinkedIn posting error',
     };
   }
 }
 
 /**
- * Post to LinkedIn (Personal or Company Page)
+ * Publish to a single platform
  */
-async function postToLinkedInPlatform(
+export async function publishToSinglePlatform(
+  postId: string,
   userId: string,
-  accountId: string,
-  post: Post,
-  authorType: LinkedInAuthorType = 'person'
-): Promise<PostResult> {
-  const tokenData = await getValidLinkedInToken(userId, accountId);
-
-  if (!tokenData) {
-    return {
-      platform: 'linkedin',
-      success: false,
-      error: 'LinkedIn token expired or invalid',
-    };
-  }
-
-  const content = post.linkedin_content;
-  if (!content) {
-    return {
-      platform: 'linkedin',
-      success: false,
-      error: 'No LinkedIn content provided',
-    };
-  }
-
+  platform: 'x' | 'linkedin'
+): Promise<PublishResult> {
   try {
-    const linkedInPost = await postToLinkedIn(
-      tokenData.token,
-      tokenData.authorId,
-      content,
-      post.image_url || undefined,
-      tokenData.authorType // Use the account type from DB
-    );
+    // Get post with agent
+    const { data: post, error: postError } = await supabase
+      .from('posts')
+      .select('*, agents(*)')
+      .eq('id', postId)
+      .eq('user_id', userId)
+      .single();
 
-    return {
-      platform: 'linkedin',
-      success: true,
-      postId: linkedInPost.id,
-    };
+    if (postError || !post) {
+      return { platform, success: false, error: 'Post not found' };
+    }
+
+    const agent = post.agents as Agent;
+    if (!agent?.social_account_ids?.length) {
+      return { platform, success: false, error: 'No social accounts configured' };
+    }
+
+    // Find account for this platform
+    const { data: accounts } = await supabase
+      .from('social_accounts')
+      .select('*')
+      .in('id', agent.social_account_ids)
+      .eq('platform', platform)
+      .eq('is_active', true)
+      .limit(1)
+      .single();
+
+    if (!accounts) {
+      return { platform, success: false, error: `No ${platform} account configured` };
+    }
+
+    if (platform === 'x') {
+      return publishToX(post, accounts);
+    } else {
+      return publishToLinkedIn(post, accounts);
+    }
+
   } catch (error: any) {
-    return {
-      platform: 'linkedin',
-      success: false,
-      error: error.message,
-    };
+    return { platform, success: false, error: error.message };
   }
-}
-
-/**
- * Get user's connected social account IDs
- */
-export async function getUserSocialAccountIds(userId: string): Promise<string[]> {
-  const cookieStore = await cookies();
-  const supabase = createServerSideClient(cookieStore);
-
-  const { data: accounts } = await supabase
-    .from('social_accounts')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('is_active', true);
-
-  return accounts?.map(a => a.id) || [];
-}
-
-/**
- * Get agent's social account IDs
- */
-export async function getAgentSocialAccountIds(
-  userId: string,
-  agentId: string
-): Promise<string[]> {
-  const cookieStore = await cookies();
-  const supabase = createServerSideClient(cookieStore);
-
-  const { data: agent } = await supabase
-    .from('agents')
-    .select('social_account_ids')
-    .eq('id', agentId)
-    .eq('user_id', userId)
-    .single();
-
-  return agent?.social_account_ids || [];
 }

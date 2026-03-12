@@ -40,16 +40,15 @@ export async function generatePostForAgent(
 
   try {
     // Step 1: Get API keys
-    const [perplexityKey, groqKey, falKey] = await Promise.all([
+    const [perplexityKey, groqKey] = await Promise.all([
       getPerplexityKey(userId, agent.id),
       getGroqKey(userId, agent.id),
-      getFalKey(userId, agent.id),
     ]);
 
-    if (!perplexityKey || !groqKey || !falKey) {
+    if (!perplexityKey || !groqKey) {
       return {
         success: false,
-        error: 'Missing required API keys (Perplexity, Groq, or Fal.ai)',
+        error: 'Missing required API keys (Perplexity or Groq)',
       };
     }
 
@@ -76,9 +75,7 @@ export async function generatePostForAgent(
       research.summary
     );
 
-    const imageResult = await generateImage(falKey, imagePrompt, {
-      aspectRatio: '1:1',
-    });
+    const imageResult = await generateImage(userId, imagePrompt);
 
     // Step 5: Upload image to Cloudinary
     let finalImageUrl = imageResult.imageUrl;

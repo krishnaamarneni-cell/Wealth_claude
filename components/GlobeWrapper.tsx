@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from "react"
-import * as THREE from "three"
 import { MarketDataMap } from "@/lib/mockData"
 import { pctToColor, pctToGlow } from "@/lib/colorScale"
 import { NO_EXCHANGE_COUNTRIES } from "@/lib/countryIndexMap"
@@ -36,10 +35,8 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
     if (typeof window === "undefined") return
 
     const loadGlobe = async () => {
-      // Attach THREE to window for Globe.gl
-      if (!(window as any).THREE) {
-        (window as any).THREE = THREE
-      }
+      // Globe.gl will provide THREE through its CDN bundle
+      // No need to attach THREE separately — globe.gl handles it
       
       if (!(window as any).Globe) {
         await new Promise<void>((res, rej) => {

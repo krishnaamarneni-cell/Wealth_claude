@@ -517,7 +517,10 @@ async function handleGenerateCommand(botToken: string, chatId: number, topic: st
   try {
     const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/agents/generate`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.CRON_SECRET}`,
+      },
       body: JSON.stringify({
         topic,
         user_id: process.env.AGENT_OWNER_USER_ID,

@@ -52,11 +52,7 @@ export default function ContentGenerator({ onPostCreated }: ContentGeneratorProp
     fetchAgents();
   }, []);
 
-  useEffect(() => {
-    if (selectedAgent) {
-      discoverTrends();
-    }
-  }, [selectedAgent]);
+
 
   const fetchAgents = async () => {
     try {

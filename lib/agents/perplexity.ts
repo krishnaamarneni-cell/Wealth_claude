@@ -1,191 +1,233 @@
 // ============================================
-// Perplexity Service - Web Research
+// Perplexity API - Research & Trends
+// lib/agents/perplexity.ts
 // ============================================
 
-import { createServerSideClient } from '@/lib/supabase';
-import { cookies } from 'next/headers';
-import { decryptApiKey } from '@/lib/encryption';
+import { createClient } from '@supabase/supabase-js';
+import { decrypt } from '@/lib/encryption';
 
+const PERPLEXITY_API_URL = 'https://api.perplexity.ai/chat/completions';
+
+// ============================================
+// Get Perplexity API Key
+// ============================================
+export async function getPerplexityKey(userId: string, agentId?: string): Promise<string | null> {
+  // Try environment variable first (most reliable)
+  if (process.env.PERPLEXITY_API_KEY) {
+    return process.env.PERPLEXITY_API_KEY;
+  }
+
+  // Fallback to database
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    const { data } = await supabase
+      .from('api_keys')
+      .select('encrypted_value')
+      .eq('user_id', userId)
+      .eq('key_type', 'perplexity')
+      .single();
+
+    if (!data?.encrypted_value) return null;
+
+    return decrypt(data.encrypted_value);
+  } catch (error) {
+    console.error('Failed to get Perplexity key:', error);
+    return null;
+  }
+}
+
+// ============================================
+// Research a Topic
+// ============================================
 export interface ResearchResult {
   summary: string;
   keyPoints: string[];
   sources: string[];
-  rawResponse: string;
 }
 
-export interface PerplexityMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
-
-/**
- * Get Perplexity API key for user (global or agent-specific)
- */
-export async function getPerplexityKey(userId: string, agentId?: string): Promise<string | null> {
-  const cookieStore = await cookies();
-  const supabase = createServerSideClient(cookieStore);
-
-  // Try agent-specific key first
-  if (agentId) {
-    const { data: agentKey } = await supabase
-      .from('api_keys')
-      .select('key_value')
-      .eq('user_id', userId)
-      .eq('key_name', 'perplexity')
-      .eq('agent_id', agentId)
-      .single();
-
-    if (agentKey) {
-      return decryptApiKey(agentKey.key_value);
-    }
-  }
-
-  // Fall back to global key
-  const { data: globalKey } = await supabase
-    .from('api_keys')
-    .select('key_value')
-    .eq('user_id', userId)
-    .eq('key_name', 'perplexity')
-    .is('agent_id', null)
-    .single();
-
-  if (globalKey) {
-    return decryptApiKey(globalKey.key_value);
-  }
-
-  return null;
-}
-
-/**
- * Research a topic using Perplexity AI
- */
 export async function researchTopic(
   apiKey: string,
   topic: string,
-  context?: string
+  additionalInstructions?: string
 ): Promise<ResearchResult> {
-  const systemPrompt = `You are a financial research assistant. Provide accurate, up-to-date information about market news and trends.
+  const systemPrompt = `You are a research assistant. Provide comprehensive, accurate research on the given topic.
+${additionalInstructions ? `Additional instructions: ${additionalInstructions}` : ''}
 
-When researching a topic:
-1. Focus on the most recent and relevant information
-2. Include specific data points, numbers, and statistics when available
-3. Cite your sources
-4. Highlight actionable insights
+Return your research in this exact JSON format:
+{
+  "summary": "A 2-3 paragraph summary of the topic",
+  "keyPoints": ["Key point 1", "Key point 2", "Key point 3", "Key point 4", "Key point 5"],
+  "sources": ["Source 1", "Source 2", "Source 3"]
+}`;
 
-${context ? `Additional context: ${context}` : ''}
+  try {
+    const response = await fetch(PERPLEXITY_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'sonar',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Research this topic thoroughly: ${topic}` },
+        ],
+        temperature: 0.2,
+        max_tokens: 1500,
+      }),
+    });
 
-Format your response as:
-SUMMARY: [2-3 sentence overview]
-KEY_POINTS:
-- [Point 1]
-- [Point 2]
-- [Point 3]
-SOURCES: [List URLs or source names]`;
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Perplexity API error: ${error}`);
+    }
 
-  const response = await fetch('https://api.perplexity.ai/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'sonar',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Research the latest news and insights about: ${topic}` },
-      ],
-      temperature: 0.2,
-      max_tokens: 1500,
-    }),
-  });
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Perplexity API error: ${error}`);
+    // Parse JSON from response
+    try {
+      // Extract JSON from markdown code blocks if present
+      const jsonMatch = content.match(/```json\n?([\s\S]*?)\n?```/) ||
+        content.match(/\{[\s\S]*\}/);
+
+      if (jsonMatch) {
+        const jsonStr = jsonMatch[1] || jsonMatch[0];
+        const parsed = JSON.parse(jsonStr);
+        return {
+          summary: parsed.summary || content,
+          keyPoints: parsed.keyPoints || [],
+          sources: parsed.sources || [],
+        };
+      }
+    } catch {
+      // If JSON parsing fails, return as plain text
+    }
+
+    return {
+      summary: content,
+      keyPoints: [],
+      sources: [],
+    };
+
+  } catch (error: any) {
+    console.error('Research error:', error);
+    throw new Error(`Failed to research topic: ${error.message}`);
   }
-
-  const data = await response.json();
-  const content = data.choices[0]?.message?.content || '';
-
-  return parseResearchResponse(content);
 }
 
-/**
- * Get trending topics in a specific niche
- */
+// ============================================
+// Get Trending Topics
+// ============================================
 export async function getTrendingTopics(
   apiKey: string,
   niche: string,
   keywords?: string[]
 ): Promise<string[]> {
   const keywordContext = keywords?.length
-    ? `Focus especially on topics related to: ${keywords.join(', ')}`
+    ? `Focus on these areas: ${keywords.join(', ')}.`
     : '';
 
-  const response = await fetch('https://api.perplexity.ai/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'sonar',
-      messages: [
-        {
-          role: 'system',
-          content: `You are a trend analyst. Identify the most important trending topics and breaking news in a given niche. Return only the topic names, one per line, no numbering or bullets. ${keywordContext}`,
-        },
-        {
-          role: 'user',
-          content: `What are the top 5 trending topics in ${niche} right now? Include any breaking news or market-moving events from the last 24 hours.`,
-        },
-      ],
-      temperature: 0.3,
-      max_tokens: 500,
-    }),
-  });
+  const systemPrompt = `You are a trend analyst specializing in ${niche}. 
+Find the top 5 most relevant trending topics for social media content.
+${keywordContext}
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Perplexity API error: ${error}`);
+Return ONLY a JSON array of strings, no other text:
+["Topic 1", "Topic 2", "Topic 3", "Topic 4", "Topic 5"]`;
+
+  try {
+    const response = await fetch(PERPLEXITY_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'sonar',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `What are the top 5 trending topics in ${niche} right now that would make great social media content?` },
+        ],
+        temperature: 0.3,
+        max_tokens: 500,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Perplexity API error: ${error}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
+
+    // Parse JSON array from response
+    try {
+      const jsonMatch = content.match(/\[[\s\S]*?\]/);
+      if (jsonMatch) {
+        const topics = JSON.parse(jsonMatch[0]);
+        if (Array.isArray(topics)) {
+          return topics.slice(0, 5);
+        }
+      }
+    } catch {
+      // If parsing fails, extract topics manually
+    }
+
+    // Fallback: split by newlines or commas
+    const lines = content.split(/[\n,]/)
+      .map((line: string) => line.replace(/^[\d\.\-\*\s]+/, '').trim())
+      .filter((line: string) => line.length > 10 && line.length < 200);
+
+    return lines.slice(0, 5);
+
+  } catch (error: any) {
+    console.error('Trending topics error:', error);
+    throw new Error(`Failed to get trending topics: ${error.message}`);
   }
-
-  const data = await response.json();
-  const content = data.choices[0]?.message?.content || '';
-
-  // Parse topics from response
-  const topics = content
-    .split('\n')
-    .map((line: string) => line.replace(/^[\d\-\*\.\)]+\s*/, '').trim())
-    .filter((line: string) => line.length > 0 && line.length < 200);
-
-  return topics.slice(0, 5);
 }
 
-/**
- * Parse research response into structured format
- */
-function parseResearchResponse(content: string): ResearchResult {
-  const summaryMatch = content.match(/SUMMARY:\s*(.+?)(?=KEY_POINTS:|$)/s);
-  const keyPointsMatch = content.match(/KEY_POINTS:\s*(.+?)(?=SOURCES:|$)/s);
-  const sourcesMatch = content.match(/SOURCES:\s*(.+?)$/s);
+// ============================================
+// Quick Search (for Telegram bot)
+// ============================================
+export async function quickSearch(
+  apiKey: string,
+  query: string
+): Promise<string> {
+  try {
+    const response = await fetch(PERPLEXITY_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'sonar',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful assistant. Provide concise, accurate answers. Include specific numbers, dates, and facts when available. Keep responses under 300 words.'
+          },
+          { role: 'user', content: query },
+        ],
+        temperature: 0.2,
+        max_tokens: 500,
+      }),
+    });
 
-  const summary = summaryMatch?.[1]?.trim() || content.slice(0, 500);
+    if (!response.ok) {
+      throw new Error('Search failed');
+    }
 
-  const keyPoints = keyPointsMatch?.[1]
-    ?.split('\n')
-    .map(line => line.replace(/^[\-\*]\s*/, '').trim())
-    .filter(line => line.length > 0) || [];
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || 'No results found.';
 
-  const sources = sourcesMatch?.[1]
-    ?.split('\n')
-    .map(line => line.replace(/^[\-\*]\s*/, '').trim())
-    .filter(line => line.length > 0) || [];
-
-  return {
-    summary,
-    keyPoints,
-    sources,
-    rawResponse: content,
-  };
+  } catch (error: any) {
+    throw new Error(`Search failed: ${error.message}`);
+  }
 }

@@ -7,7 +7,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerSideClient } from '@/lib/supabase';
-import { exchangeLinkedInCode, getLinkedInUser, getLinkedInOrganizations } from '@/lib/agents/linkedin';
 
 export async function GET(request: NextRequest) {
   try {

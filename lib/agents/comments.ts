@@ -6,7 +6,6 @@
 import { cookies } from 'next/headers';
 import { createServerSideClient } from '@/lib/supabase';
 import { getTweetReplies, replyToTweet, getValidXToken } from './x';
-import { getLinkedInComments, replyToLinkedInComment, getValidLinkedInToken } from './linkedin';
 import { getGroqKey } from './groq';
 
 // ============================================

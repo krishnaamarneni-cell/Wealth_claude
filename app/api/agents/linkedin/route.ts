@@ -6,7 +6,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerSideClient } from '@/lib/supabase';
-import { getLinkedInAuthUrl, postToLinkedIn, getValidLinkedInToken } from '@/lib/agents/linkedin';
 import crypto from 'crypto';
 
 // ============================================

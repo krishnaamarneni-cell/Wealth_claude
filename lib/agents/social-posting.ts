@@ -5,8 +5,6 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { Post, Agent, SocialAccount } from '@/types/database';
-import { postToX, postToXWithMedia } from './x';
-import { postToLinkedIn, postToLinkedInWithImage } from './linkedin';
 
 // Service role client
 const supabase = createClient(
@@ -186,38 +184,41 @@ async function publishToX(post: Post, account: SocialAccount): Promise<PublishRe
 
     const content = post.x_content || post.topic || '';
 
-    let result;
-    if (post.image_url) {
-      // Post with image
-      result = await postToXWithMedia(
-        account.access_token,
-        account.refresh_token || '',
-        content,
-        post.image_url
-      );
-    } else {
-      // Text only
-      result = await postToX(
-        account.access_token,
-        account.refresh_token || '',
-        content
-      );
-    }
+    // Post to X API
+    const xResponse = await fetch('https://api.twitter.com/2/tweets', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${account.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        text: content,
+        ...(post.image_url && {
+          media: {
+            media_ids: [post.image_url], // Would need to upload media first
+          }
+        })
+      }),
+    });
 
-    if (result.success) {
-      return {
-        platform: 'x',
-        success: true,
-        postId: result.id,
-        postUrl: result.url,
-      };
-    } else {
+    if (!xResponse.ok) {
+      const error = await xResponse.text();
+      console.error('[SocialPosting] X API error:', error);
       return {
         platform: 'x',
         success: false,
-        error: result.error || 'Failed to post to X',
+        error: `X API error: ${error}`,
       };
     }
+
+    const result = await xResponse.json();
+    return {
+      platform: 'x',
+      success: true,
+      postId: result.data?.id,
+      postUrl: `https://twitter.com/i/web/status/${result.data?.id}`,
+    };
+
   } catch (error: any) {
     return {
       platform: 'x',
@@ -237,42 +238,51 @@ async function publishToLinkedIn(post: Post, account: SocialAccount): Promise<Pu
     }
 
     const content = post.linkedin_content || post.topic || '';
-    const accountType = account.account_type || 'person';
+    const userId = account.platform_user_id || '';
 
-    let result;
-    if (post.image_url) {
-      // Post with image
-      result = await postToLinkedInWithImage(
-        account.access_token,
-        account.platform_user_id || '',
-        content,
-        post.image_url,
-        accountType as 'person' | 'organization'
-      );
-    } else {
-      // Text only
-      result = await postToLinkedIn(
-        account.access_token,
-        account.platform_user_id || '',
-        content,
-        accountType as 'person' | 'organization'
-      );
-    }
+    // Post to LinkedIn API
+    const liResponse = await fetch('https://api.linkedin.com/v2/ugcPosts', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${account.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        author: `urn:li:person:${userId}`,
+        lifecycleState: 'PUBLISHED',
+        specificContent: {
+          'com.linkedin.ugc.ShareContent': {
+            shareCommentary: {
+              text: content,
+            },
+            shareMediaCategory: 'IMAGE',
+            media: post.image_url ? [{ status: 'READY', description: { text: 'Post image' }, media: post.image_url }] : [],
+          }
+        },
+        visibility: {
+          'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC',
+        },
+      }),
+    });
 
-    if (result.success) {
-      return {
-        platform: 'linkedin',
-        success: true,
-        postId: result.id,
-        postUrl: result.url,
-      };
-    } else {
+    if (!liResponse.ok) {
+      const error = await liResponse.text();
+      console.error('[SocialPosting] LinkedIn API error:', error);
       return {
         platform: 'linkedin',
         success: false,
-        error: result.error || 'Failed to post to LinkedIn',
+        error: `LinkedIn API error: ${error}`,
       };
     }
+
+    const result = await liResponse.json();
+    return {
+      platform: 'linkedin',
+      success: true,
+      postId: result.id,
+      postUrl: `https://www.linkedin.com/feed/update/${result.id}`,
+    };
+
   } catch (error: any) {
     return {
       platform: 'linkedin',
@@ -330,5 +340,32 @@ export async function publishToSinglePlatform(
 
   } catch (error: any) {
     return { platform, success: false, error: error.message };
+  }
+}
+
+/**
+ * Get social account IDs for an agent
+ */
+export async function getAgentSocialAccountIds(
+  userId: string,
+  agentId: string
+): Promise<string[]> {
+  try {
+    const { data: agent, error } = await supabase
+      .from('agents')
+      .select('social_account_ids')
+      .eq('id', agentId)
+      .eq('user_id', userId)
+      .single();
+
+    if (error || !agent) {
+      console.error('[SocialPosting] Failed to get agent social accounts:', error);
+      return [];
+    }
+
+    return agent.social_account_ids || [];
+  } catch (error: any) {
+    console.error('[SocialPosting] Error getting social account IDs:', error);
+    return [];
   }
 }

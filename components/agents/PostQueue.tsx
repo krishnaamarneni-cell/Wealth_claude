@@ -5,6 +5,7 @@
 // ============================================
 
 import React, { useState, useEffect } from 'react';
+import { RefreshCw, Loader2 } from 'lucide-react';
 import {
   Clock,
   Send,
@@ -205,18 +206,39 @@ export default function PostQueue({ agentId, showHistory = false }: PostQueuePro
               {/* Post Header */}
               <div className="p-4">
                 <div className="flex items-start gap-4">
-                  {/* Image Thumbnail */}
-                  {post.image_url ? (
-                    <img
-                      src={post.image_url}
-                      alt=""
-                      className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                      <ImageIcon className="w-6 h-6 text-zinc-600" />
-                    </div>
-                  )}
+                  {/* Image Thumbnail with Replace Option */}
+                  <div className="relative flex-shrink-0 group">
+                    {post.image_url ? (
+                      <>
+                        <img
+                          src={post.image_url}
+                          alt=""
+                          className="w-16 h-16 rounded-lg object-cover"
+                        />
+                        {post.status === 'draft' || post.status === 'scheduled' ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              regenerateImage(post.id, post.topic);
+                            }}
+                            disabled={regeneratingImage === post.id}
+                            className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 rounded-lg flex items-center justify-center transition-opacity"
+                            title="Replace Image"
+                          >
+                            {regeneratingImage === post.id ? (
+                              <Loader2 className="w-5 h-5 text-white animate-spin" />
+                            ) : (
+                              <RefreshCw className="w-5 h-5 text-white" />
+                            )}
+                          </button>
+                        ) : null}
+                      </>
+                    ) : (
+                      <div className="w-16 h-16 rounded-lg bg-zinc-800 flex items-center justify-center">
+                        <ImageIcon className="w-6 h-6 text-zinc-600" />
+                      </div>
+                    )}
+                  </div>
 
                   {/* Content Preview */}
                   <div className="flex-1 min-w-0">

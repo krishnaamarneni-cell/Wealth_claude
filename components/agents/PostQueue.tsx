@@ -12,7 +12,6 @@ import {
   Send,
   Edit3,
   Trash2,
-  X,
   Check,
   AlertCircle,
   Calendar,
@@ -21,6 +20,7 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  X as XIcon,
 } from 'lucide-react';
 
 interface Post {
@@ -322,7 +322,7 @@ export default function PostQueue({ agentId, showHistory = false }: PostQueuePro
                         className="p-2 text-amber-400 hover:bg-amber-500/10 rounded-lg transition-all disabled:opacity-50"
                         title="Cancel"
                       >
-                        <X className="w-4 h-4" />
+                        <XIcon className="w-4 h-4" />
                       </button>
                     )}
                     <button

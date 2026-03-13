@@ -292,10 +292,10 @@ export function MacroMapWrapper() {
     const map = L.map(containerRef.current, {
       center: [20, 0], zoom: 2.9, minZoom: 0.5, maxZoom: 7,
       zoomControl: true, attributionControl: false,
-      worldCopyJump: true, maxBounds: [[-65, -Infinity], [80, Infinity]],
+      worldCopyJump: true, maxBounds: [[-60, -Infinity], [75, Infinity]],
     })
     mapRef.current = map
-    map.fitBounds([[-30, -150], [55, 180]])
+    map.fitBounds([[-30, -170], [55, 170]])
 
     // ──────────────────────────────────────────────────────────────────────
     // dark_nolabels — ZERO country / city names on the base tile

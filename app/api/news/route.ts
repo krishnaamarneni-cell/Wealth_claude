@@ -11,13 +11,29 @@ interface Article {
   publishedAt: string
 }
 
-// ── GNews (primary — best free-tier country filtering) ─────────────────
-async function fetchGNews(country: string, iso2: string): Promise<Article[]> {
+// Short names for countries with long official names that break API queries
+const SHORT_NAMES: Record<string, string> = {
+  "United States of America": "USA",
+  "United Kingdom": "UK",
+  "United Arab Emirates": "UAE",
+  "South Korea": "Korea",
+  "Saudi Arabia": "Saudi Arabia",
+  "South Africa": "South Africa",
+  "Hong Kong": "Hong Kong",
+  "New Zealand": "New Zealand",
+  "Czech Republic": "Czech Republic",
+}
+
+function shortName(country: string): string {
+  return SHORT_NAMES[country] ?? country
+}
+
+async function fetchGNews(country: string): Promise<Article[]> {
   const key = process.env.GNEWS_KEY
   if (!key) throw new Error("No GNEWS_KEY")
 
-  const q = encodeURIComponent(`${country} stock market economy`)
-  const url = `https://gnews.io/api/v4/search?q=${q}&lang=en&max=5&token=${key}`
+  const q = encodeURIComponent(`${shortName(country)} stock market economy`)
+  const url = `https://gnews.io/api/v4/search?q=${q}&lang=en&max=5&sortby=publishedAt&token=${key}`
   const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
 
   if (!res.ok) {
@@ -38,13 +54,12 @@ async function fetchGNews(country: string, iso2: string): Promise<Article[]> {
   }))
 }
 
-// ── TheNewsAPI (second) ────────────────────────────────────────────────
 async function fetchTheNewsAPI(country: string): Promise<Article[]> {
   const key = process.env.THENEWSAPI_KEY
   if (!key) throw new Error("No THENEWSAPI_KEY")
 
-  const q = encodeURIComponent(`${country} stock market economy finance`)
-  const url = `https://api.thenewsapi.com/v1/news/all?search=${q}&language=en&limit=5&api_token=${key}`
+  const q = encodeURIComponent(`${shortName(country)} stock market economy finance`)
+  const url = `https://api.thenewsapi.com/v1/news/all?search=${q}&language=en&limit=5&sort=published_at&api_token=${key}`
   const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
 
   if (!res.ok) {
@@ -65,13 +80,12 @@ async function fetchTheNewsAPI(country: string): Promise<Article[]> {
   }))
 }
 
-// ── NewsAPI (last resort — free tier only works with tight keyword query) 
 async function fetchNewsAPI(country: string): Promise<Article[]> {
   const key = process.env.NEWSAPI_KEY
   if (!key) throw new Error("No NEWSAPI_KEY")
 
-  // Free tier: use 'everything' with very tight query
-  const q = encodeURIComponent(`"${country}" stock OR market OR economy OR index`)
+  const name = shortName(country)
+  const q = encodeURIComponent(`"${name}" stock OR market OR economy OR index`)
   const url = `https://newsapi.org/v2/everything?q=${q}&sortBy=publishedAt&pageSize=5&language=en&apiKey=${key}`
   const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
 
@@ -81,17 +95,15 @@ async function fetchNewsAPI(country: string): Promise<Article[]> {
   }
 
   const json = await res.json()
-  if (json.status === "error") throw new Error(`NewsAPI error: ${json.message}`)
+  if (json.status === "error") throw new Error(`NewsAPI: ${json.message}`)
 
-  // Filter articles to only keep ones that actually mention the country
-  const countryLower = country.toLowerCase()
-  const articles = (json.articles ?? [])
-    .filter((a: any) => {
-      const text = `${a.title ?? ""} ${a.description ?? ""}`.toLowerCase()
-      return a.title && a.url && text.includes(countryLower)
-    })
+  const nameLower = name.toLowerCase()
+  const articles = (json.articles ?? []).filter((a: any) => {
+    const text = `${a.title ?? ""} ${a.description ?? ""}`.toLowerCase()
+    return a.title && a.url && text.includes(nameLower)
+  })
 
-  if (articles.length === 0) throw new Error("NewsAPI: no country-relevant articles found")
+  if (articles.length === 0) throw new Error("NewsAPI: no relevant articles found")
 
   return articles.slice(0, 5).map((a: any) => ({
     title: a.title,
@@ -102,7 +114,6 @@ async function fetchNewsAPI(country: string): Promise<Article[]> {
   }))
 }
 
-// ── Groq summarizer ────────────────────────────────────────────────────
 async function summarizeWithGroq(
   articles: Article[],
   countryName: string,
@@ -125,9 +136,9 @@ async function summarizeWithGroq(
     .map((a, i) => `${i + 1}. ${a.title}${a.description ? ". " + a.description.slice(0, 120) : ""}`)
     .join("\n")
 
-  const prompt = `You are a financial analyst. The ${indexName} (${countryName}) is ${direction} today.
+  const prompt = `You are a financial analyst. The ${indexName} (${shortName(countryName)}) is ${direction} today.
 
-Based on these recent headlines, write 2-3 sentences explaining the key factors driving ${countryName}'s market performance right now. Be specific and focused on market impact. Do not say "based on the headlines" or reference the articles directly.
+Based on these recent headlines, write 2-3 sentences explaining the key factors driving ${shortName(countryName)}'s market performance right now. Be specific and focused on market impact. Do not reference the articles directly.
 
 Headlines:
 ${headlines}
@@ -142,7 +153,7 @@ Summary:`
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama3-8b-8192",
+        model: "llama-3.1-8b-instant",
         messages: [{ role: "user", content: prompt }],
         max_tokens: 200,
         temperature: 0.4,
@@ -152,21 +163,20 @@ Summary:`
 
     if (!res.ok) {
       const text = await res.text().catch(() => "")
-      console.error(`[news] Groq HTTP ${res.status}:`, text.slice(0, 200))
+      console.error(`[news] Groq HTTP ${res.status}:`, text.slice(0, 300))
       return ""
     }
 
     const json = await res.json()
     const content = json.choices?.[0]?.message?.content?.trim() ?? ""
-    if (!content) console.error("[news] Groq returned empty content:", JSON.stringify(json))
+    if (!content) console.error("[news] Groq empty content:", JSON.stringify(json))
     return content
   } catch (e: any) {
-    console.error("[news] Groq fetch error:", e.message)
+    console.error("[news] Groq error:", e.message)
     return ""
   }
 }
 
-// ── Main handler ───────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const country = searchParams.get("country") ?? ""
@@ -178,12 +188,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Missing country param" }, { status: 400 })
   }
 
-  // Try each news source in order — stop at first with ≥2 articles
   let articles: Article[] = []
   const errors: string[] = []
 
   for (const [name, fetcher] of [
-    ["GNews", () => fetchGNews(country, iso2)],
+    ["GNews", () => fetchGNews(country)],
     ["TheNewsAPI", () => fetchTheNewsAPI(country)],
     ["NewsAPI", () => fetchNewsAPI(country)],
   ] as [string, () => Promise<Article[]>][]) {
@@ -201,12 +210,11 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Groq summary
   const summary = articles.length > 0
     ? await summarizeWithGroq(articles, country, indexName, changePct)
     : ""
 
-  console.log(`[news] Final: ${articles.length} articles, summary length: ${summary.length}, errors: ${errors.join(" | ")}`)
+  console.log(`[news] Final: ${articles.length} articles, summary: ${summary.length} chars, errors: ${errors.join(" | ")}`)
 
   return NextResponse.json({
     country,
@@ -215,6 +223,7 @@ export async function GET(req: NextRequest) {
     count: articles.length,
     errors: errors.length ? errors : undefined,
   }, {
-    headers: { "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=3600" }
+    // No CDN cache -- always run the function so Groq always executes
+    headers: { "Cache-Control": "no-store" }
   })
 }

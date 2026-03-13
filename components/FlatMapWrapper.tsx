@@ -61,14 +61,17 @@ export function FlatMapWrapper({ marketData, selectedCountry, onCountrySelect }:
       const map = L.map(containerRef.current, {
         center: [25, 15], zoom: 2, minZoom: 2, maxZoom: 6,
         zoomControl: false, attributionControl: false,
-        worldCopyJump: false,
-        maxBounds: [[-75, -210], [85, 210]],
-        maxBoundsViscosity: 1.0,
+        worldCopyJump: true,
+
+
       })
 
       // No tile layer — pure #060a10 background via CSS override
 
       L.control.zoom({ position: "bottomright" }).addTo(map)
+
+      // Restrict vertical pan only — allow infinite horizontal wrap
+      map.setMaxBounds([[-80, -Infinity], [85, Infinity]])
       mapRef.current = map
 
       let geoData: any

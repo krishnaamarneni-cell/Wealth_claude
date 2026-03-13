@@ -72,7 +72,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const [economic, earnings, ipo] = await Promise.all([
+    const [economic, earnings, ipo] = await Promise.allSettled([
       fetchFMPEconomic(from, to),                               // FMP — free tier
       fetchFinnhub(`/calendar/earnings?from=${from}&to=${to}`), // Finnhub free
       fetchFinnhub(`/calendar/ipo?from=${from}&to=${to}`),      // Finnhub free

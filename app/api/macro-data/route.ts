@@ -17,6 +17,8 @@ const INDICATORS: Record<string, string> = {
   gdp: "NY.GDP.MKTP.CD",     // GDP current USD
   unemployment: "SL.UEM.TOTL.ZS",    // Unemployment % of labor force
   debtToGdp: "GC.DOD.TOTL.GD.ZS", // Central govt debt % of GDP
+  interestRate: "FR.INR.LEND",        // Lending interest rate %
+  budgetGdp: "GC.BAL.CASH.GD.ZS",  // Cash surplus/deficit % of GDP
 }
 
 async function fetchIndicator(indicator: string): Promise<Record<string, number>> {
@@ -61,11 +63,11 @@ export async function GET() {
 
   // 2. Fetch fresh from World Bank — all 5 indicators in parallel
   try {
-    const [inflation, gdpGrowth, gdp, unemployment, debtToGdp] = await Promise.all(
+    const [inflation, gdpGrowth, gdp, unemployment, debtToGdp, interestRate, budgetGdp] = await Promise.all(
       Object.values(INDICATORS).map(ind => fetchIndicator(ind))
     )
 
-    const data = { inflation, gdpGrowth, gdp, unemployment, debtToGdp }
+    const data = { inflation, gdpGrowth, gdp, unemployment, debtToGdp, interestRate, budgetGdp }
     const fetchedAt = new Date().toISOString()
 
     // 3. Cache in Supabase

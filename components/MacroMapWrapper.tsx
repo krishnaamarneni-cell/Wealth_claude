@@ -50,11 +50,11 @@ function lerpHex(from: string, to: string, t: number): string {
 }
 
 const COLOR_SCALES: Record<MetricKey, { light: string; dark: string; maxVal: number; logScale?: boolean }> = {
-  inflation: { light: "#fef3c7", dark: "#78350f", maxVal: 20 }, // amber
-  gdpGrowth: { light: "#dcfce7", dark: "#14532d", maxVal: 10 }, // green
-  gdp: { light: "#e0f2fe", dark: "#0c2461", maxVal: 1, logScale: true }, // blue
-  unemployment: { light: "#fefce8", dark: "#9a3412", maxVal: 25 }, // yellow → red
-  debtToGdp: { light: "#f3e8ff", dark: "#4a1d96", maxVal: 200 }, // purple
+  inflation: { light: "#3d1f00", dark: "#ff8c00", maxVal: 20 }, // dark → vivid orange
+  gdpGrowth: { light: "#002a10", dark: "#00e676", maxVal: 10 }, // dark → neon green
+  gdp: { light: "#002233", dark: "#00e5ff", maxVal: 1, logScale: true }, // dark → cyan
+  unemployment: { light: "#2a1500", dark: "#ff6f00", maxVal: 25 }, // dark → amber
+  debtToGdp: { light: "#1a0030", dark: "#ce93d8", maxVal: 200 }, // dark → lavender
 }
 
 const NO_DATA = "#0d1825"
@@ -224,7 +224,7 @@ export function MacroMapWrapper() {
   const ranked = useMemo(() => {
     if (!data) return []
     const list = Object.entries(data[metric])
-      .filter(([, v]) => v != null)
+      .filter(([iso, v]) => v != null && iso in NAMES)
       .sort(([, a], [, b]) => (b as number) - (a as number))
       .map(([iso, value], i) => ({
         iso, value: value as number,
@@ -285,6 +285,7 @@ export function MacroMapWrapper() {
       .leaflet-control-zoom{border:1px solid rgba(255,255,255,0.08)!important;}
       .leaflet-control-zoom a{background:#0d1825!important;color:#94a3b8!important;border-color:rgba(255,255,255,0.06)!important;}
       .leaflet-control-zoom a:hover{color:#fff!important;}
+      .leaflet-interactive:focus{outline:none!important;}
     `
     document.head.appendChild(sty)
 

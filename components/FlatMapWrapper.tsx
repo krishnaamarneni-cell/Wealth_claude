@@ -11,34 +11,46 @@ interface FlatMapWrapperProps {
   onCountrySelect: (isoA3: string | null, name: string | null) => void
 }
 
+const LEAFLET_OVERRIDES = `
+  .leaflet-container { background: #060a10 !important; }
+  .wc-tooltip { background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; }
+  .wc-tooltip .leaflet-tooltip-tip { display: none !important; }
+  .leaflet-control-zoom a {
+    background: #0d1117 !important;
+    color: rgba(255,255,255,0.5) !important;
+    border-color: rgba(255,255,255,0.1) !important;
+  }
+  .leaflet-control-zoom a:hover { background: #1a2030 !important; color: white !important; }
+`
+
 export function FlatMapWrapper({ marketData, selectedCountry, onCountrySelect }: FlatMapWrapperProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
-  const layerRef = useRef<any>(null)
   const geoDataRef = useRef<any>(null)
 
-  // Load Leaflet CSS + JS via CDN then initialize
   useEffect(() => {
     if (typeof window === "undefined" || !containerRef.current) return
-    if (mapRef.current) return // already initialized
+    if (mapRef.current) return
 
-    const initLeaflet = async () => {
-      // Inject Leaflet CSS if not already present
+    if (!document.getElementById("wc-leaflet-overrides")) {
+      const style = document.createElement("style")
+      style.id = "wc-leaflet-overrides"
+      style.textContent = LEAFLET_OVERRIDES
+      document.head.appendChild(style)
+    }
+
+    const init = async () => {
       if (!document.getElementById("leaflet-css")) {
         const link = document.createElement("link")
-        link.id = "leaflet-css"
-        link.rel = "stylesheet"
+        link.id = "leaflet-css"; link.rel = "stylesheet"
         link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         document.head.appendChild(link)
       }
-
-      // Load Leaflet JS if not already loaded
       if (!(window as any).L) {
         await new Promise<void>((res, rej) => {
           const s = document.createElement("script")
           s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-          s.onload = () => res()
-          s.onerror = () => rej(new Error("Leaflet CDN load failed"))
+          s.onload = () => res(); s.onerror = () => rej(new Error("Leaflet load failed"))
           document.head.appendChild(s)
         })
       }
@@ -46,58 +58,38 @@ export function FlatMapWrapper({ marketData, selectedCountry, onCountrySelect }:
       const L = (window as any).L
       if (!L || !containerRef.current) return
 
-      // Init map — dark tiles, zoom controls bottom-right
       const map = L.map(containerRef.current, {
-        center: [20, 10],
-        zoom: 2,
-        minZoom: 2,
-        maxZoom: 6,
-        zoomControl: false,
-        attributionControl: false,
+        center: [25, 15], zoom: 2, minZoom: 2, maxZoom: 6,
+        zoomControl: false, attributionControl: false,
         worldCopyJump: false,
-        maxBounds: [[-90, -200], [90, 200]],
+        maxBounds: [[-75, -210], [85, 210]],
         maxBoundsViscosity: 1.0,
       })
 
-      // Dark tile layer
-      L.tileLayer(
-        "https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png",
-        { subdomains: "abcd", maxZoom: 6, noWrap: true }
-      ).addTo(map)
+      // No tile layer — pure #060a10 background via CSS override
 
-      // Custom zoom control bottom-right
       L.control.zoom({ position: "bottomright" }).addTo(map)
-
       mapRef.current = map
 
-      // Load GeoJSON
       let geoData: any
       try {
         const res = await fetch(
           "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson"
         )
         geoData = await res.json()
-      } catch {
-        console.error("FlatMap: GeoJSON load failed")
-        return
-      }
+      } catch { console.error("FlatMap: GeoJSON failed"); return }
 
       geoDataRef.current = geoData
       renderLayer(L, map, geoData, marketData, selectedCountry, onCountrySelect)
     }
 
-    initLeaflet().catch(console.error)
+    init().catch(console.error)
 
     return () => {
-      if (mapRef.current) {
-        mapRef.current.remove()
-        mapRef.current = null
-        layerRef.current = null
-      }
+      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; geoDataRef.current = null }
     }
   }, [])
 
-  // Re-render layer when market data changes
   useEffect(() => {
     const L = (window as any).L
     if (!L || !mapRef.current || !geoDataRef.current) return
@@ -105,28 +97,18 @@ export function FlatMapWrapper({ marketData, selectedCountry, onCountrySelect }:
   }, [marketData, selectedCountry])
 
   return (
-    <div className="w-full h-full relative">
-      <div ref={containerRef} className="w-full h-full" style={{ background: "#060a10" }} />
-      {/* Attribution */}
-      <div className="absolute bottom-2 left-2 z-[1000] text-[9px] text-white/15 pointer-events-none">
-        © CartoDB © OpenStreetMap
-      </div>
+    <div style={{ width: "100%", height: "100%", background: "#060a10" }}>
+      <div ref={containerRef} style={{ width: "100%", height: "100%", background: "#060a10" }} />
     </div>
   )
 }
 
 function renderLayer(
-  L: any,
-  map: any,
-  geoData: any,
-  marketData: MarketDataMap,
-  selectedCountry: string | null,
+  L: any, map: any, geoData: any,
+  marketData: MarketDataMap, selectedCountry: string | null,
   onCountrySelect: (iso: string | null, name: string | null) => void,
 ) {
-  // Remove old layer
-  if ((map as any)._wcLayer) {
-    map.removeLayer((map as any)._wcLayer)
-  }
+  if ((map as any)._wcLayer) map.removeLayer((map as any)._wcLayer)
 
   const layer = L.geoJSON(geoData, {
     style: (feat: any) => {
@@ -134,77 +116,44 @@ function renderLayer(
       const isSelected = iso === selectedCountry
       const noExchange = NO_EXCHANGE_COUNTRIES.has(iso)
       const d = marketData[iso]
-      const fillColor = noExchange || !d ? "#2d3748" : pctToColor(d.changePct)
-
+      const fillColor = noExchange || !d ? "#1e2533" : pctToColor(d.changePct)
       return {
         fillColor,
-        fillOpacity: isSelected ? 1.0 : noExchange ? 0.55 : 0.88,
-        color: isSelected ? "#ffffff" : "rgba(255,255,255,0.12)",
-        weight: isSelected ? 1.5 : 0.5,
+        fillOpacity: isSelected ? 1.0 : noExchange ? 0.7 : 0.92,
+        color: isSelected ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.08)",
+        weight: isSelected ? 2 : 0.6,
         opacity: 1,
       }
     },
-
-    onEachFeature: (feat: any, featureLayer: any) => {
+    onEachFeature: (feat: any, fl: any) => {
       const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3 ?? ""
       const name = feat.properties?.ADMIN ?? feat.properties?.NAME ?? iso
       const d = marketData[iso]
 
-      // Tooltip
-      if (d) {
-        const pct = d.changePct
-        const col = pctToColor(pct)
-        const sign = pct >= 0 ? "+" : ""
-        featureLayer.bindTooltip(
-          `<div style="
-            background:#0d1117;
-            border:1px solid ${col}40;
-            border-radius:10px;
-            padding:10px 14px;
-            font-family:system-ui,sans-serif;
-            min-width:160px;
-            box-shadow:0 4px 20px ${col}20;
-          ">
-            <div style="color:rgba(255,255,255,0.45);font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">${name}</div>
-            <div style="color:white;font-size:13px;font-weight:700;margin-bottom:2px">${d.indexName}</div>
-            <div style="color:${col};font-size:15px;font-weight:800">${sign}${pct.toFixed(2)}%</div>
-          </div>`,
-          { sticky: true, opacity: 1, className: "wc-tooltip" }
-        )
-      } else {
-        featureLayer.bindTooltip(
-          `<div style="
-            background:#1a2030;
-            border:1px solid rgba(255,255,255,0.1);
-            border-radius:8px;
-            padding:8px 12px;
-            font-family:system-ui,sans-serif;
-          ">
-            <div style="color:rgba(255,255,255,0.5);font-size:10px;text-transform:uppercase;letter-spacing:1px">${name}</div>
-            <div style="color:rgba(255,255,255,0.25);font-size:11px;margin-top:2px">No exchange data</div>
-          </div>`,
-          { sticky: true, opacity: 1, className: "wc-tooltip" }
-        )
-      }
+      const tooltipHtml = d
+        ? (() => {
+          const pct = d.changePct; const col = pctToColor(pct); const sign = pct >= 0 ? "+" : ""
+          return `<div style="background:#0d1117;border:1px solid ${col}50;border-radius:10px;padding:10px 14px;font-family:system-ui,sans-serif;min-width:160px;box-shadow:0 4px 24px rgba(0,0,0,0.7)">
+              <div style="color:rgba(255,255,255,0.4);font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">${name}</div>
+              <div style="color:white;font-size:12px;font-weight:700;margin-bottom:3px">${d.indexName}</div>
+              <div style="color:${col};font-size:16px;font-weight:800">${sign}${pct.toFixed(2)}%</div>
+            </div>`
+        })()
+        : `<div style="background:#0d1117;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 12px;font-family:system-ui,sans-serif">
+             <div style="color:rgba(255,255,255,0.4);font-size:10px;text-transform:uppercase;letter-spacing:1px">${name}</div>
+             <div style="color:rgba(255,255,255,0.2);font-size:11px;margin-top:3px">No exchange data</div>
+           </div>`
 
-      // Click handler
-      featureLayer.on("click", () => {
-        if (NO_EXCHANGE_COUNTRIES.has(iso) || !d) {
-          onCountrySelect(null, null)
-        } else {
-          onCountrySelect(iso, name)
-        }
-      })
+      fl.bindTooltip(tooltipHtml, { sticky: true, opacity: 1, className: "wc-tooltip" })
 
-      // Hover highlight
-      featureLayer.on("mouseover", () => {
-        if (iso !== selectedCountry) {
-          featureLayer.setStyle({ fillOpacity: 0.92, weight: 1, color: "rgba(255,255,255,0.3)" })
-        }
+      fl.on("click", () => {
+        if (NO_EXCHANGE_COUNTRIES.has(iso) || !d) onCountrySelect(null, null)
+        else onCountrySelect(iso, name)
       })
-      featureLayer.on("mouseout", () => {
-        layer.resetStyle(featureLayer)
+      fl.on("mouseover", () => {
+        if (iso !== selectedCountry) fl.setStyle({ fillOpacity: 1, weight: 1.2, color: "rgba(255,255,255,0.3)" })
       })
+      fl.on("mouseout", () => layer.resetStyle(fl))
     },
   })
 

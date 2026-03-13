@@ -9,28 +9,33 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const CACHE_MS = 24 * 60 * 60 * 1000 // 24 hours — World Bank data is annual
+const CACHE_MS = 24 * 60 * 60 * 1000 // 24 hours
 
-const INDICATORS = {
-  inflation: "FP.CPI.TOTL.ZG",   // Consumer Price Index YoY
-  gdpGrowth: "NY.GDP.MKTP.KD.ZG", // GDP growth rate
-  gdp: "NY.GDP.MKTP.CD",    // GDP current USD
-  unemployment: "SL.UEM.TOTL.ZS",   // Unemployment % of labor force
+const INDICATORS: Record<string, string> = {
+  inflation: "FP.CPI.TOTL.ZG",    // Consumer Price Index YoY
+  gdpGrowth: "NY.GDP.MKTP.KD.ZG",  // GDP annual growth rate
+  gdp: "NY.GDP.MKTP.CD",     // GDP current USD
+  unemployment: "SL.UEM.TOTL.ZS",    // Unemployment % of labor force
   debtToGdp: "GC.DOD.TOTL.GD.ZS", // Central govt debt % of GDP
 }
 
 async function fetchIndicator(indicator: string): Promise<Record<string, number>> {
-  // mrv=1 = most recent value, per_page=300 covers all countries
-  const url = `https://api.worldbank.org/v2/country/all/indicator/${indicator}?format=json&mrv=1&per_page=300`
-  const res = await fetch(url, { signal: AbortSignal.timeout(15000) })
-  if (!res.ok) throw new Error(`World Bank API error: ${res.status}`)
+  // mrv=5 = up to 5 most recent years per country (fixes Debt/GDP coverage)
+  // per_page=1500 = 300 countries × 5 years
+  const url = `https://api.worldbank.org/v2/country/all/indicator/${indicator}?format=json&mrv=5&per_page=1500`
+  const res = await fetch(url, { signal: AbortSignal.timeout(20000) })
+  if (!res.ok) throw new Error(`World Bank API ${res.status}`)
+
   const json = await res.json()
   const rows = json[1] ?? []
 
+  // Group by country — take the first non-null value (most recent available year)
   const result: Record<string, number> = {}
   for (const row of rows) {
-    if (row.value !== null && row.value !== undefined && row.countryiso3code) {
-      result[row.countryiso3code] = row.value
+    const iso = row.countryiso3code
+    if (!iso || result[iso] !== undefined) continue // skip if no iso or already have value
+    if (row.value !== null && row.value !== undefined) {
+      result[iso] = row.value
     }
   }
   return result
@@ -54,20 +59,16 @@ export async function GET() {
     }
   }
 
-  // 2. Fetch fresh from World Bank (all 5 indicators in parallel)
+  // 2. Fetch fresh from World Bank — all 5 indicators in parallel
   try {
-    const [inflation, gdpGrowth, gdp, unemployment, debtToGdp] = await Promise.all([
-      fetchIndicator(INDICATORS.inflation),
-      fetchIndicator(INDICATORS.gdpGrowth),
-      fetchIndicator(INDICATORS.gdp),
-      fetchIndicator(INDICATORS.unemployment),
-      fetchIndicator(INDICATORS.debtToGdp),
-    ])
+    const [inflation, gdpGrowth, gdp, unemployment, debtToGdp] = await Promise.all(
+      Object.values(INDICATORS).map(ind => fetchIndicator(ind))
+    )
 
     const data = { inflation, gdpGrowth, gdp, unemployment, debtToGdp }
     const fetchedAt = new Date().toISOString()
 
-    // 3. Save to Supabase
+    // 3. Cache in Supabase
     await supabase
       .from("macro_cache")
       .upsert({ id: 1, data, fetched_at: fetchedAt })
@@ -76,12 +77,11 @@ export async function GET() {
       { data, fetchedAt, cached: false },
       { headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=7200" } }
     )
-  } catch (err) {
-    // Serve stale cache rather than error
+  } catch {
+    // Serve stale cache on error rather than failing
     if (cached?.data) {
       return NextResponse.json(
-        { data: cached.data, fetchedAt: cached.fetched_at, cached: true, stale: true },
-        { headers: { "Cache-Control": "public, s-maxage=300" } }
+        { data: cached.data, fetchedAt: cached.fetched_at, cached: true, stale: true }
       )
     }
     return NextResponse.json({ error: "Failed to fetch macro data" }, { status: 500 })

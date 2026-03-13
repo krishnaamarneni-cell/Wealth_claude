@@ -1,102 +1,137 @@
+"use client"
+
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { ArrowRight } from "lucide-react"
+import { Play, Globe, Map, Newspaper } from "lucide-react"
 
-function HeatmapEmbed() {
-  const config = JSON.stringify({
-    exchanges: [],
-    dataSource: "SPX500",
-    grouping: "sector",
-    blockSize: "market_cap_basic",
-    blockColor: "change",
-    locale: "en",
-    colorTheme: "dark",
-    hasTopBar: false,
-    isDataSetEnabled: false,
-    isZoomEnabled: false,
-    hasSymbolTooltip: false,
-    isMonoSize: false,
-    width: "100%",
-    height: 400,
-  })
-
-  const html = `<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8"/>
-    <style>
-      * { margin:0; padding:0; box-sizing:border-box; }
-      html, body { width:100%; height:100%; background:#0f0f0f; overflow:hidden; }
-      .tradingview-widget-container,
-      .tradingview-widget-container__widget { width:100%; height:400px; }
-    </style>
-  </head>
-  <body>
-    <div class="tradingview-widget-container">
-      <div class="tradingview-widget-container__widget"></div>
-      <script type="text/javascript"
-        src="https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js"
-        async>${config}</script>
-    </div>
-  </body>
-</html>`
-
-  return (
-    <iframe
-      srcDoc={html}
-      width="100%"
-      height={400}
-      frameBorder="0"
-      scrolling="no"
-      style={{ display: "block", border: "none", pointerEvents: "none" }}
-      title="S&P 500 Live Heatmap"
-    />
-  )
-}
+const STEPS = [
+  {
+    icon: Globe,
+    step: "01",
+    title: "Open the Globe",
+    desc: "A cinematic flyover drops you into an interactive 3D Earth with every market colored by daily performance.",
+  },
+  {
+    icon: Map,
+    step: "02",
+    title: "Switch to Flat Map",
+    desc: "Toggle to a flat world map for a different perspective — same live data, infinite pan, city-level detail.",
+  },
+  {
+    icon: Newspaper,
+    step: "03",
+    title: "Click any Country",
+    desc: "Instantly see the index price, daily change, sentiment, and an AI-summarized news brief for that market.",
+  },
+]
 
 export function LivePreviewSection() {
   return (
-    <section className="py-16 px-4">
-      <div className="container mx-auto">
-        <div className="text-center mb-10">
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            Live Market Heatmap
+    <section className="relative py-32 px-6 bg-[#060a10] overflow-hidden">
+
+      {/* Background glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] rounded-full bg-blue-600/5 blur-[100px] pointer-events-none" />
+
+      <div className="container mx-auto relative z-10">
+
+        {/* Section header */}
+        <div className="text-center mb-16">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/8 mb-5">
+            <span className="text-xs text-white/40 tracking-widest uppercase">See it in action</span>
+          </div>
+          <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight mb-4">
+            Three clicks to any market
           </h2>
-          <p className="text-muted-foreground max-w-xl mx-auto">
-            See the entire S&P 500 at a glance — real-time. Green is up, red is down,
-            size is market cap. This is just one of the tools inside your dashboard.
+          <p className="text-white/40 max-w-lg mx-auto text-lg">
+            No setup. No account required. Open the globe and the world's markets are right there.
           </p>
         </div>
 
-        {/* Heatmap with overlay blur at bottom to tease more */}
-        <div className="relative max-w-5xl mx-auto rounded-2xl border border-border overflow-hidden shadow-2xl">
-          <HeatmapEmbed />
+        {/* Video frame */}
+        <div className="relative max-w-5xl mx-auto mb-20">
+          {/* Outer glow ring */}
+          <div className="absolute -inset-px rounded-2xl bg-gradient-to-br from-blue-500/30 via-transparent to-emerald-500/20 blur-sm" />
 
-          {/* Gradient overlay — teases more content below */}
-          <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent flex items-end justify-center pb-6">
-            <Button asChild size="lg" className="shadow-lg">
-              <Link href="/dashboard">
-                Open Full Dashboard
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
+          <div className="relative rounded-2xl overflow-hidden border border-white/8 bg-[#0d1117]">
+            {/* Browser chrome bar */}
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-[#0a0f18]">
+              <div className="flex gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-red-500/60" />
+                <div className="w-3 h-3 rounded-full bg-amber-500/60" />
+                <div className="w-3 h-3 rounded-full bg-emerald-500/60" />
+              </div>
+              <div className="flex-1 mx-4">
+                <div className="bg-white/5 rounded-md px-3 py-1 text-[11px] text-white/25 text-center max-w-xs mx-auto">
+                  wealthclaude.com/globe
+                </div>
+              </div>
+            </div>
+
+            {/* Video placeholder — swap src for your Google Whisk/Flow MP4 */}
+            <div className="relative aspect-video bg-[#060a10] flex items-center justify-center group">
+
+              {/* Placeholder content — replace with <video> when ready */}
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-[#060a10] to-emerald-900/10" />
+
+              {/* Animated globe preview hint */}
+              <div className="relative z-10 flex flex-col items-center gap-6 text-center px-8">
+                <div className="w-32 h-32 rounded-full border-2 border-blue-400/20 flex items-center justify-center relative">
+                  <div className="absolute inset-0 rounded-full border border-blue-400/10 animate-ping" style={{ animationDuration: "3s" }} />
+                  <div className="absolute inset-3 rounded-full border border-blue-400/15 animate-pulse" />
+                  <span className="text-5xl">🌍</span>
+                </div>
+                <div>
+                  <p className="text-white/50 text-sm mb-1">Demo video coming soon</p>
+                  <p className="text-white/25 text-xs">Replace this div with your &lt;video&gt; tag</p>
+                </div>
+                <Link
+                  href="/globe"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-sm hover:bg-blue-500/30 transition-colors"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  Try it live instead
+                </Link>
+              </div>
+
+              {/*
+                ── WHEN YOUR VIDEO IS READY ──
+                Replace the entire inner div above with:
+
+                <video
+                  src="/demo.mp4"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              */}
+            </div>
           </div>
         </div>
 
-        {/* Stats row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto mt-10 text-center">
-          {[
-            { value: "500+", label: "S&P 500 Stocks" },
-            { value: "100+", label: "NASDAQ Stocks" },
-            { value: "Live", label: "Real-Time Data" },
-            { value: "Free", label: "No Login Needed" },
-          ].map(({ value, label }) => (
-            <div key={label}>
-              <p className="text-2xl font-bold text-primary">{value}</p>
-              <p className="text-sm text-muted-foreground">{label}</p>
+        {/* 3-step how it works */}
+        <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+          {STEPS.map((s) => (
+            <div key={s.step} className="relative group">
+              {/* Step connector line */}
+              <div className="hidden md:block absolute top-6 left-full w-full h-px bg-gradient-to-r from-white/10 to-transparent -translate-y-1/2 z-0 last:hidden" />
+
+              <div className="relative z-10 flex flex-col gap-4 p-6 rounded-2xl border border-white/5 bg-white/2 hover:border-white/10 hover:bg-white/3 transition-all duration-300">
+                <div className="flex items-center justify-between">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-400/20 flex items-center justify-center">
+                    <s.icon className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <span className="text-3xl font-black text-white/5 tabular-nums">{s.step}</span>
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white mb-2">{s.title}</h3>
+                  <p className="text-xs text-white/40 leading-relaxed">{s.desc}</p>
+                </div>
+              </div>
             </div>
           ))}
         </div>
+
       </div>
     </section>
   )

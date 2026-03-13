@@ -1,13 +1,13 @@
 "use client"
 
 import { useEffect, useRef, useState, useMemo } from "react"
-import { Globe2, BarChart3, CalendarDays } from "lucide-react"
+import { Globe2, BarChart3 } from "lucide-react"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────────────────────────────────────
 type MetricKey = "inflation" | "gdpGrowth" | "gdp" | "unemployment" | "debtToGdp"
-type TabKey = "map" | "heatmap" | "calendar"
+type TabKey = "map" | "heatmap"
 
 interface MacroData {
   inflation: Record<string, number>
@@ -253,23 +253,6 @@ export function MacroMapWrapper() {
     if (tab === "map" && mapRef.current) setTimeout(() => mapRef.current?.invalidateSize(), 60)
   }, [tab])
 
-  // TradingView calendar
-  useEffect(() => {
-    if (tab !== "calendar" || tvLoaded) return
-    const el = document.getElementById("tv-cal")
-    if (!el) return
-    const s = document.createElement("script")
-    s.src = "https://s3.tradingview.com/external-embedding/embed-widget-events.js"
-    s.async = true
-    s.textContent = JSON.stringify({
-      colorTheme: "dark", isTransparent: true, width: "100%", height: "100%",
-      locale: "en", importanceFilter: "-1,0,1",
-      countryFilter: "us,cn,de,gb,jp,fr,in,br,ca,au,kr,ru,sa,tr,id,mx,za,ch,pl,eu",
-    })
-    el.appendChild(s)
-    setTvLoaded(true)
-  }, [tab, tvLoaded])
-
   // Scroll sidebar to selected
   useEffect(() => {
     if (!selected || !sidebarRef.current) return
@@ -421,7 +404,6 @@ export function MacroMapWrapper() {
           {([
             { key: "map" as TabKey, label: "World Map", Icon: Globe2 },
             { key: "heatmap" as TabKey, label: "Economic Heatmap", Icon: BarChart3 },
-            { key: "calendar" as TabKey, label: "Economic Calendar", Icon: CalendarDays },
           ]).map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium border-b-2 transition-colors ${tab === t.key
@@ -605,17 +587,6 @@ export function MacroMapWrapper() {
                   <div className="w-3 h-3 rounded-sm bg-secondary/30" />
                   <span className="text-[10px] text-muted-foreground">No data</span>
                 </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* CALENDAR */}
-        {tab === "calendar" && (
-          <div className="flex-1 overflow-auto p-6">
-            <div className="rounded-2xl border border-border overflow-hidden bg-background/30" style={{ height: "calc(100% - 32px)", minHeight: "500px" }}>
-              <div id="tv-cal" className="tradingview-widget-container" style={{ height: "100%" }}>
-                <div className="tradingview-widget-container__widget" style={{ height: "100%" }} />
               </div>
             </div>
           </div>

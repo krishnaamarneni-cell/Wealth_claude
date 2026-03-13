@@ -290,7 +290,7 @@ export function MacroMapWrapper() {
     document.head.appendChild(sty)
 
     const map = L.map(containerRef.current, {
-      center: [20, 0], zoom: 2, minZoom: 1.5, maxZoom: 7,
+      center: [20, 0], zoom: 2.5, minZoom: 1.5, maxZoom: 7,
       zoomControl: true, attributionControl: false,
       worldCopyJump: true, maxBounds: [[-85, -Infinity], [85, Infinity]],
     })
@@ -359,8 +359,8 @@ export function MacroMapWrapper() {
           {METRICS.map(m => (
             <button key={m.key} onClick={() => { setMetric(m.key); setSelected(null) }}
               className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all border whitespace-nowrap ${metric === m.key
-                  ? "border-primary/50 text-primary bg-primary/10"
-                  : "border-border text-muted-foreground hover:border-primary/30 hover:text-foreground bg-transparent"
+                ? "border-primary/50 text-primary bg-primary/10"
+                : "border-border text-muted-foreground hover:border-primary/30 hover:text-foreground bg-transparent"
                 }`}
             >{m.label}</button>
           ))}
@@ -374,8 +374,8 @@ export function MacroMapWrapper() {
           ]).map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium border-b-2 transition-colors ${tab === t.key
-                  ? "text-primary border-primary"
-                  : "text-muted-foreground border-transparent hover:text-foreground"
+                ? "text-primary border-primary"
+                : "text-muted-foreground border-transparent hover:text-foreground"
                 }`}
             ><t.Icon className="w-3.5 h-3.5" />{t.label}</button>
           ))}

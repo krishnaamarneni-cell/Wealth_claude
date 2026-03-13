@@ -296,14 +296,12 @@ export function MacroMapWrapper() {
       maxBoundsViscosity: 1.0,
     })
     mapRef.current = map
-    map.fitBounds([[-55, -170], [72, 170]])
+    map.fitBounds([[-55, -180], [72, 180]])
 
     // ──────────────────────────────────────────────────────────────────────
     // dark_nolabels — ZERO country / city names on the base tile
     // ──────────────────────────────────────────────────────────────────────
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png", {
-      subdomains: "abcd",
-    }).addTo(map)
+
 
     // GeoJSON
     let geo: any

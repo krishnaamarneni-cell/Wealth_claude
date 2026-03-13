@@ -167,11 +167,11 @@ export function CalendarWrapper() {
 
   const dates = weekStart ? weekDates(weekStart) : []
 
-  const econByDate = data ? countByDate(
+  const econByDate = data && Array.isArray(data.economic) ? countByDate(
     data.economic.map(e => ({ date: e.time?.slice(0, 10) })), dates
   ) : {}
-  const earnByDate = data ? countByDate(data.earnings, dates) : {}
-  const ipoByDate = data ? countByDate(data.ipo, dates) : {}
+  const earnByDate = data && Array.isArray(data.earnings) ? countByDate(data.earnings, dates) : {}
+  const ipoByDate = data && Array.isArray(data.ipo) ? countByDate(data.ipo, dates) : {}
 
   function countForDay(d: string) {
     if (tab === "economic") return econByDate[d] ?? 0
@@ -180,17 +180,17 @@ export function CalendarWrapper() {
   }
 
   // Filter events for selected day
-  const econEvents: EconEvent[] = data?.economic.filter(
+  const econEvents: EconEvent[] = (data && Array.isArray(data.economic)) ? data.economic.filter(
     e => (e.time ?? "").slice(0, 10) === activeDay
-  ) ?? []
+  ) : []
 
-  const earnEvents: EarningsEvent[] = data?.earnings.filter(
+  const earnEvents: EarningsEvent[] = (data && Array.isArray(data.earnings)) ? data.earnings.filter(
     e => e.date === activeDay
-  ) ?? []
+  ) : []
 
-  const ipoEvents: IpoEvent[] = data?.ipo.filter(
+  const ipoEvents: IpoEvent[] = (data && Array.isArray(data.ipo)) ? data.ipo.filter(
     e => e.date === activeDay
-  ) ?? []
+  ) : []
 
   function navigateWeek(dir: 1 | -1) {
     const newDate = addWeeks(activeDay, dir)

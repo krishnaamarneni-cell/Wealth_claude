@@ -296,7 +296,7 @@ export function MacroMapWrapper() {
       maxBoundsViscosity: 1.0,
     })
     mapRef.current = map
-    map.fitBounds([[-55, -180], [72, 180]])
+    map.fitBounds([[-45, -180], [68, 180]])
 
     // ──────────────────────────────────────────────────────────────────────
     // dark_nolabels — ZERO country / city names on the base tile

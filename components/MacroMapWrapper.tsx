@@ -285,7 +285,7 @@ export function MacroMapWrapper() {
 
   // Sorted sidebar list
   const ranked = useMemo(() => {
-    if (!data) return []
+    if (!data || !data[metric]) return []
     const list = Object.entries(data[metric])
       .filter(([iso, v]) => v != null && iso in NAMES)
       .sort(([, a], [, b]) => (b as number) - (a as number))

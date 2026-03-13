@@ -282,8 +282,8 @@ export function MarketsWrapper() {
               <div style={{ fontSize: 11, color: "#334155", marginBottom: 6, letterSpacing: "0.04em" }}>
                 NORMALIZED TO 100 — 5 YEAR PERFORMANCE
               </div>
-              <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", minWidth: 0 }}>
-                <ResponsiveContainer width="100%" height="100%" aspect={2.5}>
+              <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", minWidth: 0, height: "100%" }}>
+                <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
                     <XAxis
                       dataKey="date"

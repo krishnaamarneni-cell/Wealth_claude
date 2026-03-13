@@ -93,6 +93,20 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{
+          __html: `
+            // Suppress harmless Three.js multiple instances warning from globe.gl
+            const originalWarn = console.warn;
+            console.warn = function(...args) {
+              if (args[0]?.includes?.('Multiple instances of Three.js')) {
+                return;
+              }
+              originalWarn.apply(console, args);
+            };
+          `
+        }} />
+      </head>
       <body
         className="font-sans antialiased min-h-screen"
         suppressHydrationWarning

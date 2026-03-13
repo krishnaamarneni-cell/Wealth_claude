@@ -7,22 +7,37 @@ import { COUNTRY_INDEX_MAP } from "@/lib/countryIndexMap"
 import { pctToColor, pctToTextClass, LEGEND_STOPS } from "@/lib/colorScale"
 import { CountryPanel } from "@/components/CountryPanel"
 
-// Dynamic import — Globe.gl requires browser APIs
+type ViewMode = "globe" | "map"
+
+// Dynamic imports — both require browser APIs
 const GlobeWrapper = dynamic(
   () => import("@/components/GlobeWrapper").then(m => ({ default: m.GlobeWrapper })),
   {
-    ssr: false, loading: () => (
+    ssr: false,
+    loading: () => (
       <div className="w-full h-full flex items-center justify-center bg-[#060a10]">
         <div className="text-white/30 text-sm tracking-widest uppercase animate-pulse">Initializing Globe…</div>
       </div>
-    )
+    ),
+  }
+)
+
+const FlatMapWrapper = dynamic(
+  () => import("@/components/FlatMapWrapper").then(m => ({ default: m.FlatMapWrapper })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-full flex items-center justify-center bg-[#060a10]">
+        <div className="text-white/30 text-sm tracking-widest uppercase animate-pulse">Loading Map…</div>
+      </div>
+    ),
   }
 )
 
 export default function GlobePage() {
+  const [viewMode, setViewMode] = useState<ViewMode>("globe")
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
   const [selectedName, setSelectedName] = useState<string | null>(null)
-  const [showShips, setShowShips] = useState(false)
   const [showLegend, setShowLegend] = useState(true)
   const [today, setToday] = useState("")
 
@@ -55,12 +70,14 @@ export default function GlobePage() {
     const interval = setInterval(load, 60 * 60 * 1000)
     return () => clearInterval(interval)
   }, [])
+
   const selectedData = selectedCountry ? marketData[selectedCountry] ?? null : null
 
   const handleCountrySelect = (iso: string | null, name: string | null) => {
     setSelectedCountry(iso)
     setSelectedName(name)
   }
+
   const countries = Object.values(marketData)
   const gainers = countries.filter(c => c.changePct > 0).length
   const losers = countries.filter(c => c.changePct < 0).length
@@ -68,49 +85,99 @@ export default function GlobePage() {
   const topLoser = [...countries].sort((a, b) => a.changePct - b.changePct)[0]
 
   useEffect(() => {
-    setToday(new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }))
+    setToday(new Date().toLocaleDateString("en-US", {
+      weekday: "short", month: "short", day: "numeric", year: "numeric",
+    }))
   }, [])
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-black select-none">
 
-      {/* ── SPACE BACKGROUND ── */}
+      {/* Background */}
       <div className="absolute inset-0 pointer-events-none z-0 bg-black" />
 
-      {/* ── GLOBE (full screen) ── */}
-      <div className="absolute inset-0 z-10" style={{ height: "100vh", width: "100vw" }}>
+      {/* Globe (always mounted, hidden when map active) */}
+      <div
+        className="absolute inset-0 z-10"
+        style={{
+          height: "100vh",
+          width: "100vw",
+          visibility: viewMode === "globe" ? "visible" : "hidden",
+          pointerEvents: viewMode === "globe" ? "auto" : "none",
+        }}
+      >
         <GlobeWrapper
           marketData={marketData}
           selectedCountry={selectedCountry}
           onCountrySelect={handleCountrySelect}
-          showShips={showShips}
+          showShips={false}
         />
       </div>
 
-      {/* ── TOP BAR ── */}
+      {/* Flat map (only rendered when active) */}
+      {viewMode === "map" && (
+        <div className="absolute inset-0 z-10" style={{ height: "100vh", width: "100vw" }}>
+          <FlatMapWrapper
+            marketData={marketData}
+            selectedCountry={selectedCountry}
+            onCountrySelect={handleCountrySelect}
+          />
+        </div>
+      )}
+
+      {/* TOP BAR */}
       <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none">
         <div className="flex items-center justify-between px-5 py-4">
-          {/* Logo + title */}
+
+          {/* Logo */}
           <div className="flex items-center gap-3 pointer-events-auto">
-            <div className="w-8 h-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center text-base">🌍</div>
+            <div className="w-8 h-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center text-base">
+              🌍
+            </div>
             <div>
               <div className="text-sm font-extrabold text-white leading-none">Global Stock Globe</div>
               <div className="text-[10px] text-white/30 mt-0.5">by WealthClaude</div>
             </div>
           </div>
 
-          {/* Date + refresh badge */}
-          <div className="flex items-center gap-3 pointer-events-auto">
-            <button onClick={() => setShowShips(s => !s)}
-              className={`hidden sm:flex items-center gap-1.5 text-[10px] rounded-full px-3 py-1.5 border transition-all ${showShips ? "bg-blue-500/20 border-blue-400/40 text-blue-300" : "bg-white/5 border-white/8 text-white/30 hover:text-white/50"}`}
-            >
-              <span className="text-sm">🚢</span>
-              Ships
-            </button>
+          {/* Right controls */}
+          <div className="flex items-center gap-2 pointer-events-auto">
+
+            {/* Globe / Map toggle */}
+            <div className="flex items-center rounded-full border border-white/10 bg-white/5 p-0.5">
+              <button
+                onClick={() => setViewMode("globe")}
+                className={`flex items-center gap-1.5 text-[10px] rounded-full px-3 py-1.5 transition-all ${viewMode === "globe"
+                    ? "bg-white/15 text-white font-semibold"
+                    : "text-white/30 hover:text-white/60"
+                  }`}
+              >
+                <span className="text-sm">🌍</span>
+                Globe
+              </button>
+              <button
+                onClick={() => setViewMode("map")}
+                className={`flex items-center gap-1.5 text-[10px] rounded-full px-3 py-1.5 transition-all ${viewMode === "map"
+                    ? "bg-white/15 text-white font-semibold"
+                    : "text-white/30 hover:text-white/60"
+                  }`}
+              >
+                <span className="text-sm">🗺️</span>
+                Map
+              </button>
+            </div>
+
+            {/* Live data indicator */}
             <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-white/30 bg-white/5 border border-white/8 rounded-full px-3 py-1.5">
-              <span className={`w-1.5 h-1.5 rounded-full inline-block ${marketState.isLoading ? "bg-amber-400 animate-pulse" : marketState.isLive ? "bg-emerald-400" : "bg-amber-400"}`} />
+              <span className={`w-1.5 h-1.5 rounded-full inline-block ${marketState.isLoading
+                  ? "bg-amber-400 animate-pulse"
+                  : marketState.isLive
+                    ? "bg-emerald-400"
+                    : "bg-amber-400"
+                }`} />
               {marketState.isLoading ? "Loading Data…" : marketState.isLive ? "Live Data" : "Mock Data"}
             </div>
+
             {marketState.fetchedAt && (
               <div className="text-[10px] text-white/20 hidden md:block">
                 Updated {new Date(marketState.fetchedAt).toLocaleTimeString()}
@@ -121,9 +188,8 @@ export default function GlobePage() {
         </div>
       </div>
 
-      {/* ── LEFT STATS BAR ── */}
+      {/* LEFT STATS BAR */}
       <div className="absolute left-4 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2 pointer-events-auto">
-        {/* Summary */}
         <div className="rounded-2xl border border-white/8 bg-[#0d1117]/90 backdrop-blur-sm px-4 py-3 min-w-[130px] space-y-3">
           <div className="text-[10px] font-bold uppercase tracking-widest text-white/30 mb-1">Markets Today</div>
           <div className="flex items-center justify-between">
@@ -140,11 +206,13 @@ export default function GlobePage() {
           </div>
         </div>
 
-        {/* Top gainer */}
         {topGainer && (
           <div
             className="rounded-2xl border border-emerald-500/20 bg-[#0d1117]/90 backdrop-blur-sm px-4 py-3 cursor-pointer hover:border-emerald-500/40 transition-colors"
-            onClick={() => handleCountrySelect(topGainer.countryCode, COUNTRY_INDEX_MAP[topGainer.countryCode]?.name ?? topGainer.countryCode)}
+            onClick={() => handleCountrySelect(
+              topGainer.countryCode,
+              COUNTRY_INDEX_MAP[topGainer.countryCode]?.name ?? topGainer.countryCode
+            )}
           >
             <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-400/60 mb-1">Top Gainer</div>
             <div className="text-xs font-bold text-white">{topGainer.indexName}</div>
@@ -152,11 +220,13 @@ export default function GlobePage() {
           </div>
         )}
 
-        {/* Top loser */}
         {topLoser && (
           <div
             className="rounded-2xl border border-red-500/20 bg-[#0d1117]/90 backdrop-blur-sm px-4 py-3 cursor-pointer hover:border-red-500/40 transition-colors"
-            onClick={() => handleCountrySelect(topLoser.countryCode, COUNTRY_INDEX_MAP[topLoser.countryCode]?.name ?? topLoser.countryCode)}
+            onClick={() => handleCountrySelect(
+              topLoser.countryCode,
+              COUNTRY_INDEX_MAP[topLoser.countryCode]?.name ?? topLoser.countryCode
+            )}
           >
             <div className="text-[10px] font-bold uppercase tracking-widest text-red-400/60 mb-1">Top Loser</div>
             <div className="text-xs font-bold text-white">{topLoser.indexName}</div>
@@ -165,12 +235,11 @@ export default function GlobePage() {
         )}
       </div>
 
-      {/* ── LEGEND (bottom) ── */}
+      {/* LEGEND */}
       {showLegend && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-auto">
           <div className="rounded-2xl border border-white/8 bg-[#0d1117]/90 backdrop-blur-sm px-5 py-3 flex items-center gap-4">
             <span className="text-[10px] text-white/30 uppercase tracking-widest shrink-0">Daily Change</span>
-            {/* Gradient bar */}
             <div className="flex items-center gap-1">
               {LEGEND_STOPS.map((s, i) => (
                 <div key={i} className="flex items-center gap-1">
@@ -178,7 +247,7 @@ export default function GlobePage() {
                     <div
                       className="w-8 h-3 rounded"
                       style={{
-                        background: `linear-gradient(to right, ${LEGEND_STOPS[i - 1].color}, ${s.color})`
+                        background: `linear-gradient(to right, ${LEGEND_STOPS[i - 1].color}, ${s.color})`,
                       }}
                     />
                   )}
@@ -190,13 +259,19 @@ export default function GlobePage() {
               <span className="w-3 h-3 rounded-sm bg-[#374151] border border-white/15" />
               <span className="text-[10px] text-white/30">No Exchange</span>
             </div>
-            <button onClick={() => setShowLegend(false)} className="text-white/20 hover:text-white/50 transition-colors text-sm ml-1">×</button>
+            <button
+              onClick={() => setShowLegend(false)}
+              className="text-white/20 hover:text-white/50 transition-colors text-sm ml-1"
+            >×</button>
           </div>
         </div>
       )}
 
-      {/* ── BOTTOM RIGHT CONTROLS ── */}
-      <div style={{ position: "fixed", bottom: "24px", right: "16px", zIndex: 9999 }} className="flex flex-col gap-2 pointer-events-auto">
+      {/* BOTTOM RIGHT CONTROLS */}
+      <div
+        style={{ position: "fixed", bottom: "24px", right: "16px", zIndex: 9999 }}
+        className="flex flex-col gap-2 pointer-events-auto"
+      >
         {!showLegend && (
           <button
             onClick={() => setShowLegend(true)}
@@ -211,23 +286,26 @@ export default function GlobePage() {
         >
           ← WealthClaude
         </a>
-        <button
-          onClick={() => {
-            const iframe = document.querySelector("canvas")
-            window.dispatchEvent(new CustomEvent("skipGlobeIntro"))
-          }}
-          className="rounded-xl border border-white/20 bg-black/60 backdrop-blur-sm px-3 py-2 text-[10px] text-white/50 hover:text-white hover:border-white/40 transition-all tracking-widest uppercase"
-        >
-          Skip Intro →
-        </button>
+        {viewMode === "globe" && (
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("skipGlobeIntro"))}
+            className="rounded-xl border border-white/20 bg-black/60 backdrop-blur-sm px-3 py-2 text-[10px] text-white/50 hover:text-white hover:border-white/40 transition-all tracking-widest uppercase"
+          >
+            Skip Intro →
+          </button>
+        )}
       </div>
 
-      {/* ── MOBILE HINT ── */}
+      {/* MOBILE HINT */}
       <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 pointer-events-none sm:hidden">
-        <div className="text-[10px] text-white/20 text-center">Pinch to zoom · Drag to rotate · Tap a country</div>
+        <div className="text-[10px] text-white/20 text-center">
+          {viewMode === "globe"
+            ? "Pinch to zoom · Drag to rotate · Tap a country"
+            : "Pinch to zoom · Drag to pan · Tap a country"}
+        </div>
       </div>
 
-      {/* ── SIDE PANEL ── */}
+      {/* SIDE PANEL */}
       <div className="z-50">
         <CountryPanel
           data={selectedData}

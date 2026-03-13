@@ -458,7 +458,7 @@ export function MacroMapWrapper() {
               <div ref={containerRef} style={{ width: "100%", height: "100%", background: "#060a10" }} />
 
               {/* Legend — gradient bar, single hue */}
-              {!loading && (
+              {!loading && scale && (
                 <div className="absolute bottom-5 left-4 z-[1000] bg-background/90 backdrop-blur-md border border-border rounded-xl p-4 shadow-xl w-44">
                   <p className="text-[10px] font-bold text-muted-foreground tracking-widest mb-2.5 uppercase">{mConf.label}</p>
                   {/* Gradient bar */}

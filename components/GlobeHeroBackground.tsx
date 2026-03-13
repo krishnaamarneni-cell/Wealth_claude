@@ -34,7 +34,6 @@ const NO_EXCHANGE = new Set([
 export function GlobeHeroBackground() {
   const containerRef = useRef<HTMLDivElement>(null)
   const globeRef = useRef<any>(null)
-  const hoveringRef = useRef(false)
 
   useEffect(() => {
     if (typeof window === "undefined" || !containerRef.current || globeRef.current) return
@@ -63,7 +62,7 @@ export function GlobeHeroBackground() {
         const res = await fetch("/api/market-data")
         const json = await res.json()
         marketData = json.data ?? {}
-      } catch { /* show neutral if fetch fails */ }
+      } catch { /* neutral fallback */ }
 
       const GlobeGL = (window as any).Globe
       if (!GlobeGL || !containerRef.current) return
@@ -79,10 +78,7 @@ export function GlobeHeroBackground() {
         .atmosphereColor("#4ade80")
         .atmosphereAltitude(0.25)
         .polygonsData(geoData.features ?? [])
-        .polygonAltitude((feat: any) => {
-          const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3 ?? ""
-          return iso === "USA" ? 0.02 : 0.006
-        })
+        .polygonAltitude(0.006)
         .polygonCapColor((feat: any) => {
           const iso = feat.properties?.ADM0_A3 ?? feat.properties?.ISO_A3 ?? ""
           if (NO_EXCHANGE.has(iso)) return "rgba(45,55,72,0.5)"
@@ -97,7 +93,7 @@ export function GlobeHeroBackground() {
       globe(containerRef.current)
       globeRef.current = globe
 
-      // ── Start pointed at USA ──
+      // Start at USA
       globe.pointOfView({ lat: 38, lng: -97, altitude: 1.9 })
 
       setTimeout(() => {
@@ -105,54 +101,40 @@ export function GlobeHeroBackground() {
         if (controls) {
           controls.autoRotate = true
           controls.autoRotateSpeed = 0.5
-          // Full 360° interaction enabled — user can drag freely
           controls.enableZoom = false
           controls.enablePan = false
-          controls.enableRotate = true
+          controls.enableRotate = true   // full 360 drag
           controls.enableDamping = true
           controls.dampingFactor = 0.08
         }
       }, 100)
 
-      // ── Pause auto-rotate on hover, resume on leave ──
+      // Pause rotation on hover, resume on leave
       const el = containerRef.current
-      const onEnter = () => {
-        hoveringRef.current = true
-        const c = globeRef.current?.controls()
-        if (c) c.autoRotate = false
-      }
-      const onLeave = () => {
-        hoveringRef.current = false
-        const c = globeRef.current?.controls()
-        if (c) c.autoRotate = true
-      }
-      el.addEventListener("mouseenter", onEnter)
-      el.addEventListener("mouseleave", onLeave)
-
-      return () => {
-        el.removeEventListener("mouseenter", onEnter)
-        el.removeEventListener("mouseleave", onLeave)
-      }
+      const pause = () => { const c = globeRef.current?.controls(); if (c) c.autoRotate = false }
+      const resume = () => { const c = globeRef.current?.controls(); if (c) c.autoRotate = true }
+      el.addEventListener("mouseenter", pause)
+      el.addEventListener("mouseleave", resume)
     }
 
     load().catch(() => { })
 
-    const handleResize = () => {
+    const onResize = () => {
       if (globeRef.current && containerRef.current) {
         globeRef.current
           .width(containerRef.current.clientWidth)
           .height(containerRef.current.clientHeight)
       }
     }
-    window.addEventListener("resize", handleResize)
-    return () => window.removeEventListener("resize", handleResize)
+    window.addEventListener("resize", onResize)
+    return () => window.removeEventListener("resize", onResize)
   }, [])
 
   return (
+    // pointer-events: auto so mouse events reach the canvas inside
     <div
       ref={containerRef}
-      className="w-full h-full"
-      style={{ background: "transparent", cursor: "grab" }}
+      style={{ width: "100%", height: "100%", background: "transparent", cursor: "grab" }}
     />
   )
 }

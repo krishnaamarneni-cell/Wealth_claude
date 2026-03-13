@@ -58,7 +58,7 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
     const loadGlobe = async () => {
       // Globe.gl will provide THREE through its CDN bundle
       // No need to attach THREE separately — globe.gl handles it
-      
+
       if (!(window as any).Globe) {
         await new Promise<void>((res, rej) => {
           const s = document.createElement("script")

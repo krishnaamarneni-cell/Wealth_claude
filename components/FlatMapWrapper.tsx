@@ -54,13 +54,15 @@ export function FlatMapWrapper({ marketData, selectedCountry, onCountrySelect }:
         maxZoom: 6,
         zoomControl: false,
         attributionControl: false,
-        worldCopyJump: true,
+        worldCopyJump: false,
+        maxBounds: [[-90, -200], [90, 200]],
+        maxBoundsViscosity: 1.0,
       })
 
       // Dark tile layer
       L.tileLayer(
         "https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png",
-        { subdomains: "abcd", maxZoom: 6 }
+        { subdomains: "abcd", maxZoom: 6, noWrap: true }
       ).addTo(map)
 
       // Custom zoom control bottom-right
@@ -136,7 +138,7 @@ function renderLayer(
 
       return {
         fillColor,
-        fillOpacity: isSelected ? 0.95 : noExchange ? 0.5 : 0.75,
+        fillOpacity: isSelected ? 1.0 : noExchange ? 0.55 : 0.88,
         color: isSelected ? "#ffffff" : "rgba(255,255,255,0.12)",
         weight: isSelected ? 1.5 : 0.5,
         opacity: 1,

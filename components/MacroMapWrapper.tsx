@@ -292,7 +292,7 @@ export function MacroMapWrapper() {
     const map = L.map(containerRef.current, {
       center: [20, 0], zoom: 2.9, minZoom: 0.5, maxZoom: 7,
       zoomControl: true, attributionControl: false,
-      worldCopyJump: true, maxBounds: [[-60, -Infinity], [75, Infinity]],
+      worldCopyJump: false, maxBounds: [[-60, -Infinity], [75, Infinity]],
     })
     mapRef.current = map
     map.fitBounds([[-55, -170], [72, 170]])

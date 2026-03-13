@@ -17,16 +17,17 @@ export function HeroSection() {
       {/* ── GLOBE LAYER — sits at z-0, pointer-events ON so it's draggable ── */}
       <div className="absolute inset-0 z-0">
 
-        {/* Globe container — centered at ~65% from left */}
+        {/* Globe container — centered at 65% from left */}
         <div
-          className="absolute top-1/2 -translate-y-1/2"
           style={{
-            left: "38%",                  // center of globe at ~65% of page width
+            position: "absolute",
+            top: "50%",
+            left: "35%",
+            transform: "translateY(-50%)",
             width: "70vw",
             height: "70vw",
             maxWidth: "840px",
             maxHeight: "840px",
-            transform: "translate(0, -50%)",
           }}
         >
           <GlobeHeroBackground />

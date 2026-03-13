@@ -6,7 +6,7 @@ import { Globe2, BarChart3, CalendarDays } from "lucide-react"
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────────────────────────────────────
-type MetricKey = "inflation" | "gdpGrowth" | "gdp" | "unemployment" | "debtToGdp" | "interestRate" | "budgetGdp"
+type MetricKey = "inflation" | "gdpGrowth" | "gdp" | "unemployment" | "debtToGdp" | "currentAccount" | "fdi"
 type TabKey = "map" | "heatmap" | "calendar"
 
 interface MacroData {
@@ -15,8 +15,8 @@ interface MacroData {
   gdp: Record<string, number>
   unemployment: Record<string, number>
   debtToGdp: Record<string, number>
-  interestRate: Record<string, number>
-  budgetGdp: Record<string, number>
+  currentAccount: Record<string, number>
+  fdi: Record<string, number>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -28,8 +28,8 @@ const METRICS: { key: MetricKey; label: string; desc: string }[] = [
   { key: "gdp", label: "GDP", desc: "Gross Domestic Product (USD)" },
   { key: "unemployment", label: "Unemployment Rate", desc: "% of total labor force" },
   { key: "debtToGdp", label: "Govt Debt / GDP", desc: "Central govt debt as % of GDP" },
-  { key: "interestRate", label: "Interest Rate", desc: "Lending interest rate %" },
-  { key: "budgetGdp", label: "Budget / GDP", desc: "Cash surplus/deficit % of GDP" },
+  { key: "currentAccount", label: "Current Account", desc: "Current account balance % of GDP" },
+  { key: "fdi", label: "FDI Inflows", desc: "Foreign direct investment % of GDP" },
 ]
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -40,9 +40,9 @@ interface HeatMetric { key: MetricKey; label: string; goodHigh: boolean; min: nu
 const HEAT_METRICS: HeatMetric[] = [
   { key: "gdp", label: "GDP", goodHigh: true, min: 1e9, max: 25e12, unit: "$", logScale: true },
   { key: "gdpGrowth", label: "GDP Growth", goodHigh: true, min: -5, max: 10, unit: "%" },
-  { key: "budgetGdp", label: "Budget / GDP", goodHigh: true, min: -15, max: 5, unit: "%" },
+  { key: "currentAccount", label: "Current Acct", goodHigh: true, min: -15, max: 15, unit: "%" },
   { key: "debtToGdp", label: "Govt Debt/GDP", goodHigh: false, min: 0, max: 200, unit: "%" },
-  { key: "interestRate", label: "Interest Rate", goodHigh: false, min: 0, max: 25, unit: "%" },
+  { key: "fdi", label: "FDI Inflows", goodHigh: true, min: 0, max: 10, unit: "%" },
   { key: "inflation", label: "Inflation", goodHigh: false, min: 0, max: 20, unit: "%" },
   { key: "unemployment", label: "Unemployment", goodHigh: false, min: 0, max: 25, unit: "%" },
 ]
@@ -122,11 +122,13 @@ function lerpHex(from: string, to: string, t: number): string {
 }
 
 const COLOR_SCALES: Record<MetricKey, { light: string; dark: string; maxVal: number; logScale?: boolean }> = {
-  inflation: { light: "#3d1f00", dark: "#ff8c00", maxVal: 20 }, // dark → vivid orange
-  gdpGrowth: { light: "#002a10", dark: "#00e676", maxVal: 10 }, // dark → neon green
-  gdp: { light: "#002233", dark: "#00e5ff", maxVal: 1, logScale: true }, // dark → cyan
-  unemployment: { light: "#2a1500", dark: "#ff6f00", maxVal: 25 }, // dark → amber
-  debtToGdp: { light: "#1a0030", dark: "#ce93d8", maxVal: 200 }, // dark → lavender
+  inflation: { light: "#3d1f00", dark: "#ff8c00", maxVal: 20 }, // orange
+  gdpGrowth: { light: "#002a10", dark: "#00e676", maxVal: 10 }, // green
+  gdp: { light: "#002233", dark: "#00e5ff", maxVal: 1, logScale: true }, // cyan
+  unemployment: { light: "#2a1500", dark: "#ff6f00", maxVal: 25 }, // amber
+  debtToGdp: { light: "#1a0030", dark: "#ce93d8", maxVal: 200 }, // lavender
+  currentAccount: { light: "#002233", dark: "#00e5ff", maxVal: 15 }, // cyan
+  fdi: { light: "#002a10", dark: "#00e676", maxVal: 10 }, // green
 }
 
 const NO_DATA = "#0d1825"
@@ -285,7 +287,7 @@ export function MacroMapWrapper() {
 
   // Sorted sidebar list
   const ranked = useMemo(() => {
-    if (!data || !data[metric]) return []
+    if (!data) return []
     const list = Object.entries(data[metric])
       .filter(([iso, v]) => v != null && iso in NAMES)
       .sort(([, a], [, b]) => (b as number) - (a as number))
@@ -458,7 +460,7 @@ export function MacroMapWrapper() {
               <div ref={containerRef} style={{ width: "100%", height: "100%", background: "#060a10" }} />
 
               {/* Legend — gradient bar, single hue */}
-              {!loading && scale && (
+              {!loading && (
                 <div className="absolute bottom-5 left-4 z-[1000] bg-background/90 backdrop-blur-md border border-border rounded-xl p-4 shadow-xl w-44">
                   <p className="text-[10px] font-bold text-muted-foreground tracking-widest mb-2.5 uppercase">{mConf.label}</p>
                   {/* Gradient bar */}

@@ -6,6 +6,7 @@ import {
   ResponsiveContainer, Legend,
 } from "recharts"
 import { Loader2, TrendingUp, TrendingDown, Minus } from "lucide-react"
+import { MarketsMap, returnsToCountryData, SYMBOL_TO_ISO } from "./MarketsMap"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -76,7 +77,7 @@ function BottomStats({ returns, col, tab }: { returns: ReturnRow[]; col: SortCol
 
   const tabInfo: Record<TabKey, string> = {
     sectors: "SPDR ETF sector data via Yahoo Finance. Returns based on weekly closes, normalized to 100 at common start date.",
-    countries: "Major global index data via Yahoo Finance. Returns based on weekly closes, normalized to 100 at common start date.",
+    countries: "Major global index data via Yahoo Finance. Returns based on weekly closes.",
     assets: "ETF proxies: GLD (gold), SLV (silver), USO (crude oil), TLT (20Y bonds), BTC-USD, ETH-USD. Via Yahoo Finance.",
   }
 
@@ -176,7 +177,7 @@ const TABS: { key: TabKey; label: string }[] = [
 
 const TABLE_TITLE: Record<TabKey, string> = {
   sectors: "Sector Performance",
-  countries: "Country Performance",
+  countries: "Global Markets",
   assets: "Asset Class Performance",
 }
 
@@ -184,10 +185,11 @@ const TABLE_TITLE: Record<TabKey, string> = {
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 export function MarketsWrapper() {
-  const [tab, setTab] = useState<TabKey>("sectors")
+  const [tab, setTab] = useState<TabKey>("countries")
   const [data, setData] = useState<ComparisonData | null>(null)
   const [loading, setLoading] = useState(true)
   const [sortCol, setSortCol] = useState<SortCol>("r1y")
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
 
   const fetchData = useCallback(async (t: TabKey) => {
     setLoading(true)
@@ -201,11 +203,16 @@ export function MarketsWrapper() {
     }
   }, [])
 
-  useEffect(() => { fetchData("sectors") }, []) // eslint-disable-line
+  useEffect(() => { fetchData("countries") }, []) // eslint-disable-line
 
   function switchTab(t: TabKey) {
     setTab(t)
+    setSelectedCountry(null)
     fetchData(t)
+  }
+
+  const handleCountrySelect = (isoA3: string | null) => {
+    setSelectedCountry(isoA3)
   }
 
   const sorted = data
@@ -219,6 +226,10 @@ export function MarketsWrapper() {
   // Map safeKey → label for tooltip
   const labelMap: Record<string, string> = {}
   data?.items.forEach(item => { labelMap[item.safeKey] = item.label })
+
+  // Convert returns to country data for the map
+  const countryData = data ? returnsToCountryData(data.returns, sortCol) : []
+  const periodLabel = sortCol === "r1y" ? "1 Year" : sortCol === "r3y" ? "3 Year" : "5 Year"
 
   return (
     <div style={{
@@ -270,59 +281,72 @@ export function MarketsWrapper() {
         <>
           <div style={{ flex: 1, display: "flex", minHeight: 0, overflow: "hidden", minWidth: 0 }}>
 
-            {/* ══ LEFT — CHART ══ */}
+            {/* ══ LEFT — MAP or CHART ══ */}
             <div style={{
               flex: "0 0 56%",
               display: "flex",
               flexDirection: "column",
               borderRight: "1px solid #1e293b",
-              padding: "20px 20px 12px 16px",
               overflow: "hidden",
+              position: "relative",
             }}>
-              <div style={{ fontSize: 11, color: "#334155", marginBottom: 6, letterSpacing: "0.04em" }}>
-                NORMALIZED TO 100 — 5 YEAR PERFORMANCE
-              </div>
-              <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", minWidth: 0, height: "100%" }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
-                    <XAxis
-                      dataKey="date"
-                      ticks={xTicks}
-                      tickFormatter={fmtChartDate}
-                      tick={{ fill: "#334155", fontSize: 11 }}
-                      axisLine={{ stroke: "#1e293b" }}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      tick={{ fill: "#334155", fontSize: 11 }}
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={v => `$${v}`}
-                      width={44}
-                    />
-                    <Tooltip content={<ChartTooltip labelMap={labelMap} />} />
-                    <Legend
-                      wrapperStyle={{ fontSize: 11, color: "#475569", paddingTop: 6 }}
-                      iconType="plainline"
-                      iconSize={18}
-                      formatter={value => labelMap[value] ?? value}
-                    />
-                    {data?.items.map((item, i) => (
-                      <Line
-                        key={item.safeKey}
-                        type="monotone"
-                        dataKey={item.safeKey}
-                        name={item.safeKey}
-                        stroke={SERIES_COLORS[i % SERIES_COLORS.length]}
-                        strokeWidth={1.5}
-                        dot={false}
-                        activeDot={{ r: 3, strokeWidth: 0 }}
-                        connectNulls
-                      />
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+              {tab === "countries" ? (
+                /* ── FLAT MAP FOR COUNTRIES ── */
+                <MarketsMap
+                  countries={countryData}
+                  selectedCountry={selectedCountry}
+                  onCountrySelect={handleCountrySelect}
+                  periodLabel={periodLabel}
+                />
+              ) : (
+                /* ── LINE CHART FOR SECTORS & ASSETS ── */
+                <div style={{ padding: "20px 20px 12px 16px", display: "flex", flexDirection: "column", height: "100%" }}>
+                  <div style={{ fontSize: 11, color: "#334155", marginBottom: 6, letterSpacing: "0.04em" }}>
+                    NORMALIZED TO 100 — 5 YEAR PERFORMANCE
+                  </div>
+                  <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", minWidth: 0 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+                        <XAxis
+                          dataKey="date"
+                          ticks={xTicks}
+                          tickFormatter={fmtChartDate}
+                          tick={{ fill: "#334155", fontSize: 11 }}
+                          axisLine={{ stroke: "#1e293b" }}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          tick={{ fill: "#334155", fontSize: 11 }}
+                          axisLine={false}
+                          tickLine={false}
+                          tickFormatter={v => `$${v}`}
+                          width={44}
+                        />
+                        <Tooltip content={<ChartTooltip labelMap={labelMap} />} />
+                        <Legend
+                          wrapperStyle={{ fontSize: 11, color: "#475569", paddingTop: 6 }}
+                          iconType="plainline"
+                          iconSize={18}
+                          formatter={value => labelMap[value] ?? value}
+                        />
+                        {data?.items.map((item, i) => (
+                          <Line
+                            key={item.safeKey}
+                            type="monotone"
+                            dataKey={item.safeKey}
+                            name={item.safeKey}
+                            stroke={SERIES_COLORS[i % SERIES_COLORS.length]}
+                            strokeWidth={1.5}
+                            dot={false}
+                            activeDot={{ r: 3, strokeWidth: 0 }}
+                            connectNulls
+                          />
+                        ))}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* ══ RIGHT — TABLE ══ */}
@@ -342,7 +366,7 @@ export function MarketsWrapper() {
                 position: "sticky", top: 0,
                 background: "#070c14", zIndex: 5,
               }}>
-                <span style={thStyle}>Name</span>
+                <span style={thStyle}>{tab === "countries" ? "Country" : "Name"}</span>
                 {(["r1y", "r3y", "r5y"] as const).map(col => (
                   <button key={col} onClick={() => setSortCol(col)} style={{
                     ...thStyle, textAlign: "right",
@@ -360,24 +384,46 @@ export function MarketsWrapper() {
               {/* Rows */}
               {sorted.map((row, i) => {
                 const colorIdx = data?.items.findIndex(it => it.symbol === row.symbol) ?? i
+                const iso = SYMBOL_TO_ISO[row.symbol]
+                const isSelected = tab === "countries" && iso === selectedCountry
+
                 return (
-                  <div key={row.symbol} style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 90px 90px 90px",
-                    padding: "11px 24px",
-                    borderBottom: "1px solid #0a1018",
-                    alignItems: "center",
-                    transition: "background 0.1s",
-                  }}
-                    onMouseEnter={e => (e.currentTarget.style.background = "#0a1018")}
-                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                  <div
+                    key={row.symbol}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 90px 90px 90px",
+                      padding: "11px 24px",
+                      borderBottom: "1px solid #0a1018",
+                      alignItems: "center",
+                      transition: "background 0.1s",
+                      background: isSelected ? "rgba(0,230,118,0.08)" : "transparent",
+                      cursor: tab === "countries" ? "pointer" : "default",
+                    }}
+                    onClick={() => {
+                      if (tab === "countries" && iso) {
+                        setSelectedCountry(iso === selectedCountry ? null : iso)
+                      }
+                    }}
+                    onMouseEnter={e => {
+                      if (!isSelected) e.currentTarget.style.background = "#0a1018"
+                    }}
+                    onMouseLeave={e => {
+                      if (!isSelected) e.currentTarget.style.background = "transparent"
+                    }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <div style={{
                         width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
                         background: SERIES_COLORS[colorIdx % SERIES_COLORS.length],
                       }} />
-                      <span style={{ fontSize: 14, color: "#e2e8f0", fontWeight: 500 }}>{row.label}</span>
+                      <span style={{
+                        fontSize: 14,
+                        color: isSelected ? "#00e676" : "#e2e8f0",
+                        fontWeight: isSelected ? 600 : 500
+                      }}>
+                        {row.label}
+                      </span>
                     </div>
                     {(["r1y", "r3y", "r5y"] as const).map(col => {
                       const v = row[col]

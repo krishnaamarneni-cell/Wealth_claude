@@ -268,7 +268,7 @@ export function MarketsWrapper() {
         </div>
       ) : (
         <>
-          <div style={{ flex: 1, display: "flex", minHeight: 0, overflow: "hidden" }}>
+          <div style={{ flex: 1, display: "flex", minHeight: 0, overflow: "hidden", minWidth: 0 }}>
 
             {/* ══ LEFT — CHART ══ */}
             <div style={{

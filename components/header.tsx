@@ -7,7 +7,7 @@ import {
   Globe, Map, BarChart3, TrendingUp, Newspaper,
   Building2, ChevronDown, Menu, X, LineChart, Star,
   GraduationCap, HelpCircle, Briefcase, Info, Layers,
-  CalendarDays, Flame, ArrowUpRight, Zap,
+  CalendarDays, Flame, ArrowUpRight, Zap, UserCircle2,
 } from "lucide-react"
 
 // ── Data ──────────────────────────────────────────────────────────────────────
@@ -262,8 +262,8 @@ function MoreDropdown() {
             className="group flex items-center justify-between p-2.5 rounded-xl hover:bg-secondary/60 transition-colors"
           >
             <div className="flex items-center gap-3">
-              <div className="w-7 h-7 rounded-lg bg-secondary border border-border flex items-center justify-center shrink-0">
-                <item.icon className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+              <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/15 flex items-center justify-center shrink-0">
+                <item.icon className="w-3.5 h-3.5 text-primary" />
               </div>
               <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
                 {item.title}
@@ -321,9 +321,13 @@ export function Header() {
 
         {/* Desktop CTA */}
         <div className="hidden lg:flex items-center gap-3 shrink-0">
-          <Button variant="ghost" size="sm" className="text-foreground" asChild>
-            <Link href="/auth">Login</Link>
-          </Button>
+          <Link
+            href="/auth"
+            className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-secondary/60"
+            aria-label="Login"
+          >
+            <UserCircle2 className="w-5 h-5" />
+          </Link>
           <Button size="sm"
             className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20"
             asChild

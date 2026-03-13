@@ -22,7 +22,7 @@ export function HeroSection() {
           style={{
             position: "absolute",
             top: "50%",
-            left: "30%",
+            left: "45%",
             transform: "translateY(-50%)",
             width: "75vw",
             height: "75vw",

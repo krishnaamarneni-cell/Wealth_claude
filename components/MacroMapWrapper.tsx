@@ -355,17 +355,11 @@ export function MacroMapWrapper() {
     const map = L.map(containerRef.current, {
       center: [20, 0], zoom: 2, minZoom: 1.5, maxZoom: 7,
       zoomControl: true, attributionControl: false,
-      worldCopyJump: true, maxBounds: [[-85, -Infinity], [85, Infinity]],
+      worldCopyJump: false, maxBounds: [[-60, -180], [75, 180]],
+      maxBoundsViscosity: 1.0,
     })
     mapRef.current = map
-
-    // ──────────────────────────────────────────────────────────────────────
-    // dark_nolabels — ZERO country / city names on the base tile
-    // ──────────────────────────────────────────────────────────────────────
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png", {
-      subdomains: "abcd",
-    }).addTo(map)
-
+    map.fitBounds([[-45, -180], [68, 180]])
     // GeoJSON
     let geo: any
     try {

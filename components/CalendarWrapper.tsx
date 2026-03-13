@@ -341,13 +341,13 @@ export function CalendarWrapper() {
         {tab !== "economic" && (
           <>
             {loading && (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, gap: 10, color: "#475569" }}>
+              <div suppressHydrationWarning style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, gap: 10, color: "#475569" }}>
                 <Loader2 size={20} style={{ animation: "spin 1s linear infinite" }} />
                 <span style={{ fontSize: 14 }}>Loading…</span>
               </div>
             )}
             {error && !loading && (
-              <div style={{ padding: 32, textAlign: "center", color: "#ef4444", fontSize: 14 }}>{error}</div>
+              <div suppressHydrationWarning style={{ padding: 32, textAlign: "center", color: "#ef4444", fontSize: 14 }}>{error}</div>
             )}
             {!loading && !error && tab === "earnings" && <EarningsTable events={earnEvents} />}
             {!loading && !error && tab === "ipo" && <IpoTable events={ipoEvents} />}

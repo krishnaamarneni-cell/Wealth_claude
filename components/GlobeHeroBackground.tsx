@@ -100,7 +100,7 @@ export function GlobeHeroBackground() {
         const controls = globe.controls()
         if (controls) {
           controls.autoRotate = true
-          controls.autoRotateSpeed = 0.5
+          controls.autoRotateSpeed = -0.5
           controls.enableZoom = false
           controls.enablePan = false
           controls.enableRotate = true   // full 360 drag

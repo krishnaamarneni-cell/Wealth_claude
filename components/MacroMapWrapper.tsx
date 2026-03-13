@@ -295,7 +295,7 @@ export function MacroMapWrapper() {
       worldCopyJump: true, maxBounds: [[-60, -Infinity], [75, Infinity]],
     })
     mapRef.current = map
-    map.fitBounds([[-30, -170], [55, 170]])
+    map.fitBounds([[-55, -170], [72, 170]])
 
     // ──────────────────────────────────────────────────────────────────────
     // dark_nolabels — ZERO country / city names on the base tile

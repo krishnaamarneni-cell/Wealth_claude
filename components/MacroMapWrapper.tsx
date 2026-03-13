@@ -290,7 +290,7 @@ export function MacroMapWrapper() {
     document.head.appendChild(sty)
 
     const map = L.map(containerRef.current, {
-      center: [20, 0], zoom: 2.2, minZoom: 1.5, maxZoom: 7,
+      center: [20, 0], zoom: 2.3, minZoom: 1.0, maxZoom: 7,
       zoomControl: true, attributionControl: false,
       worldCopyJump: true, maxBounds: [[-65, -Infinity], [80, Infinity]],
     })

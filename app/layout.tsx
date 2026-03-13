@@ -99,7 +99,9 @@ export default function RootLayout({
             // Suppress harmless Three.js multiple instances warning from globe.gl
             const originalWarn = console.warn;
             console.warn = function(...args) {
-              if (args[0]?.includes?.('Multiple instances of Three.js')) {
+              const message = String(args[0] || '');
+              if (message.includes('Multiple instances of Three.js') || 
+                  message.includes('multiple instances')) {
                 return;
               }
               originalWarn.apply(console, args);

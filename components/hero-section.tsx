@@ -22,12 +22,12 @@ export function HeroSection() {
           style={{
             position: "absolute",
             top: "50%",
-            left: "35%",
+            left: "30%",
             transform: "translateY(-50%)",
-            width: "70vw",
-            height: "70vw",
-            maxWidth: "840px",
-            maxHeight: "840px",
+            width: "75vw",
+            height: "75vw",
+            maxWidth: "900px",
+            maxHeight: "900px",
           }}
         >
           <GlobeHeroBackground />

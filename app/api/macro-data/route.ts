@@ -33,27 +33,6 @@ async function fetchWB(indicator: string): Promise<Record<string, number>> {
   return result
 }
 
-const ISO2_TO_ISO3: Record<string, string> = {
-  AF: "AFG", AL: "ALB", DZ: "DZA", AO: "AGO", AR: "ARG", AM: "ARM", AU: "AUS", AT: "AUT", AZ: "AZE",
-  BS: "BHS", BH: "BHR", BD: "BGD", BY: "BLR", BE: "BEL", BZ: "BLZ", BJ: "BEN", BT: "BTN", BO: "BOL",
-  BA: "BIH", BW: "BWA", BR: "BRA", BN: "BRN", BG: "BGR", BF: "BFA", BI: "BDI", CV: "CPV", KH: "KHM",
-  CM: "CMR", CA: "CAN", CF: "CAF", TD: "TCD", CL: "CHL", CN: "CHN", CO: "COL", KM: "COM", CD: "COD",
-  CG: "COG", CR: "CRI", CI: "CIV", HR: "HRV", CU: "CUB", CY: "CYP", CZ: "CZE", DK: "DNK", DJ: "DJI",
-  DO: "DOM", EC: "ECU", EG: "EGY", SV: "SLV", GQ: "GNQ", ER: "ERI", EE: "EST", ET: "ETH", FJ: "FJI",
-  FI: "FIN", FR: "FRA", GA: "GAB", GM: "GMB", GE: "GEO", DE: "DEU", GH: "GHA", GR: "GRC", GT: "GTM",
-  GN: "GIN", GW: "GNB", GY: "GUY", HT: "HTI", HN: "HND", HU: "HUN", IS: "ISL", IN: "IND", ID: "IDN",
-  IR: "IRN", IQ: "IRQ", IE: "IRL", IL: "ISR", IT: "ITA", JM: "JAM", JP: "JPN", JO: "JOR", KZ: "KAZ",
-  KE: "KEN", KR: "KOR", KW: "KWT", KG: "KGZ", LA: "LAO", LV: "LVA", LB: "LBN", LR: "LBR", LY: "LBY",
-  LT: "LTU", LU: "LUX", MG: "MDG", MW: "MWI", MY: "MYS", MV: "MDV", ML: "MLI", MT: "MLT", MR: "MRT",
-  MU: "MUS", MX: "MEX", MD: "MDA", MN: "MNG", ME: "MNE", MA: "MAR", MZ: "MOZ", MM: "MMR", NA: "NAM",
-  NP: "NPL", NL: "NLD", NZ: "NZL", NI: "NIC", NE: "NER", NG: "NGA", MK: "MKD", NO: "NOR", OM: "OMN",
-  PK: "PAK", PA: "PAN", PG: "PNG", PY: "PRY", PE: "PER", PH: "PHL", PL: "POL", PT: "PRT", QA: "QAT",
-  RO: "ROU", RU: "RUS", RW: "RWA", SA: "SAU", SN: "SEN", RS: "SRB", SL: "SLE", SG: "SGP", SK: "SVK",
-  SI: "SVN", SO: "SOM", ZA: "ZAF", SS: "SSD", ES: "ESP", LK: "LKA", SD: "SDN", SR: "SUR", SE: "SWE",
-  CH: "CHE", SY: "SYR", TJ: "TJK", TZ: "TZA", TH: "THA", TG: "TGO", TT: "TTO", TN: "TUN", TR: "TUR",
-  TM: "TKM", UG: "UGA", UA: "UKR", AE: "ARE", GB: "GBR", US: "USA", UY: "URY", UZ: "UZB", VE: "VEN",
-  VN: "VNM", YE: "YEM", ZM: "ZMB", ZW: "ZWE", TW: "TWN", HK: "HKG",
-}
 
 async function fetchIMFDebt(): Promise<Record<string, number>> {
   const url = "https://www.imf.org/external/datamapper/api/v1/GGXWDG_NGDP"
@@ -62,9 +41,14 @@ async function fetchIMFDebt(): Promise<Record<string, number>> {
   const json = await res.json()
   const values = json?.values?.GGXWDG_NGDP ?? {}
   const result: Record<string, number> = {}
-  for (const [iso2, yearMap] of Object.entries(values)) {
-    const iso3 = ISO2_TO_ISO3[iso2]
-    if (!iso3) continue
+  // IMF API already returns ISO3 codes — use them directly
+  const AGGREGATE_CODES = new Set([
+    "ADVEC", "AFQ", "SSQ", "AS5", "APQ", "AZQ", "CBQ", "CMQ", "CAQ", "EAQ", "EEQ",
+    "DA", "EDE", "OEMDC", "EURO", "EUQ", "EU", "WE", "MAE", "MEQ", "MECA", "NAQ",
+    "NMQ", "OAE", "PIQ", "SMQ", "SAQ", "SEQ", "SSA", "WEQ", "WHQ", "WEOWORLD",
+  ])
+  for (const [iso3, yearMap] of Object.entries(values)) {
+    if (AGGREGATE_CODES.has(iso3)) continue
     const years = Object.keys(yearMap as Record<string, number>).sort().reverse()
     for (const yr of years) {
       const v = (yearMap as Record<string, number>)[yr]

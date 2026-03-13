@@ -24,20 +24,6 @@ const LEAFLET_OVERRIDES = `
     padding: 0 !important;
   }
   .wc-tooltip .leaflet-tooltip-tip { display: none !important; }
-  /* Country label markers */
-  .wc-label {
-    pointer-events: none !important;
-    color: rgba(255,255,255,0.55);
-    font-size: 9px;
-    font-family: system-ui, sans-serif;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    text-shadow: 0 0 4px #000, 0 0 8px #000, 0 0 12px #000;
-    white-space: nowrap;
-    text-align: center;
-    line-height: 1;
-  }
   /* Zoom controls */
   .leaflet-control-zoom a {
     background: #0d1117 !important;
@@ -46,23 +32,6 @@ const LEAFLET_OVERRIDES = `
   }
   .leaflet-control-zoom a:hover { background: #1a2030 !important; color: white !important; }
 `
-
-// Country label positions (hand-tuned centroids for key countries)
-const LABEL_POSITIONS: Record<string, [number, number]> = {
-  USA: [39, -98], CAN: [60, -96], MEX: [24, -102], BRA: [-10, -53],
-  ARG: [-35, -65], CHL: [-35, -71], COL: [4, -73], PER: [-10, -76],
-  GBR: [54, -2], DEU: [51, 10], FRA: [46, 2], ITA: [43, 12],
-  ESP: [40, -4], NLD: [52, 5], CHE: [47, 8], SWE: [62, 17],
-  NOR: [64, 14], DNK: [56, 10], FIN: [64, 26], BEL: [50, 4],
-  AUT: [47, 14], PRT: [39, -8], GRC: [39, 22], POL: [52, 20],
-  CZE: [50, 15], HUN: [47, 19], ROU: [46, 25], TUR: [39, 35],
-  RUS: [62, 100], EST: [59, 25], LVA: [57, 25], LTU: [56, 24],
-  JPN: [36, 138], CHN: [35, 103], HKG: [22, 114], IND: [22, 80],
-  KOR: [36, 128], AUS: [-27, 133], NZL: [-42, 172], TWN: [24, 121],
-  SGP: [1, 104], MYS: [4, 109], THA: [15, 101], IDN: [-5, 118],
-  PHL: [13, 122], VNM: [16, 108], SAU: [24, 45], ARE: [24, 54],
-  ISR: [31, 35], ZAF: [-29, 25], EGY: [27, 30],
-}
 
 export function FlatMapWrapper({ marketData, selectedCountry, onCountrySelect }: FlatMapWrapperProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -112,6 +81,7 @@ export function FlatMapWrapper({ marketData, selectedCountry, onCountrySelect }:
         maxBoundsViscosity: 0.8,
       })
 
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", { subdomains: "abcd", maxZoom: 6 }).addTo(map)
       L.control.zoom({ position: "bottomright" }).addTo(map)
       mapRef.current = map
 
@@ -174,9 +144,6 @@ function renderAll(
   if ((map as any)._wcLayers) {
     for (const l of (map as any)._wcLayers) map.removeLayer(l)
   }
-  if ((map as any)._wcLabels) {
-    for (const l of (map as any)._wcLabels) map.removeLayer(l)
-  }
 
   const allLayers: any[] = []
 
@@ -189,29 +156,6 @@ function renderAll(
 
   ; (map as any)._wcLayers = allLayers
 
-  // Country name labels — only at offset 0, worldCopyJump handles the rest
-  const labelMarkers: any[] = []
-  for (const [iso, [lat, lng]] of Object.entries(LABEL_POSITIONS)) {
-    const d = marketData[iso]
-    if (!d) continue
-
-    const el = document.createElement("div")
-    el.className = "wc-label"
-    el.textContent = iso  // short code; swap for full name if preferred
-
-    const marker = L.marker([lat, lng], {
-      icon: L.divIcon({
-        className: "",
-        html: el,
-        iconSize: [60, 14],
-        iconAnchor: [30, 7],
-      }),
-      interactive: false,
-    })
-    marker.addTo(map)
-    labelMarkers.push(marker)
-  }
-  ; (map as any)._wcLabels = labelMarkers
 }
 
 function buildGeoLayer(
@@ -231,7 +175,7 @@ function buildGeoLayer(
       const fillColor = noExchange || !d ? "#1e2533" : pctToColor(d.changePct)
       return {
         fillColor,
-        fillOpacity: isSelected ? 1.0 : noExchange ? 0.65 : 0.90,
+        fillOpacity: isSelected ? 0.85 : noExchange ? 0.55 : 0.78,
         color: isSelected ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.08)",
         weight: isSelected ? 2 : 0.5,
         opacity: 1,

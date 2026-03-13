@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, Globe, Map } from "lucide-react"
+import { ArrowRight, Globe } from "lucide-react"
 import dynamic from "next/dynamic"
 
 const GlobeHeroBackground = dynamic(
@@ -19,40 +19,40 @@ const STATS = [
 
 export function HeroSection() {
   return (
-    <section className="relative w-full h-screen min-h-[700px] overflow-hidden bg-[#060a10] flex flex-col">
+    <section className="relative w-full h-screen min-h-[700px] overflow-hidden bg-background flex flex-col">
 
-      {/* ── GLOBE (fills right 60%, centered vertically) ── */}
+      {/* ── GLOBE — center-right, large ── */}
       <div className="absolute inset-0 z-0">
-        {/* Globe container — offset right so content has room left */}
-        <div className="absolute top-1/2 -translate-y-1/2 right-[-10%] w-[75vw] h-[75vw] max-w-[900px] max-h-[900px]">
+        <div className="absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-[30%] w-[85vw] h-[85vw] max-w-[950px] max-h-[950px]">
           <GlobeHeroBackground />
         </div>
 
-        {/* Gradient mask — fades globe into dark on the left */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[#060a10] via-[#060a10]/80 to-transparent" />
+        {/* Gradient: strong fade on left so text is readable */}
+        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/75 to-transparent" />
         {/* Top + bottom fade */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#060a10]/60 via-transparent to-[#060a10]/80" />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/50 via-transparent to-background/70" />
+
+        {/* Radial top-center glow matching primary green */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(74,222,128,0.08),transparent_55%)]" />
 
         {/* Star field */}
-        <div className="absolute inset-0 opacity-40"
+        <div
+          className="absolute inset-0 opacity-30"
           style={{
             backgroundImage: `
-              radial-gradient(1px 1px at 15% 25%, rgba(255,255,255,0.6) 0%, transparent 100%),
-              radial-gradient(1px 1px at 45% 15%, rgba(255,255,255,0.4) 0%, transparent 100%),
-              radial-gradient(1px 1px at 75% 35%, rgba(255,255,255,0.5) 0%, transparent 100%),
-              radial-gradient(1px 1px at 25% 65%, rgba(255,255,255,0.3) 0%, transparent 100%),
-              radial-gradient(1px 1px at 85% 70%, rgba(255,255,255,0.4) 0%, transparent 100%),
-              radial-gradient(1px 1px at 55% 80%, rgba(255,255,255,0.3) 0%, transparent 100%),
-              radial-gradient(1px 1px at 10% 85%, rgba(255,255,255,0.5) 0%, transparent 100%),
-              radial-gradient(1px 1px at 92% 20%, rgba(255,255,255,0.4) 0%, transparent 100%),
-              radial-gradient(2px 2px at 35% 45%, rgba(147,197,253,0.4) 0%, transparent 100%),
-              radial-gradient(2px 2px at 68% 55%, rgba(147,197,253,0.3) 0%, transparent 100%)
+              radial-gradient(1px 1px at 12% 18%, white 0%, transparent 100%),
+              radial-gradient(1px 1px at 42% 12%, white 0%, transparent 100%),
+              radial-gradient(1px 1px at 72% 28%, white 0%, transparent 100%),
+              radial-gradient(1px 1px at 22% 62%, white 0%, transparent 100%),
+              radial-gradient(1px 1px at 88% 68%, white 0%, transparent 100%),
+              radial-gradient(1px 1px at 52% 82%, white 0%, transparent 100%),
+              radial-gradient(1px 1px at 8%  88%, white 0%, transparent 100%),
+              radial-gradient(1px 1px at 95% 22%, white 0%, transparent 100%),
+              radial-gradient(2px 2px at 33% 44%, rgba(74,222,128,0.5) 0%, transparent 100%),
+              radial-gradient(2px 2px at 66% 58%, rgba(74,222,128,0.3) 0%, transparent 100%)
             `,
           }}
         />
-
-        {/* Subtle blue glow behind globe */}
-        <div className="absolute top-1/2 right-[15%] -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-blue-600/8 blur-[120px] pointer-events-none" />
       </div>
 
       {/* ── CONTENT ── */}
@@ -61,24 +61,22 @@ export function HeroSection() {
           <div className="max-w-xl">
 
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-400/20 mb-8">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-              <span className="text-xs text-blue-300/80 tracking-wide font-medium">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary/50 border border-border mb-8">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              <span className="text-xs text-muted-foreground tracking-wide">
                 51 global markets · Live data
               </span>
             </div>
 
             {/* Headline */}
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-white leading-[0.95] tracking-tight mb-6">
-              The World's{" "}
+            <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-foreground leading-[0.95] tracking-tight mb-6">
+              The World&apos;s{" "}
               <br />
               Markets.{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">
-                One Globe.
-              </span>
+              <span className="text-primary">One Globe.</span>
             </h1>
 
-            <p className="text-lg text-white/50 mb-10 leading-relaxed max-w-md">
+            <p className="text-lg text-muted-foreground mb-10 leading-relaxed max-w-md">
               Visualize every stock market on Earth in real time.
               Click any country for live index data, AI news summaries,
               and daily performance — all free.
@@ -89,7 +87,7 @@ export function HeroSection() {
               <Button
                 asChild
                 size="lg"
-                className="bg-blue-500 hover:bg-blue-400 text-white border-0 h-12 px-7 text-sm font-semibold shadow-xl shadow-blue-500/30 transition-all hover:shadow-blue-400/40 hover:scale-[1.02]"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 h-12 px-7 text-sm font-semibold shadow-lg shadow-primary/20 transition-all hover:scale-[1.02]"
               >
                 <Link href="/globe" className="flex items-center gap-2">
                   <Globe className="w-4 h-4" />
@@ -101,32 +99,31 @@ export function HeroSection() {
                 asChild
                 size="lg"
                 variant="outline"
-                className="h-12 px-7 text-sm font-semibold border-white/10 text-white/70 hover:text-white hover:bg-white/5 bg-transparent transition-all"
+                className="h-12 px-7 text-sm font-semibold border-border text-foreground hover:bg-secondary bg-transparent transition-all"
               >
-                <Link href="/auth" className="flex items-center gap-2">
-                  Start for Free
-                </Link>
+                <Link href="/auth">Start for Free</Link>
               </Button>
             </div>
 
             {/* Stats row */}
-            <div className="flex items-center gap-6 flex-wrap">
+            <div className="flex items-center gap-8 flex-wrap">
               {STATS.map((s, i) => (
                 <div key={i} className="flex flex-col">
-                  <span className="text-xl font-black text-white tabular-nums">{s.value}</span>
-                  <span className="text-[11px] text-white/30 tracking-wide uppercase">{s.label}</span>
+                  <span className="text-xl font-black text-foreground tabular-nums">{s.value}</span>
+                  <span className="text-[10px] text-muted-foreground tracking-widest uppercase">{s.label}</span>
                 </div>
               ))}
             </div>
+
           </div>
         </div>
       </div>
 
-      {/* ── SCROLL HINT ── */}
+      {/* Scroll hint */}
       <div className="relative z-10 flex justify-center pb-8">
         <div className="flex flex-col items-center gap-2 animate-bounce">
-          <div className="w-px h-8 bg-gradient-to-b from-transparent to-white/20" />
-          <span className="text-[10px] text-white/20 tracking-widest uppercase">Scroll</span>
+          <div className="w-px h-8 bg-gradient-to-b from-transparent to-border" />
+          <span className="text-[10px] text-muted-foreground/40 tracking-widest uppercase">Scroll</span>
         </div>
       </div>
     </section>

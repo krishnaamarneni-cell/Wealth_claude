@@ -122,11 +122,12 @@ function countByDate(events: { date?: string }[], dates: string[]): Record<strin
 // TRADINGVIEW ECONOMIC WIDGET
 // ─────────────────────────────────────────────────────────────────────────────
 function EconomicWidget() {
-  const ref = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!ref.current) return
-    ref.current.innerHTML = ""
+    if (!containerRef.current) return
+    containerRef.current.innerHTML = ""
+
     const script = document.createElement("script")
     script.src = "https://s3.tradingview.com/external-embedding/embed-widget-events.js"
     script.async = true
@@ -139,17 +140,41 @@ function EconomicWidget() {
       importanceFilter: "-1,0,1",
       countryFilter: "us,eu,gb,jp,cn,ca,au,de,fr,in,br,kr,ch",
     })
-    ref.current.appendChild(script)
+    containerRef.current.appendChild(script)
+
+    // Force dark background on the iframe once TradingView injects it
+    const interval = setInterval(() => {
+      const iframe = containerRef.current?.querySelector("iframe")
+      if (iframe) {
+        iframe.style.background = "#060a10"
+        iframe.style.backgroundColor = "#060a10"
+        clearInterval(interval)
+      }
+    }, 100)
+
+    return () => clearInterval(interval)
   }, [])
 
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+    <div style={{ height: "100%", background: "#060a10" }}>
+      <style>{`
+        .tv-widget-container iframe,
+        .tv-widget-container iframe html,
+        .tv-widget-container iframe body {
+          background: #060a10 !important;
+          background-color: #060a10 !important;
+          color-scheme: dark !important;
+        }
+      `}</style>
       <div
-        className="tradingview-widget-container"
-        ref={ref}
-        style={{ flex: 1, minHeight: 0 }}
+        className="tradingview-widget-container tv-widget-container"
+        ref={containerRef}
+        style={{ height: "100%", width: "100%", background: "#060a10" }}
       >
-        <div className="tradingview-widget-container__widget" style={{ height: "100%" }} />
+        <div
+          className="tradingview-widget-container__widget"
+          style={{ height: "100%", background: "#060a10" }}
+        />
       </div>
     </div>
   )

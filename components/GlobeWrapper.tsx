@@ -27,8 +27,29 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
   const [hoveredCountry, setHoveredCountry] = useState<string | null>(null)
   const [introPlaying, setIntroPlaying] = useState(true)
   const introRef = useRef(false)
+  const skipRequestedRef = useRef(false)
   const [ships, setShips] = useState<any[]>([])
   const shipsLoadedRef = useRef(false)
+
+  // Register skip listener immediately on mount (before async init)
+  useEffect(() => {
+    const doSkip = () => {
+      skipRequestedRef.current = true
+      introRef.current = true
+      if (globeRef.current) {
+        globeRef.current.pointOfView({ lat: 38, lng: -97, altitude: 1.5 })
+        const controls = globeRef.current.controls()
+        if (controls) {
+          controls.enabled = true
+          controls.autoRotate = true
+          controls.autoRotateSpeed = 0.35
+        }
+      }
+      setIntroPlaying(false)
+    }
+    window.addEventListener("skipGlobeIntro", doSkip, { once: true })
+    return () => window.removeEventListener("skipGlobeIntro", doSkip)
+  }, [])
 
   // Load Globe.gl from CDN
   useEffect(() => {
@@ -216,18 +237,18 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
         }
       }, 100)
 
-      // Listen for skip event from page
-      window.addEventListener("skipGlobeIntro", () => {
-        introRef.current = true
-        globeRef.current?.pointOfView({ lat: 38, lng: -97, altitude: 1.5 })
-        const controls = globeRef.current?.controls()
+      // Listen for skip event from page (applied immediately if skip was already requested)
+      if (skipRequestedRef.current) {
+        globe.pointOfView({ lat: 38, lng: -97, altitude: 1.5 })
+        const controls = globe.controls()
         if (controls) {
           controls.enabled = true
           controls.autoRotate = true
           controls.autoRotateSpeed = 0.35
         }
         setIntroPlaying(false)
-      }, { once: true })
+        return
+      }
 
       // ── CINEMATIC INTRO ──────────────────────────────────
       setTimeout(() => {
@@ -257,6 +278,7 @@ export function GlobeWrapper({ marketData, selectedCountry, onCountrySelect, sho
         const ease = (t: number) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
 
         const tick = (now: number) => {
+          if (skipRequestedRef.current) return  // Abort mid-animation if skip was requested
           const elapsed = now - start
           const rawT = Math.min(elapsed / DURATION, 1)
           const t = ease(rawT)

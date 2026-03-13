@@ -39,7 +39,7 @@ async function fetchIMFDebt(): Promise<Record<string, number>> {
   const res = await fetch(url, { signal: AbortSignal.timeout(20000) })
   if (!res.ok) throw new Error(`IMF API ${res.status}`)
   const json = await res.json()
-  const values = json?.values?.GGXWDG_NGDP ?? {}
+  const values: Record<string, Record<string, number>> = json?.GGXWDG_NGDP ?? json?.values?.GGXWDG_NGDP ?? {}
   const result: Record<string, number> = {}
   // IMF API already returns ISO3 codes — use them directly
   const AGGREGATE_CODES = new Set([

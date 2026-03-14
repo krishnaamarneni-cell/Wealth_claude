@@ -96,15 +96,25 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{
           __html: `
-            // Suppress harmless Three.js multiple instances warning from globe.gl
+            // Suppress globe.gl Three.js warnings
             const originalWarn = console.warn;
+            const originalError = console.error;
+            
+            function shouldSuppress(msg) {
+              const str = String(msg || '');
+              return str.includes('Multiple instances of Three.js') || 
+                     str.includes('multiple instances') ||
+                     (str.includes('WebGLRenderer') && str.includes('useLegacyLights'));
+            }
+            
             console.warn = function(...args) {
-              const message = String(args[0] || '');
-              if (message.includes('Multiple instances of Three.js') || 
-                  message.includes('multiple instances')) {
-                return;
-              }
+              if (args.some(shouldSuppress)) return;
               originalWarn.apply(console, args);
+            };
+            
+            console.error = function(...args) {
+              if (args.some(shouldSuppress)) return;
+              originalError.apply(console, args);
             };
           `
         }} />

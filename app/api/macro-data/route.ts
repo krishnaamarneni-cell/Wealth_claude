@@ -59,23 +59,28 @@ async function fetchIMFDebt(): Promise<Record<string, number>> {
 }
 
 export async function GET() {
-  const { data: cached } = await supabase
-    .from("macro_cache")
-    .select("data, fetched_at")
-    .eq("id", 1)
-    .single()
-
-  if (cached?.fetched_at) {
-    const age = Date.now() - new Date(cached.fetched_at).getTime()
-    if (age < CACHE_MS && cached.data) {
-      return NextResponse.json(
-        { data: cached.data, fetchedAt: cached.fetched_at, cached: true },
-        { headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=7200" } }
-      )
-    }
-  }
-
+  console.log("[macro-data] Request received")
+  
   try {
+    const { data: cached } = await supabase
+      .from("macro_cache")
+      .select("data, fetched_at")
+      .eq("id", 1)
+      .single()
+
+    if (cached?.fetched_at) {
+      const age = Date.now() - new Date(cached.fetched_at).getTime()
+      console.log("[macro-data] Cache age:", Math.round(age / 1000), "seconds")
+      if (age < CACHE_MS && cached.data) {
+        console.log("[macro-data] Returning cached data")
+        return NextResponse.json(
+          { data: cached.data, fetchedAt: cached.fetched_at, cached: true },
+          { headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=7200" } }
+        )
+      }
+    }
+
+    console.log("[macro-data] Cache miss or stale, fetching fresh data...")
     const [inflation, gdpGrowth, gdp, unemployment, debtToGdp] = await Promise.all([
       fetchWB(WB_INDICATORS.inflation),
       fetchWB(WB_INDICATORS.gdpGrowth),
@@ -84,21 +89,39 @@ export async function GET() {
       fetchIMFDebt(),
     ])
 
+    console.log("[macro-data] Data fetched - inflation:", Object.keys(inflation).length, "countries")
+
     const data = { inflation, gdpGrowth, gdp, unemployment, debtToGdp }
     const fetchedAt = new Date().toISOString()
 
     await supabase.from("macro_cache").upsert({ id: 1, data, fetched_at: fetchedAt })
+    console.log("[macro-data] Data cached successfully")
 
     return NextResponse.json(
       { data, fetchedAt, cached: false },
       { headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=7200" } }
     )
-  } catch {
-    if (cached?.data) {
-      return NextResponse.json(
-        { data: cached.data, fetchedAt: cached.fetched_at, cached: true, stale: true }
-      )
+  } catch (error) {
+    console.error("[macro-data] Error:", error instanceof Error ? error.message : error)
+    
+    // Try to return stale cache
+    try {
+      const { data: cached } = await supabase
+        .from("macro_cache")
+        .select("data, fetched_at")
+        .eq("id", 1)
+        .single()
+      
+      if (cached?.data) {
+        console.log("[macro-data] Returning stale cached data due to error")
+        return NextResponse.json(
+          { data: cached.data, fetchedAt: cached.fetched_at, cached: true, stale: true }
+        )
+      }
+    } catch (cacheError) {
+      console.error("[macro-data] Cache fallback failed:", cacheError)
     }
+
     return NextResponse.json({ error: "Failed to fetch macro data" }, { status: 500 })
   }
 }

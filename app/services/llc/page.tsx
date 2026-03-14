@@ -1017,13 +1017,13 @@ export default function LLCServicePage() {
                       <Zap className="w-5 h-5" />
                       Take FIRE Score Test
                     </Link>
-                    <Link
-                      href="/book"
+                    <button
+                      onClick={() => setIsBookCallOpen(true)}
                       className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold px-8 py-4 rounded-xl transition-colors"
                     >
                       <Briefcase className="w-5 h-5" />
                       Book Free Strategy Call
-                    </Link>
+                    </button>
                   </div>
 
                   <p className="text-white/40 text-sm mt-6">
@@ -1114,6 +1114,11 @@ export default function LLCServicePage() {
           </div>
         </section>
       </main>
+      {/* Book Call Modal */}
+      <BookCallModal
+        isOpen={isBookCallOpen}
+        onClose={() => setIsBookCallOpen(false)}
+      />
     </div>
   );
 }

@@ -222,10 +222,22 @@ export function MacroMapWrapper() {
 
   // Fetch data
   useEffect(() => {
+    console.log("[v0] MacroMapWrapper: fetching /api/macro-data")
     fetch("/api/macro-data")
-      .then(r => r.json())
-      .then(j => { setData(j.data); setLoading(false) })
-      .catch(() => setLoading(false))
+      .then(r => {
+        console.log("[v0] Response status:", r.status)
+        return r.json()
+      })
+      .then(j => {
+        console.log("[v0] API response keys:", Object.keys(j))
+        console.log("[v0] Response data structure:", j.data ? Object.keys(j.data) : "no data")
+        setData(j.data)
+        setLoading(false)
+      })
+      .catch(err => {
+        console.error("[v0] Fetch error:", err.message)
+        setLoading(false)
+      })
   }, [])
 
   // Init map

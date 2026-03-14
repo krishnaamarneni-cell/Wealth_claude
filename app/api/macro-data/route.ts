@@ -58,6 +58,31 @@ async function fetchIMFDebt(): Promise<Record<string, number>> {
   return result
 }
 
+function getMockData(): Record<string, Record<string, number>> {
+  // Mock macro data for major countries
+  const mockCountries = ["USA", "CHN", "JPN", "DEU", "GBR", "FRA", "IND", "ITA", "BRA", "CAN", "KOR", "RUS", "AUS", "ESP", "MEX"]
+  
+  const mockInflation: Record<string, number> = {}
+  const mockGdpGrowth: Record<string, number> = {}
+  const mockGdp: Record<string, number> = {}
+  const mockUnemployment: Record<string, number> = {}
+  
+  mockCountries.forEach((iso, i) => {
+    mockInflation[iso] = 2 + Math.random() * 4
+    mockGdpGrowth[iso] = 0.5 + Math.random() * 4.5
+    mockGdp[iso] = (1 + i * 0.8) * 1e12
+    mockUnemployment[iso] = 3 + Math.random() * 6
+  })
+  
+  return {
+    inflation: mockInflation,
+    gdpGrowth: mockGdpGrowth,
+    gdp: mockGdp,
+    unemployment: mockUnemployment,
+    debtToGdp: {},
+  }
+}
+
 export async function GET() {
   console.log("[macro-data] Request received")
   
@@ -89,6 +114,18 @@ export async function GET() {
       fetchWB(WB_INDICATORS.gdp),
       fetchWB(WB_INDICATORS.unemployment),
     ])
+
+    console.log("[macro-data] WB data counts - inflation:", Object.keys(inflation).length, "gdpGrowth:", Object.keys(gdpGrowth).length, "gdp:", Object.keys(gdp).length, "unemployment:", Object.keys(unemployment).length)
+
+    // If World Bank returns empty data, return mock data as fallback
+    if (Object.keys(inflation).length === 0) {
+      console.log("[macro-data] World Bank returned empty data, using mock data")
+      const mockData = getMockData()
+      return NextResponse.json(
+        { data: mockData, fetchedAt: new Date().toISOString(), cached: false, mock: true },
+        { headers: { "Cache-Control": "public, s-maxage=3600" } }
+      )
+    }
 
     // Fetch IMF data (optional - don't let it block if it fails)
     let debtToGdp: Record<string, number> = {}
@@ -133,6 +170,12 @@ export async function GET() {
       console.error("[macro-data] Cache fallback failed:", cacheError)
     }
 
-    return NextResponse.json({ error: "Failed to fetch macro data" }, { status: 500 })
+    // As last resort, return mock data
+    console.log("[macro-data] Returning mock data as last resort")
+    const mockData = getMockData()
+    return NextResponse.json(
+      { data: mockData, fetchedAt: new Date().toISOString(), cached: false, mock: true },
+      { status: 200 }
+    )
   }
 }

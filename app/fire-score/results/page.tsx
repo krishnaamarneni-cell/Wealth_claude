@@ -244,17 +244,19 @@ export default function FireScoreResults() {
       doc.setFontSize(7);
       doc.text("YOUR FIRE SCORE", 155, y + 8, { align: "center" });
 
-      // Score number and /100 on same line, centered
+      // Score number and /100 together
+      const scoreNum = String(result?.score || 0);
       doc.setTextColor(...white);
-      doc.setFontSize(28);
+      doc.setFontSize(26);
       doc.setFont("helvetica", "bold");
-      const scoreText = String(result?.score || 0);
-      doc.text(scoreText, 140, y + 24, { align: "center" });
+      doc.text(scoreNum, 135, y + 24);
 
       doc.setTextColor(...grayLight);
       doc.setFontSize(12);
       doc.setFont("helvetica", "normal");
-      doc.text("/100", 158, y + 24);
+      // Position /100 right after the score number
+      const scoreWidth = doc.getTextWidth(scoreNum);
+      doc.text("/100", 135 + scoreWidth + 2, y + 24);
 
       // Percentile badge - centered at bottom
       const percentileText = getPercentile(result?.score || 0).toUpperCase();
@@ -347,10 +349,11 @@ export default function FireScoreResults() {
         doc.setLineWidth(0.5);
         doc.circle(28, yPos + 14, 8, 'S');
 
+        // Number text - centered in circle
         doc.setTextColor(...color);
-        doc.setFontSize(10);
+        doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
-        doc.text(num, 28, yPos + 17, { align: "center" });
+        doc.text(num, 28, yPos + 15, { align: "center" });
 
         // Title
         doc.setTextColor(...darkText);

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, useMemo } from "react"
+import { useEffect, useState, useCallback, useMemo, useSearchParams } from "react"
 import {
   LineChart, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, Legend,
@@ -350,7 +350,11 @@ const TABLE_TITLE: Record<TabKey, string> = {
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 export function MarketsWrapper() {
-  const [tab, setTab] = useState<TabKey>("countries")
+  const searchParams = useSearchParams()
+  const tabParam = searchParams?.get("tab") as TabKey | null
+  const initialTab: TabKey = (tabParam === "sectors" || tabParam === "assets") ? tabParam : "countries"
+  
+  const [tab, setTab] = useState<TabKey>(initialTab)
   const [data, setData] = useState<ComparisonData | null>(null)
   const [loading, setLoading] = useState(true)
   const [sortCol, setSortCol] = useState<SortCol>("r1y")

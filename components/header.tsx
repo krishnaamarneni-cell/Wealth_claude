@@ -28,8 +28,8 @@ const PRODUCTS_TOOLS = [
 const MARKETS_ITEMS = [
   { icon: Newspaper, title: "Global News", href: "/news", desc: "AI-summarised market news" },
   { icon: CalendarDays, title: "Economic Calendar", href: "/calendar", desc: "Earnings, IPOs, macro events" },
-  { icon: TrendingUp, title: "Sector Performance", href: "/markets", desc: "11 sectors — 1Y/3Y/5Y returns" },
-  { icon: BarChart3, title: "Asset Classes", href: "/markets", desc: "Gold, bonds, equities & more" },
+  { icon: TrendingUp, title: "Sector Performance", href: "/markets?tab=sectors", desc: "11 sectors — 1Y/3Y/5Y returns" },
+  { icon: BarChart3, title: "Asset Classes", href: "/markets?tab=assets", desc: "Gold, bonds, equities & more" },
 ]
 
 const BROKERS_FEATURED = [

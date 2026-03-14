@@ -49,7 +49,7 @@ const MORE_ITEMS = [
   { icon: HelpCircle, title: "FAQ", href: "/#faq", badge: null },
   { icon: Briefcase, title: "Careers", href: "/careers", badge: null },
   { icon: Info, title: "About", href: "/about", badge: null },
-  { icon: Zap, title: "Services", href: "/services", badge: "Soon" },
+  { icon: Zap, title: "Services", href: "/services", badge: null },
 ]
 
 // ── Badge ─────────────────────────────────────────────────────────────────────

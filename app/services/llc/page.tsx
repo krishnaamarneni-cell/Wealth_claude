@@ -83,6 +83,7 @@ const faqs = [
 
 export default function LLCServicePage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [isBookCallOpen, setIsBookCallOpen] = useState(false);
   const [showSimulation, setShowSimulation] = useState(false);
 
   return (

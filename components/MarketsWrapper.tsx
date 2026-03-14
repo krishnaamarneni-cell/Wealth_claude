@@ -419,7 +419,7 @@ export function MarketsWrapper() {
 
   return (
     <div style={{
-      height: "100%",
+      height: "calc(100dvh - 64px)", // Account for header (pt-16 = 64px)
       background: "#060a10",
       display: "flex",
       flexDirection: "column",

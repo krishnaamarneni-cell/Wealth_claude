@@ -217,47 +217,53 @@ export default function FireScoreResults() {
       // ========== CLIENT INFO BOX ==========
       let y = 52;
       doc.setFillColor(...white);
-      doc.roundedRect(15, y, 85, 38, 3, 3, 'F');
+      doc.roundedRect(15, y, 90, 38, 3, 3, 'F');
 
       doc.setTextColor(...grayText);
       doc.setFontSize(8);
       doc.text("PREPARED FOR", 20, y + 10);
 
       doc.setTextColor(...darkText);
-      doc.setFontSize(14);
+      doc.setFontSize(13);
       doc.setFont("helvetica", "bold");
-      doc.text(result?.name || "Client", 20, y + 22);
+      const clientName = result?.name || "Client";
+      doc.text(clientName.length > 14 ? clientName.substring(0, 14) + "..." : clientName, 20, y + 22);
 
       doc.setFont("helvetica", "normal");
       doc.setTextColor(...grayLight);
-      doc.setFontSize(8);
-      doc.text(result?.email || "", 20, y + 30);
+      doc.setFontSize(7);
+      const clientEmail = result?.email || "";
+      doc.text(clientEmail.length > 20 ? clientEmail.substring(0, 20) + "..." : clientEmail, 20, y + 30);
 
       // ========== SCORE BOX ==========
       doc.setFillColor(...navy);
-      doc.roundedRect(110, y, 85, 38, 3, 3, 'F');
+      doc.roundedRect(115, y, 80, 38, 3, 3, 'F');
 
+      // Score label - centered at top
       doc.setTextColor(...emerald);
-      doc.setFontSize(8);
-      doc.text("YOUR FIRE SCORE", 152, y + 10, { align: "center" });
+      doc.setFontSize(7);
+      doc.text("YOUR FIRE SCORE", 155, y + 8, { align: "center" });
 
+      // Score number and /100 on same line, centered
       doc.setTextColor(...white);
       doc.setFontSize(28);
       doc.setFont("helvetica", "bold");
-      doc.text(String(result?.score || 0), 140, y + 28);
+      const scoreText = String(result?.score || 0);
+      doc.text(scoreText, 140, y + 24, { align: "center" });
 
-      doc.setTextColor(...grayText);
+      doc.setTextColor(...grayLight);
       doc.setFontSize(12);
       doc.setFont("helvetica", "normal");
-      doc.text("/100", 160, y + 28);
+      doc.text("/100", 158, y + 24);
 
-      // Percentile badge
+      // Percentile badge - centered at bottom
+      const percentileText = getPercentile(result?.score || 0).toUpperCase();
       doc.setFillColor(...emerald);
-      doc.roundedRect(170, y + 18, 22, 10, 5, 5, 'F');
+      doc.roundedRect(130, y + 28, 50, 8, 4, 4, 'F');
       doc.setTextColor(...white);
       doc.setFontSize(6);
       doc.setFont("helvetica", "bold");
-      doc.text("TOP 30%", 181, y + 25, { align: "center" });
+      doc.text(percentileText, 155, y + 33, { align: "center" });
 
       // ========== TIMELINE SECTION ==========
       y = 98;
@@ -361,7 +367,7 @@ export default function FireScoreResults() {
         // Action
         doc.setTextColor(...emerald);
         doc.setFontSize(7);
-        doc.text("→ " + action, 42, yPos + 25);
+        doc.text("> " + action, 42, yPos + 25);
 
         // Priority badge
         doc.setFillColor(...bgColor);
@@ -416,7 +422,7 @@ export default function FireScoreResults() {
 
       doc.setTextColor(...emerald);
       doc.setFontSize(10);
-      doc.text("Book Free Call → wealthclaude.com/book", pageWidth / 2, y + 20, { align: "center" });
+      doc.text("Book Free Call > wealthclaude.com/book", pageWidth / 2, y + 20, { align: "center" });
 
       // ========== QUOTE SECTION ==========
       y = y + 32;

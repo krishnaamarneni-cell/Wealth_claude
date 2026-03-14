@@ -89,8 +89,8 @@ function DropdownWrapper({
     >
       <button
         className={`flex items-center gap-1 text-sm transition-colors h-16 px-3 border-b-2 ${open
-            ? "text-foreground border-primary"
-            : "text-muted-foreground hover:text-foreground border-transparent"
+          ? "text-foreground border-primary"
+          : "text-muted-foreground hover:text-foreground border-transparent"
           }`}
       >
         {label}
@@ -291,8 +291,8 @@ export function Header() {
   return (
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled
-          ? "bg-background/90 backdrop-blur-xl border-b border-border"
-          : "bg-transparent"
+        ? "bg-background/90 backdrop-blur-xl border-b border-border"
+        : "bg-transparent"
         }`}
     >
       <nav className="container mx-auto px-6 flex items-center justify-between">

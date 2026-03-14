@@ -586,9 +586,9 @@ export default function ServicesPage() {
                       <Star key={i} className="w-4 h-4 fill-primary text-primary" />
                     ))}
                   </div>
-                </div>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           </div>
         </section>
 
@@ -596,7 +596,13 @@ export default function ServicesPage() {
         <section className="py-20 px-4 relative">
           <div className="absolute inset-0 bg-gradient-to-t from-primary/10 via-transparent to-transparent" />
           <div className="max-w-3xl mx-auto text-center relative z-10">
-            <div className={animationClasses.scaleIn + " relative mb-12"}>
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={scaleIn}
+              className="relative mb-12"
+            >
               <h2 className="text-3xl md:text-5xl font-bold mb-6">
                 Ready to Escape the Stuck Zone?
               </h2>
@@ -618,7 +624,7 @@ export default function ServicesPage() {
               <p className="text-white/40 text-sm mt-6">
                 No credit card required • Takes 2 minutes • Get instant results
               </p>
-            </div>
+            </motion.div>
           </div>
         </section>
 

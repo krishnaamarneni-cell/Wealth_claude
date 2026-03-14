@@ -15,83 +15,88 @@ interface MarketsMapProps {
   countries: CountryData[]
   selectedCountry: string | null
   onCountrySelect: (isoA3: string | null) => void
-  periodLabel: string // "1Y", "3Y", or "5Y"
+  periodLabel: string
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// COLOR SCALE (matches your table styling)
+// COLOR SCALE
 // ─────────────────────────────────────────────────────────────────────────────
 function pctToColor(pct: number): string {
-  if (pct >= 50) return "#22c55e"  // Strong green
-  if (pct >= 30) return "#4ade80"  // Green
-  if (pct >= 15) return "#86efac"  // Light green
-  if (pct >= 5) return "#a7f3d0"   // Very light green
-  if (pct >= 0) return "#6ee7b7"   // Teal green
-  if (pct >= -10) return "#fca5a5" // Light red
-  if (pct >= -25) return "#f87171" // Red
-  return "#ef4444"                  // Strong red
+  if (pct >= 50) return "#22c55e"
+  if (pct >= 30) return "#4ade80"
+  if (pct >= 15) return "#86efac"
+  if (pct >= 5) return "#a7f3d0"
+  if (pct >= 0) return "#6ee7b7"
+  if (pct >= -10) return "#fca5a5"
+  if (pct >= -25) return "#f87171"
+  return "#ef4444"
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SYMBOL → ISO A3 MAPPING
+// SYMBOL → ISO A3 MAPPING (51 countries)
 // ─────────────────────────────────────────────────────────────────────────────
-const SYMBOL_TO_ISO: Record<string, string> = {
+export const SYMBOL_TO_ISO: Record<string, string> = {
+  // Americas
   "^GSPC": "USA",
-  "^IXIC": "USA",
+  "^GSPTSE": "CAN",
+  "^MXX": "MEX",
+  "^BVSP": "BRA",
+  "^MERV": "ARG",
+  "^IPSA": "CHL",
+  "^SPCOSLCP": "COL",
+  "^SPBLPGPT": "PER",
+
+  // Europe
   "^FTSE": "GBR",
   "^GDAXI": "DEU",
   "^FCHI": "FRA",
-  "^N225": "JPN",
-  "^HSI": "HKG",
-  "^AXJO": "AUS",
-  "^BSESN": "IND",
-  "^KS11": "KOR",
-  // Add more as needed
-  "^STOXX50E": "EUR",
+  "FTSEMIB.MI": "ITA",
   "^IBEX": "ESP",
-  "^SSMI": "CHE",
   "^AEX": "NLD",
-  "^FTSEMIB": "ITA",
-  "^BVSP": "BRA",
-  "^MXX": "MEX",
-  "^GSPTSE": "CAN",
+  "^SSMI": "CHE",
+  "^OMX": "SWE",
+  "OSEBX.OL": "NOR",
+  "^OMXC25": "DNK",
+  "^OMXH25": "FIN",
+  "^BFX": "BEL",
+  "^ATX": "AUT",
+  "PSI20.LS": "PRT",
+  "GD.AT": "GRC",
+  "WIG20.WA": "POL",
+  "FPXAA.PR": "CZE",
+  "^BUX.BD": "HUN",
+  "^BET.RO": "ROU",
+  "^XU100": "TUR",
+  "IMOEX.ME": "RUS",
+  "^OMXT": "EST",
+  "^OMXR": "LVA",
+  "^OMXV": "LTU",
+
+  // Asia-Pacific
+  "^N225": "JPN",
   "000001.SS": "CHN",
+  "^HSI": "HKG",
+  "^NSEI": "IND",
+  "^KS11": "KOR",
+  "^AXJO": "AUS",
+  "^NZ50": "NZL",
+  "^TWII": "TWN",
   "^STI": "SGP",
   "^KLSE": "MYS",
-  "^TWII": "TWN",
-  "^NZ50": "NZL",
+  "^SET.BK": "THA",
+  "^JKSE": "IDN",
+  "PSEI.PS": "PHL",
+  "^VNINDEX.VN": "VNM",
+
+  // Middle East & Africa
+  "^TASI.SR": "SAU",
+  "FADGI.FGI": "ARE",
   "^TA125.TA": "ISR",
-  "^TASI": "SAU",
+  "^J203.JO": "ZAF",
+  "^CASE30": "EGY",
 }
 
-// ISO A3 → Country name for labels on map
-const ISO_TO_NAME: Record<string, string> = {
-  USA: "United States",
-  GBR: "United Kingdom",
-  DEU: "Germany",
-  FRA: "France",
-  JPN: "Japan",
-  HKG: "Hong Kong",
-  AUS: "Australia",
-  IND: "India",
-  KOR: "South Korea",
-  CHN: "China",
-  BRA: "Brazil",
-  CAN: "Canada",
-  ITA: "Italy",
-  ESP: "Spain",
-  CHE: "Switzerland",
-  NLD: "Netherlands",
-  MEX: "Mexico",
-  SGP: "Singapore",
-  MYS: "Malaysia",
-  TWN: "Taiwan",
-  NZL: "New Zealand",
-  ISR: "Israel",
-  SAU: "Saudi Arabia",
-}
-
-// Countries without major exchanges (gray them out)
+// Countries without major exchanges
 const NO_EXCHANGE_COUNTRIES = new Set([
   "AFG", "PRK", "SOM", "SSD", "SYR", "YEM", "ERI", "TKM", "CUB",
   "GRL", "ATA", "SJM", "ATF", "IOT", "HMD", "SGS", "BVT", "UMI",
@@ -138,20 +143,12 @@ export function MarketsMap({
   const geoDataRef = useRef<any>(null)
   const dataRef = useRef<CountryData[]>(countries)
 
-  // Keep data ref updated
   dataRef.current = countries
-
-  // Build lookup: ISO A3 → CountryData
-  const dataLookup: Record<string, CountryData> = {}
-  for (const c of countries) {
-    dataLookup[c.isoA3] = c
-  }
 
   useEffect(() => {
     if (typeof window === "undefined" || !containerRef.current) return
     if (mapRef.current) return
 
-    // Inject styles
     if (!document.getElementById("markets-map-styles")) {
       const style = document.createElement("style")
       style.id = "markets-map-styles"
@@ -160,7 +157,6 @@ export function MarketsMap({
     }
 
     const init = async () => {
-      // Load Leaflet CSS
       if (!document.getElementById("leaflet-css")) {
         const link = document.createElement("link")
         link.id = "leaflet-css"
@@ -169,7 +165,6 @@ export function MarketsMap({
         document.head.appendChild(link)
       }
 
-      // Load Leaflet JS
       if (!(window as any).L) {
         await new Promise<void>((res, rej) => {
           const s = document.createElement("script")
@@ -183,7 +178,6 @@ export function MarketsMap({
       const L = (window as any).L
       if (!L || !containerRef.current) return
 
-      // Create map
       const map = L.map(containerRef.current, {
         center: [30, 0],
         zoom: 2,
@@ -199,7 +193,6 @@ export function MarketsMap({
       L.control.zoom({ position: "bottomleft" }).addTo(map)
       mapRef.current = map
 
-      // Fetch GeoJSON
       let geoData: any
       try {
         const res = await fetch(
@@ -226,7 +219,6 @@ export function MarketsMap({
     }
   }, [])
 
-  // Re-render when data or selection changes
   useEffect(() => {
     const L = (window as any).L
     if (!L || !mapRef.current || !geoDataRef.current) return
@@ -235,7 +227,7 @@ export function MarketsMap({
 
   return (
     <div style={{ width: "100%", height: "100%", background: "#060a10", position: "relative" }}>
-      {/* Period label overlay */}
+      {/* Period label */}
       <div style={{
         position: "absolute",
         top: 16,
@@ -301,12 +293,10 @@ function renderMap(
   selectedCountry: string | null,
   onCountrySelect: (iso: string | null) => void
 ) {
-  // Remove existing layers
   if ((map as any)._marketsLayer) {
     map.removeLayer((map as any)._marketsLayer)
   }
 
-  // Build lookup
   const dataLookup: Record<string, CountryData> = {}
   for (const c of countries) {
     dataLookup[c.isoA3] = c
@@ -319,7 +309,7 @@ function renderMap(
       const noExchange = NO_EXCHANGE_COUNTRIES.has(iso)
       const countryData = dataLookup[iso]
 
-      let fillColor = "#1e2533" // Default gray for no data
+      let fillColor = "#1e2533"
       if (countryData) {
         fillColor = pctToColor(countryData.changePct)
       }
@@ -337,7 +327,6 @@ function renderMap(
       const countryData = dataLookup[iso]
       const noExchange = NO_EXCHANGE_COUNTRIES.has(iso)
 
-      // Tooltip HTML
       let tooltipHtml: string
       if (countryData) {
         const pct = countryData.changePct
@@ -398,14 +387,12 @@ function renderMap(
         className: "markets-tooltip",
       })
 
-      // Click handler
       featureLayer.on("click", () => {
         if (countryData) {
           onCountrySelect(iso === selectedCountry ? null : iso)
         }
       })
 
-      // Hover effects
       featureLayer.on("mouseover", () => {
         if (iso !== selectedCountry && countryData) {
           featureLayer.setStyle({
@@ -453,5 +440,3 @@ export function returnsToCountryData(
 
   return result
 }
-
-export { SYMBOL_TO_ISO }

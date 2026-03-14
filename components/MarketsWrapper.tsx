@@ -1,11 +1,11 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import {
   LineChart, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, Legend,
 } from "recharts"
-import { Loader2, TrendingUp, TrendingDown, Minus } from "lucide-react"
+import { Loader2, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronRight } from "lucide-react"
 import { MarketsMap, returnsToCountryData, SYMBOL_TO_ISO } from "./MarketsMap"
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -18,6 +18,7 @@ interface ReturnRow {
   symbol: string
   safeKey: string
   label: string
+  region?: string | null
   r1y: number | null
   r3y: number | null
   r5y: number | null
@@ -26,7 +27,13 @@ interface ReturnRow {
 interface ComparisonData {
   chartData: Record<string, number | string>[]
   returns: ReturnRow[]
-  items: { symbol: string; safeKey: string; label: string }[]
+  items: { symbol: string; safeKey: string; label: string; region?: string | null }[]
+}
+
+interface RegionGroup {
+  name: string
+  avgReturn: number
+  countries: ReturnRow[]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -60,8 +67,44 @@ function fmtChartDate(dateStr: string): string {
   return d.toLocaleDateString("en-US", { month: "short", year: "2-digit", timeZone: "UTC" })
 }
 
+/** Group countries by region and sort by average return */
+function groupByRegion(returns: ReturnRow[], sortCol: SortCol): RegionGroup[] {
+  const regionMap: Record<string, ReturnRow[]> = {}
+
+  for (const row of returns) {
+    const region = row.region ?? "Other"
+    if (!regionMap[region]) regionMap[region] = []
+    regionMap[region].push(row)
+  }
+
+  const groups: RegionGroup[] = []
+
+  for (const [name, countries] of Object.entries(regionMap)) {
+    // Calculate average return for this region
+    const validReturns = countries
+      .map(c => c[sortCol])
+      .filter((v): v is number => v != null)
+
+    const avgReturn = validReturns.length > 0
+      ? validReturns.reduce((a, b) => a + b, 0) / validReturns.length
+      : -Infinity
+
+    // Sort countries within region by return (highest first)
+    const sortedCountries = [...countries].sort((a, b) =>
+      (b[sortCol] ?? -Infinity) - (a[sortCol] ?? -Infinity)
+    )
+
+    groups.push({ name, avgReturn, countries: sortedCountries })
+  }
+
+  // Sort regions by average return (highest first)
+  groups.sort((a, b) => b.avgReturn - a.avgReturn)
+
+  return groups
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// BOTTOM STATS — best, worst, avg for the selected column
+// BOTTOM STATS
 // ─────────────────────────────────────────────────────────────────────────────
 function BottomStats({ returns, col, tab }: { returns: ReturnRow[]; col: SortCol; tab: TabKey }) {
   const values = returns.map(r => r[col]).filter((v): v is number => v != null)
@@ -76,9 +119,9 @@ function BottomStats({ returns, col, tab }: { returns: ReturnRow[]; col: SortCol
   const colLabel = col === "r1y" ? "1Y" : col === "r3y" ? "3Y" : "5Y"
 
   const tabInfo: Record<TabKey, string> = {
-    sectors: "SPDR ETF sector data via Yahoo Finance. Returns based on weekly closes, normalized to 100 at common start date.",
+    sectors: "SPDR ETF sector data via Yahoo Finance. Returns based on weekly closes.",
     countries: "Major global index data via Yahoo Finance. Returns based on weekly closes.",
-    assets: "ETF proxies: GLD (gold), SLV (silver), USO (crude oil), TLT (20Y bonds), BTC-USD, ETH-USD. Via Yahoo Finance.",
+    assets: "ETF proxies via Yahoo Finance. Returns based on weekly closes.",
   }
 
   return (
@@ -92,7 +135,6 @@ function BottomStats({ returns, col, tab }: { returns: ReturnRow[]; col: SortCol
       background: "#070c14",
       flexWrap: "wrap",
     }}>
-      {/* Best */}
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <TrendingUp size={13} color="#4ade80" />
         <span style={{ fontSize: 11, color: "#475569" }}>Best {colLabel}:</span>
@@ -100,7 +142,6 @@ function BottomStats({ returns, col, tab }: { returns: ReturnRow[]; col: SortCol
         <span style={{ fontSize: 12, color: "#4ade80" }}>{fmtPct(best[col])}</span>
       </div>
 
-      {/* Worst */}
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <TrendingDown size={13} color="#f87171" />
         <span style={{ fontSize: 11, color: "#475569" }}>Worst {colLabel}:</span>
@@ -108,7 +149,6 @@ function BottomStats({ returns, col, tab }: { returns: ReturnRow[]; col: SortCol
         <span style={{ fontSize: 12, color: "#f87171" }}>{fmtPct(worst[col])}</span>
       </div>
 
-      {/* Avg */}
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <Minus size={13} color="#64748b" />
         <span style={{ fontSize: 11, color: "#475569" }}>Avg {colLabel}:</span>
@@ -117,7 +157,6 @@ function BottomStats({ returns, col, tab }: { returns: ReturnRow[]; col: SortCol
         </span>
       </div>
 
-      {/* Positive/Negative count */}
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <span style={{ fontSize: 11, color: "#475569" }}>Positive:</span>
         <span style={{ fontSize: 12, fontWeight: 600, color: "#4ade80" }}>{pos}</span>
@@ -126,10 +165,8 @@ function BottomStats({ returns, col, tab }: { returns: ReturnRow[]; col: SortCol
         <span style={{ fontSize: 11, color: "#475569" }}>negative</span>
       </div>
 
-      {/* Spacer */}
       <div style={{ flex: 1 }} />
 
-      {/* Source note */}
       <span style={{ fontSize: 10, color: "#1e293b", maxWidth: 340, textAlign: "right" }}>
         {tabInfo[tab]}
       </span>
@@ -138,7 +175,7 @@ function BottomStats({ returns, col, tab }: { returns: ReturnRow[]; col: SortCol
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CUSTOM TOOLTIP
+// CHART TOOLTIP
 // ─────────────────────────────────────────────────────────────────────────────
 function ChartTooltip({ active, payload, label, labelMap }: {
   active?: boolean
@@ -167,6 +204,134 @@ function ChartTooltip({ active, payload, label, labelMap }: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// REGION SECTION (collapsible)
+// ─────────────────────────────────────────────────────────────────────────────
+function RegionSection({
+  region,
+  sortCol,
+  selectedCountry,
+  onCountrySelect,
+  expanded,
+  onToggle,
+}: {
+  region: RegionGroup
+  sortCol: SortCol
+  selectedCountry: string | null
+  onCountrySelect: (iso: string | null) => void
+  expanded: boolean
+  onToggle: () => void
+}) {
+  const avgColor = region.avgReturn >= 0 ? "#4ade80" : "#f87171"
+
+  return (
+    <div>
+      {/* Region Header */}
+      <button
+        onClick={onToggle}
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "12px 24px",
+          background: "#0a0f16",
+          border: "none",
+          borderBottom: "1px solid #1e293b",
+          cursor: "pointer",
+          transition: "background 0.1s",
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = "#0d1219"}
+        onMouseLeave={e => e.currentTarget.style.background = "#0a0f16"}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {expanded ? (
+            <ChevronDown size={16} color="#64748b" />
+          ) : (
+            <ChevronRight size={16} color="#64748b" />
+          )}
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>
+            {region.name}
+          </span>
+          <span style={{ fontSize: 11, color: "#475569" }}>
+            ({region.countries.length})
+          </span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 11, color: "#475569" }}>Avg:</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: avgColor }}>
+            {fmtPct(region.avgReturn)}
+          </span>
+        </div>
+      </button>
+
+      {/* Countries List */}
+      {expanded && (
+        <div>
+          {region.countries.map((row) => {
+            const iso = SYMBOL_TO_ISO[row.symbol]
+            const isSelected = iso === selectedCountry
+
+            return (
+              <div
+                key={row.symbol}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 80px 80px 80px",
+                  padding: "10px 24px 10px 44px",
+                  borderBottom: "1px solid #0a1018",
+                  alignItems: "center",
+                  transition: "background 0.1s",
+                  background: isSelected ? "rgba(0,230,118,0.08)" : "transparent",
+                  cursor: "pointer",
+                }}
+                onClick={() => {
+                  if (iso) onCountrySelect(iso === selectedCountry ? null : iso)
+                }}
+                onMouseEnter={e => {
+                  if (!isSelected) e.currentTarget.style.background = "#0a1018"
+                }}
+                onMouseLeave={e => {
+                  if (!isSelected) e.currentTarget.style.background = "transparent"
+                }}
+              >
+                <span style={{
+                  fontSize: 13,
+                  color: isSelected ? "#00e676" : "#e2e8f0",
+                  fontWeight: isSelected ? 600 : 400,
+                }}>
+                  {row.label}
+                </span>
+                {(["r1y", "r3y", "r5y"] as const).map(col => {
+                  const v = row[col]
+                  const { bg, text } = returnCellColor(v)
+                  return (
+                    <div key={col} style={{ display: "flex", justifyContent: "flex-end" }}>
+                      <span style={{
+                        display: "inline-block",
+                        padding: "3px 8px",
+                        borderRadius: 5,
+                        background: bg,
+                        color: text,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        minWidth: 64,
+                        textAlign: "center",
+                      }}>
+                        {fmtPct(v)}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // TABS CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
 const TABS: { key: TabKey; label: string }[] = [
@@ -190,6 +355,7 @@ export function MarketsWrapper() {
   const [loading, setLoading] = useState(true)
   const [sortCol, setSortCol] = useState<SortCol>("r1y")
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
+  const [expandedRegions, setExpandedRegions] = useState<Set<string>>(new Set())
 
   const fetchData = useCallback(async (t: TabKey) => {
     setLoading(true)
@@ -198,6 +364,12 @@ export function MarketsWrapper() {
       const res = await fetch(`/api/markets-comparison?tab=${t}`)
       const json = await res.json()
       setData(json)
+
+      // Auto-expand all regions on load
+      if (t === "countries" && json.returns) {
+        const regions = new Set(json.returns.map((r: ReturnRow) => r.region ?? "Other"))
+        setExpandedRegions(regions as Set<string>)
+      }
     } finally {
       setLoading(false)
     }
@@ -208,13 +380,29 @@ export function MarketsWrapper() {
   function switchTab(t: TabKey) {
     setTab(t)
     setSelectedCountry(null)
+    setExpandedRegions(new Set())
     fetchData(t)
   }
 
-  const handleCountrySelect = (isoA3: string | null) => {
-    setSelectedCountry(isoA3)
+  const toggleRegion = (regionName: string) => {
+    setExpandedRegions(prev => {
+      const next = new Set(prev)
+      if (next.has(regionName)) {
+        next.delete(regionName)
+      } else {
+        next.add(regionName)
+      }
+      return next
+    })
   }
 
+  // Group and sort regions (recalculates when sortCol changes)
+  const regionGroups = useMemo(() => {
+    if (!data || tab !== "countries") return []
+    return groupByRegion(data.returns, sortCol)
+  }, [data, sortCol, tab])
+
+  // Flat sorted list for non-countries tabs
   const sorted = data
     ? [...data.returns].sort((a, b) => ((b[sortCol] ?? -999) - (a[sortCol] ?? -999)))
     : []
@@ -223,11 +411,9 @@ export function MarketsWrapper() {
   const tickStep = Math.max(1, Math.floor(chartData.length / 6))
   const xTicks = chartData.filter((_, i) => i % tickStep === 0).map(d => d.date as string)
 
-  // Map safeKey → label for tooltip
   const labelMap: Record<string, string> = {}
   data?.items.forEach(item => { labelMap[item.safeKey] = item.label })
 
-  // Convert returns to country data for the map
   const countryData = data ? returnsToCountryData(data.returns, sortCol) : []
   const periodLabel = sortCol === "r1y" ? "1 Year" : sortCol === "r3y" ? "3 Year" : "5 Year"
 
@@ -291,15 +477,13 @@ export function MarketsWrapper() {
               position: "relative",
             }}>
               {tab === "countries" ? (
-                /* ── FLAT MAP FOR COUNTRIES ── */
                 <MarketsMap
                   countries={countryData}
                   selectedCountry={selectedCountry}
-                  onCountrySelect={handleCountrySelect}
+                  onCountrySelect={setSelectedCountry}
                   periodLabel={periodLabel}
                 />
               ) : (
-                /* ── LINE CHART FOR SECTORS & ASSETS ── */
                 <div style={{ padding: "20px 20px 12px 16px", display: "flex", flexDirection: "column", height: "100%" }}>
                   <div style={{ fontSize: 11, color: "#334155", marginBottom: 6, letterSpacing: "0.04em" }}>
                     NORMALIZED TO 100 — 5 YEAR PERFORMANCE
@@ -360,8 +544,9 @@ export function MarketsWrapper() {
               {/* Table header */}
               <div style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 90px 90px 90px",
+                gridTemplateColumns: tab === "countries" ? "1fr 80px 80px 80px" : "1fr 90px 90px 90px",
                 padding: "8px 24px",
+                paddingLeft: tab === "countries" ? "44px" : "24px",
                 borderBottom: "1px solid #1e293b",
                 position: "sticky", top: 0,
                 background: "#070c14", zIndex: 5,
@@ -381,70 +566,69 @@ export function MarketsWrapper() {
                 ))}
               </div>
 
-              {/* Rows */}
-              {sorted.map((row, i) => {
-                const colorIdx = data?.items.findIndex(it => it.symbol === row.symbol) ?? i
-                const iso = SYMBOL_TO_ISO[row.symbol]
-                const isSelected = tab === "countries" && iso === selectedCountry
-
-                return (
-                  <div
-                    key={row.symbol}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 90px 90px 90px",
-                      padding: "11px 24px",
-                      borderBottom: "1px solid #0a1018",
-                      alignItems: "center",
-                      transition: "background 0.1s",
-                      background: isSelected ? "rgba(0,230,118,0.08)" : "transparent",
-                      cursor: tab === "countries" ? "pointer" : "default",
-                    }}
-                    onClick={() => {
-                      if (tab === "countries" && iso) {
-                        setSelectedCountry(iso === selectedCountry ? null : iso)
-                      }
-                    }}
-                    onMouseEnter={e => {
-                      if (!isSelected) e.currentTarget.style.background = "#0a1018"
-                    }}
-                    onMouseLeave={e => {
-                      if (!isSelected) e.currentTarget.style.background = "transparent"
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{
-                        width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
-                        background: SERIES_COLORS[colorIdx % SERIES_COLORS.length],
-                      }} />
-                      <span style={{
-                        fontSize: 14,
-                        color: isSelected ? "#00e676" : "#e2e8f0",
-                        fontWeight: isSelected ? 600 : 500
-                      }}>
-                        {row.label}
-                      </span>
+              {/* Countries Tab — Grouped by Region */}
+              {tab === "countries" ? (
+                <div>
+                  {regionGroups.map(region => (
+                    <RegionSection
+                      key={region.name}
+                      region={region}
+                      sortCol={sortCol}
+                      selectedCountry={selectedCountry}
+                      onCountrySelect={setSelectedCountry}
+                      expanded={expandedRegions.has(region.name)}
+                      onToggle={() => toggleRegion(region.name)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                /* Other Tabs — Flat List */
+                sorted.map((row, i) => {
+                  const colorIdx = data?.items.findIndex(it => it.symbol === row.symbol) ?? i
+                  return (
+                    <div
+                      key={row.symbol}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 90px 90px 90px",
+                        padding: "11px 24px",
+                        borderBottom: "1px solid #0a1018",
+                        alignItems: "center",
+                        transition: "background 0.1s",
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = "#0a1018"}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{
+                          width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                          background: SERIES_COLORS[colorIdx % SERIES_COLORS.length],
+                        }} />
+                        <span style={{ fontSize: 14, color: "#e2e8f0", fontWeight: 500 }}>
+                          {row.label}
+                        </span>
+                      </div>
+                      {(["r1y", "r3y", "r5y"] as const).map(col => {
+                        const v = row[col]
+                        const { bg, text } = returnCellColor(v)
+                        return (
+                          <div key={col} style={{ display: "flex", justifyContent: "flex-end" }}>
+                            <span style={{
+                              display: "inline-block",
+                              padding: "4px 10px", borderRadius: 6,
+                              background: bg, color: text,
+                              fontSize: 13, fontWeight: 600,
+                              minWidth: 72, textAlign: "center",
+                            }}>
+                              {fmtPct(v)}
+                            </span>
+                          </div>
+                        )
+                      })}
                     </div>
-                    {(["r1y", "r3y", "r5y"] as const).map(col => {
-                      const v = row[col]
-                      const { bg, text } = returnCellColor(v)
-                      return (
-                        <div key={col} style={{ display: "flex", justifyContent: "flex-end" }}>
-                          <span style={{
-                            display: "inline-block",
-                            padding: "4px 10px", borderRadius: 6,
-                            background: bg, color: text,
-                            fontSize: 13, fontWeight: 600,
-                            minWidth: 72, textAlign: "center",
-                          }}>
-                            {fmtPct(v)}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              })}
+                  )
+                })
+              )}
             </div>
           </div>
 

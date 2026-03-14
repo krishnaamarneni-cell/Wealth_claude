@@ -1,17 +1,5 @@
-import {
-  Body,
-  Button,
-  Container,
-  Head,
-  Heading,
-  Hr,
-  Html,
-  Img,
-  Link,
-  Preview,
-  Section,
-  Text,
-} from "@react-email/components";
+// @react-email/components is not available in this project
+// This file uses basic HTML email formatting instead
 import * as React from "react";
 
 interface FireScoreEmailProps {

@@ -244,19 +244,13 @@ export default function FireScoreResults() {
       doc.setFontSize(7);
       doc.text("YOUR FIRE SCORE", 155, y + 8, { align: "center" });
 
-      // Score number and /100 together
+      // Score number and /100 together - centered
       const scoreNum = String(result?.score || 0);
+      const scoreDisplay = scoreNum + "/100";
       doc.setTextColor(...white);
-      doc.setFontSize(26);
+      doc.setFontSize(22);
       doc.setFont("helvetica", "bold");
-      doc.text(scoreNum, 135, y + 24);
-
-      doc.setTextColor(...grayLight);
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "normal");
-      // Position /100 right after the score number
-      const scoreWidth = doc.getTextWidth(scoreNum);
-      doc.text("/100", 135 + scoreWidth + 2, y + 24);
+      doc.text(scoreDisplay, 155, y + 22, { align: "center" });
 
       // Percentile badge - centered at bottom
       const percentileText = getPercentile(result?.score || 0).toUpperCase();
@@ -613,19 +607,19 @@ export default function FireScoreResults() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.5 + index * 0.1 }}
                   className={`rounded-2xl p-6 border ${tip.priority === "critical"
-                      ? "bg-red-500/5 border-red-500/20"
-                      : tip.priority === "moderate"
-                        ? "bg-amber-500/5 border-amber-500/20"
-                        : "bg-primary/5 border-primary/20"
+                    ? "bg-red-500/5 border-red-500/20"
+                    : tip.priority === "moderate"
+                      ? "bg-amber-500/5 border-amber-500/20"
+                      : "bg-primary/5 border-primary/20"
                     }`}
                 >
                   <div className="flex items-start gap-4">
                     <div
                       className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${tip.priority === "critical"
-                          ? "bg-red-500/20"
-                          : tip.priority === "moderate"
-                            ? "bg-amber-500/20"
-                            : "bg-primary/20"
+                        ? "bg-red-500/20"
+                        : tip.priority === "moderate"
+                          ? "bg-amber-500/20"
+                          : "bg-primary/20"
                         }`}
                     >
                       {tip.priority === "critical" ? (
@@ -641,10 +635,10 @@ export default function FireScoreResults() {
                       <div className="flex items-center gap-2 mb-1">
                         <span
                           className={`text-xs font-semibold uppercase tracking-wider ${tip.priority === "critical"
-                              ? "text-red-400"
-                              : tip.priority === "moderate"
-                                ? "text-amber-400"
-                                : "text-primary"
+                            ? "text-red-400"
+                            : tip.priority === "moderate"
+                              ? "text-amber-400"
+                              : "text-primary"
                             }`}
                         >
                           {tip.priority}

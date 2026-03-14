@@ -27,19 +27,6 @@ const animationClasses = {
   scaleIn: "animate-in fade-in zoom-in-95 duration-500",
 };
 
-const staggerContainer = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1, delayChildren: 0.2 },
-  },
-};
-
-const scaleIn = {
-  hidden: { opacity: 0, scale: 0.9 },
-  visible: { opacity: 1, scale: 1, transition: { duration: 0.5 } },
-};
-
 // Services data
 const services = [
   {
@@ -114,95 +101,63 @@ export default function ServicesPage() {
       <div className="min-h-screen bg-[#0a0f18] text-white overflow-hidden">
         {/* Hero Section */}
         <section className="relative pt-20 pb-16 px-4">
-          <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
-          <div className="max-w-6xl mx-auto text-center relative z-10">
-            <motion.div
-              initial="hidden"
-              animate="visible"
-              variants={fadeInUp}
-              className="mb-6"
-            >
-              <span className="inline-block px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-6">
-                The Wealth Gap Is Real — Let's Close It
-              </span>
-            </motion.div>
-
-            <motion.h1
-              initial="hidden"
-              animate="visible"
-              variants={fadeInUp}
-              className="text-4xl md:text-6xl font-bold mb-6 leading-tight"
-            >
-              Stop Guessing.{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-emerald-400">
-                Start Building.
-              </span>
-            </motion.h1>
-
-            <motion.p
-              initial="hidden"
-              animate="visible"
-              variants={fadeInUp}
-              className="text-xl text-white/60 max-w-3xl mx-auto mb-8"
-            >
-              The wealthy don't have secrets. They just have the right team.
-              <br />
-              <span className="text-white/80">It's time you did too.</span>
-            </motion.p>
-
-            <motion.div
-              initial="hidden"
-              animate="visible"
-              variants={fadeInUp}
-              className="flex flex-col sm:flex-row gap-4 justify-center"
-            >
-              <a
-                href="/fire-score"
-                className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-primary hover:bg-primary/90 text-black font-semibold rounded-xl transition-all hover:scale-105 hover:shadow-lg hover:shadow-primary/25"
-              >
-                <Target className="w-5 h-5" />
-                Take Free FIRE Score Test
-              </a>
-              <a
-                href="#services"
-                className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all"
-              >
-                View Services
-                <ChevronDown className="w-5 h-5" />
-              </a>
-            </motion.div>
+        <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
+        <div className="max-w-6xl mx-auto text-center relative z-10">
+          <div className={animationClasses.fadeInUp + " mb-6"}>
+            <span className="inline-block px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-6">
+              The Wealth Gap Is Real — Let's Close It
+            </span>
           </div>
+
+          <h1 className={animationClasses.fadeInUp + " text-4xl md:text-6xl font-bold mb-6 leading-tight"}>
+            Stop Guessing.{" "}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-emerald-400">
+              Start Building.
+            </span>
+          </h1>
+
+          <p className={animationClasses.fadeInUp + " text-xl text-white/60 max-w-3xl mx-auto mb-8"}>
+            The wealthy don't have secrets. They just have the right team.
+            <br />
+            <span className="text-white/80">It's time you did too.</span>
+          </p>
+
+          <div className={animationClasses.fadeInUp + " flex flex-col sm:flex-row gap-4 justify-center"}>
+            <a
+              href="/fire-score"
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-primary hover:bg-primary/90 text-black font-semibold rounded-xl transition-all hover:scale-105 hover:shadow-lg hover:shadow-primary/25"
+            >
+              <Target className="w-5 h-5" />
+              Take Free FIRE Score Test
+            </a>
+            <a
+              href="#services"
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all"
+            >
+              View Services
+              <ChevronDown className="w-5 h-5" />
+            </a>
+          </div>
+        </div>
         </section>
 
         {/* Wealth Gap Comparison Section */}
         <section className="py-16 px-4 relative">
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-red-500/5 to-transparent" />
           <div className="max-w-6xl mx-auto relative z-10">
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={fadeInUp}
-              className="text-center mb-12"
-            >
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                Why 90% Stay Stuck Forever
-              </h2>
-              <p className="text-white/60 text-lg">
-                The difference isn't income — it's strategy
-              </p>
-            </motion.div>
+          <div className={animationClasses.fadeInUp + " text-center mb-12"}>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              Why 90% Stay Stuck Forever
+            </h2>
+            <p className="text-white/60 text-lg">
+              The difference isn't income — it's strategy
+            </p>
+          </div>
 
-            {/* Comparison Grid */}
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={staggerContainer}
-              className="grid md:grid-cols-2 gap-8 mb-12"
-            >
-              {/* Retail Column */}
-              <motion.div variants={scaleIn} className="space-y-4">
+          {/* Comparison Grid */}
+          <div className="grid md:grid-cols-2 gap-8 mb-12">
+            {/* Retail Column */}
+            <div className={animationClasses.scaleIn + " space-y-4"}>
                 <div className="flex items-center gap-3 mb-6">
                   <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
                     <X className="w-6 h-6 text-red-500" />
@@ -232,10 +187,10 @@ export default function ServicesPage() {
                     <p className="text-white/50">Same job, same debt, same stress</p>
                   </div>
                 </div>
-              </motion.div>
+              </div>
 
-              {/* Wealthy Column */}
-              <motion.div variants={scaleIn} className="space-y-4">
+            {/* Wealthy Column */}
+            <div className={animationClasses.scaleIn + " space-y-4"}>
                 <div className="flex items-center gap-3 mb-6">
                   <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
                     <Check className="w-6 h-6 text-primary" />
@@ -265,17 +220,11 @@ export default function ServicesPage() {
                     <p className="text-white/50">Multiple income streams, tax-optimized, protected</p>
                   </div>
                 </div>
-              </motion.div>
-            </motion.div>
+              </div>
+            </div>
 
             {/* The Math Box */}
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={fadeInUp}
-              className="bg-white/5 border border-white/10 rounded-2xl p-8"
-            >
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
               <h3 className="text-center text-xl font-bold mb-6">
                 THE MATH THEY DON'T TEACH YOU
               </h3>
@@ -292,34 +241,22 @@ export default function ServicesPage() {
               <p className="text-center text-white/40 mt-6 text-sm">
                 The difference: <span className="text-white font-semibold">$140,000</span> over a decade
               </p>
-            </motion.div>
+            </div>
           </div>
         </section>
 
         {/* Wealth Pyramid Section */}
         <section className="py-16 px-4 relative">
           <div className="max-w-4xl mx-auto">
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={fadeInUp}
-              className="text-center mb-12"
-            >
+            <div className={animationClasses.fadeInUp + " text-center mb-12"}>
               <h2 className="text-3xl md:text-4xl font-bold mb-4">
                 The Wealth Pyramid
               </h2>
               <p className="text-white/60 text-lg">Where are you?</p>
-            </motion.div>
+            </div>
 
             {/* Pyramid Visualization */}
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={scaleIn}
-              className="relative mb-12"
-            >
+            <div className={animationClasses.fadeInUp + " text-center mb-12"}>
               {/* Pyramid Levels */}
               <div className="flex flex-col items-center space-y-2">
                 {/* Top 1% */}
@@ -362,20 +299,11 @@ export default function ServicesPage() {
                   <span className="text-xs font-semibold">STARTING (20%)</span>
                 </div>
               </div>
-            </motion.div>
+            </div>
 
             {/* Mindset Comparison */}
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={staggerContainer}
-              className="grid md:grid-cols-2 gap-6"
-            >
-              <motion.div
-                variants={scaleIn}
-                className="bg-red-500/5 border border-red-500/20 rounded-xl p-6"
-              >
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className={animationClasses.scaleIn + " bg-red-500/5 border border-red-500/20 rounded-xl p-6"}>
                 <h4 className="text-lg font-bold text-red-400 mb-4 flex items-center gap-2">
                   <span className="text-2xl">😰</span> STUCK ZONE MINDSET
                 </h4>
@@ -387,12 +315,9 @@ export default function ServicesPage() {
                   <li>"Rich people got lucky"</li>
                 </ul>
                 <p className="text-red-400/60 text-sm mt-4 italic">→ Stays stuck for decades</p>
-              </motion.div>
+              </div>
 
-              <motion.div
-                variants={scaleIn}
-                className="bg-primary/5 border border-primary/20 rounded-xl p-6"
-              >
+              <div className={animationClasses.scaleIn + " bg-primary/5 border border-primary/20 rounded-xl p-6"}>
                 <h4 className="text-lg font-bold text-primary mb-4 flex items-center gap-2">
                   <span className="text-2xl">🚀</span> GROWTH ZONE MINDSET
                 </h4>
@@ -404,17 +329,11 @@ export default function ServicesPage() {
                   <li>"Rich people have systems"</li>
                 </ul>
                 <p className="text-primary/60 text-sm mt-4 italic">→ Escapes in 5-7 years</p>
-              </motion.div>
-            </motion.div>
+              </div>
+            </div>
 
             {/* CTA */}
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={fadeInUp}
-              className="text-center mt-10"
-            >
+            <div className={animationClasses.fadeInUp + " text-center mt-10"}>
               <p className="text-xl font-semibold mb-4">
                 Which zone are you in? Find out in 2 minutes.
               </p>
@@ -426,42 +345,26 @@ export default function ServicesPage() {
                 Take the FIRE Score Test
                 <ArrowRight className="w-5 h-5" />
               </a>
-            </motion.div>
+            </div>
           </div>
         </section>
 
         {/* Services Grid Section */}
         <section id="services" className="py-16 px-4 bg-white/[0.02]">
           <div className="max-w-6xl mx-auto">
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={fadeInUp}
-              className="text-center mb-12"
-            >
+            <div className={animationClasses.fadeInUp + " text-center mb-12"}>
               <h2 className="text-3xl md:text-4xl font-bold mb-4">
                 Your Escape Route
               </h2>
               <p className="text-white/60 text-lg max-w-2xl mx-auto">
                 The wealthy spend money to understand money. Here's how we help you do the same.
               </p>
-            </motion.div>
+            </div>
 
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={staggerContainer}
-              className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
-            >
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {services.map((service, index) => (
-                <motion.div
-                  key={index}
-                  variants={scaleIn}
-                  className="group relative bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-primary/50 transition-all duration-300 hover:bg-white/[0.08]"
-                >
-                  <div className="mb-4">
+                <div className={animationClasses.scaleIn + " group relative bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-primary/50 transition-all duration-300 hover:bg-white/[0.08]"}>
+                <div className="mb-4">
                     <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                       <service.icon className="w-6 h-6 text-primary" />
                     </div>
@@ -483,9 +386,9 @@ export default function ServicesPage() {
                     Learn More
                     <ArrowRight className="w-4 h-4" />
                   </button>
-                </motion.div>
+                </div>
               ))}
-            </motion.div>
+            </div>
           </div>
         </section>
 
@@ -493,13 +396,7 @@ export default function ServicesPage() {
         <section className="py-16 px-4 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-primary/10" />
           <div className="max-w-4xl mx-auto relative z-10">
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={fadeInUp}
-              className="bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 rounded-3xl p-8 md:p-12 text-center"
-            >
+            <div className={animationClasses.fadeInUp + " bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 rounded-3xl p-8 md:p-12 text-center"}>
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/20 rounded-full text-primary text-sm font-medium mb-6">
                 <Star className="w-4 h-4" />
                 INCLUDED FREE WITH ANY SERVICE
@@ -528,39 +425,23 @@ export default function ServicesPage() {
                 Start Your Journey
                 <ArrowRight className="w-5 h-5" />
               </a>
-            </motion.div>
+            </div>
           </div>
         </section>
 
         {/* Reviews Section */}
         <section className="py-16 px-4">
           <div className="max-w-6xl mx-auto">
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={fadeInUp}
-              className="text-center mb-12"
-            >
+            <div className={animationClasses.fadeInUp + " text-center mb-12"}>
               <h2 className="text-3xl md:text-4xl font-bold mb-4">
                 From Stuck to Unstoppable
               </h2>
               <p className="text-white/60 text-lg">Real people. Real transformations.</p>
-            </motion.div>
+            </div>
 
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={staggerContainer}
-              className="grid md:grid-cols-3 gap-6"
-            >
+            <div className="grid md:grid-cols-3 gap-6">
               {reviews.map((review, index) => (
-                <motion.div
-                  key={index}
-                  variants={scaleIn}
-                  className="bg-white/5 border border-white/10 rounded-2xl p-6"
-                >
+                <div className={animationClasses.scaleIn + " bg-white/5 border border-white/10 rounded-2xl p-6"}>
                   <div className="flex items-center gap-4 mb-4">
                     <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
                       {review.avatar}
@@ -585,9 +466,9 @@ export default function ServicesPage() {
                       <Star key={i} className="w-4 h-4 fill-primary text-primary" />
                     ))}
                   </div>
-                </motion.div>
+                </div>
               ))}
-            </motion.div>
+            </div>
           </div>
         </section>
 
@@ -595,12 +476,7 @@ export default function ServicesPage() {
         <section className="py-20 px-4 relative">
           <div className="absolute inset-0 bg-gradient-to-t from-primary/10 via-transparent to-transparent" />
           <div className="max-w-3xl mx-auto text-center relative z-10">
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={fadeInUp}
-            >
+            <div className={animationClasses.scaleIn + " relative mb-12"}>
               <h2 className="text-3xl md:text-5xl font-bold mb-6">
                 Ready to Escape the Stuck Zone?
               </h2>
@@ -622,7 +498,7 @@ export default function ServicesPage() {
               <p className="text-white/40 text-sm mt-6">
                 No credit card required • Takes 2 minutes • Get instant results
               </p>
-            </motion.div>
+            </div>
           </div>
         </section>
 

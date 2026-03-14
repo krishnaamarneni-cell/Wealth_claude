@@ -308,11 +308,9 @@ export default function FireScoreTest() {
             </span>
           </div>
           <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-            <motion.div
-              className="h-full bg-gradient-to-r from-primary to-emerald-400 rounded-full"
-              initial={{ width: 0 }}
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.3 }}
+            <div
+              className="h-full bg-gradient-to-r from-primary to-emerald-400 rounded-full transition-all duration-300"
+              style={{ width: `${progress}%` }}
             />
           </div>
           {currentStep < questions.length && (
@@ -326,19 +324,12 @@ export default function FireScoreTest() {
       {/* Main Content */}
       <div className="flex-1 flex items-center justify-center px-4 pt-28 pb-24">
         <div className="w-full max-w-2xl">
-          <AnimatePresence mode="wait" custom={direction}>
-            {currentStep < questions.length ? (
-              // Question Steps
-              <motion.div
-                key={currentStep}
-                custom={direction}
-                variants={slideVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                transition={{ duration: 0.3, ease: "easeInOut" }}
-                className="w-full"
-              >
+          {currentStep < questions.length ? (
+            // Question Steps
+            <div
+              key={currentStep}
+              className="w-full"
+            >
                 {/* Category Badge */}
                 <div className="flex items-center gap-2 mb-6">
                   <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
@@ -399,17 +390,11 @@ export default function FireScoreTest() {
                     Select all that apply
                   </p>
                 )}
-              </motion.div>
+              </div>
             ) : (
               // Email Capture Step
-              <motion.div
+              <div
                 key="email"
-                custom={direction}
-                variants={slideVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                transition={{ duration: 0.3, ease: "easeInOut" }}
                 className="w-full"
               >
                 <div className="text-center mb-8">
@@ -472,9 +457,8 @@ export default function FireScoreTest() {
                 <p className="text-white/30 text-xs text-center mt-4">
                   We respect your privacy. No spam, ever.
                 </p>
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>
         </div>
       </div>
 

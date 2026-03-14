@@ -214,21 +214,16 @@ Book a free strategy call at wealthclaude.com/book
 
         <div className="max-w-4xl mx-auto relative z-10">
           {/* Greeting */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-8"
+          <div
+            className="text-center mb-8 animate-in fade-in duration-500"
           >
             <p className="text-white/60 mb-2">Hey {result.name.split(" ")[0]}! 👋</p>
             <h1 className="text-3xl md:text-4xl font-bold">Your FIRE Score Results</h1>
-          </motion.div>
+          </div>
 
           {/* Score Card */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.2 }}
-            className="bg-white/5 border border-white/10 rounded-3xl p-8 md:p-12"
+          <div
+            className="bg-white/5 border border-white/10 rounded-3xl p-8 md:p-12 animate-in fade-in duration-700"
           >
             <div className="flex flex-col md:flex-row items-center gap-8">
               {/* Score Circle */}
@@ -243,7 +238,7 @@ Book a free strategy call at wealthclaude.com/book
                     fill="none"
                     className="text-white/10"
                   />
-                  <motion.circle
+                  <circle
                     cx="96"
                     cy="96"
                     r="88"
@@ -251,11 +246,10 @@ Book a free strategy call at wealthclaude.com/book
                     strokeWidth="12"
                     fill="none"
                     strokeLinecap="round"
-                    initial={{ strokeDasharray: "0 553" }}
-                    animate={{
+                    style={{
                       strokeDasharray: `${(result.score / 100) * 553} 553`,
+                      transition: "stroke-dasharray 1.5s ease-out 0.5s"
                     }}
-                    transition={{ duration: 1.5, delay: 0.5, ease: "easeOut" }}
                   />
                   <defs>
                     <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -265,14 +259,11 @@ Book a free strategy call at wealthclaude.com/book
                   </defs>
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <motion.span
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 1 }}
-                    className={`text-5xl font-bold ${getScoreColor(result.score)}`}
+                  <span
+                    className={`text-5xl font-bold ${getScoreColor(result.score)} animate-in fade-in duration-1000 delay-1000`}
                   >
                     {result.score}
-                  </motion.span>
+                  </span>
                   <span className="text-white/50 text-sm">/100</span>
                 </div>
               </div>
@@ -310,18 +301,16 @@ Book a free strategy call at wealthclaude.com/book
                 </div>
               </div>
             </div>
-          </motion.div>
+          </div>
 
           {/* Email Notification */}
           {showEmailSent && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-4 flex items-center justify-center gap-2 text-primary text-sm"
+            <div
+              className="mt-4 flex items-center justify-center gap-2 text-primary text-sm animate-in fade-in duration-500"
             >
               <Mail className="w-4 h-4" />
               <span>Detailed breakdown sent to {result.email}</span>
-            </motion.div>
+            </div>
           )}
         </div>
       </section>
@@ -329,10 +318,8 @@ Book a free strategy call at wealthclaude.com/book
       {/* Priority Recommendations */}
       <section className="py-12 px-4">
         <div className="max-w-4xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
+          <div
+            className="animate-in fade-in duration-700"
           >
             <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
               <Target className="w-6 h-6 text-primary" />
@@ -341,12 +328,9 @@ Book a free strategy call at wealthclaude.com/book
 
             <div className="space-y-4">
               {tips.map((tip, index) => (
-                <motion.div
+                <div
                   key={index}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.5 + index * 0.1 }}
-                  className={`rounded-2xl p-6 border ${tip.priority === "critical"
+                  className={`rounded-2xl p-6 border animate-in fade-in duration-500 ${tip.priority === "critical"
                       ? "bg-red-500/5 border-red-500/20"
                       : tip.priority === "moderate"
                         ? "bg-amber-500/5 border-amber-500/20"
@@ -391,10 +375,10 @@ Book a free strategy call at wealthclaude.com/book
                       </p>
                     </div>
                   </div>
-                </motion.div>
+                </div>
               ))}
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
@@ -403,11 +387,8 @@ Book a free strategy call at wealthclaude.com/book
         <div className="max-w-4xl mx-auto">
           <div className="grid md:grid-cols-2 gap-6">
             {/* Download PDF */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7 }}
-              className="bg-white/5 border border-white/10 rounded-2xl p-6"
+            <div
+              className="bg-white/5 border border-white/10 rounded-2xl p-6 animate-in fade-in duration-700"
             >
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
@@ -435,14 +416,11 @@ Book a free strategy call at wealthclaude.com/book
                   </>
                 )}
               </button>
-            </motion.div>
+            </div>
 
             {/* Book Call */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8 }}
-              className="bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 rounded-2xl p-6"
+            <div
+              className="bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 rounded-2xl p-6 animate-in fade-in duration-700"
             >
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
@@ -461,7 +439,7 @@ Book a free strategy call at wealthclaude.com/book
                 Schedule Now
                 <ArrowRight className="w-5 h-5" />
               </a>
-            </motion.div>
+            </div>
           </div>
         </div>
       </section>
@@ -469,11 +447,8 @@ Book a free strategy call at wealthclaude.com/book
       {/* Comparison Section */}
       <section className="py-12 px-4">
         <div className="max-w-4xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.9 }}
-            className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center"
+          <div
+            className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center animate-in fade-in duration-700"
           >
             <h3 className="text-xl font-bold mb-4">How You Compare</h3>
 
@@ -490,19 +465,16 @@ Book a free strategy call at wealthclaude.com/book
               <div className="absolute inset-y-0 left-[70%] right-0 bg-gradient-to-r from-primary/30 to-emerald-500/30" />
 
               {/* User Position */}
-              <motion.div
-                initial={{ left: 0 }}
-                animate={{ left: `${result.score}%` }}
-                transition={{ duration: 1, delay: 1 }}
-                className="absolute top-0 bottom-0 w-1 bg-white"
-                style={{ transform: "translateX(-50%)" }}
+              <div
+                className="absolute top-0 bottom-0 w-1 bg-white transition-all duration-1000"
+                style={{ left: `${result.score}%`, transform: "translateX(-50%)" }}
               >
                 <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap">
                   <span className="px-2 py-1 bg-white text-black text-xs font-bold rounded">
                     You: {result.score}
                   </span>
                 </div>
-              </motion.div>
+              </div>
             </div>
 
             <div className="flex justify-between text-xs text-white/40">
@@ -510,17 +482,15 @@ Book a free strategy call at wealthclaude.com/book
               <span>Growing (40-70)</span>
               <span>Optimizing (70-100)</span>
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
       {/* Final CTA */}
       <section className="py-16 px-4">
         <div className="max-w-2xl mx-auto text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1 }}
+          <div
+            className="animate-in fade-in duration-700"
           >
             <h2 className="text-2xl md:text-3xl font-bold mb-4">
               Ready to Escape the Stuck Zone?
@@ -537,7 +507,7 @@ Book a free strategy call at wealthclaude.com/book
               Book Free Strategy Call
               <ArrowRight className="w-5 h-5" />
             </a>
-          </motion.div>
+          </div>
         </div>
       </section>
     </div>

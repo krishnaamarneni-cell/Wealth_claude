@@ -411,9 +411,9 @@ export default function FireScoreResults() {
         );
       });
 
-      drawRecommendation(
-        y + (index * 50),
-        doc.setFillColor(...navy);
+      // ========== CTA SECTION ==========
+      y = y + (tips.length * 50) + 20;
+      doc.setFillColor(...navy);
       doc.roundedRect(15, y, pageWidth - 30, 24, 3, 3, 'F');
 
       doc.setTextColor(...white);

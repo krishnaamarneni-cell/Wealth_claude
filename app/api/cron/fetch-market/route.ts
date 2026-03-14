@@ -139,21 +139,6 @@ async function handleRequest(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  /*
-  SETUP INSTRUCTIONS:
-
-  Option 1: Test via query parameter
-  https://wealthclaude.com/api/cron/fetch-market?test=YOUR_CRON_SECRET
-
-  Option 2: Test via cron-job.org (Recommended)
-  1. Go to cron-job.org
-  2. Create a new job with:
-     - URL: https://wealthclaude.com/api/cron/fetch-market
-     - Schedule: Manual (or set to run once now)
-     - Headers: Click "Advanced" and add:
-       Authorization: Bearer YOUR_CRON_SECRET_VALUE
-  */
-
   try {
     const today = getTodayISO();
     console.log(`Fetching market data for: ${today}`);

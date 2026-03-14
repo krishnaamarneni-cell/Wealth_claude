@@ -134,33 +134,29 @@ export async function POST(request: NextRequest) {
 
 async function handleRequest(request: NextRequest) {
   // Verify cron secret
-  // Verify cron secret
   const testMode = request.nextUrl.searchParams.get("test") === process.env.CRON_SECRET;
   if (!verifyCronSecret(request) && !testMode) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  ```
 
-Then test with:
-```
+  /*
+  SETUP INSTRUCTIONS:
+
+  Option 1: Test via query parameter
   https://wealthclaude.com/api/cron/fetch-market?test=YOUR_CRON_SECRET
-  ```
 
----
-
-## Option 2: Test via cron-job.org (Recommended)
-
-1. Go to **cron-job.org**
-2. Create a new job:
-   - **URL:** `https://wealthclaude.com/api/cron/fetch-market`
-   - ** Schedule:** Manual(or set to run once now)
-    - ** Headers:** Click "Advanced" → Add header:
-  ```
-     Authorization: Bearer YOUR_CRON_SECRET_VALUE
+  Option 2: Test via cron-job.org (Recommended)
+  1. Go to cron-job.org
+  2. Create a new job with:
+     - URL: https://wealthclaude.com/api/cron/fetch-market
+     - Schedule: Manual (or set to run once now)
+     - Headers: Click "Advanced" and add:
+       Authorization: Bearer YOUR_CRON_SECRET_VALUE
+  */
 
   try {
     const today = getTodayISO();
-    console.log(`Fetching market data for: ${ today } `);
+    console.log(`Fetching market data for: ${today}`);
 
     // Fetch all data in parallel
     const [
@@ -230,7 +226,7 @@ Then test with:
 
     return NextResponse.json({
       success: true,
-      message: `Market data cached for ${ today }`,
+      message: `Market data cached for ${today}`,
       data: {
         indices: {
           sp500: { price: sp500.price, change: sp500.change },

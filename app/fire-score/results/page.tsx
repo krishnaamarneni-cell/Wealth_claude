@@ -18,7 +18,7 @@ import {
   Share2,
   RefreshCw,
 } from "lucide-react";
-import Header from "@/components/header";
+import { Header } from "@/components/header";
 import BookCallModal from "@/components/book-call-modal";
 
 // Types

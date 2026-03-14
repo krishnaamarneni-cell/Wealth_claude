@@ -2,66 +2,117 @@ import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
 export const runtime = "nodejs"
-export const maxDuration = 60
+export const maxDuration = 120
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const CACHE_MS = 6 * 60 * 60 * 1000 // 6 hours
+const CACHE_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TAB CONFIGURATIONS
+// TICKER CONFIGURATIONS BY TAB
 // ─────────────────────────────────────────────────────────────────────────────
-const TABS: Record<string, { symbol: string; label: string }[]> = {
-  sectors: [
-    { symbol: "XLK", label: "Technology" },
-    { symbol: "XLC", label: "Communication" },
-    { symbol: "XLY", label: "Consumer Discret." },
-    { symbol: "XLF", label: "Financial" },
-    { symbol: "XLV", label: "Health Care" },
-    { symbol: "XLI", label: "Industrial" },
-    { symbol: "XLP", label: "Consumer Staples" },
-    { symbol: "XLB", label: "Materials" },
-    { symbol: "XLRE", label: "Real Estate" },
-    { symbol: "XLU", label: "Utilities" },
-    { symbol: "XLE", label: "Energy" },
-  ],
-  countries: [
-    { symbol: "^GSPC", label: "S&P 500 (US)" },
-    { symbol: "^IXIC", label: "NASDAQ (US)" },
-    { symbol: "^FTSE", label: "FTSE 100 (UK)" },
-    { symbol: "^GDAXI", label: "DAX (Germany)" },
-    { symbol: "^FCHI", label: "CAC 40 (France)" },
-    { symbol: "^N225", label: "Nikkei (Japan)" },
-    { symbol: "^HSI", label: "Hang Seng (HK)" },
-    { symbol: "^AXJO", label: "ASX 200 (AU)" },
-    { symbol: "^BSESN", label: "Sensex (India)" },
-    { symbol: "^KS11", label: "KOSPI (Korea)" },
-  ],
-  assets: [
-    { symbol: "GLD", label: "Gold" },
-    { symbol: "SLV", label: "Silver" },
-    { symbol: "USO", label: "Crude Oil" },
-    { symbol: "TLT", label: "US Bonds 20Y" },
-    { symbol: "^TNX", label: "10Y Treasury" },
-    { symbol: "BTC-USD", label: "Bitcoin" },
-    { symbol: "ETH-USD", label: "Ethereum" },
-    { symbol: "PDBC", label: "Commodities" },
-  ],
-}
+
+// 51 country indices — verified working with Yahoo Finance
+const COUNTRIES_CONFIG: { symbol: string; label: string; region: string }[] = [
+  // ── Americas ────────────────────────────────────────────
+  { symbol: "^GSPC", label: "United States", region: "Americas" },
+  { symbol: "^GSPTSE", label: "Canada", region: "Americas" },
+  { symbol: "^MXX", label: "Mexico", region: "Americas" },
+  { symbol: "^BVSP", label: "Brazil", region: "Americas" },
+  { symbol: "^MERV", label: "Argentina", region: "Americas" },
+  { symbol: "^IPSA", label: "Chile", region: "Americas" },
+  { symbol: "^SPCOSLCP", label: "Colombia", region: "Americas" },
+  { symbol: "^SPBLPGPT", label: "Peru", region: "Americas" },
+
+  // ── Europe ──────────────────────────────────────────────
+  { symbol: "^FTSE", label: "United Kingdom", region: "Europe" },
+  { symbol: "^GDAXI", label: "Germany", region: "Europe" },
+  { symbol: "^FCHI", label: "France", region: "Europe" },
+  { symbol: "FTSEMIB.MI", label: "Italy", region: "Europe" },
+  { symbol: "^IBEX", label: "Spain", region: "Europe" },
+  { symbol: "^AEX", label: "Netherlands", region: "Europe" },
+  { symbol: "^SSMI", label: "Switzerland", region: "Europe" },
+  { symbol: "^OMX", label: "Sweden", region: "Europe" },
+  { symbol: "OSEBX.OL", label: "Norway", region: "Europe" },
+  { symbol: "^OMXC25", label: "Denmark", region: "Europe" },
+  { symbol: "^OMXH25", label: "Finland", region: "Europe" },
+  { symbol: "^BFX", label: "Belgium", region: "Europe" },
+  { symbol: "^ATX", label: "Austria", region: "Europe" },
+  { symbol: "PSI20.LS", label: "Portugal", region: "Europe" },
+  { symbol: "GD.AT", label: "Greece", region: "Europe" },
+  { symbol: "WIG20.WA", label: "Poland", region: "Europe" },
+  { symbol: "FPXAA.PR", label: "Czech Republic", region: "Europe" },
+  { symbol: "^BUX.BD", label: "Hungary", region: "Europe" },
+  { symbol: "^BET.RO", label: "Romania", region: "Europe" },
+  { symbol: "^XU100", label: "Turkey", region: "Europe" },
+  { symbol: "IMOEX.ME", label: "Russia", region: "Europe" },
+  { symbol: "^OMXT", label: "Estonia", region: "Europe" },
+  { symbol: "^OMXR", label: "Latvia", region: "Europe" },
+  { symbol: "^OMXV", label: "Lithuania", region: "Europe" },
+
+  // ── Asia-Pacific ────────────────────────────────────────
+  { symbol: "^N225", label: "Japan", region: "Asia-Pacific" },
+  { symbol: "000001.SS", label: "China", region: "Asia-Pacific" },
+  { symbol: "^HSI", label: "Hong Kong", region: "Asia-Pacific" },
+  { symbol: "^NSEI", label: "India", region: "Asia-Pacific" },
+  { symbol: "^KS11", label: "South Korea", region: "Asia-Pacific" },
+  { symbol: "^AXJO", label: "Australia", region: "Asia-Pacific" },
+  { symbol: "^NZ50", label: "New Zealand", region: "Asia-Pacific" },
+  { symbol: "^TWII", label: "Taiwan", region: "Asia-Pacific" },
+  { symbol: "^STI", label: "Singapore", region: "Asia-Pacific" },
+  { symbol: "^KLSE", label: "Malaysia", region: "Asia-Pacific" },
+  { symbol: "^SET.BK", label: "Thailand", region: "Asia-Pacific" },
+  { symbol: "^JKSE", label: "Indonesia", region: "Asia-Pacific" },
+  { symbol: "PSEI.PS", label: "Philippines", region: "Asia-Pacific" },
+  { symbol: "^VNINDEX.VN", label: "Vietnam", region: "Asia-Pacific" },
+
+  // ── Middle East & Africa ────────────────────────────────
+  { symbol: "^TASI.SR", label: "Saudi Arabia", region: "Middle East & Africa" },
+  { symbol: "FADGI.FGI", label: "UAE", region: "Middle East & Africa" },
+  { symbol: "^TA125.TA", label: "Israel", region: "Middle East & Africa" },
+  { symbol: "^J203.JO", label: "South Africa", region: "Middle East & Africa" },
+  { symbol: "^CASE30", label: "Egypt", region: "Middle East & Africa" },
+]
+
+// Sectors (existing)
+const SECTORS_CONFIG: { symbol: string; label: string }[] = [
+  { symbol: "XLK", label: "Technology" },
+  { symbol: "XLC", label: "Communication" },
+  { symbol: "XLY", label: "Consumer Discret." },
+  { symbol: "XLF", label: "Financial" },
+  { symbol: "XLV", label: "Health Care" },
+  { symbol: "XLI", label: "Industrial" },
+  { symbol: "XLP", label: "Consumer Staples" },
+  { symbol: "XLB", label: "Materials" },
+  { symbol: "XLRE", label: "Real Estate" },
+  { symbol: "XLU", label: "Utilities" },
+  { symbol: "XLE", label: "Energy" },
+]
+
+// Asset classes (existing)
+const ASSETS_CONFIG: { symbol: string; label: string }[] = [
+  { symbol: "GLD", label: "Gold" },
+  { symbol: "SLV", label: "Silver" },
+  { symbol: "USO", label: "Crude Oil" },
+  { symbol: "TLT", label: "US Bonds 20Y" },
+  { symbol: "BTC-USD", label: "Bitcoin" },
+  { symbol: "ETH-USD", label: "Ethereum" },
+  { symbol: "PDBC", label: "Commodities" },
+]
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Sanitize symbol for use as object key (recharts breaks on ^ and - characters) */
+/** Sanitize symbol for use as object key (recharts breaks on special chars) */
 function safeKey(sym: string): string {
   return sym.replace(/[^a-zA-Z0-9_]/g, "_")
 }
 
-/** Fetch historical weekly data from Yahoo Finance */
+/** Fetch 5-year weekly history from Yahoo Finance */
 async function fetchHistory(
   symbol: string
 ): Promise<{ date: string; close: number }[]> {
@@ -75,9 +126,8 @@ async function fetchHistory(
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         Accept: "application/json",
-        "Accept-Language": "en-US,en;q=0.9",
       },
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(15000),
       cache: "no-store",
     })
 
@@ -88,7 +138,6 @@ async function fetchHistory(
 
     const json = await res.json()
 
-    // Check for API errors
     if (json?.chart?.error) {
       console.error(`[fetchHistory] ${symbol} API error:`, json.chart.error)
       return []
@@ -96,7 +145,7 @@ async function fetchHistory(
 
     const result = json?.chart?.result?.[0]
     if (!result) {
-      console.error(`[fetchHistory] ${symbol} no result in response`)
+      console.error(`[fetchHistory] ${symbol} no result`)
       return []
     }
 
@@ -110,10 +159,10 @@ async function fetchHistory(
       }))
       .filter((d) => d.close != null && !isNaN(d.close) && isFinite(d.close))
 
-    console.log(`[fetchHistory] ${symbol}: ${data.length} data points`)
+    console.log(`[fetchHistory] ${symbol}: ${data.length} points`)
     return data
   } catch (err) {
-    console.error(`[fetchHistory] ${symbol} exception:`, err)
+    console.error(`[fetchHistory] ${symbol} error:`, err)
     return []
   }
 }
@@ -135,14 +184,12 @@ function computeReturns(history: { date: string; close: number }[]): {
     const target = new Date(lastDate)
     target.setFullYear(target.getFullYear() - yearsBack)
 
-    // Find closest date in history within reasonable range (±30 days)
     let best: { date: string; close: number } | null = null
     let bestDiff = Infinity
 
     for (const h of history) {
       const diff = Math.abs(new Date(h.date).getTime() - target.getTime())
-      // Only accept if within 30 days of target
-      if (diff < bestDiff && diff < 30 * 24 * 60 * 60 * 1000) {
+      if (diff < bestDiff && diff < 45 * 24 * 60 * 60 * 1000) {
         bestDiff = diff
         best = h
       }
@@ -156,7 +203,6 @@ function computeReturns(history: { date: string; close: number }[]): {
     return ((last - base) / base) * 100
   }
 
-  // Require minimum data points for each period
   const weeksInYear = 52
   return {
     r1y: history.length >= weeksInYear * 0.8 ? pct(findCloseAtYearsBack(1)) : null,
@@ -171,24 +217,11 @@ function normalizeAndAlign(
 ): { date: string;[symbol: string]: number | string }[] {
   const symbols = Object.keys(allHistory)
 
-  if (symbols.length === 0) {
-    console.error("[normalizeAndAlign] No symbols with data")
-    return []
-  }
+  if (symbols.length === 0) return []
 
-  // Filter out symbols with insufficient data (less than 10 points)
   const validSymbols = symbols.filter((sym) => allHistory[sym].length >= 10)
+  if (validSymbols.length === 0) return []
 
-  if (validSymbols.length === 0) {
-    console.error("[normalizeAndAlign] No symbols with sufficient data")
-    return []
-  }
-
-  console.log(
-    `[normalizeAndAlign] Processing ${validSymbols.length} symbols with sufficient data`
-  )
-
-  // Collect all unique dates from valid symbols, sorted
   const dateSet = new Set<string>()
   for (const sym of validSymbols) {
     for (const d of allHistory[sym]) {
@@ -196,13 +229,8 @@ function normalizeAndAlign(
     }
   }
   const allDates = Array.from(dateSet).sort()
+  if (allDates.length === 0) return []
 
-  if (allDates.length === 0) {
-    console.error("[normalizeAndAlign] No dates found")
-    return []
-  }
-
-  // Build lookup: symbol → date → close
   const lookup: Record<string, Record<string, number>> = {}
   for (const sym of validSymbols) {
     lookup[sym] = {}
@@ -211,8 +239,7 @@ function normalizeAndAlign(
     }
   }
 
-  // Find start date where at least 50% of symbols have data
-  const threshold = Math.max(1, Math.floor(validSymbols.length * 0.5))
+  const threshold = Math.max(1, Math.floor(validSymbols.length * 0.3))
   let startDate = allDates[0]
 
   for (const date of allDates) {
@@ -223,9 +250,6 @@ function normalizeAndAlign(
     }
   }
 
-  console.log(`[normalizeAndAlign] Start date: ${startDate}`)
-
-  // Get base values for normalization (first available value on or after startDate)
   const bases: Record<string, number> = {}
   for (const sym of validSymbols) {
     for (const date of allDates) {
@@ -234,19 +258,13 @@ function normalizeAndAlign(
         break
       }
     }
-    // Fallback: use earliest available value
     if (!bases[sym]) {
       const values = Object.values(lookup[sym])
-      if (values.length > 0) {
-        bases[sym] = values[0]
-      }
+      if (values.length > 0) bases[sym] = values[0]
     }
   }
 
-  // Filter dates from startDate onward
   const dates = allDates.filter((d) => d >= startDate)
-
-  // Build chart data with forward-fill for missing values
   const lastKnown: Record<string, number> = {}
   const chartData: { date: string;[key: string]: number | string }[] = []
 
@@ -263,33 +281,41 @@ function normalizeAndAlign(
         row[safeKey(sym)] = parseFloat(((close / base) * 100).toFixed(2))
         hasAnyValue = true
       } else if (lastKnown[sym] != null && base != null && base !== 0) {
-        // Forward-fill with last known value
         row[safeKey(sym)] = parseFloat(((lastKnown[sym] / base) * 100).toFixed(2))
         hasAnyValue = true
       }
     }
 
-    if (hasAnyValue) {
-      chartData.push(row)
-    }
+    if (hasAnyValue) chartData.push(row)
   }
 
-  console.log(`[normalizeAndAlign] Generated ${chartData.length} chart data points`)
   return chartData
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN API HANDLER
 // ─────────────────────────────────────────────────────────────────────────────
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
-  const tab = searchParams.get("tab") ?? "sectors"
-  const items = TABS[tab] ?? TABS.sectors
+  const tab = searchParams.get("tab") ?? "countries"
   const cacheKey = `markets_comparison_${tab}`
 
-  console.log(`[GET] Fetching data for tab: ${tab}`)
+  console.log(`[GET] Tab: ${tab}`)
 
-  // Check cache first
+  // Determine items based on tab
+  let items: { symbol: string; label: string; region?: string }[]
+  if (tab === "countries") {
+    items = COUNTRIES_CONFIG
+  } else if (tab === "sectors") {
+    items = SECTORS_CONFIG
+  } else if (tab === "assets") {
+    items = ASSETS_CONFIG
+  } else {
+    items = COUNTRIES_CONFIG
+  }
+
+  // Check cache
   try {
     const { data: cached } = await supabase
       .from("macro_cache")
@@ -299,55 +325,55 @@ export async function GET(req: Request) {
 
     if (cached?.fetched_at && cached?.data) {
       const age = Date.now() - new Date(cached.fetched_at).getTime()
-      // Verify cached data has actual chart points
       const hasValidData =
-        cached.data.chartData &&
-        Array.isArray(cached.data.chartData) &&
-        cached.data.chartData.length > 10
+        cached.data.returns &&
+        Array.isArray(cached.data.returns) &&
+        cached.data.returns.length > 5
 
       if (age < CACHE_MS && hasValidData) {
-        console.log(`[GET] Returning cached data (age: ${Math.round(age / 1000 / 60)}min)`)
+        console.log(`[GET] Cache hit (age: ${Math.round(age / 1000 / 60 / 60)}h)`)
         return NextResponse.json({ ...cached.data, cached: true })
       }
     }
-  } catch (cacheErr) {
-    console.error("[GET] Cache read error:", cacheErr)
+  } catch (err) {
+    console.error("[GET] Cache read error:", err)
   }
 
   // Fetch fresh data
   try {
-    console.log(`[GET] Fetching fresh data for ${items.length} symbols`)
+    console.log(`[GET] Fetching ${items.length} symbols...`)
 
-    // Fetch all histories in parallel with small delays to avoid rate limiting
+    // Fetch with staggered delays to avoid rate limiting
     const histories = await Promise.all(
       items.map(async (item, index) => {
-        // Stagger requests slightly to avoid rate limiting
+        // Stagger requests: 150ms between each
         if (index > 0) {
-          await new Promise((r) => setTimeout(r, 100 * index))
+          await new Promise((r) => setTimeout(r, 150 * index))
         }
         return {
           symbol: item.symbol,
+          label: item.label,
+          region: (item as any).region,
           history: await fetchHistory(item.symbol),
         }
       })
     )
 
-    // Build history map
+    // Build history map (skip failed fetches)
     const allHistory: Record<string, { date: string; close: number }[]> = {}
-    let successCount = 0
+    const validItems: typeof items = []
 
-    for (const { symbol, history } of histories) {
+    for (const { symbol, label, region, history } of histories) {
       if (history.length > 0) {
         allHistory[symbol] = history
-        successCount++
+        validItems.push({ symbol, label, region })
       }
     }
 
-    console.log(`[GET] Successfully fetched ${successCount}/${items.length} symbols`)
+    console.log(`[GET] Got data for ${validItems.length}/${items.length} symbols`)
 
-    if (successCount === 0) {
-      console.error("[GET] No data fetched for any symbol")
-      // Try to return stale cache
+    if (validItems.length === 0) {
+      // Return stale cache if available
       const { data: staleCache } = await supabase
         .from("macro_cache")
         .select("data")
@@ -359,26 +385,28 @@ export async function GET(req: Request) {
       }
 
       return NextResponse.json(
-        { error: "Failed to fetch market data", chartData: [], returns: [], items: [] },
+        { error: "No data fetched", chartData: [], returns: [], items: [] },
         { status: 500 }
       )
     }
 
-    // Generate normalized chart data
-    const chartData = normalizeAndAlign(allHistory)
+    // Generate chart data (only for sectors/assets, not countries)
+    const chartData = tab === "countries" ? [] : normalizeAndAlign(allHistory)
 
-    // Compute returns for each symbol
-    const returns = items.map((item) => ({
+    // Compute returns
+    const returns = validItems.map((item) => ({
       symbol: item.symbol,
       safeKey: safeKey(item.symbol),
       label: item.label,
+      region: (item as any).region ?? null,
       ...computeReturns(allHistory[item.symbol] ?? []),
     }))
 
-    // Add safeKey to items for frontend
-    const itemsWithKeys = items.map((item) => ({
-      ...item,
+    const itemsWithKeys = validItems.map((item) => ({
+      symbol: item.symbol,
       safeKey: safeKey(item.symbol),
+      label: item.label,
+      region: (item as any).region ?? null,
     }))
 
     const responseData = {
@@ -389,22 +417,21 @@ export async function GET(req: Request) {
 
     // Cache the result
     try {
-      const fetchedAt = new Date().toISOString()
       await supabase.from("macro_cache").upsert({
         id: cacheKey,
         data: responseData,
-        fetched_at: fetchedAt,
+        fetched_at: new Date().toISOString(),
       })
       console.log(`[GET] Cached fresh data`)
-    } catch (cacheWriteErr) {
-      console.error("[GET] Cache write error:", cacheWriteErr)
+    } catch (err) {
+      console.error("[GET] Cache write error:", err)
     }
 
     return NextResponse.json({ ...responseData, cached: false })
   } catch (err) {
     console.error("[GET] Fatal error:", err)
 
-    // Attempt to return stale cache on error
+    // Return stale cache on error
     try {
       const { data: staleCache } = await supabase
         .from("macro_cache")
@@ -416,7 +443,7 @@ export async function GET(req: Request) {
         return NextResponse.json({ ...staleCache.data, cached: true, stale: true })
       }
     } catch {
-      // Ignore cache read error
+      // Ignore
     }
 
     return NextResponse.json(

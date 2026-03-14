@@ -1,3 +1,5 @@
+"use client"
+
 import { useEffect, useState, useCallback, useMemo } from "react"
 import { useSearchParams } from "next/navigation"
 import {
@@ -8,7 +10,7 @@ import { Loader2, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronRight } f
 import { MarketsMap, returnsToCountryData, SYMBOL_TO_ISO } from "./MarketsMap"
 
 // Separate component for handling search params
-function MarketsWrapperInner() {
+export function MarketsWrapperInner() {
   const searchParams = useSearchParams()
   const tabParam = searchParams?.get("tab") as TabKey | null
   const initialTab: TabKey = (tabParam === "sectors" || tabParam === "assets") ? tabParam : "countries"
@@ -354,7 +356,7 @@ const TABLE_TITLE: Record<TabKey, string> = {
   assets: "Asset Class Performance",
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────��─────────────────────────────────────────────────
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 export function MarketsWrapper({ initialTab = "countries" }: { initialTab?: TabKey } = {}) {

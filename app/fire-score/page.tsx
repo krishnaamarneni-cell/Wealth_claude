@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowRight,
   ArrowLeft,
@@ -16,6 +17,22 @@ import {
   Zap,
   Users,
 } from "lucide-react";
+
+// Animation variants
+const slideVariants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? 300 : -300,
+    opacity: 0,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+  },
+  exit: (direction: number) => ({
+    x: direction < 0 ? 300 : -300,
+    opacity: 0,
+  }),
+};
 
 // Types
 interface Question {
@@ -324,12 +341,19 @@ export default function FireScoreTest() {
       {/* Main Content */}
       <div className="flex-1 flex items-center justify-center px-4 pt-28 pb-24">
         <div className="w-full max-w-2xl">
-          {currentStep < questions.length ? (
-            // Question Steps
-            <div
-              key={currentStep}
-              className="w-full"
-            >
+          <AnimatePresence mode="wait" custom={direction}>
+            {currentStep < questions.length ? (
+              // Question Steps
+              <motion.div
+                key={currentStep}
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+                className="w-full"
+              >
                 {/* Category Badge */}
                 <div className="flex items-center gap-2 mb-6">
                   <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
@@ -390,11 +414,17 @@ export default function FireScoreTest() {
                     Select all that apply
                   </p>
                 )}
-              </div>
+              </motion.div>
             ) : (
               // Email Capture Step
-              <div
+              <motion.div
                 key="email"
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.3, ease: "easeInOut" }}
                 className="w-full"
               >
                 <div className="text-center mb-8">
@@ -457,8 +487,9 @@ export default function FireScoreTest() {
                 <p className="text-white/30 text-xs text-center mt-4">
                   We respect your privacy. No spam, ever.
                 </p>
-              </div>
+              </motion.div>
             )}
+          </AnimatePresence>
         </div>
       </div>
 

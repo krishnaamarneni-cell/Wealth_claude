@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { motion } from "framer-motion";
 import { Header } from "@/components/header";
 import {
   Building2,
@@ -21,10 +22,23 @@ import {
   DollarSign,
 } from "lucide-react";
 
-// CSS animations via Tailwind
-const animationClasses = {
-  fadeInUp: "animate-in fade-in slide-in-from-bottom-6 duration-600",
-  scaleIn: "animate-in fade-in zoom-in-95 duration-500",
+// Animation variants
+const fadeInUp = {
+  hidden: { opacity: 0, y: 30 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },
+};
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1, delayChildren: 0.2 },
+  },
+};
+
+const scaleIn = {
+  hidden: { opacity: 0, scale: 0.9 },
+  visible: { opacity: 1, scale: 1, transition: { duration: 0.5 } },
 };
 
 // Services data
@@ -99,30 +113,50 @@ export default function ServicesPage() {
     <>
       <Header />
       <div className="min-h-screen bg-[#0a0f18] text-white overflow-hidden">
-        {/* Hero Section */}
-        <section className="relative pt-20 pb-16 px-4">
+      {/* Hero Section */}
+      <section className="relative pt-20 pb-16 px-4">
         <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
         <div className="max-w-6xl mx-auto text-center relative z-10">
-          <div className={animationClasses.fadeInUp + " mb-6"}>
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={fadeInUp}
+            className="mb-6"
+          >
             <span className="inline-block px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-6">
               The Wealth Gap Is Real — Let's Close It
             </span>
-          </div>
+          </motion.div>
 
-          <h1 className={animationClasses.fadeInUp + " text-4xl md:text-6xl font-bold mb-6 leading-tight"}>
+          <motion.h1
+            initial="hidden"
+            animate="visible"
+            variants={fadeInUp}
+            className="text-4xl md:text-6xl font-bold mb-6 leading-tight"
+          >
             Stop Guessing.{" "}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-emerald-400">
               Start Building.
             </span>
-          </h1>
+          </motion.h1>
 
-          <p className={animationClasses.fadeInUp + " text-xl text-white/60 max-w-3xl mx-auto mb-8"}>
+          <motion.p
+            initial="hidden"
+            animate="visible"
+            variants={fadeInUp}
+            className="text-xl text-white/60 max-w-3xl mx-auto mb-8"
+          >
             The wealthy don't have secrets. They just have the right team.
             <br />
             <span className="text-white/80">It's time you did too.</span>
-          </p>
+          </motion.p>
 
-          <div className={animationClasses.fadeInUp + " flex flex-col sm:flex-row gap-4 justify-center"}>
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={fadeInUp}
+            className="flex flex-col sm:flex-row gap-4 justify-center"
+          >
             <a
               href="/fire-score"
               className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-primary hover:bg-primary/90 text-black font-semibold rounded-xl transition-all hover:scale-105 hover:shadow-lg hover:shadow-primary/25"
@@ -137,9 +171,9 @@ export default function ServicesPage() {
               View Services
               <ChevronDown className="w-5 h-5" />
             </a>
-          </div>
+          </motion.div>
         </div>
-        </section>
+      </section>
 
         {/* Wealth Gap Comparison Section */}
         <section className="py-16 px-4 relative">
@@ -352,18 +386,34 @@ export default function ServicesPage() {
         {/* Services Grid Section */}
         <section id="services" className="py-16 px-4 bg-white/[0.02]">
           <div className="max-w-6xl mx-auto">
-            <div className={animationClasses.fadeInUp + " text-center mb-12"}>
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeInUp}
+              className="text-center mb-12"
+            >
               <h2 className="text-3xl md:text-4xl font-bold mb-4">
                 Your Escape Route
               </h2>
               <p className="text-white/60 text-lg max-w-2xl mx-auto">
                 The wealthy spend money to understand money. Here's how we help you do the same.
               </p>
-            </div>
+            </motion.div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={staggerContainer}
+              className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
               {services.map((service, index) => (
-                <div className={animationClasses.scaleIn + " group relative bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-primary/50 transition-all duration-300 hover:bg-white/[0.08]"}>
+                <motion.div
+                  key={index}
+                  variants={scaleIn}
+                  className="group relative bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-primary/50 transition-all duration-300 hover:bg-white/[0.08]"
+                >
                 <div className="mb-4">
                     <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                       <service.icon className="w-6 h-6 text-primary" />
@@ -385,10 +435,10 @@ export default function ServicesPage() {
                   <button className="mt-6 w-full py-3 bg-white/5 hover:bg-primary hover:text-black border border-white/10 hover:border-primary rounded-xl font-medium transition-all flex items-center justify-center gap-2">
                     Learn More
                     <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
+                </button>
+              </motion.div>
+            ))}
+            </motion.div>
           </div>
         </section>
 

@@ -165,289 +165,224 @@ export default function FireScoreResults() {
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
 
-      // V1 Colors: Slate + Navy + Emerald
-      const emerald: [number, number, number] = [16, 185, 129]; // #10b981
-      const navy: [number, number, number] = [15, 23, 42]; // #0f172a
-      const navyLight: [number, number, number] = [30, 41, 59]; // #1e293b
-      const slate: [number, number, number] = [241, 245, 249]; // #f1f5f9 - page bg
+      // Colors
+      const emerald: [number, number, number] = [16, 185, 129];
+      const navy: [number, number, number] = [15, 23, 42];
+      const slate: [number, number, number] = [241, 245, 249];
       const white: [number, number, number] = [255, 255, 255];
-      const grayText: [number, number, number] = [100, 116, 139]; // #64748b
-      const grayLight: [number, number, number] = [148, 163, 184]; // #94a3b8
-      const darkText: [number, number, number] = [15, 23, 42]; // #0f172a
-      const red: [number, number, number] = [239, 68, 68]; // #ef4444
-      const amber: [number, number, number] = [245, 158, 11]; // #f59e0b
-      const redBg: [number, number, number] = [254, 242, 242]; // #fef2f2
-      const amberBg: [number, number, number] = [254, 252, 232]; // #fefce8
-      const emeraldBg: [number, number, number] = [236, 253, 245]; // #ecfdf5
+      const grayText: [number, number, number] = [100, 116, 139];
+      const grayLight: [number, number, number] = [148, 163, 184];
+      const darkText: [number, number, number] = [15, 23, 42];
+      const red: [number, number, number] = [239, 68, 68];
+      const amber: [number, number, number] = [245, 158, 11];
+      const redBg: [number, number, number] = [254, 242, 242];
+      const amberBg: [number, number, number] = [254, 252, 232];
+      const emeraldBg: [number, number, number] = [236, 253, 245];
 
-      // Page background - Slate
+      // Background
       doc.setFillColor(...slate);
       doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
-      // ========== TOP ACCENT LINE ==========
+      // Top accent
       doc.setFillColor(...emerald);
-      doc.rect(0, 0, pageWidth, 4, 'F');
+      doc.rect(0, 0, pageWidth, 3, 'F');
 
-      // ========== HEADER - Navy ==========
+      // Header
       doc.setFillColor(...navy);
-      doc.rect(0, 4, pageWidth, 38, 'F');
+      doc.rect(0, 3, pageWidth, 28, 'F');
 
-      // Logo
       doc.setTextColor(...emerald);
-      doc.setFontSize(22);
+      doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
-      doc.text("WealthClaude", 15, 22);
+      doc.text("WealthClaude", 15, 16);
 
-      // Subtitle
-      doc.setTextColor(...grayText);
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "normal");
-      doc.text("FIRE SCORE REPORT", 15, 32);
-
-      // Date badge
-      doc.setFillColor(...navyLight);
-      doc.roundedRect(pageWidth - 55, 10, 45, 26, 2, 2, 'F');
       doc.setTextColor(...grayLight);
       doc.setFontSize(7);
-      doc.text("GENERATED", pageWidth - 32, 18, { align: "center" });
-      doc.setTextColor(...white);
-      doc.setFontSize(9);
-      doc.text(new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), pageWidth - 32, 28, { align: "center" });
+      doc.setFont("helvetica", "normal");
+      doc.text("FIRE SCORE REPORT", 15, 24);
 
-      // ========== CLIENT INFO BOX ==========
-      let y = 52;
+      doc.setTextColor(...grayLight);
+      doc.setFontSize(7);
+      doc.text(new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), pageWidth - 15, 18, { align: "right" });
+
+      // Client + Score Row
+      let y = 38;
+
+      // Client box
       doc.setFillColor(...white);
-      doc.roundedRect(15, y, 90, 38, 3, 3, 'F');
-
+      doc.roundedRect(15, y, 88, 28, 2, 2, 'F');
       doc.setTextColor(...grayText);
-      doc.setFontSize(8);
-      doc.text("PREPARED FOR", 20, y + 10);
-
-      doc.setTextColor(...darkText);
-      doc.setFontSize(13);
-      doc.setFont("helvetica", "bold");
-      const clientName = result?.name || "Client";
-      doc.text(clientName.length > 14 ? clientName.substring(0, 14) + "..." : clientName, 20, y + 22);
-
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(...grayLight);
-      doc.setFontSize(7);
-      const clientEmail = result?.email || "";
-      doc.text(clientEmail.length > 20 ? clientEmail.substring(0, 20) + "..." : clientEmail, 20, y + 30);
-
-      // ========== SCORE BOX ==========
-      doc.setFillColor(...navy);
-      doc.roundedRect(115, y, 80, 38, 3, 3, 'F');
-
-      // Score label - centered at top
-      doc.setTextColor(...emerald);
-      doc.setFontSize(7);
-      doc.text("YOUR FIRE SCORE", 155, y + 8, { align: "center" });
-
-      // Score number and /100 together - centered
-      const scoreNum = String(result?.score || 0);
-      const scoreDisplay = scoreNum + "/100";
-      doc.setTextColor(...white);
-      doc.setFontSize(22);
-      doc.setFont("helvetica", "bold");
-      doc.text(scoreDisplay, 155, y + 22, { align: "center" });
-
-      // Percentile badge - centered at bottom
-      const percentileText = getPercentile(result?.score || 0).toUpperCase();
-      doc.setFillColor(...emerald);
-      doc.roundedRect(130, y + 28, 50, 8, 4, 4, 'F');
-      doc.setTextColor(...white);
       doc.setFontSize(6);
-      doc.setFont("helvetica", "bold");
-      doc.text(percentileText, 155, y + 33, { align: "center" });
-
-      // ========== TIMELINE SECTION ==========
-      y = 98;
+      doc.text("PREPARED FOR", 20, y + 7);
       doc.setTextColor(...darkText);
-      doc.setFontSize(10);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text(result?.name || "Client", 20, y + 16);
+      doc.setTextColor(...grayLight);
+      doc.setFontSize(6);
+      doc.setFont("helvetica", "normal");
+      doc.text(result?.email || "", 20, y + 23);
+
+      // Score box
+      doc.setFillColor(...navy);
+      doc.roundedRect(108, y, 88, 28, 2, 2, 'F');
+      doc.setTextColor(...emerald);
+      doc.setFontSize(6);
+      doc.text("YOUR FIRE SCORE", 152, y + 7, { align: "center" });
+      doc.setTextColor(...white);
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.text(String(result?.score || 0) + "/100", 152, y + 17, { align: "center" });
+      doc.setFillColor(...emerald);
+      doc.roundedRect(130, y + 20, 44, 6, 3, 3, 'F');
+      doc.setTextColor(...white);
+      doc.setFontSize(5);
+      doc.text(getPercentile(result?.score || 0).toUpperCase(), 152, y + 24, { align: "center" });
+
+      // Timeline Section
+      y = 72;
+      doc.setTextColor(...darkText);
+      doc.setFontSize(8);
       doc.setFont("helvetica", "bold");
       doc.text("TIMELINE COMPARISON", 15, y);
 
-      // Current path bar
-      y = 105;
+      // Current path
+      y = 78;
       doc.setFillColor(...white);
-      doc.roundedRect(15, y, pageWidth - 30, 22, 3, 3, 'F');
-
+      doc.roundedRect(15, y, pageWidth - 30, 16, 2, 2, 'F');
       doc.setTextColor(...grayText);
-      doc.setFontSize(7);
+      doc.setFontSize(6);
       doc.setFont("helvetica", "normal");
-      doc.text("CURRENT PATH", 20, y + 8);
-
-      // Red progress bar (full)
+      doc.text("CURRENT PATH", 20, y + 6);
       doc.setFillColor(...red);
-      doc.roundedRect(20, y + 12, 120, 6, 3, 3, 'F');
-
+      doc.roundedRect(20, y + 9, 100, 4, 2, 2, 'F');
       doc.setTextColor(...red);
-      doc.setFontSize(11);
+      doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
-      doc.text("3.2 years", pageWidth - 25, y + 15, { align: "right" });
+      doc.text("3.2 years", pageWidth - 20, y + 11, { align: "right" });
 
-      // With guidance bar
-      y = 130;
+      // With guidance
+      y = 96;
       doc.setFillColor(...white);
-      doc.roundedRect(15, y, pageWidth - 30, 22, 3, 3, 'F');
-
+      doc.roundedRect(15, y, pageWidth - 30, 16, 2, 2, 'F');
       doc.setTextColor(...grayText);
-      doc.setFontSize(7);
+      doc.setFontSize(6);
       doc.setFont("helvetica", "normal");
-      doc.text("WITH WEALTHCLAUDE", 20, y + 8);
-
-      // Emerald progress bar (short)
+      doc.text("WITH WEALTHCLAUDE", 20, y + 6);
       doc.setFillColor(...emerald);
-      doc.roundedRect(20, y + 12, 36, 6, 3, 3, 'F');
-
-      doc.setTextColor(...emerald);
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.text("12 months", pageWidth - 25, y + 15, { align: "right" });
-
-      // ========== RECOMMENDATIONS HEADER ==========
-      y = 160;
-      doc.setFillColor(...navy);
-      doc.rect(15, y, pageWidth - 30, 12, 'F');
-
+      doc.roundedRect(20, y + 9, 30, 4, 2, 2, 'F');
       doc.setTextColor(...emerald);
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
-      doc.text("PRIORITY ACTION ITEMS", pageWidth / 2, y + 8, { align: "center" });
+      doc.text("12 months", pageWidth - 20, y + 11, { align: "right" });
 
-      // ========== RECOMMENDATION CARDS ==========
-      y = 178;
+      // Recommendations Header
+      y = 118;
+      doc.setFillColor(...navy);
+      doc.rect(15, y, pageWidth - 30, 9, 'F');
+      doc.setTextColor(...emerald);
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "bold");
+      doc.text("PRIORITY ACTION ITEMS", pageWidth / 2, y + 6, { align: "center" });
 
-      // Helper function for recommendation cards
-      const drawRecommendation = (
-        yPos: number,
-        num: string,
-        priority: string,
-        title: string,
-        description: string,
-        action: string,
-        color: [number, number, number],
-        bgColor: [number, number, number]
-      ) => {
-        // Card background
-        doc.setFillColor(...white);
-        doc.setDrawColor(...color);
-        doc.setLineWidth(0.5);
-        doc.roundedRect(15, yPos, pageWidth - 30, 45, 3, 3, 'FD');
+      // Recommendation Cards
+      y = 130;
+      const cardHeight = 32;
+      const cardGap = 3;
 
-        // Number circle
-        doc.setFillColor(...bgColor);
-        doc.circle(28, yPos + 14, 8, 'F');
-        doc.setDrawColor(...color);
-        doc.setLineWidth(0.5);
-        doc.circle(28, yPos + 14, 8, 'S');
-
-        // Number text - centered in circle
-        doc.setTextColor(...color);
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text(num, 28, yPos + 15, { align: "center" });
-
-        // Title
-        doc.setTextColor(...darkText);
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "bold");
-        doc.text(title, 42, yPos + 10);
-
-        // Description - wrapped to 2 lines
-        doc.setTextColor(...grayText);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
-        const descLines = doc.splitTextToSize(description, 120);
-        doc.text(descLines[0] || "", 42, yPos + 18);
-        if (descLines[1]) doc.text(descLines[1], 42, yPos + 24);
-
-        // Action
-        doc.setTextColor(...emerald);
-        doc.setFontSize(7);
-        const actionLines = doc.splitTextToSize("> " + action, 120);
-        doc.text(actionLines[0] || "", 42, yPos + 32);
-        if (actionLines[1]) doc.text(actionLines[1], 42, yPos + 38);
-
-        // Priority badge
-        doc.setFillColor(...bgColor);
-        doc.roundedRect(pageWidth - 42, yPos + 18, 22, 8, 2, 2, 'F');
-        doc.setTextColor(...color);
-        doc.setFontSize(6);
-        doc.setFont("helvetica", "bold");
-        doc.text(priority, pageWidth - 31, yPos + 23, { align: "center" });
-      };
-
-      // Draw recommendations based on tips
       tips.forEach((tip, index) => {
         let color: [number, number, number];
         let bgColor: [number, number, number];
-        let priorityLabel: string;
+        let label: string;
 
         if (tip.priority === "critical") {
-          color = red;
-          bgColor = redBg;
-          priorityLabel = "CRITICAL";
+          color = red; bgColor = redBg; label = "CRITICAL";
         } else if (tip.priority === "moderate") {
-          color = amber;
-          bgColor = amberBg;
-          priorityLabel = "MODERATE";
+          color = amber; bgColor = amberBg; label = "MODERATE";
         } else {
-          color = emerald;
-          bgColor = emeraldBg;
-          priorityLabel = "OPTIMIZE";
+          color = emerald; bgColor = emeraldBg; label = "OPTIMIZE";
         }
 
-        drawRecommendation(
-          y + (index * 50),
-          String(index + 1),
-          priorityLabel,
-          tip.title,
-          tip.description,
-          tip.action,
-          color,
-          bgColor
-        );
+        const cardY = y + (index * (cardHeight + cardGap));
+
+        // Card
+        doc.setFillColor(...white);
+        doc.setDrawColor(...color);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(15, cardY, pageWidth - 30, cardHeight, 2, 2, 'FD');
+
+        // Circle
+        doc.setFillColor(...bgColor);
+        doc.circle(27, cardY + 16, 6, 'F');
+        doc.setDrawColor(...color);
+        doc.circle(27, cardY + 16, 6, 'S');
+        doc.setTextColor(...color);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.text(String(index + 1), 27, cardY + 18, { align: "center" });
+
+        // Title
+        doc.setTextColor(...darkText);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.text(tip.title, 38, cardY + 8);
+
+        // Description (wrapped)
+        doc.setTextColor(...grayText);
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "normal");
+        const descLines = doc.splitTextToSize(tip.description, 120);
+        doc.text(descLines[0] || "", 38, cardY + 15);
+        if (descLines[1]) doc.text(descLines[1], 38, cardY + 20);
+
+        // Action (wrapped)
+        doc.setTextColor(...emerald);
+        doc.setFontSize(6);
+        const actionText = "> " + tip.action;
+        const actionLines = doc.splitTextToSize(actionText, 120);
+        doc.text(actionLines[0] || "", 38, cardY + 27);
+
+        // Badge
+        doc.setFillColor(...bgColor);
+        doc.roundedRect(pageWidth - 38, cardY + 10, 18, 6, 2, 2, 'F');
+        doc.setTextColor(...color);
+        doc.setFontSize(5);
+        doc.setFont("helvetica", "bold");
+        doc.text(label, pageWidth - 29, cardY + 14, { align: "center" });
       });
 
-      // ========== CTA SECTION ==========
-      y = y + (tips.length * 50) + 20;
+      // CTA Box
+      y = 130 + (tips.length * (cardHeight + cardGap)) + 5;
       doc.setFillColor(...navy);
-      doc.roundedRect(15, y, pageWidth - 30, 24, 3, 3, 'F');
-
+      doc.roundedRect(15, y, pageWidth - 30, 18, 2, 2, 'F');
       doc.setTextColor(...white);
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.text("Ready to reach FIRE in 12 months instead of 3 years?", pageWidth / 2, y + 10, { align: "center" });
-
-      doc.setTextColor(...emerald);
-      doc.setFontSize(10);
-      doc.text("Book Free Call > wealthclaude.com/book", pageWidth / 2, y + 20, { align: "center" });
-
-      // ========== QUOTE SECTION ==========
-      y = y + 32;
-      doc.setFillColor(...white);
-      doc.roundedRect(15, y, pageWidth - 30, 22, 3, 3, 'F');
-
-      doc.setTextColor(...grayText);
       doc.setFontSize(9);
-      doc.setFont("helvetica", "italic");
-      doc.text('"The best time to plant a tree was 20 years ago. The second best time is now."', pageWidth / 2, y + 10, { align: "center" });
-
-      doc.setTextColor(...grayLight);
+      doc.setFont("helvetica", "bold");
+      doc.text("Ready to reach FIRE in 12 months instead of 3 years?", pageWidth / 2, y + 7, { align: "center" });
+      doc.setTextColor(...emerald);
       doc.setFontSize(8);
-      doc.setFont("helvetica", "normal");
-      doc.text("— Chinese Proverb", pageWidth / 2, y + 18, { align: "center" });
+      doc.text("Book Free Call - wealthclaude.com/book", pageWidth / 2, y + 14, { align: "center" });
 
-      // ========== FOOTER ==========
-      doc.setTextColor(...grayLight);
+      // Quote
+      y = y + 22;
+      doc.setFillColor(...white);
+      doc.roundedRect(15, y, pageWidth - 30, 16, 2, 2, 'F');
+      doc.setTextColor(...grayText);
       doc.setFontSize(7);
-      doc.text("© 2026 WealthClaude · wealthclaude.com · For educational purposes only", pageWidth / 2, pageHeight - 10, { align: "center" });
+      doc.setFont("helvetica", "italic");
+      doc.text('"The best time to plant a tree was 20 years ago. The second best time is now."', pageWidth / 2, y + 7, { align: "center" });
+      doc.setTextColor(...grayLight);
+      doc.setFontSize(6);
+      doc.setFont("helvetica", "normal");
+      doc.text("- Chinese Proverb", pageWidth / 2, y + 13, { align: "center" });
 
-      // Save PDF
-      const fileName = `WealthClaude-FIRE-Score-${result?.name?.replace(/\s+/g, "-") || "Report"}.pdf`;
-      doc.save(fileName);
+      // Footer
+      doc.setTextColor(...grayLight);
+      doc.setFontSize(6);
+      doc.text("2026 WealthClaude - wealthclaude.com - For educational purposes only", pageWidth / 2, pageHeight - 8, { align: "center" });
+
+      // Save
+      doc.save(`WealthClaude-FIRE-Score-${result?.name?.replace(/\s+/g, "-") || "Report"}.pdf`);
 
     } catch (error) {
       console.error("PDF generation error:", error);
@@ -611,19 +546,19 @@ export default function FireScoreResults() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.5 + index * 0.1 }}
                   className={`rounded-2xl p-6 border ${tip.priority === "critical"
-                    ? "bg-red-500/5 border-red-500/20"
-                    : tip.priority === "moderate"
-                      ? "bg-amber-500/5 border-amber-500/20"
-                      : "bg-primary/5 border-primary/20"
+                      ? "bg-red-500/5 border-red-500/20"
+                      : tip.priority === "moderate"
+                        ? "bg-amber-500/5 border-amber-500/20"
+                        : "bg-primary/5 border-primary/20"
                     }`}
                 >
                   <div className="flex items-start gap-4">
                     <div
                       className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${tip.priority === "critical"
-                        ? "bg-red-500/20"
-                        : tip.priority === "moderate"
-                          ? "bg-amber-500/20"
-                          : "bg-primary/20"
+                          ? "bg-red-500/20"
+                          : tip.priority === "moderate"
+                            ? "bg-amber-500/20"
+                            : "bg-primary/20"
                         }`}
                     >
                       {tip.priority === "critical" ? (
@@ -639,10 +574,10 @@ export default function FireScoreResults() {
                       <div className="flex items-center gap-2 mb-1">
                         <span
                           className={`text-xs font-semibold uppercase tracking-wider ${tip.priority === "critical"
-                            ? "text-red-400"
-                            : tip.priority === "moderate"
-                              ? "text-amber-400"
-                              : "text-primary"
+                              ? "text-red-400"
+                              : tip.priority === "moderate"
+                                ? "text-amber-400"
+                                : "text-primary"
                             }`}
                         >
                           {tip.priority}

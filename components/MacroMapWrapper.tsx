@@ -6,7 +6,7 @@ import { Globe2, BarChart3 } from "lucide-react"
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────────────────────────────────────
-type MetricKey = "inflation" | "gdpGrowth" | "gdp" | "unemployment" | "debtToGdp"
+type MetricKey = "inflation" | "gdpGrowth" | "gdp" | "unemployment"
 type TabKey = "map" | "heatmap"
 
 interface MacroData {
@@ -14,7 +14,6 @@ interface MacroData {
   gdpGrowth: Record<string, number>
   gdp: Record<string, number>
   unemployment: Record<string, number>
-  debtToGdp: Record<string, number>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -25,7 +24,6 @@ const METRICS: { key: MetricKey; label: string; desc: string }[] = [
   { key: "gdpGrowth", label: "GDP Growth", desc: "Annual real GDP growth rate" },
   { key: "gdp", label: "GDP", desc: "Gross Domestic Product (USD)" },
   { key: "unemployment", label: "Unemployment Rate", desc: "% of total labor force" },
-  { key: "debtToGdp", label: "Govt Debt / GDP", desc: "Central govt debt as % of GDP" },
 ]
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -36,7 +34,6 @@ interface HeatMetric { key: MetricKey; label: string; goodHigh: boolean; min: nu
 const HEAT_METRICS: HeatMetric[] = [
   { key: "gdp", label: "GDP", goodHigh: true, min: 1e9, max: 25e12, unit: "$", logScale: true },
   { key: "gdpGrowth", label: "GDP Growth", goodHigh: true, min: -5, max: 10, unit: "%" },
-  { key: "debtToGdp", label: "Govt Debt/GDP", goodHigh: false, min: 0, max: 200, unit: "%" },
   { key: "inflation", label: "Inflation", goodHigh: false, min: 0, max: 20, unit: "%" },
   { key: "unemployment", label: "Unemployment", goodHigh: false, min: 0, max: 25, unit: "%" },
 ]
@@ -120,7 +117,6 @@ const COLOR_SCALES: Record<MetricKey, { light: string; dark: string; maxVal: num
   gdpGrowth: { light: "#002a10", dark: "#00e676", maxVal: 10 }, // green
   gdp: { light: "#002233", dark: "#00e5ff", maxVal: 1, logScale: true }, // cyan
   unemployment: { light: "#2a1500", dark: "#ff6f00", maxVal: 25 }, // amber
-  debtToGdp: { light: "#1a0030", dark: "#ce93d8", maxVal: 200 }, // lavender
 }
 
 const NO_DATA = "#0d1825"

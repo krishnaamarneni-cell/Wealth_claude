@@ -334,7 +334,7 @@ export default function FireScoreResults() {
         doc.setFillColor(...white);
         doc.setDrawColor(...color);
         doc.setLineWidth(0.5);
-        doc.roundedRect(15, yPos, pageWidth - 30, 28, 3, 3, 'FD');
+        doc.roundedRect(15, yPos, pageWidth - 30, 45, 3, 3, 'FD');
 
         // Number circle
         doc.setFillColor(...bgColor);
@@ -355,24 +355,28 @@ export default function FireScoreResults() {
         doc.setFont("helvetica", "bold");
         doc.text(title, 42, yPos + 10);
 
-        // Description
+        // Description - wrapped to 2 lines
         doc.setTextColor(...grayText);
         doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
-        doc.text(description, 42, yPos + 18);
+        const descLines = doc.splitTextToSize(description, 120);
+        doc.text(descLines[0] || "", 42, yPos + 18);
+        if (descLines[1]) doc.text(descLines[1], 42, yPos + 24);
 
         // Action
         doc.setTextColor(...emerald);
         doc.setFontSize(7);
-        doc.text("> " + action, 42, yPos + 25);
+        const actionLines = doc.splitTextToSize("> " + action, 120);
+        doc.text(actionLines[0] || "", 42, yPos + 32);
+        if (actionLines[1]) doc.text(actionLines[1], 42, yPos + 38);
 
         // Priority badge
         doc.setFillColor(...bgColor);
-        doc.roundedRect(pageWidth - 42, yPos + 8, 22, 8, 2, 2, 'F');
+        doc.roundedRect(pageWidth - 42, yPos + 18, 22, 8, 2, 2, 'F');
         doc.setTextColor(...color);
         doc.setFontSize(6);
         doc.setFont("helvetica", "bold");
-        doc.text(priority, pageWidth - 31, yPos + 13, { align: "center" });
+        doc.text(priority, pageWidth - 31, yPos + 23, { align: "center" });
       };
 
       // Draw recommendations based on tips
@@ -396,20 +400,20 @@ export default function FireScoreResults() {
         }
 
         drawRecommendation(
-          y + (index * 32),
+          y + (index * 50),
           String(index + 1),
           priorityLabel,
           tip.title,
-          tip.description.substring(0, 70) + (tip.description.length > 70 ? "..." : ""),
-          tip.action.substring(0, 60) + (tip.action.length > 60 ? "..." : ""),
+          tip.description,
+          tip.action,
           color,
           bgColor
         );
       });
 
-      // ========== CTA BOX ==========
-      y = 178 + (tips.length * 32) + 8;
-      doc.setFillColor(...navy);
+      drawRecommendation(
+        y + (index * 50),
+        doc.setFillColor(...navy);
       doc.roundedRect(15, y, pageWidth - 30, 24, 3, 3, 'F');
 
       doc.setTextColor(...white);

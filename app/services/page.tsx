@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { Header } from "@/components/header";
 import {
@@ -48,36 +49,42 @@ const services = [
     title: "LLC Formation",
     description: "Protect your assets and optimize taxes with proper business structure",
     features: ["State filing", "Operating agreement", "EIN registration", "Banking setup guidance"],
+    href: "/llc",
   },
   {
     icon: FileText,
     title: "Tax Strategy",
     description: "Stop overpaying. Implement strategies the wealthy use every day",
     features: ["Tax-loss harvesting", "Entity optimization", "Quarterly planning", "Audit protection"],
+    href: "/tax-strategy",
   },
   {
     icon: PiggyBank,
     title: "Debt Elimination",
     description: "Strategic payoff plan to free up cash for wealth building",
     features: ["Debt analysis", "Payoff strategy", "Rate negotiation tips", "Progress tracking"],
+    href: "/debt-elimination",
   },
   {
     icon: TrendingUp,
     title: "Investment Planning",
     description: "Build a diversified portfolio aligned with your FIRE goals",
     features: ["Risk assessment", "Asset allocation", "401k optimization", "Roth strategies"],
+    href: "/investment-planning",
   },
   {
     icon: Shield,
     title: "Asset Protection",
     description: "Shield your wealth from lawsuits, creditors, and life surprises",
     features: ["Trust setup", "Insurance review", "Umbrella policies", "Estate planning basics"],
+    href: "/asset-protection",
   },
   {
     icon: Briefcase,
     title: "Income Diversification",
     description: "Build multiple streams so you're never dependent on one paycheck",
     features: ["Income analysis", "Side business ideas", "Passive income setup", "Dividend strategy"],
+    href: "/income-diversification",
   },
 ];
 
@@ -480,10 +487,12 @@ export default function ServicesPage() {
                     ))}
                   </ul>
 
-                  <button className="mt-6 w-full py-3 bg-white/5 hover:bg-primary hover:text-black border border-white/10 hover:border-primary rounded-xl font-medium transition-all flex items-center justify-center gap-2">
-                    Learn More
-                    <ArrowRight className="w-4 h-4" />
-                </button>
+                  <Link href={service.href}>
+                    <button className="mt-6 w-full py-3 bg-white/5 hover:bg-primary hover:text-black border border-white/10 hover:border-primary rounded-xl font-medium transition-all flex items-center justify-center gap-2">
+                      Learn More
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </Link>
               </motion.div>
             ))}
             </motion.div>

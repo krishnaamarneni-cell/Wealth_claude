@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { motion } from "framer-motion";
 import { Header } from "@/components/header";
 import {
   Building2,
@@ -22,10 +21,10 @@ import {
   DollarSign,
 } from "lucide-react";
 
-// Animation variants
-const fadeInUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },
+// CSS animations via Tailwind
+const animationClasses = {
+  fadeInUp: "animate-in fade-in slide-in-from-bottom-6 duration-600",
+  scaleIn: "animate-in fade-in zoom-in-95 duration-500",
 };
 
 const staggerContainer = {

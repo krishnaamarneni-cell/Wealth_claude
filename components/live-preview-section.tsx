@@ -66,15 +66,15 @@ export function LivePreviewSection() {
               </div>
             </div>
 
-            {/* Video player */}
-            <div className="relative aspect-video bg-[#060a10]">
+            {/* Video player - flexible height */}
+            <div className="relative bg-[#060a10]">
               <video
                 src="/globe-demo.mp4"
                 autoPlay
                 loop
                 muted
                 playsInline
-                className="w-full h-full object-cover"
+                className="w-full h-auto block"
               />
 
               {/* Optional: Overlay with CTA button */}

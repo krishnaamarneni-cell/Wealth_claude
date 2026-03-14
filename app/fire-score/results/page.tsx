@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { jsPDF } from "jspdf";
 import {
   Download,
   Mail,
@@ -158,37 +160,168 @@ export default function FireScoreResults() {
   const handleDownloadPDF = async () => {
     setIsGeneratingPDF(true);
 
-    // TODO: Generate actual PDF using react-pdf or similar
-    // For now, simulate PDF generation
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
 
-    // Create a simple text-based "PDF" for demo
-    const content = `
-WEALTHCLAUDE FIRE SCORE REPORT
-==============================
-Generated: ${new Date().toLocaleDateString()}
+      // Colors
+      const primaryGreen = [34, 197, 94]; // #22c55e
+      const darkBg = [10, 15, 24]; // #0a0f18
+      const white = [255, 255, 255];
+      const gray = [156, 163, 175];
+      const red = [239, 68, 68];
+      const amber = [245, 158, 11];
 
-Client: ${result?.name}
-Email: ${result?.email}
+      // Header background
+      doc.setFillColor(darkBg[0], darkBg[1], darkBg[2]);
+      doc.rect(0, 0, pageWidth, 40, 'F');
 
-FIRE SCORE: ${result?.score}/100
-Status: ${getScoreLabel(result?.score || 0).label}
-Percentile: ${getPercentile(result?.score || 0)}
+      // Logo text
+      doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
+      doc.setFontSize(24);
+      doc.setFont("helvetica", "bold");
+      doc.text("WealthClaude", 20, 22);
 
-RECOMMENDATIONS:
-${tips.map((t, i) => `${i + 1}. [${t.priority.toUpperCase()}] ${t.title}\n   ${t.description}\n   Action: ${t.action}`).join("\n\n")}
+      // Subtitle
+      doc.setTextColor(white[0], white[1], white[2]);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text("FIRE Score Assessment Report", 20, 32);
 
-==============================
-Book a free strategy call at wealthclaude.com/book
-    `;
+      // Date
+      doc.setFontSize(9);
+      doc.setTextColor(gray[0], gray[1], gray[2]);
+      doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - 20, 22, { align: "right" });
+      doc.text("Confidential", pageWidth - 20, 32, { align: "right" });
 
-    const blob = new Blob([content], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `WealthClaude-FIRE-Score-${result?.name?.replace(/\s+/g, "-")}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+      // Client info section
+      doc.setTextColor(100, 100, 100);
+      doc.setFontSize(10);
+      doc.text("Prepared for:", 20, 55);
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text(result?.name || "Client", 20, 65);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 100, 100);
+      doc.text(result?.email || "", 20, 73);
+
+      // Score circle (simplified as text)
+      doc.setFillColor(245, 245, 245);
+      doc.circle(pageWidth - 40, 65, 25, 'F');
+      doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
+      doc.setFontSize(28);
+      doc.setFont("helvetica", "bold");
+      doc.text(String(result?.score || 0), pageWidth - 40, 68, { align: "center" });
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text("/100", pageWidth - 40, 78, { align: "center" });
+
+      // Divider
+      doc.setDrawColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
+      doc.setLineWidth(1);
+      doc.line(20, 95, pageWidth - 20, 95);
+
+      // Executive Summary
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Executive Summary", 20, 110);
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(60, 60, 60);
+      const summaryText = `Your FIRE Score of ${result?.score} places you in the ${getPercentile(result?.score || 0)} of wealth builders. At your current trajectory, you are approximately 3.2 years away from reaching an optimal score of 80+. With guided intervention, this can be reduced to 12 months.`;
+      const summaryLines = doc.splitTextToSize(summaryText, pageWidth - 40);
+      doc.text(summaryLines, 20, 120);
+
+      // Priority Recommendations
+      let yPos = 150;
+      doc.setDrawColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
+      doc.setLineWidth(1);
+      doc.line(20, yPos, pageWidth - 20, yPos);
+
+      yPos += 15;
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Priority Recommendations", 20, yPos);
+
+      yPos += 15;
+
+      tips.forEach((tip, index) => {
+        // Priority badge color
+        if (tip.priority === "critical") {
+          doc.setTextColor(red[0], red[1], red[2]);
+        } else if (tip.priority === "moderate") {
+          doc.setTextColor(amber[0], amber[1], amber[2]);
+        } else {
+          doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
+        }
+
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "bold");
+        doc.text(tip.priority.toUpperCase(), 20, yPos);
+
+        // Title
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(11);
+        doc.text(`${index + 1}. ${tip.title}`, 20, yPos + 8);
+
+        // Description
+        doc.setTextColor(80, 80, 80);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        const descLines = doc.splitTextToSize(tip.description, pageWidth - 50);
+        doc.text(descLines, 25, yPos + 16);
+
+        // Action
+        doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
+        doc.setFontSize(9);
+        const actionText = `Action: ${tip.action}`;
+        const actionLines = doc.splitTextToSize(actionText, pageWidth - 50);
+        doc.text(actionLines, 25, yPos + 26 + (descLines.length - 1) * 4);
+
+        yPos += 40 + (descLines.length - 1) * 4;
+
+        // Check if we need a new page
+        if (yPos > 260 && index < tips.length - 1) {
+          doc.addPage();
+          yPos = 30;
+        }
+      });
+
+      // Footer CTA
+      yPos = Math.max(yPos + 10, 250);
+      if (yPos > 260) {
+        doc.addPage();
+        yPos = 30;
+      }
+
+      doc.setFillColor(245, 245, 245);
+      doc.rect(20, yPos, pageWidth - 40, 30, 'F');
+
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Ready to accelerate your FIRE journey?", pageWidth / 2, yPos + 12, { align: "center" });
+
+      doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
+      doc.setFontSize(10);
+      doc.text("Book a Free Strategy Call at wealthclaude.com/book", pageWidth / 2, yPos + 22, { align: "center" });
+
+      // Footer disclaimer
+      doc.setTextColor(150, 150, 150);
+      doc.setFontSize(7);
+      doc.text("© 2026 WealthClaude · wealthclaude.com · This report is for educational purposes only", pageWidth / 2, 290, { align: "center" });
+
+      // Save PDF
+      doc.save(`WealthClaude-FIRE-Score-${result?.name?.replace(/\s+/g, "-") || "Report"}.pdf`);
+
+    } catch (error) {
+      console.error("PDF generation error:", error);
+    }
 
     setIsGeneratingPDF(false);
   };
@@ -214,16 +347,21 @@ Book a free strategy call at wealthclaude.com/book
 
         <div className="max-w-4xl mx-auto relative z-10">
           {/* Greeting */}
-          <div
-            className="text-center mb-8 animate-in fade-in duration-500"
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center mb-8"
           >
             <p className="text-white/60 mb-2">Hey {result.name.split(" ")[0]}! 👋</p>
             <h1 className="text-3xl md:text-4xl font-bold">Your FIRE Score Results</h1>
-          </div>
+          </motion.div>
 
           {/* Score Card */}
-          <div
-            className="bg-white/5 border border-white/10 rounded-3xl p-8 md:p-12 animate-in fade-in duration-700"
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2 }}
+            className="bg-white/5 border border-white/10 rounded-3xl p-8 md:p-12"
           >
             <div className="flex flex-col md:flex-row items-center gap-8">
               {/* Score Circle */}
@@ -238,7 +376,7 @@ Book a free strategy call at wealthclaude.com/book
                     fill="none"
                     className="text-white/10"
                   />
-                  <circle
+                  <motion.circle
                     cx="96"
                     cy="96"
                     r="88"
@@ -246,10 +384,11 @@ Book a free strategy call at wealthclaude.com/book
                     strokeWidth="12"
                     fill="none"
                     strokeLinecap="round"
-                    style={{
+                    initial={{ strokeDasharray: "0 553" }}
+                    animate={{
                       strokeDasharray: `${(result.score / 100) * 553} 553`,
-                      transition: "stroke-dasharray 1.5s ease-out 0.5s"
                     }}
+                    transition={{ duration: 1.5, delay: 0.5, ease: "easeOut" }}
                   />
                   <defs>
                     <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -259,11 +398,14 @@ Book a free strategy call at wealthclaude.com/book
                   </defs>
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span
-                    className={`text-5xl font-bold ${getScoreColor(result.score)} animate-in fade-in duration-1000 delay-1000`}
+                  <motion.span
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 1 }}
+                    className={`text-5xl font-bold ${getScoreColor(result.score)}`}
                   >
                     {result.score}
-                  </span>
+                  </motion.span>
                   <span className="text-white/50 text-sm">/100</span>
                 </div>
               </div>
@@ -301,16 +443,18 @@ Book a free strategy call at wealthclaude.com/book
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
 
           {/* Email Notification */}
           {showEmailSent && (
-            <div
-              className="mt-4 flex items-center justify-center gap-2 text-primary text-sm animate-in fade-in duration-500"
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-4 flex items-center justify-center gap-2 text-primary text-sm"
             >
               <Mail className="w-4 h-4" />
               <span>Detailed breakdown sent to {result.email}</span>
-            </div>
+            </motion.div>
           )}
         </div>
       </section>
@@ -318,8 +462,10 @@ Book a free strategy call at wealthclaude.com/book
       {/* Priority Recommendations */}
       <section className="py-12 px-4">
         <div className="max-w-4xl mx-auto">
-          <div
-            className="animate-in fade-in duration-700"
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
           >
             <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
               <Target className="w-6 h-6 text-primary" />
@@ -328,9 +474,12 @@ Book a free strategy call at wealthclaude.com/book
 
             <div className="space-y-4">
               {tips.map((tip, index) => (
-                <div
+                <motion.div
                   key={index}
-                  className={`rounded-2xl p-6 border animate-in fade-in duration-500 ${tip.priority === "critical"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.5 + index * 0.1 }}
+                  className={`rounded-2xl p-6 border ${tip.priority === "critical"
                       ? "bg-red-500/5 border-red-500/20"
                       : tip.priority === "moderate"
                         ? "bg-amber-500/5 border-amber-500/20"
@@ -375,10 +524,10 @@ Book a free strategy call at wealthclaude.com/book
                       </p>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
 
@@ -387,8 +536,11 @@ Book a free strategy call at wealthclaude.com/book
         <div className="max-w-4xl mx-auto">
           <div className="grid md:grid-cols-2 gap-6">
             {/* Download PDF */}
-            <div
-              className="bg-white/5 border border-white/10 rounded-2xl p-6 animate-in fade-in duration-700"
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7 }}
+              className="bg-white/5 border border-white/10 rounded-2xl p-6"
             >
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
@@ -416,11 +568,14 @@ Book a free strategy call at wealthclaude.com/book
                   </>
                 )}
               </button>
-            </div>
+            </motion.div>
 
             {/* Book Call */}
-            <div
-              className="bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 rounded-2xl p-6 animate-in fade-in duration-700"
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8 }}
+              className="bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 rounded-2xl p-6"
             >
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
@@ -439,7 +594,7 @@ Book a free strategy call at wealthclaude.com/book
                 Schedule Now
                 <ArrowRight className="w-5 h-5" />
               </a>
-            </div>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -447,8 +602,11 @@ Book a free strategy call at wealthclaude.com/book
       {/* Comparison Section */}
       <section className="py-12 px-4">
         <div className="max-w-4xl mx-auto">
-          <div
-            className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center animate-in fade-in duration-700"
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.9 }}
+            className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center"
           >
             <h3 className="text-xl font-bold mb-4">How You Compare</h3>
 
@@ -465,16 +623,19 @@ Book a free strategy call at wealthclaude.com/book
               <div className="absolute inset-y-0 left-[70%] right-0 bg-gradient-to-r from-primary/30 to-emerald-500/30" />
 
               {/* User Position */}
-              <div
-                className="absolute top-0 bottom-0 w-1 bg-white transition-all duration-1000"
-                style={{ left: `${result.score}%`, transform: "translateX(-50%)" }}
+              <motion.div
+                initial={{ left: 0 }}
+                animate={{ left: `${result.score}%` }}
+                transition={{ duration: 1, delay: 1 }}
+                className="absolute top-0 bottom-0 w-1 bg-white"
+                style={{ transform: "translateX(-50%)" }}
               >
                 <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap">
                   <span className="px-2 py-1 bg-white text-black text-xs font-bold rounded">
                     You: {result.score}
                   </span>
                 </div>
-              </div>
+              </motion.div>
             </div>
 
             <div className="flex justify-between text-xs text-white/40">
@@ -482,15 +643,17 @@ Book a free strategy call at wealthclaude.com/book
               <span>Growing (40-70)</span>
               <span>Optimizing (70-100)</span>
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Final CTA */}
       <section className="py-16 px-4">
         <div className="max-w-2xl mx-auto text-center">
-          <div
-            className="animate-in fade-in duration-700"
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1 }}
           >
             <h2 className="text-2xl md:text-3xl font-bold mb-4">
               Ready to Escape the Stuck Zone?
@@ -507,7 +670,7 @@ Book a free strategy call at wealthclaude.com/book
               Book Free Strategy Call
               <ArrowRight className="w-5 h-5" />
             </a>
-          </div>
+          </motion.div>
         </div>
       </section>
     </div>

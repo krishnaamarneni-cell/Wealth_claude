@@ -29,7 +29,7 @@ export function LivePreviewSection() {
     <section className="relative py-32 px-6 bg-[#060a10] overflow-hidden">
 
       {/* Background glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] rounded-full bg-blue-600/5 blur-[100px] pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] rounded-full bg-emerald-600/5 blur-[100px] pointer-events-none" />
 
       <div className="container mx-auto relative z-10">
 
@@ -48,8 +48,8 @@ export function LivePreviewSection() {
 
         {/* Video frame */}
         <div className="relative max-w-5xl mx-auto mb-20">
-          {/* Outer glow ring */}
-          <div className="absolute -inset-px rounded-2xl bg-gradient-to-br from-blue-500/30 via-transparent to-emerald-500/20 blur-sm" />
+          {/* Outer glow ring - changed to green */}
+          <div className="absolute -inset-px rounded-2xl bg-gradient-to-br from-emerald-500/30 via-transparent to-emerald-500/20 blur-sm" />
 
           <div className="relative rounded-2xl overflow-hidden border border-white/8 bg-[#0d1117]">
             {/* Browser chrome bar */}
@@ -77,11 +77,11 @@ export function LivePreviewSection() {
                 className="w-full h-auto block"
               />
 
-              {/* Optional: Overlay with CTA button */}
+              {/* Optional: Overlay with CTA button - changed to green */}
               <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10">
                 <Link
                   href="/globe"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-black/60 backdrop-blur-sm border border-white/20 text-white text-sm hover:bg-black/80 hover:border-white/30 transition-all duration-300 shadow-lg"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-black/60 backdrop-blur-sm border border-emerald-500/30 text-emerald-400 text-sm hover:bg-black/80 hover:border-emerald-400/50 transition-all duration-300 shadow-lg"
                 >
                   <Play className="w-3.5 h-3.5 fill-current" />
                   Try it live
@@ -98,10 +98,11 @@ export function LivePreviewSection() {
               {/* Step connector line */}
               <div className="hidden md:block absolute top-6 left-full w-full h-px bg-gradient-to-r from-white/10 to-transparent -translate-y-1/2 z-0 last:hidden" />
 
-              <div className="relative z-10 flex flex-col gap-4 p-6 rounded-2xl border border-white/5 bg-white/2 hover:border-white/10 hover:bg-white/3 transition-all duration-300">
+              <div className="relative z-10 flex flex-col gap-4 p-6 rounded-2xl border border-white/5 bg-white/2 hover:border-emerald-500/20 hover:bg-white/3 transition-all duration-300">
                 <div className="flex items-center justify-between">
-                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-400/20 flex items-center justify-center">
-                    <s.icon className="w-5 h-5 text-blue-400" />
+                  {/* Changed icon container to green */}
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-400/20 flex items-center justify-center">
+                    <s.icon className="w-5 h-5 text-emerald-400" />
                   </div>
                   <span className="text-3xl font-black text-white/5 tabular-nums">{s.step}</span>
                 </div>

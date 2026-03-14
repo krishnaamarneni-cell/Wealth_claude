@@ -233,7 +233,7 @@ export default function ServicesPage() {
                     <p className="text-white/50">Same job, same debt, same stress</p>
                   </div>
                 </div>
-              </div>
+              </motion.div>
 
             {/* Wealthy Column */}
             <motion.div variants={scaleIn} className="space-y-4">
@@ -266,11 +266,17 @@ export default function ServicesPage() {
                     <p className="text-white/50">Multiple income streams, tax-optimized, protected</p>
                   </div>
                 </div>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
 
             {/* The Math Box */}
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeInUp}
+              className="bg-white/5 border border-white/10 rounded-2xl p-8"
+            >
               <h3 className="text-center text-xl font-bold mb-6">
                 THE MATH THEY DON'T TEACH YOU
               </h3>
@@ -287,7 +293,7 @@ export default function ServicesPage() {
               <p className="text-center text-white/40 mt-6 text-sm">
                 The difference: <span className="text-white font-semibold">$140,000</span> over a decade
               </p>
-            </div>
+            </motion.div>
           </div>
         </section>
 

@@ -393,8 +393,9 @@ export async function POST(request: NextRequest) {
 }
 
 async function handleRequest(request: NextRequest) {
-  // Verify cron secret
-  if (!verifyCronSecret(request)) {
+  // Verify cron secret (allow test mode via query param)
+  const testMode = request.nextUrl.searchParams.get("test") === process.env.CRON_SECRET;
+  if (!verifyCronSecret(request) && !testMode) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

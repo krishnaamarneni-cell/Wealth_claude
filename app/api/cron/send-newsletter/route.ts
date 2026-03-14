@@ -31,6 +31,7 @@ interface MarketData {
 }
 
 interface CalendarEvent {
+  event_date: string;
   event_time: string;
   event_name: string;
   event_type: string;
@@ -38,9 +39,34 @@ interface CalendarEvent {
   related_symbol: string | null;
 }
 
-interface Subscriber {
-  email: string;
-  name: string | null;
+interface MarketNews {
+  headline: string;
+  summary: string;
+  category: string;
+}
+
+// Finance quotes database
+const FINANCE_QUOTES = [
+  { quote: "The stock market is a device for transferring money from the impatient to the patient.", author: "Warren Buffett" },
+  { quote: "In investing, what is comfortable is rarely profitable.", author: "Robert Arnott" },
+  { quote: "The individual investor should act consistently as an investor and not as a speculator.", author: "Ben Graham" },
+  { quote: "Know what you own, and know why you own it.", author: "Peter Lynch" },
+  { quote: "Risk comes from not knowing what you're doing.", author: "Warren Buffett" },
+  { quote: "The four most dangerous words in investing are: 'This time it's different.'", author: "Sir John Templeton" },
+  { quote: "Price is what you pay. Value is what you get.", author: "Warren Buffett" },
+  { quote: "It's not whether you're right or wrong that's important, but how much money you make when you're right.", author: "George Soros" },
+  { quote: "The best investment you can make is in yourself.", author: "Warren Buffett" },
+  { quote: "Time in the market beats timing the market.", author: "Ken Fisher" },
+  { quote: "Compound interest is the eighth wonder of the world.", author: "Albert Einstein" },
+  { quote: "Be fearful when others are greedy and greedy when others are fearful.", author: "Warren Buffett" },
+  { quote: "The goal isn't more money. The goal is living life on your terms.", author: "Chris Brogan" },
+  { quote: "Financial peace isn't the acquisition of stuff. It's learning to live on less than you make.", author: "Dave Ramsey" },
+  { quote: "Wealth is not about having a lot of money; it's about having a lot of options.", author: "Chris Rock" },
+];
+
+// Get random quote
+function getRandomQuote() {
+  return FINANCE_QUOTES[Math.floor(Math.random() * FINANCE_QUOTES.length)];
 }
 
 // Verify cron secret
@@ -60,60 +86,135 @@ function formatNumber(num: number): string {
   return num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// Format change with color
-function formatChange(change: number): string {
-  const arrow = change >= 0 ? "📈" : "📉";
-  const sign = change >= 0 ? "+" : "";
-  return `${arrow} ${sign}${change.toFixed(2)}%`;
+// Format price for display
+function formatPrice(num: number): string {
+  if (num >= 1000) {
+    return num.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  }
+  return formatNumber(num);
 }
 
-// Get emoji for market sentiment
-function getSentimentEmoji(value: number): string {
-  if (value <= 25) return "😱";
-  if (value <= 45) return "😰";
-  if (value <= 55) return "😐";
-  if (value <= 75) return "😊";
-  return "🤑";
+// Get market mood description
+function getMarketMood(sp500Change: number, fearGreed: number): string {
+  if (sp500Change > 1 && fearGreed > 60) {
+    return "Bulls are charging! Markets are riding high with strong momentum.";
+  } else if (sp500Change > 0.5) {
+    return "A solid green day. Investors are feeling optimistic.";
+  } else if (sp500Change > 0) {
+    return "Markets edged higher. Cautious optimism in the air.";
+  } else if (sp500Change > -0.5) {
+    return "A slight pullback today. Nothing to panic about.";
+  } else if (sp500Change > -1) {
+    return "Red on the screens. Investors are taking some risk off the table.";
+  } else if (fearGreed < 25) {
+    return "Fear is gripping the market. But remember - this is often when opportunities emerge.";
+  } else {
+    return "Rough day on Wall Street. Stay focused on the long term.";
+  }
 }
 
-// Generate subject line based on market performance
+// Get fear & greed context
+function getFearGreedContext(value: number): string {
+  if (value <= 20) return "Extreme fear often signals buying opportunities. Warren Buffett would be interested.";
+  if (value <= 40) return "Fear is elevated. Smart money often starts accumulating here.";
+  if (value <= 60) return "Markets are balanced. No extreme emotions driving prices.";
+  if (value <= 80) return "Greed is building. Time to be more selective with new positions.";
+  return "Extreme greed! Historically, this precedes corrections. Stay cautious.";
+}
+
+// Fetch market news from Perplexity
+async function fetchMarketNews(): Promise<MarketNews[]> {
+  try {
+    const response = await fetch("https://api.perplexity.ai/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "sonar",
+        messages: [
+          {
+            role: "system",
+            content: "You are a financial news summarizer. Return ONLY valid JSON, no markdown or explanation."
+          },
+          {
+            role: "user",
+            content: `Give me the top 3 most important financial/market news headlines from today or yesterday. For each, provide a brief 1-2 sentence summary explaining why it matters to investors.
+
+Return ONLY this JSON format:
+[
+  {"headline": "Short headline", "summary": "Why it matters in 1-2 sentences", "category": "stocks|crypto|economy|earnings|fed"},
+  ...
+]`
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 1000,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("Perplexity news fetch failed");
+      return [];
+    }
+
+    const data = await response.json();
+    const content = data.choices[0].message.content;
+
+    // Parse JSON from response
+    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+    return JSON.parse(content);
+  } catch (error) {
+    console.error("Failed to fetch market news:", error);
+    return [];
+  }
+}
+
+// Get category emoji
+function getCategoryEmoji(category: string): string {
+  const emojis: Record<string, string> = {
+    stocks: "📈",
+    crypto: "₿",
+    economy: "🏛️",
+    earnings: "💰",
+    fed: "🏦",
+  };
+  return emojis[category] || "📰";
+}
+
+// Generate subject line
 function generateSubjectLine(marketData: MarketData, issueNumber: number): string {
   const sp500Change = marketData.sp500_change;
   const emoji = sp500Change >= 1 ? "🚀" : sp500Change >= 0 ? "📈" : sp500Change >= -1 ? "📉" : "🔴";
-
   const sign = sp500Change >= 0 ? "+" : "";
-  const topGainer = marketData.top_gainers[0];
 
-  let subject = `${emoji} S&P ${sign}${sp500Change.toFixed(1)}%`;
-
-  if (topGainer && topGainer.change > 3) {
-    subject += ` | ${topGainer.symbol} on fire!`;
-  }
-
-  subject += ` | Issue #${issueNumber}`;
-
-  return subject;
+  return `${emoji} S&P ${sign}${sp500Change.toFixed(1)}% | Fear at ${marketData.fear_greed_value} | Issue #${issueNumber}`;
 }
 
-// Generate preview text
-function generatePreviewText(marketData: MarketData): string {
-  return `Your 2-min market brief: BTC $${formatNumber(marketData.btc_price)} • Fear & Greed: ${marketData.fear_greed_value}`;
-}
-
-// Build HTML email template
+// Build enhanced HTML email
 function buildEmailHTML(
   subscriberName: string,
   marketData: MarketData,
   todayEvents: CalendarEvent[],
   weekEvents: CalendarEvent[],
+  marketNews: MarketNews[],
   issueNumber: number,
   issueDate: string,
   trackingPixelUrl: string
 ): string {
   const firstName = subscriberName?.split(" ")[0] || "Investor";
+  const quote = getRandomQuote();
+  const marketMood = getMarketMood(marketData.sp500_change, marketData.fear_greed_value);
+  const fearGreedContext = getFearGreedContext(marketData.fear_greed_value);
 
-  // Determine overall market mood
-  const marketMood = marketData.sp500_change >= 0 ? "green" : "red";
+  // Determine colors
+  const isGreenDay = marketData.sp500_change >= 0;
+  const dayOfWeek = new Date(issueDate).toLocaleDateString('en-US', { weekday: 'long' });
+  const formattedDate = new Date(issueDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   return `
 <!DOCTYPE html>
@@ -123,7 +224,7 @@ function buildEmailHTML(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>WealthClaude Daily</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #0f172a; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+<body style="margin: 0; padding: 0; background-color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
   
   <!-- Tracking Pixel -->
   <img src="${trackingPixelUrl}" width="1" height="1" style="display:none;" alt="" />
@@ -135,91 +236,148 @@ function buildEmailHTML(
           
           <!-- HEADER -->
           <tr>
-            <td style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 24px; border-radius: 16px 16px 0 0;">
+            <td style="padding: 24px 24px 16px 24px;">
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td>
-                    <h1 style="margin: 0; color: white; font-size: 24px; font-weight: bold;">🌐 WealthClaude Daily</h1>
-                    <p style="margin: 4px 0 0 0; color: rgba(255,255,255,0.8); font-size: 14px;">Issue #${issueNumber} · ${new Date(issueDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                    <h1 style="margin: 0; color: #10b981; font-size: 24px; font-weight: bold;">🌐 WealthClaude Daily</h1>
+                    <p style="margin: 4px 0 0 0; color: #64748b; font-size: 13px;">Issue #${issueNumber} · ${dayOfWeek}, ${formattedDate}</p>
                   </td>
-                  <td align="right" style="color: white; font-size: 12px;">
-                    ${marketMood === 'green' ? '🟢 Markets Up' : '🔴 Markets Down'}
+                  <td align="right">
+                    <span style="display: inline-block; padding: 6px 12px; background-color: ${isGreenDay ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}; color: ${isGreenDay ? '#10b981' : '#ef4444'}; border-radius: 20px; font-size: 12px; font-weight: 600;">
+                      ${isGreenDay ? '🟢 Green Day' : '🔴 Red Day'}
+                    </span>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
           
-          <!-- GREETING -->
+          <!-- GREETING & HOOK -->
           <tr>
-            <td style="background-color: #1e293b; padding: 24px;">
-              <p style="margin: 0; color: #e2e8f0; font-size: 16px;">
+            <td style="padding: 0 24px 24px 24px;">
+              <p style="margin: 0 0 12px 0; color: #e2e8f0; font-size: 17px; line-height: 1.5;">
                 Good morning, ${firstName}! ☕
               </p>
-              <p style="margin: 8px 0 0 0; color: #94a3b8; font-size: 14px;">
-                Here's your 2-minute market briefing.
+              <p style="margin: 0; color: #94a3b8; font-size: 15px; line-height: 1.6;">
+                ${marketMood}
               </p>
             </td>
           </tr>
           
-          <!-- MARKET SNAPSHOT -->
+          <!-- QUOTE OF THE DAY -->
           <tr>
-            <td style="background-color: #1e293b; padding: 0 24px;">
-              <h2 style="margin: 0 0 16px 0; color: #10b981; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">
-                📊 Market Snapshot
-              </h2>
-              <table width="100%" cellpadding="0" cellspacing="0">
+            <td style="padding: 0 24px 24px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%); border-left: 3px solid #10b981; border-radius: 0 8px 8px 0;">
                 <tr>
-                  <td width="33%" style="padding: 12px; background-color: #0f172a; border-radius: 8px;">
-                    <p style="margin: 0; color: #94a3b8; font-size: 11px;">S&P 500</p>
-                    <p style="margin: 4px 0 0 0; color: white; font-size: 18px; font-weight: bold;">$${formatNumber(marketData.sp500_price)}</p>
-                    <p style="margin: 4px 0 0 0; color: ${marketData.sp500_change >= 0 ? '#10b981' : '#ef4444'}; font-size: 12px;">
-                      ${formatChange(marketData.sp500_change)}
+                  <td style="padding: 16px 20px;">
+                    <p style="margin: 0 0 8px 0; color: #e2e8f0; font-size: 14px; font-style: italic; line-height: 1.5;">
+                      "${quote.quote}"
                     </p>
-                  </td>
-                  <td width="4"></td>
-                  <td width="33%" style="padding: 12px; background-color: #0f172a; border-radius: 8px;">
-                    <p style="margin: 0; color: #94a3b8; font-size: 11px;">DOW JONES</p>
-                    <p style="margin: 4px 0 0 0; color: white; font-size: 18px; font-weight: bold;">$${formatNumber(marketData.dow_price)}</p>
-                    <p style="margin: 4px 0 0 0; color: ${marketData.dow_change >= 0 ? '#10b981' : '#ef4444'}; font-size: 12px;">
-                      ${formatChange(marketData.dow_change)}
-                    </p>
-                  </td>
-                  <td width="4"></td>
-                  <td width="33%" style="padding: 12px; background-color: #0f172a; border-radius: 8px;">
-                    <p style="margin: 0; color: #94a3b8; font-size: 11px;">NASDAQ</p>
-                    <p style="margin: 4px 0 0 0; color: white; font-size: 18px; font-weight: bold;">$${formatNumber(marketData.nasdaq_price)}</p>
-                    <p style="margin: 4px 0 0 0; color: ${marketData.nasdaq_change >= 0 ? '#10b981' : '#ef4444'}; font-size: 12px;">
-                      ${formatChange(marketData.nasdaq_change)}
+                    <p style="margin: 0; color: #10b981; font-size: 12px; font-weight: 600;">
+                      — ${quote.author}
                     </p>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
+          
+          <!-- MARKET SNAPSHOT HEADER -->
+          <tr>
+            <td style="padding: 0 24px 12px 24px;">
+              <h2 style="margin: 0; color: #e2e8f0; font-size: 14px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">
+                📊 Market Snapshot
+              </h2>
+            </td>
+          </tr>
+          
+          <!-- MARKET INDICES -->
+          <tr>
+            <td style="padding: 0 24px 8px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="8" style="border-collapse: separate;">
+                <tr>
+                  <td width="33%" style="background-color: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 16px; text-align: center;">
+                    <p style="margin: 0 0 4px 0; color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">S&P 500</p>
+                    <p style="margin: 0 0 4px 0; color: #f8fafc; font-size: 20px; font-weight: 700;">$${formatPrice(marketData.sp500_price)}</p>
+                    <p style="margin: 0; color: ${marketData.sp500_change >= 0 ? '#10b981' : '#ef4444'}; font-size: 13px; font-weight: 600;">
+                      ${marketData.sp500_change >= 0 ? '↑' : '↓'} ${marketData.sp500_change >= 0 ? '+' : ''}${marketData.sp500_change.toFixed(2)}%
+                    </p>
+                  </td>
+                  <td width="33%" style="background-color: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 16px; text-align: center;">
+                    <p style="margin: 0 0 4px 0; color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Dow Jones</p>
+                    <p style="margin: 0 0 4px 0; color: #f8fafc; font-size: 20px; font-weight: 700;">$${formatPrice(marketData.dow_price)}</p>
+                    <p style="margin: 0; color: ${marketData.dow_change >= 0 ? '#10b981' : '#ef4444'}; font-size: 13px; font-weight: 600;">
+                      ${marketData.dow_change >= 0 ? '↑' : '↓'} ${marketData.dow_change >= 0 ? '+' : ''}${marketData.dow_change.toFixed(2)}%
+                    </p>
+                  </td>
+                  <td width="33%" style="background-color: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 16px; text-align: center;">
+                    <p style="margin: 0 0 4px 0; color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Nasdaq</p>
+                    <p style="margin: 0 0 4px 0; color: #f8fafc; font-size: 20px; font-weight: 700;">$${formatPrice(marketData.nasdaq_price)}</p>
+                    <p style="margin: 0; color: ${marketData.nasdaq_change >= 0 ? '#10b981' : '#ef4444'}; font-size: 13px; font-weight: 600;">
+                      ${marketData.nasdaq_change >= 0 ? '↑' : '↓'} ${marketData.nasdaq_change >= 0 ? '+' : ''}${marketData.nasdaq_change.toFixed(2)}%
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- MARKET NEWS SECTION -->
+          ${marketNews.length > 0 ? `
+          <tr>
+            <td style="padding: 24px 24px 12px 24px;">
+              <h2 style="margin: 0; color: #e2e8f0; font-size: 14px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">
+                📰 What's Moving Markets
+              </h2>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 24px 24px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
+                ${marketNews.map((news, index) => `
+                <tr>
+                  <td style="padding: 16px 20px; ${index < marketNews.length - 1 ? 'border-bottom: 1px solid rgba(255,255,255,0.06);' : ''}">
+                    <p style="margin: 0 0 6px 0; color: #f8fafc; font-size: 14px; font-weight: 600; line-height: 1.4;">
+                      ${getCategoryEmoji(news.category)} ${news.headline}
+                    </p>
+                    <p style="margin: 0; color: #94a3b8; font-size: 13px; line-height: 1.5;">
+                      ${news.summary}
+                    </p>
+                  </td>
+                </tr>
+                `).join('')}
+              </table>
+            </td>
+          </tr>
+          ` : ''}
           
           <!-- TOP MOVERS -->
           <tr>
-            <td style="background-color: #1e293b; padding: 24px;">
-              <h2 style="margin: 0 0 16px 0; color: #10b981; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">
+            <td style="padding: 0 24px 12px 24px;">
+              <h2 style="margin: 0; color: #e2e8f0; font-size: 14px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">
                 🔥 Top Movers
               </h2>
-              <table width="100%" cellpadding="0" cellspacing="0">
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 24px 24px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="8" style="border-collapse: separate;">
                 <tr>
-                  <td width="48%" style="vertical-align: top;">
-                    <p style="margin: 0 0 8px 0; color: #10b981; font-size: 12px; font-weight: bold;">WINNERS</p>
-                    ${marketData.top_gainers.map(stock => `
-                      <p style="margin: 4px 0; color: #e2e8f0; font-size: 14px;">
-                        🟢 ${stock.symbol} <span style="color: #10b981;">+${stock.change.toFixed(1)}%</span>
+                  <td width="48%" style="background-color: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 12px; padding: 16px; vertical-align: top;">
+                    <p style="margin: 0 0 12px 0; color: #10b981; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">🟢 Winners</p>
+                    ${marketData.top_gainers.slice(0, 3).map(stock => `
+                      <p style="margin: 0 0 8px 0; color: #e2e8f0; font-size: 14px;">
+                        <strong>${stock.symbol}</strong> <span style="color: #10b981; font-weight: 600;">+${stock.change.toFixed(1)}%</span>
                       </p>
                     `).join('')}
                   </td>
                   <td width="4%"></td>
-                  <td width="48%" style="vertical-align: top;">
-                    <p style="margin: 0 0 8px 0; color: #ef4444; font-size: 12px; font-weight: bold;">LOSERS</p>
-                    ${marketData.top_losers.map(stock => `
-                      <p style="margin: 4px 0; color: #e2e8f0; font-size: 14px;">
-                        🔴 ${stock.symbol} <span style="color: #ef4444;">${stock.change.toFixed(1)}%</span>
+                  <td width="48%" style="background-color: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px; padding: 16px; vertical-align: top;">
+                    <p style="margin: 0 0 12px 0; color: #ef4444; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">🔴 Losers</p>
+                    ${marketData.top_losers.slice(0, 3).map(stock => `
+                      <p style="margin: 0 0 8px 0; color: #e2e8f0; font-size: 14px;">
+                        <strong>${stock.symbol}</strong> <span style="color: #ef4444; font-weight: 600;">${stock.change.toFixed(1)}%</span>
                       </p>
                     `).join('')}
                   </td>
@@ -228,48 +386,32 @@ function buildEmailHTML(
             </td>
           </tr>
           
-          <!-- CRYPTO CORNER -->
+          <!-- CRYPTO -->
           <tr>
-            <td style="background-color: #1e293b; padding: 0 24px 24px 24px;">
-              <h2 style="margin: 0 0 16px 0; color: #10b981; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">
+            <td style="padding: 0 24px 12px 24px;">
+              <h2 style="margin: 0; color: #e2e8f0; font-size: 14px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">
                 ₿ Crypto Corner
               </h2>
-              <table width="100%" cellpadding="0" cellspacing="0">
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 24px 24px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="8" style="border-collapse: separate;">
                 <tr>
-                  <td width="48%" style="padding: 12px; background-color: #0f172a; border-radius: 8px;">
-                    <p style="margin: 0; color: #f7931a; font-size: 12px; font-weight: bold;">BITCOIN</p>
-                    <p style="margin: 4px 0 0 0; color: white; font-size: 20px; font-weight: bold;">$${formatNumber(marketData.btc_price)}</p>
-                    <p style="margin: 4px 0 0 0; color: ${marketData.btc_change >= 0 ? '#10b981' : '#ef4444'}; font-size: 12px;">
-                      ${formatChange(marketData.btc_change)}
+                  <td width="48%" style="background-color: rgba(247, 147, 26, 0.08); border: 1px solid rgba(247, 147, 26, 0.2); border-radius: 12px; padding: 16px; text-align: center;">
+                    <p style="margin: 0 0 4px 0; color: #f7931a; font-size: 11px; font-weight: 700; text-transform: uppercase;">Bitcoin</p>
+                    <p style="margin: 0 0 4px 0; color: #f8fafc; font-size: 22px; font-weight: 700;">$${formatPrice(marketData.btc_price)}</p>
+                    <p style="margin: 0; color: ${marketData.btc_change >= 0 ? '#10b981' : '#ef4444'}; font-size: 13px; font-weight: 600;">
+                      ${marketData.btc_change >= 0 ? '↑' : '↓'} ${marketData.btc_change >= 0 ? '+' : ''}${marketData.btc_change.toFixed(2)}%
                     </p>
                   </td>
                   <td width="4%"></td>
-                  <td width="48%" style="padding: 12px; background-color: #0f172a; border-radius: 8px;">
-                    <p style="margin: 0; color: #627eea; font-size: 12px; font-weight: bold;">ETHEREUM</p>
-                    <p style="margin: 4px 0 0 0; color: white; font-size: 20px; font-weight: bold;">$${formatNumber(marketData.eth_price)}</p>
-                    <p style="margin: 4px 0 0 0; color: ${marketData.eth_change >= 0 ? '#10b981' : '#ef4444'}; font-size: 12px;">
-                      ${formatChange(marketData.eth_change)}
+                  <td width="48%" style="background-color: rgba(98, 126, 234, 0.08); border: 1px solid rgba(98, 126, 234, 0.2); border-radius: 12px; padding: 16px; text-align: center;">
+                    <p style="margin: 0 0 4px 0; color: #627eea; font-size: 11px; font-weight: 700; text-transform: uppercase;">Ethereum</p>
+                    <p style="margin: 0 0 4px 0; color: #f8fafc; font-size: 22px; font-weight: 700;">$${formatPrice(marketData.eth_price)}</p>
+                    <p style="margin: 0; color: ${marketData.eth_change >= 0 ? '#10b981' : '#ef4444'}; font-size: 13px; font-weight: 600;">
+                      ${marketData.eth_change >= 0 ? '↑' : '↓'} ${marketData.eth_change >= 0 ? '+' : ''}${marketData.eth_change.toFixed(2)}%
                     </p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-          
-          <!-- CURRENCY WATCH -->
-          <tr>
-            <td style="background-color: #1e293b; padding: 0 24px 24px 24px;">
-              <h2 style="margin: 0 0 16px 0; color: #10b981; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">
-                💱 Currency Watch
-              </h2>
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #0f172a; border-radius: 8px; padding: 12px;">
-                <tr>
-                  <td style="padding: 12px;">
-                    <span style="color: #94a3b8; font-size: 14px;">USD/INR</span>
-                    <span style="color: white; font-size: 16px; font-weight: bold; margin-left: 8px;">₹${marketData.usd_inr.toFixed(2)}</span>
-                    <span style="color: #94a3b8; margin: 0 16px;">|</span>
-                    <span style="color: #94a3b8; font-size: 14px;">USD/EUR</span>
-                    <span style="color: white; font-size: 16px; font-weight: bold; margin-left: 8px;">€${marketData.usd_eur.toFixed(4)}</span>
                   </td>
                 </tr>
               </table>
@@ -278,24 +420,30 @@ function buildEmailHTML(
           
           <!-- FEAR & GREED -->
           <tr>
-            <td style="background-color: #1e293b; padding: 0 24px 24px 24px;">
-              <h2 style="margin: 0 0 16px 0; color: #10b981; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">
-                ${getSentimentEmoji(marketData.fear_greed_value)} Fear & Greed Index
+            <td style="padding: 0 24px 12px 24px;">
+              <h2 style="margin: 0; color: #e2e8f0; font-size: 14px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">
+                🎭 Market Sentiment
               </h2>
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #0f172a; border-radius: 8px; padding: 16px;">
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 24px 24px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
                 <tr>
-                  <td style="padding: 16px;">
+                  <td style="padding: 20px;">
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
-                        <td>
-                          <div style="background: linear-gradient(90deg, #ef4444 0%, #f59e0b 25%, #eab308 50%, #22c55e 75%, #10b981 100%); height: 12px; border-radius: 6px; position: relative;">
-                          </div>
-                          <p style="margin: 12px 0 0 0; text-align: center;">
-                            <span style="color: white; font-size: 32px; font-weight: bold;">${marketData.fear_greed_value}</span>
-                            <span style="color: #94a3b8; font-size: 16px;"> / 100</span>
+                        <td width="30%" style="text-align: center; vertical-align: middle;">
+                          <p style="margin: 0; color: #f8fafc; font-size: 48px; font-weight: 800; line-height: 1;">${marketData.fear_greed_value}</p>
+                          <p style="margin: 4px 0 0 0; color: ${marketData.fear_greed_value > 50 ? '#10b981' : '#ef4444'}; font-size: 12px; font-weight: 700; text-transform: uppercase;">
+                            ${marketData.fear_greed_label}
                           </p>
-                          <p style="margin: 4px 0 0 0; text-align: center; color: ${marketData.fear_greed_value > 50 ? '#10b981' : '#ef4444'}; font-size: 14px; font-weight: bold;">
-                            ${marketData.fear_greed_label.toUpperCase()}
+                        </td>
+                        <td width="70%" style="padding-left: 20px; vertical-align: middle;">
+                          <!-- Gauge Bar -->
+                          <div style="background: linear-gradient(90deg, #ef4444 0%, #f59e0b 25%, #eab308 50%, #22c55e 75%, #10b981 100%); height: 8px; border-radius: 4px; margin-bottom: 12px;"></div>
+                          <p style="margin: 0; color: #94a3b8; font-size: 13px; line-height: 1.5;">
+                            ${fearGreedContext}
                           </p>
                         </td>
                       </tr>
@@ -307,22 +455,24 @@ function buildEmailHTML(
           </tr>
           
           <!-- ECONOMIC CALENDAR -->
-          ${todayEvents.length > 0 || weekEvents.length > 0 ? `
+          ${(todayEvents.length > 0 || weekEvents.length > 0) ? `
           <tr>
-            <td style="background-color: #1e293b; padding: 0 24px 24px 24px;">
-              <h2 style="margin: 0 0 16px 0; color: #10b981; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">
-                📅 Economic Calendar
+            <td style="padding: 0 24px 12px 24px;">
+              <h2 style="margin: 0; color: #e2e8f0; font-size: 14px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">
+                📅 On The Radar
               </h2>
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #0f172a; border-radius: 8px;">
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 24px 24px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
                 ${todayEvents.length > 0 ? `
                 <tr>
-                  <td style="padding: 16px; border-bottom: 1px solid #334155;">
-                    <p style="margin: 0 0 8px 0; color: #10b981; font-size: 12px; font-weight: bold;">TODAY</p>
-                    ${todayEvents.slice(0, 5).map(event => `
-                      <p style="margin: 4px 0; color: #e2e8f0; font-size: 13px;">
-                        <span style="color: #94a3b8;">${event.event_time}</span> - ${event.event_name}
-                        ${event.related_symbol ? `<span style="color: #10b981;">(${event.related_symbol})</span>` : ''}
-                        ${event.importance === 'high' ? '⭐' : ''}
+                  <td style="padding: 16px 20px; ${weekEvents.length > 0 ? 'border-bottom: 1px solid rgba(255,255,255,0.06);' : ''}">
+                    <p style="margin: 0 0 10px 0; color: #10b981; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">📌 Today</p>
+                    ${todayEvents.slice(0, 3).map(event => `
+                      <p style="margin: 0 0 6px 0; color: #e2e8f0; font-size: 13px; line-height: 1.4;">
+                        <span style="color: #64748b;">${event.event_time}</span> — ${event.event_name} ${event.importance === 'high' ? '⭐' : ''}
                       </p>
                     `).join('')}
                   </td>
@@ -330,12 +480,11 @@ function buildEmailHTML(
                 ` : ''}
                 ${weekEvents.length > 0 ? `
                 <tr>
-                  <td style="padding: 16px;">
-                    <p style="margin: 0 0 8px 0; color: #f59e0b; font-size: 12px; font-weight: bold;">COMING THIS WEEK</p>
-                    ${weekEvents.slice(0, 5).map(event => `
-                      <p style="margin: 4px 0; color: #e2e8f0; font-size: 13px;">
-                        <span style="color: #94a3b8;">${event.event_time}</span> - ${event.event_name}
-                        ${event.importance === 'high' ? '⭐' : ''}
+                  <td style="padding: 16px 20px;">
+                    <p style="margin: 0 0 10px 0; color: #f59e0b; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">👀 Coming Up</p>
+                    ${weekEvents.slice(0, 3).map(event => `
+                      <p style="margin: 0 0 6px 0; color: #e2e8f0; font-size: 13px; line-height: 1.4;">
+                        <span style="color: #64748b;">${new Date(event.event_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span> — ${event.event_name} ${event.importance === 'high' ? '⭐' : ''}
                       </p>
                     `).join('')}
                   </td>
@@ -346,30 +495,77 @@ function buildEmailHTML(
           </tr>
           ` : ''}
           
+          <!-- CURRENCY -->
+          <tr>
+            <td style="padding: 0 24px 24px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
+                <tr>
+                  <td style="padding: 12px 20px;">
+                    <span style="color: #64748b; font-size: 12px;">💱 </span>
+                    <span style="color: #94a3b8; font-size: 13px;">USD/INR </span>
+                    <span style="color: #f8fafc; font-size: 13px; font-weight: 600;">₹${marketData.usd_inr.toFixed(2)}</span>
+                    <span style="color: #334155; margin: 0 12px;">|</span>
+                    <span style="color: #94a3b8; font-size: 13px;">USD/EUR </span>
+                    <span style="color: #f8fafc; font-size: 13px; font-weight: 600;">€${marketData.usd_eur.toFixed(4)}</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- AD/SPONSOR PLACEHOLDER -->
+          <tr>
+            <td style="padding: 0 24px 24px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%); border: 1px dashed rgba(139, 92, 246, 0.3); border-radius: 12px;">
+                <tr>
+                  <td style="padding: 20px; text-align: center;">
+                    <p style="margin: 0 0 4px 0; color: #a78bfa; font-size: 10px; text-transform: uppercase; letter-spacing: 1px;">Partner Spotlight</p>
+                    <p style="margin: 0 0 8px 0; color: #e2e8f0; font-size: 15px; font-weight: 600;">
+                      🎯 Want to reach 10,000+ investors?
+                    </p>
+                    <p style="margin: 0; color: #94a3b8; font-size: 13px;">
+                      <a href="mailto:advertise@wealthclaude.com" style="color: #a78bfa; text-decoration: none;">Advertise with us →</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
           <!-- CTA -->
           <tr>
-            <td style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 24px; text-align: center;">
-              <h3 style="margin: 0 0 8px 0; color: white; font-size: 18px;">Ready to accelerate your wealth?</h3>
-              <p style="margin: 0 0 16px 0; color: rgba(255,255,255,0.8); font-size: 14px;">Book a free strategy call with our team</p>
-              <a href="https://wealthclaude.com/book" style="display: inline-block; background-color: white; color: #059669; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px;">
-                Book Free Call →
-              </a>
+            <td style="padding: 0 24px 24px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 16px;">
+                <tr>
+                  <td style="padding: 32px; text-align: center;">
+                    <p style="margin: 0 0 8px 0; font-size: 22px;">🔥</p>
+                    <h3 style="margin: 0 0 8px 0; color: white; font-size: 20px; font-weight: 700;">How close are you to financial freedom?</h3>
+                    <p style="margin: 0 0 20px 0; color: rgba(255,255,255,0.85); font-size: 14px;">Take the 2-minute FIRE Score test and find out</p>
+                    <a href="https://wealthclaude.com/fire-score" style="display: inline-block; background-color: white; color: #059669; padding: 14px 36px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 15px; box-shadow: 0 4px 14px rgba(0,0,0,0.15);">
+                      Test Your FIRE Score
+                    </a>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           
           <!-- FOOTER -->
           <tr>
-            <td style="background-color: #0f172a; padding: 24px; text-align: center; border-radius: 0 0 16px 16px;">
-              <p style="margin: 0 0 8px 0; color: #64748b; font-size: 12px;">
-                📍 WealthClaude Inc · Made with ❤️ for investors
+            <td style="padding: 24px; text-align: center; border-top: 1px solid rgba(255,255,255,0.06);">
+              <p style="margin: 0 0 12px 0; color: #64748b; font-size: 12px;">
+                Made with 💚 by WealthClaude
               </p>
-              <p style="margin: 0 0 16px 0; color: #64748b; font-size: 11px;">
-                ⚠️ This newsletter is for educational purposes only and does not constitute financial advice.
+              <p style="margin: 0 0 16px 0; color: #475569; font-size: 11px; line-height: 1.5;">
+                ⚠️ This newsletter is for educational purposes only and does not constitute financial advice.<br>
+                Always do your own research before making investment decisions.
               </p>
               <p style="margin: 0; color: #64748b; font-size: 11px;">
-                <a href="https://wealthclaude.com" style="color: #10b981; text-decoration: none;">Website</a> · 
-                <a href="https://twitter.com/wealthclaude" style="color: #10b981; text-decoration: none;">Twitter</a> · 
-                <a href="%UNSUBSCRIBE_URL%" style="color: #94a3b8; text-decoration: none;">Unsubscribe</a>
+                <a href="https://wealthclaude.com" style="color: #10b981; text-decoration: none;">Website</a>
+                <span style="color: #334155; margin: 0 8px;">•</span>
+                <a href="https://twitter.com/wealthclaude" style="color: #10b981; text-decoration: none;">Twitter</a>
+                <span style="color: #334155; margin: 0 8px;">•</span>
+                <a href="%UNSUBSCRIBE_URL%" style="color: #64748b; text-decoration: none;">Unsubscribe</a>
               </p>
             </td>
           </tr>
@@ -416,32 +612,32 @@ async function handleRequest(request: NextRequest) {
 
     console.log(`Found ${subscribers.length} subscribers`);
 
-    // 2. Get market data (from cache or fetch fresh)
-    let marketData: MarketData;
-
+    // 2. Get market data (from cache)
     const { data: cachedMarket } = await supabase
       .from("market_data_cache")
       .select("*")
       .eq("cache_date", today)
       .single();
 
-    if (cachedMarket) {
-      marketData = cachedMarket as MarketData;
-    } else {
-      // Fetch fresh if not cached
-      console.log("No cached market data, fetching fresh...");
-      // For now, return error - market data should be fetched by separate cron
+    if (!cachedMarket) {
       return NextResponse.json({ error: "Market data not cached. Run fetch-market first." }, { status: 400 });
     }
 
-    // 3. Get today's calendar events
+    const marketData = cachedMarket as MarketData;
+
+    // 3. Fetch market news from Perplexity
+    console.log("Fetching market news...");
+    const marketNews = await fetchMarketNews();
+    console.log(`Fetched ${marketNews.length} news items`);
+
+    // 4. Get today's calendar events
     const { data: todayEvents } = await supabase
       .from("economic_calendar")
       .select("*")
       .eq("event_date", today)
       .order("event_time", { ascending: true });
 
-    // 4. Get this week's upcoming events
+    // 5. Get this week's upcoming events
     const weekEnd = new Date();
     weekEnd.setDate(weekEnd.getDate() + 7);
 
@@ -454,13 +650,10 @@ async function handleRequest(request: NextRequest) {
       .order("event_date", { ascending: true })
       .limit(5);
 
-    // 5. Create newsletter issue record
-    const { data: issueData, error: issueError } = await supabase
-      .rpc("get_next_issue_number");
-
+    // 6. Create newsletter issue record
+    const { data: issueData } = await supabase.rpc("get_next_issue_number");
     const issueNumber = issueData || 1;
     const subjectLine = generateSubjectLine(marketData, issueNumber);
-    const previewText = generatePreviewText(marketData);
 
     const { data: newsletter, error: nlError } = await supabase
       .from("newsletter_issues")
@@ -468,7 +661,6 @@ async function handleRequest(request: NextRequest) {
         issue_number: issueNumber,
         issue_date: today,
         subject_line: subjectLine,
-        preview_text: previewText,
         total_subscribers: subscribers.length,
         status: "sending",
       })
@@ -480,7 +672,7 @@ async function handleRequest(request: NextRequest) {
       return NextResponse.json({ error: "Failed to create issue", details: nlError }, { status: 500 });
     }
 
-    // 6. Send emails to all subscribers
+    // 7. Send emails to all subscribers
     let sentCount = 0;
     let failedCount = 0;
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://wealthclaude.com";
@@ -495,6 +687,7 @@ async function handleRequest(request: NextRequest) {
           marketData,
           todayEvents || [],
           weekEvents || [],
+          marketNews,
           issueNumber,
           today,
           trackingPixelUrl
@@ -527,7 +720,7 @@ async function handleRequest(request: NextRequest) {
       }
     }
 
-    // 7. Update newsletter issue status
+    // 8. Update newsletter issue status
     await supabase
       .from("newsletter_issues")
       .update({
@@ -550,6 +743,7 @@ async function handleRequest(request: NextRequest) {
         sent: sentCount,
         failed: failedCount,
       },
+      newsItems: marketNews.length,
     });
 
   } catch (error) {

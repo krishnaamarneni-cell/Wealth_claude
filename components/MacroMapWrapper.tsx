@@ -388,8 +388,14 @@ export function MacroMapWrapper() {
     geoRef.current = geoLayer
   }
 
-  const mConf = METRICS.find(m => m.key === metric)!
+  const mConf = METRICS.find(m => m.key === metric)
   const scale = COLOR_SCALES[metric]
+
+  // If metric was removed, fall back to inflation
+  if (!mConf) {
+    setMetric("inflation")
+    return null
+  }
 
   return (
     <div className="flex flex-col" style={{ height: "calc(100vh - 64px)" }}>
@@ -442,7 +448,7 @@ export function MacroMapWrapper() {
               <div ref={containerRef} style={{ width: "100%", height: "100%", background: "#060a10" }} />
 
               {/* Legend — gradient bar, single hue */}
-              {!loading && (
+              {!loading && scale && mConf && (
                 <div className="absolute bottom-5 left-4 z-[1000] bg-background/90 backdrop-blur-md border border-border rounded-xl p-4 shadow-xl w-44">
                   <p className="text-[10px] font-bold text-muted-foreground tracking-widest mb-2.5 uppercase">{mConf.label}</p>
                   {/* Gradient bar */}

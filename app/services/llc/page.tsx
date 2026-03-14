@@ -27,7 +27,8 @@ import {
   HelpCircle,
   Zap,
   Lock,
-
+  Eye,
+  EyeOff
 } from "lucide-react";
 import Link from "next/link";
 import { Header } from "@/components/header";
@@ -81,6 +82,7 @@ const faqs = [
 
 export default function LLCServicePage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [showSimulation, setShowSimulation] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#0a0f18] text-white overflow-x-hidden">

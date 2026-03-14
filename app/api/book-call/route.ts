@@ -124,7 +124,7 @@ export async function POST(request: Request) {
     // Send confirmation email to user
     try {
       await resend.emails.send({
-        from: "WealthClaude <hello@wealthclaude.com>",
+        from: "WealthClaude <noreply@wealthclaude.com>",
         to: [email],
         subject: "Your Strategy Call Request Received ✅",
         html: `

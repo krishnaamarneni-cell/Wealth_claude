@@ -349,7 +349,7 @@ const TABLE_TITLE: Record<TabKey, string> = {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN COMPONENT
-// ─────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────���────────────────
 export function MarketsWrapper() {
   const searchParams = useSearchParams()
   const urlTab = searchParams.get("tab") as TabKey | null
@@ -672,3 +672,6 @@ const thStyle: React.CSSProperties = {
   fontSize: 11, fontWeight: 700, color: "#334155",
   letterSpacing: "0.08em", textTransform: "uppercase",
 }
+
+// Export MarketsWrapper as MacroMapWrapper for backward compatibility with macro page
+export { MarketsWrapper as MacroMapWrapper }

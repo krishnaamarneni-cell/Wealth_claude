@@ -315,12 +315,16 @@ export async function GET(req: Request) {
     items = COUNTRIES_CONFIG
   }
 
-  // Check cache
+  // Check cache using a simple hash of the cache key to get an integer ID
+  const cacheKeyHash = cacheKey
+    .split("")
+    .reduce((acc, char) => acc + char.charCodeAt(0), 0)
+
   try {
     const { data: cached } = await supabase
       .from("macro_cache")
       .select("data, fetched_at")
-      .eq("id", cacheKey)
+      .eq("cache_key", cacheKey)
       .single()
 
     if (cached?.fetched_at && cached?.data) {
@@ -377,7 +381,7 @@ export async function GET(req: Request) {
       const { data: staleCache } = await supabase
         .from("macro_cache")
         .select("data")
-        .eq("id", cacheKey)
+        .eq("cache_key", cacheKey)
         .single()
 
       if (staleCache?.data) {
@@ -418,7 +422,7 @@ export async function GET(req: Request) {
     // Cache the result
     try {
       await supabase.from("macro_cache").upsert({
-        id: cacheKey,
+        cache_key: cacheKey,
         data: responseData,
         fetched_at: new Date().toISOString(),
       })
@@ -436,7 +440,7 @@ export async function GET(req: Request) {
       const { data: staleCache } = await supabase
         .from("macro_cache")
         .select("data")
-        .eq("id", cacheKey)
+        .eq("cache_key", cacheKey)
         .single()
 
       if (staleCache?.data) {

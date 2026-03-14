@@ -12,7 +12,27 @@ const supabase = createClient(supabaseUrl, serviceKey)
 
 async function checkCache() {
   try {
-    // Query the macro_cache table for the specific row
+    // First, list all rows in macro_cache to understand the structure
+    const { data: allRows, error: listError } = await supabase
+      .from('macro_cache')
+      .select('id, fetched_at')
+      .limit(10)
+
+    if (listError) {
+      console.error('❌ Error listing cache rows:', listError.message)
+      return
+    }
+
+    console.log('All cache rows (first 10):')
+    if (allRows && allRows.length > 0) {
+      allRows.forEach(row => {
+        console.log(`  - ID: ${row.id} (type: ${typeof row.id}), Fetched: ${row.fetched_at}`)
+      })
+    } else {
+      console.log('  (no rows found)')
+    }
+
+    // Now query for the specific row
     const { data, error } = await supabase
       .from('macro_cache')
       .select('*')
@@ -21,19 +41,19 @@ async function checkCache() {
 
     if (error) {
       if (error.code === 'PGRST116') {
-        console.log('❌ No cache row found with id = "markets_comparison_countries"')
+        console.log('\n❌ No cache row found with id = "markets_comparison_countries"')
       } else {
-        console.error('❌ Query error:', error.message)
+        console.error('\n❌ Query error:', error.message)
       }
       return
     }
 
     if (!data) {
-      console.log('❌ No cache row found with id = "markets_comparison_countries"')
+      console.log('\n❌ No cache row found with id = "markets_comparison_countries"')
       return
     }
 
-    console.log('✅ Cache row found:')
+    console.log('\n✅ Cache row found:')
     console.log('ID:', data.id)
     console.log('Fetched at:', data.fetched_at)
     

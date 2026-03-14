@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { BookCallModal } from "@/components/book-call-modal";
+import BookCallModal from "@/components/book-call-modal";
 import {
   Building2,
   Shield,

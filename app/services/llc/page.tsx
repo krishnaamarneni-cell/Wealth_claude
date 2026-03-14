@@ -27,8 +27,7 @@ import {
   HelpCircle,
   Zap,
   Lock,
-  Eye,
-  EyeOff
+
 } from "lucide-react";
 import Link from "next/link";
 import { Header } from "@/components/header";
@@ -82,7 +81,6 @@ const faqs = [
 
 export default function LLCServicePage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [showSimulation, setShowSimulation] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#0a0f18] text-white overflow-x-hidden">
@@ -125,15 +123,7 @@ export default function LLCServicePage() {
                 There are 3 types of people. Most are stuck in Column A — not knowing Column C even exists.
               </motion.p>
 
-              {/* Toggle Button */}
-              <motion.button
-                variants={fadeInUp}
-                onClick={() => setShowSimulation(!showSimulation)}
-                className="inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full px-6 py-3 transition-all"
-              >
-                {showSimulation ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                {showSimulation ? "Hide The Matrix" : "See The Matrix"}
-              </motion.button>
+
             </motion.div>
 
             {/* THREE PATHS COMPARISON */}
@@ -307,9 +297,7 @@ export default function LLCServicePage() {
               >
                 {/* Glow effect */}
                 <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-2xl" />
-                <div className="absolute -top-2 -right-2 bg-primary text-white text-xs font-bold px-3 py-1 rounded-full">
-                  BEST PATH
-                </div>
+
 
                 <div className="relative">
                   <div className="flex items-center gap-3 mb-4">

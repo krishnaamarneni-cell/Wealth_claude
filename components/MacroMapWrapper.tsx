@@ -1,677 +1,626 @@
 "use client"
 
-import { useEffect, useState, useCallback, useMemo } from "react"
-import { useSearchParams } from "next/navigation"
-import {
-  LineChart, Line, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, Legend,
-} from "recharts"
-import { Loader2, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronRight } from "lucide-react"
-import { MarketsMap, returnsToCountryData, SYMBOL_TO_ISO } from "./MarketsMap"
+import { useEffect, useRef, useState, useMemo } from "react"
+import { Globe2, BarChart3, CalendarDays } from "lucide-react"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────────────────────────────────────
-type TabKey = "sectors" | "countries" | "assets"
-type SortCol = "r1y" | "r3y" | "r5y"
+type MetricKey = "inflation" | "gdpGrowth" | "gdp" | "unemployment" | "debtToGdp"
+type TabKey = "map" | "heatmap" | "calendar"
 
-interface ReturnRow {
-  symbol: string
-  safeKey: string
-  label: string
-  region?: string | null
-  r1y: number | null
-  r3y: number | null
-  r5y: number | null
-}
-
-interface ComparisonData {
-  chartData: Record<string, number | string>[]
-  returns: ReturnRow[]
-  items: { symbol: string; safeKey: string; label: string; region?: string | null }[]
-}
-
-interface RegionGroup {
-  name: string
-  avgReturn: number
-  countries: ReturnRow[]
+interface MacroData {
+  inflation: Record<string, number>
+  gdpGrowth: Record<string, number>
+  gdp: Record<string, number>
+  unemployment: Record<string, number>
+  debtToGdp: Record<string, number>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// COLORS
+// METRICS CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
-const SERIES_COLORS = [
-  "#00e676", "#00b0ff", "#ff6d00", "#e040fb", "#ffea00",
-  "#f87171", "#34d399", "#60a5fa", "#fbbf24", "#a78bfa", "#fb923c",
+const METRICS: { key: MetricKey; label: string; desc: string }[] = [
+  { key: "inflation", label: "Inflation Rate", desc: "Consumer Price Index YoY" },
+  { key: "gdpGrowth", label: "GDP Growth", desc: "Annual real GDP growth rate" },
+  { key: "gdp", label: "GDP", desc: "Gross Domestic Product (USD)" },
+  { key: "unemployment", label: "Unemployment Rate", desc: "% of total labor force" },
+  { key: "debtToGdp", label: "Govt Debt / GDP", desc: "Central govt debt as % of GDP" },
 ]
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HELPERS
+// HEATMAP CONFIG — 7 metrics, good/bad direction, normalize range
 // ─────────────────────────────────────────────────────────────────────────────
-function fmtPct(v: number | null): string {
-  if (v == null) return "—"
-  return `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`
-}
+interface HeatMetric { key: MetricKey; label: string; goodHigh: boolean; min: number; max: number; unit: string; logScale?: boolean }
 
-function returnCellColor(v: number | null): { bg: string; text: string } {
-  if (v == null) return { bg: "transparent", text: "#334155" }
-  if (v >= 30) return { bg: "rgba(0,230,118,0.22)", text: "#4ade80" }
-  if (v >= 15) return { bg: "rgba(0,230,118,0.13)", text: "#86efac" }
-  if (v >= 5) return { bg: "rgba(0,230,118,0.07)", text: "#a7f3d0" }
-  if (v >= 0) return { bg: "rgba(0,230,118,0.03)", text: "#6ee7b7" }
-  if (v >= -10) return { bg: "rgba(248,113,113,0.08)", text: "#fca5a5" }
-  return { bg: "rgba(248,113,113,0.18)", text: "#f87171" }
-}
-
-function fmtChartDate(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00Z")
-  return d.toLocaleDateString("en-US", { month: "short", year: "2-digit", timeZone: "UTC" })
-}
-
-/** Group countries by region and sort by average return */
-function groupByRegion(returns: ReturnRow[], sortCol: SortCol): RegionGroup[] {
-  const regionMap: Record<string, ReturnRow[]> = {}
-
-  for (const row of returns) {
-    const region = row.region ?? "Other"
-    if (!regionMap[region]) regionMap[region] = []
-    regionMap[region].push(row)
-  }
-
-  const groups: RegionGroup[] = []
-
-  for (const [name, countries] of Object.entries(regionMap)) {
-    // Calculate average return for this region
-    const validReturns = countries
-      .map(c => c[sortCol])
-      .filter((v): v is number => v != null)
-
-    const avgReturn = validReturns.length > 0
-      ? validReturns.reduce((a, b) => a + b, 0) / validReturns.length
-      : -Infinity
-
-    // Sort countries within region by return (highest first)
-    const sortedCountries = [...countries].sort((a, b) =>
-      (b[sortCol] ?? -Infinity) - (a[sortCol] ?? -Infinity)
-    )
-
-    groups.push({ name, avgReturn, countries: sortedCountries })
-  }
-
-  // Sort regions by average return (highest first)
-  groups.sort((a, b) => b.avgReturn - a.avgReturn)
-
-  return groups
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BOTTOM STATS
-// ─────────────────────────────────────────────────────────────────────────────
-function BottomStats({ returns, col, tab }: { returns: ReturnRow[]; col: SortCol; tab: TabKey }) {
-  const values = returns.map(r => r[col]).filter((v): v is number => v != null)
-  if (values.length === 0) return null
-
-  const best = returns.reduce((a, b) => ((b[col] ?? -Infinity) > (a[col] ?? -Infinity) ? b : a))
-  const worst = returns.reduce((a, b) => ((b[col] ?? Infinity) < (a[col] ?? Infinity) ? b : a))
-  const avg = values.reduce((a, b) => a + b, 0) / values.length
-  const pos = values.filter(v => v >= 0).length
-  const neg = values.length - pos
-
-  const colLabel = col === "r1y" ? "1Y" : col === "r3y" ? "3Y" : "5Y"
-
-  const tabInfo: Record<TabKey, string> = {
-    sectors: "SPDR ETF sector data via Yahoo Finance. Returns based on weekly closes.",
-    countries: "Major global index data via Yahoo Finance. Returns based on weekly closes.",
-    assets: "ETF proxies via Yahoo Finance. Returns based on weekly closes.",
-  }
-
-  return (
-    <div style={{
-      borderTop: "1px solid #1e293b",
-      padding: "10px 24px",
-      display: "flex",
-      alignItems: "center",
-      gap: 28,
-      flexShrink: 0,
-      background: "#070c14",
-      flexWrap: "wrap",
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <TrendingUp size={13} color="#4ade80" />
-        <span style={{ fontSize: 11, color: "#475569" }}>Best {colLabel}:</span>
-        <span style={{ fontSize: 12, fontWeight: 700, color: "#4ade80" }}>{best.label}</span>
-        <span style={{ fontSize: 12, color: "#4ade80" }}>{fmtPct(best[col])}</span>
-      </div>
-
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <TrendingDown size={13} color="#f87171" />
-        <span style={{ fontSize: 11, color: "#475569" }}>Worst {colLabel}:</span>
-        <span style={{ fontSize: 12, fontWeight: 700, color: "#f87171" }}>{worst.label}</span>
-        <span style={{ fontSize: 12, color: "#f87171" }}>{fmtPct(worst[col])}</span>
-      </div>
-
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <Minus size={13} color="#64748b" />
-        <span style={{ fontSize: 11, color: "#475569" }}>Avg {colLabel}:</span>
-        <span style={{ fontSize: 12, fontWeight: 600, color: avg >= 0 ? "#86efac" : "#fca5a5" }}>
-          {fmtPct(avg)}
-        </span>
-      </div>
-
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ fontSize: 11, color: "#475569" }}>Positive:</span>
-        <span style={{ fontSize: 12, fontWeight: 600, color: "#4ade80" }}>{pos}</span>
-        <span style={{ fontSize: 11, color: "#334155" }}>/</span>
-        <span style={{ fontSize: 12, fontWeight: 600, color: "#f87171" }}>{neg}</span>
-        <span style={{ fontSize: 11, color: "#475569" }}>negative</span>
-      </div>
-
-      <div style={{ flex: 1 }} />
-
-      <span style={{ fontSize: 10, color: "#1e293b", maxWidth: 340, textAlign: "right" }}>
-        {tabInfo[tab]}
-      </span>
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// CHART TOOLTIP
-// ─────────────────────────────────────────────────────────────────────────────
-function ChartTooltip({ active, payload, label, labelMap }: {
-  active?: boolean
-  payload?: Array<{ name: string; value: number; color: string }>
-  label?: string
-  labelMap: Record<string, string>
-}) {
-  if (!active || !payload?.length) return null
-  const sorted = [...payload].sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
-  return (
-    <div style={{
-      background: "#0d1825", border: "1px solid #1e293b", borderRadius: 8,
-      padding: "10px 14px", fontSize: 12, maxHeight: 280, overflowY: "auto", minWidth: 170,
-    }}>
-      <div style={{ color: "#475569", marginBottom: 6, fontWeight: 600 }}>
-        {fmtChartDate(label ?? "")}
-      </div>
-      {sorted.map(p => (
-        <div key={p.name} style={{ display: "flex", justifyContent: "space-between", gap: 16, marginBottom: 2 }}>
-          <span style={{ color: p.color }}>{labelMap[p.name] ?? p.name}</span>
-          <span style={{ color: "#f1f5f9", fontWeight: 600 }}>{p.value?.toFixed(1)}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// REGION SECTION (collapsible)
-// ─────────────────────────────────────────────────────────────────────────────
-function RegionSection({
-  region,
-  sortCol,
-  selectedCountry,
-  onCountrySelect,
-  expanded,
-  onToggle,
-}: {
-  region: RegionGroup
-  sortCol: SortCol
-  selectedCountry: string | null
-  onCountrySelect: (iso: string | null) => void
-  expanded: boolean
-  onToggle: () => void
-}) {
-  const avgColor = region.avgReturn >= 0 ? "#4ade80" : "#f87171"
-
-  return (
-    <div>
-      {/* Region Header */}
-      <button
-        onClick={onToggle}
-        style={{
-          width: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "12px 24px",
-          background: "#0a0f16",
-          border: "none",
-          borderBottom: "1px solid #1e293b",
-          cursor: "pointer",
-          transition: "background 0.1s",
-        }}
-        onMouseEnter={e => e.currentTarget.style.background = "#0d1219"}
-        onMouseLeave={e => e.currentTarget.style.background = "#0a0f16"}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {expanded ? (
-            <ChevronDown size={16} color="#64748b" />
-          ) : (
-            <ChevronRight size={16} color="#64748b" />
-          )}
-          <span style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>
-            {region.name}
-          </span>
-          <span style={{ fontSize: 11, color: "#475569" }}>
-            ({region.countries.length})
-          </span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 11, color: "#475569" }}>Avg:</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: avgColor }}>
-            {fmtPct(region.avgReturn)}
-          </span>
-        </div>
-      </button>
-
-      {/* Countries List */}
-      {expanded && (
-        <div>
-          {region.countries.map((row) => {
-            const iso = SYMBOL_TO_ISO[row.symbol]
-            const isSelected = iso === selectedCountry
-
-            return (
-              <div
-                key={row.symbol}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 80px 80px 80px",
-                  padding: "10px 24px 10px 44px",
-                  borderBottom: "1px solid #0a1018",
-                  alignItems: "center",
-                  transition: "background 0.1s",
-                  background: isSelected ? "rgba(0,230,118,0.08)" : "transparent",
-                  cursor: "pointer",
-                }}
-                onClick={() => {
-                  if (iso) onCountrySelect(iso === selectedCountry ? null : iso)
-                }}
-                onMouseEnter={e => {
-                  if (!isSelected) e.currentTarget.style.background = "#0a1018"
-                }}
-                onMouseLeave={e => {
-                  if (!isSelected) e.currentTarget.style.background = "transparent"
-                }}
-              >
-                <span style={{
-                  fontSize: 13,
-                  color: isSelected ? "#00e676" : "#e2e8f0",
-                  fontWeight: isSelected ? 600 : 400,
-                }}>
-                  {row.label}
-                </span>
-                {(["r1y", "r3y", "r5y"] as const).map(col => {
-                  const v = row[col]
-                  const { bg, text } = returnCellColor(v)
-                  return (
-                    <div key={col} style={{ display: "flex", justifyContent: "flex-end" }}>
-                      <span style={{
-                        display: "inline-block",
-                        padding: "3px 8px",
-                        borderRadius: 5,
-                        background: bg,
-                        color: text,
-                        fontSize: 12,
-                        fontWeight: 600,
-                        minWidth: 64,
-                        textAlign: "center",
-                      }}>
-                        {fmtPct(v)}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TABS CONFIG
-// ─────────────────────────────────────────────────────────────────────────────
-const TABS: { key: TabKey; label: string }[] = [
-  { key: "countries", label: "Countries" },
-  { key: "assets", label: "Asset Classes" },
-  { key: "sectors", label: "Sectors" },
+const HEAT_METRICS: HeatMetric[] = [
+  { key: "gdp", label: "GDP", goodHigh: true, min: 1e9, max: 25e12, unit: "$", logScale: true },
+  { key: "gdpGrowth", label: "GDP Growth", goodHigh: true, min: -5, max: 10, unit: "%" },
+  { key: "debtToGdp", label: "Govt Debt/GDP", goodHigh: false, min: 0, max: 200, unit: "%" },
+  { key: "inflation", label: "Inflation", goodHigh: false, min: 0, max: 20, unit: "%" },
+  { key: "unemployment", label: "Unemployment", goodHigh: false, min: 0, max: 25, unit: "%" },
 ]
 
-const TABLE_TITLE: Record<TabKey, string> = {
-  sectors: "Sector Performance",
-  countries: "Global Markets",
-  assets: "Asset Class Performance",
+// Heatmap color: green = good, orange = bad
+function heatColor(metric: HeatMetric, value: number | null | undefined): { bg: string; text: string } {
+  if (value == null) return { bg: "transparent", text: "#475569" }
+  let t: number
+  if (metric.logScale) {
+    const logMin = Math.log10(Math.max(metric.min, 1))
+    const logMax = Math.log10(metric.max)
+    t = (Math.log10(Math.max(value, 1)) - logMin) / (logMax - logMin)
+  } else {
+    t = (value - metric.min) / (metric.max - metric.min)
+  }
+  t = Math.min(1, Math.max(0, t))
+  // goodHigh: t=1 → green, t=0 → orange
+  // goodLow:  t=0 → green, t=1 → orange
+  const intensity = metric.goodHigh ? t : 1 - t
+  if (intensity >= 0.5) {
+    // green side
+    const g = (intensity - 0.5) * 2
+    const bg = lerpHex("#1a2e1a", "#166534", g)
+    const text = lerpHex("#86efac", "#4ade80", g)
+    return { bg, text }
+  } else {
+    // orange side
+    const o = (0.5 - intensity) * 2
+    const bg = lerpHex("#1a2e1a", "#7c2d12", o)
+    const text = lerpHex("#fdba74", "#fb923c", o)
+    return { bg, text }
+  }
+}
+
+function fmtHeat(metric: HeatMetric, value: number | null | undefined): string {
+  if (value == null) return "N/A"
+  if (metric.unit === "$") {
+    if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`
+    if (value >= 1e9) return `$${(value / 1e9).toFixed(1)}B`
+    return `$${(value / 1e6).toFixed(0)}M`
+  }
+  return `${value.toFixed(1)}%`
+}
+
+const HEAT_COUNTRIES = [
+  { iso: "USA", flag: "🇺🇸", iso2: "US" }, { iso: "CHN", flag: "🇨🇳", iso2: "CN" }, { iso: "JPN", flag: "🇯🇵", iso2: "JP" },
+  { iso: "DEU", flag: "🇩🇪", iso2: "DE" }, { iso: "IND", flag: "🇮🇳", iso2: "IN" }, { iso: "GBR", flag: "🇬🇧", iso2: "GB" },
+  { iso: "FRA", flag: "🇫🇷", iso2: "FR" }, { iso: "ITA", flag: "🇮🇹", iso2: "IT" }, { iso: "BRA", flag: "🇧🇷", iso2: "BR" },
+  { iso: "CAN", flag: "🇨🇦", iso2: "CA" }, { iso: "RUS", flag: "🇷🇺", iso2: "RU" }, { iso: "KOR", flag: "🇰🇷", iso2: "KR" },
+  { iso: "AUS", flag: "🇦🇺", iso2: "AU" }, { iso: "MEX", flag: "🇲🇽", iso2: "MX" }, { iso: "IDN", flag: "🇮🇩", iso2: "ID" },
+  { iso: "NLD", flag: "🇳🇱", iso2: "NL" }, { iso: "SAU", flag: "🇸🇦", iso2: "SA" }, { iso: "TUR", flag: "🇹🇷", iso2: "TR" },
+  { iso: "CHE", flag: "🇨🇭", iso2: "CH" }, { iso: "ZAF", flag: "🇿🇦", iso2: "ZA" }, { iso: "ARG", flag: "🇦🇷", iso2: "AR" },
+  { iso: "ESP", flag: "🇪🇸", iso2: "ES" }, { iso: "POL", flag: "🇵🇱", iso2: "PL" }, { iso: "BEL", flag: "🇧🇪", iso2: "BE" },
+  { iso: "SWE", flag: "🇸🇪", iso2: "SE" }, { iso: "NOR", flag: "🇳🇴", iso2: "NO" }, { iso: "SGP", flag: "🇸🇬", iso2: "SG" },
+  { iso: "ARE", flag: "🇦🇪", iso2: "AE" }, { iso: "THA", flag: "🇹🇭", iso2: "TH" }, { iso: "MYS", flag: "🇲🇾", iso2: "MY" },
+]
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COLOR SCALE — one unique color per metric, light → dark
+// Inflation    : light amber  → deep orange-brown
+// GDP Growth   : light green  → dark forest green
+// GDP          : light sky    → deep navy blue
+// Unemployment : light yellow → dark red-orange
+// Debt/GDP     : light purple → deep violet
+// ─────────────────────────────────────────────────────────────────────────────
+function lerp(a: number, b: number, t: number) { return a + (b - a) * Math.min(1, Math.max(0, t)) }
+
+function lerpHex(from: string, to: string, t: number): string {
+  const h = (s: string) => [
+    parseInt(s.slice(1, 3), 16),
+    parseInt(s.slice(3, 5), 16),
+    parseInt(s.slice(5, 7), 16),
+  ]
+  const [r1, g1, b1] = h(from)
+  const [r2, g2, b2] = h(to)
+  return `rgb(${Math.round(lerp(r1, r2, t))},${Math.round(lerp(g1, g2, t))},${Math.round(lerp(b1, b2, t))})`
+}
+
+const COLOR_SCALES: Record<MetricKey, { light: string; dark: string; maxVal: number; logScale?: boolean }> = {
+  inflation: { light: "#3d1f00", dark: "#ff8c00", maxVal: 20 }, // orange
+  gdpGrowth: { light: "#002a10", dark: "#00e676", maxVal: 10 }, // green
+  gdp: { light: "#002233", dark: "#00e5ff", maxVal: 1, logScale: true }, // cyan
+  unemployment: { light: "#2a1500", dark: "#ff6f00", maxVal: 25 }, // amber
+  debtToGdp: { light: "#1a0030", dark: "#ce93d8", maxVal: 200 }, // lavender
+}
+
+const NO_DATA = "#0d1825"
+
+function metricColor(metric: MetricKey, value: number | null | undefined): string {
+  if (value == null) return NO_DATA
+  const scale = COLOR_SCALES[metric]
+  let t: number
+  if (scale.logScale) {
+    // GDP: log scale $1B → $25T
+    const logMin = Math.log10(1e9)
+    const logMax = Math.log10(25e12)
+    t = (Math.log10(Math.max(value, 1e9)) - logMin) / (logMax - logMin)
+  } else {
+    t = value / scale.maxVal
+    // For GDP growth allow negative (clamp 0 so negatives stay at lightest end)
+    if (metric === "gdpGrowth" && value < 0) t = 0
+  }
+  return lerpHex(scale.light, scale.dark, t)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MAIN COMPONENT
-// ────────────────────────────────────────────────────────────���────────────────
-export function MarketsWrapper() {
-  const searchParams = useSearchParams()
-  const urlTab = searchParams.get("tab") as TabKey | null
-  const initialTab: TabKey = urlTab && ["sectors", "countries", "assets"].includes(urlTab) ? urlTab : "countries"
+// FORMAT
+// ─────────────────────────────────────────────────────────────────────────────
+function fmt(metric: MetricKey, value: number | null | undefined): string {
+  if (value == null) return "N/A"
+  if (metric === "gdp") {
+    if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`
+    if (value >= 1e9) return `$${(value / 1e9).toFixed(1)}B`
+    return `$${(value / 1e6).toFixed(0)}M`
+  }
+  return `${value.toFixed(1)}%`
+}
 
-  const [tab, setTab] = useState<TabKey>(initialTab)
-  const [data, setData] = useState<ComparisonData | null>(null)
+// ─────────────────────────────────────────────────────────────────────────────
+// COUNTRY NAMES
+// ─────────────────────────────────────────────────────────────────────────────
+const NAMES: Record<string, string> = {
+  AFG: "Afghanistan", ALB: "Albania", DZA: "Algeria", AGO: "Angola", ARG: "Argentina",
+  ARM: "Armenia", AUS: "Australia", AUT: "Austria", AZE: "Azerbaijan", BHS: "Bahamas",
+  BHR: "Bahrain", BGD: "Bangladesh", BLR: "Belarus", BEL: "Belgium", BLZ: "Belize",
+  BEN: "Benin", BTN: "Bhutan", BOL: "Bolivia", BIH: "Bosnia", BWA: "Botswana",
+  BRA: "Brazil", BRN: "Brunei", BGR: "Bulgaria", BFA: "Burkina Faso", BDI: "Burundi",
+  CPV: "Cape Verde", KHM: "Cambodia", CMR: "Cameroon", CAN: "Canada", CAF: "C. African Rep.",
+  TCD: "Chad", CHL: "Chile", CHN: "China", COL: "Colombia", COM: "Comoros", COD: "Congo DR",
+  COG: "Congo", CRI: "Costa Rica", CIV: "Côte d'Ivoire", HRV: "Croatia", CUB: "Cuba",
+  CYP: "Cyprus", CZE: "Czech Rep.", DNK: "Denmark", DJI: "Djibouti", DOM: "Dominican Rep.",
+  ECU: "Ecuador", EGY: "Egypt", SLV: "El Salvador", GNQ: "Eq. Guinea", EST: "Estonia",
+  ETH: "Ethiopia", FJI: "Fiji", FIN: "Finland", FRA: "France", GAB: "Gabon",
+  GMB: "Gambia", GEO: "Georgia", DEU: "Germany", GHA: "Ghana", GRC: "Greece",
+  GTM: "Guatemala", GIN: "Guinea", GNB: "Guinea-Bissau", GUY: "Guyana", HTI: "Haiti",
+  HND: "Honduras", HUN: "Hungary", ISL: "Iceland", IND: "India", IDN: "Indonesia",
+  IRN: "Iran", IRQ: "Iraq", IRL: "Ireland", ISR: "Israel", ITA: "Italy",
+  JAM: "Jamaica", JPN: "Japan", JOR: "Jordan", KAZ: "Kazakhstan", KEN: "Kenya",
+  KOR: "South Korea", KWT: "Kuwait", KGZ: "Kyrgyzstan", LAO: "Laos", LVA: "Latvia",
+  LBN: "Lebanon", LBR: "Liberia", LBY: "Libya", LTU: "Lithuania", LUX: "Luxembourg",
+  MDG: "Madagascar", MWI: "Malawi", MYS: "Malaysia", MDV: "Maldives", MLI: "Mali",
+  MLT: "Malta", MRT: "Mauritania", MUS: "Mauritius", MEX: "Mexico", MDA: "Moldova",
+  MNG: "Mongolia", MNE: "Montenegro", MAR: "Morocco", MOZ: "Mozambique", MMR: "Myanmar",
+  NAM: "Namibia", NPL: "Nepal", NLD: "Netherlands", NZL: "New Zealand", NIC: "Nicaragua",
+  NER: "Niger", NGA: "Nigeria", MKD: "N. Macedonia", NOR: "Norway", OMN: "Oman",
+  PAK: "Pakistan", PAN: "Panama", PNG: "Papua New Guinea", PRY: "Paraguay", PER: "Peru",
+  PHL: "Philippines", POL: "Poland", PRT: "Portugal", QAT: "Qatar", ROU: "Romania",
+  RUS: "Russia", RWA: "Rwanda", SAU: "Saudi Arabia", SEN: "Senegal", SRB: "Serbia",
+  SLE: "Sierra Leone", SGP: "Singapore", SVK: "Slovakia", SVN: "Slovenia", SOM: "Somalia",
+  ZAF: "South Africa", SSD: "South Sudan", ESP: "Spain", LKA: "Sri Lanka", SDN: "Sudan",
+  SUR: "Suriname", SWE: "Sweden", CHE: "Switzerland", SYR: "Syria", TWN: "Taiwan",
+  TJK: "Tajikistan", TZA: "Tanzania", THA: "Thailand", TGO: "Togo",
+  TTO: "Trinidad & Tobago", TUN: "Tunisia", TUR: "Turkey", TKM: "Turkmenistan",
+  UGA: "Uganda", UKR: "Ukraine", ARE: "UAE", GBR: "United Kingdom", USA: "United States",
+  URY: "Uruguay", UZB: "Uzbekistan", VEN: "Venezuela", VNM: "Vietnam", YEM: "Yemen",
+  ZMB: "Zambia", ZWE: "Zimbabwe",
+}
+
+// Table rows
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
+export function MacroMapWrapper() {
+  const [tab, setTab] = useState<TabKey>("map")
+  const [metric, setMetric] = useState<MetricKey>("inflation")
+  const [data, setData] = useState<MacroData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [sortCol, setSortCol] = useState<SortCol>("r1y")
-  const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
-  const [expandedRegions, setExpandedRegions] = useState<Set<string>>(new Set())
+  const [selected, setSelected] = useState<string | null>(null)
+  const [tvLoaded, setTvLoaded] = useState(false)
 
-  const fetchData = useCallback(async (t: TabKey) => {
-    setLoading(true)
-    setData(null)
-    try {
-      const res = await fetch(`/api/markets-comparison?tab=${t}`)
-      const json = await res.json()
-      setData(json)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const mapRef = useRef<any>(null)
+  const geoRef = useRef<any>(null)
+  const metricRef = useRef<MetricKey>("inflation")
+  const dataRef = useRef<MacroData | null>(null)
+  const selectedRef = useRef<string | null>(null)
+  const sidebarRef = useRef<HTMLDivElement>(null)
 
-      // Auto-expand all regions on load
-      if (t === "countries" && json.returns) {
-        const regions = new Set(json.returns.map((r: ReturnRow) => r.region ?? "Other"))
-        setExpandedRegions(regions as Set<string>)
-      }
-    } finally {
-      setLoading(false)
-    }
+  useEffect(() => { metricRef.current = metric }, [metric])
+  useEffect(() => { dataRef.current = data }, [data])
+  useEffect(() => { selectedRef.current = selected }, [selected])
+
+  // Fetch data
+  useEffect(() => {
+    fetch("/api/macro-data")
+      .then(r => r.json())
+      .then(j => { setData(j.data); setLoading(false) })
+      .catch(() => setLoading(false))
   }, [])
 
-  // Fetch data on mount based on URL param or default
-  useEffect(() => { fetchData(initialTab) }, []) // eslint-disable-line
-
-  // Update tab when URL changes
+  // Init map
   useEffect(() => {
-    if (urlTab && ["sectors", "countries", "assets"].includes(urlTab) && urlTab !== tab) {
-      setTab(urlTab)
-      setSelectedCountry(null)
-      setExpandedRegions(new Set())
-      fetchData(urlTab)
-    }
-  }, [urlTab]) // eslint-disable-line
+    if (!loading && data && !mapRef.current && containerRef.current) initMap()
+  }, [loading, data])
 
-  function switchTab(t: TabKey) {
-    // Update URL without full page reload
-    const url = new URL(window.location.href)
-    url.searchParams.set("tab", t)
-    window.history.pushState({}, "", url.toString())
+  // Recolor when metric changes
+  useEffect(() => {
+    if (geoRef.current && data) geoRef.current.setStyle(styleFeature)
+  }, [metric, data])
 
-    setTab(t)
-    setSelectedCountry(null)
-    setExpandedRegions(new Set())
-    fetchData(t)
-  }
-
-  const toggleRegion = (regionName: string) => {
-    setExpandedRegions(prev => {
-      const next = new Set(prev)
-      if (next.has(regionName)) {
-        next.delete(regionName)
-      } else {
-        next.add(regionName)
-      }
-      return next
+  // Highlight selected country
+  useEffect(() => {
+    if (!geoRef.current) return
+    geoRef.current.eachLayer((layer: any) => {
+      const iso = layer.feature?.properties?.ADM0_A3 ?? layer.feature?.properties?.ISO_A3 ?? ""
+      if (iso === selected) layer.setStyle({ weight: 2.5, color: "#ffffff", fillOpacity: 1 })
+      else geoRef.current.resetStyle(layer)
     })
+  }, [selected])
+
+  // Invalidate on tab switch
+  useEffect(() => {
+    if (tab === "map" && mapRef.current) setTimeout(() => mapRef.current?.invalidateSize(), 60)
+  }, [tab])
+
+  // TradingView calendar
+  useEffect(() => {
+    if (tab !== "calendar" || tvLoaded) return
+    const el = document.getElementById("tv-cal")
+    if (!el) return
+    const s = document.createElement("script")
+    s.src = "https://s3.tradingview.com/external-embedding/embed-widget-events.js"
+    s.async = true
+    s.textContent = JSON.stringify({
+      colorTheme: "dark", isTransparent: true, width: "100%", height: "100%",
+      locale: "en", importanceFilter: "-1,0,1",
+      countryFilter: "us,cn,de,gb,jp,fr,in,br,ca,au,kr,ru,sa,tr,id,mx,za,ch,pl,eu",
+    })
+    el.appendChild(s)
+    setTvLoaded(true)
+  }, [tab, tvLoaded])
+
+  // Scroll sidebar to selected
+  useEffect(() => {
+    if (!selected || !sidebarRef.current) return
+    const el = sidebarRef.current.querySelector(`[data-iso="${selected}"]`) as HTMLElement
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" })
+  }, [selected])
+
+  // Sorted sidebar list
+  const ranked = useMemo(() => {
+    if (!data) return []
+    const list = Object.entries(data[metric])
+      .filter(([iso, v]) => v != null && iso in NAMES)
+      .sort(([, a], [, b]) => (b as number) - (a as number))
+      .map(([iso, value], i) => ({
+        iso, value: value as number,
+        name: NAMES[iso] ?? iso,
+        color: metricColor(metric, value as number),
+        rank: i + 1,
+      }))
+    if (selected) {
+      const idx = list.findIndex(e => e.iso === selected)
+      if (idx > 0) { const [item] = list.splice(idx, 1); list.unshift(item) }
+    }
+    return list
+  }, [data, metric, selected])
+
+  // Style feature
+  function styleFeature(feature: any) {
+    const iso = feature.properties?.ADM0_A3 ?? feature.properties?.ISO_A3 ?? ""
+    const value = dataRef.current?.[metricRef.current]?.[iso]
+    const isSel = iso === selectedRef.current
+    return {
+      fillColor: metricColor(metricRef.current, value),
+      fillOpacity: value != null ? (isSel ? 1 : 0.85) : 0.12,
+      color: isSel ? "#ffffff" : "rgba(255,255,255,0.06)",
+      weight: isSel ? 2.5 : 0.4,
+    }
   }
 
-  // Group and sort regions (recalculates when sortCol changes)
-  const regionGroups = useMemo(() => {
-    if (!data || tab !== "countries") return []
-    return groupByRegion(data.returns, sortCol)
-  }, [data, sortCol, tab])
+  async function initMap() {
+    if (typeof window === "undefined" || !containerRef.current || mapRef.current) return
 
-  // Flat sorted list for non-countries tabs
-  const sorted = data
-    ? [...data.returns].sort((a, b) => ((b[sortCol] ?? -999) - (a[sortCol] ?? -999)))
-    : []
+    // Leaflet CSS
+    if (!document.querySelector('link[href*="leaflet"]')) {
+      const link = document.createElement("link")
+      link.rel = "stylesheet"
+      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      document.head.appendChild(link)
+    }
 
-  const chartData = data?.chartData ?? []
-  const tickStep = Math.max(1, Math.floor(chartData.length / 6))
-  const xTicks = chartData.filter((_, i) => i % tickStep === 0).map(d => d.date as string)
+    // Leaflet JS
+    if (!(window as any).L) {
+      await new Promise<void>((res, rej) => {
+        const s = document.createElement("script")
+        s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        s.onload = () => res(); s.onerror = () => rej()
+        document.head.appendChild(s)
+      })
+    }
 
-  const labelMap: Record<string, string> = {}
-  data?.items.forEach(item => { labelMap[item.safeKey] = item.label })
+    const L = (window as any).L
+    if (!L || !containerRef.current || mapRef.current) return
 
-  const countryData = data ? returnsToCountryData(data.returns, sortCol) : []
-  const periodLabel = sortCol === "r1y" ? "1 Year" : sortCol === "r3y" ? "3 Year" : "5 Year"
+    // Styles — dark zoom controls + transparent tooltips
+    const sty = document.createElement("style")
+    sty.textContent = `
+      .mc-tip{background:transparent!important;border:none!important;box-shadow:none!important;padding:0!important;}
+      .mc-tip::before{display:none!important;}
+      .leaflet-container{background:#060a10!important;}
+      .leaflet-control-zoom{border:1px solid rgba(255,255,255,0.08)!important;}
+      .leaflet-control-zoom a{background:#0d1825!important;color:#94a3b8!important;border-color:rgba(255,255,255,0.06)!important;}
+      .leaflet-control-zoom a:hover{color:#fff!important;}
+      .leaflet-interactive:focus{outline:none!important;}
+    `
+    document.head.appendChild(sty)
+
+    const map = L.map(containerRef.current, {
+      center: [20, 0], zoom: 2, minZoom: 1.5, maxZoom: 7,
+      zoomControl: true, attributionControl: false,
+      worldCopyJump: false, maxBounds: [[-60, -180], [75, 180]],
+      maxBoundsViscosity: 1.0,
+    })
+    mapRef.current = map
+    map.fitBounds([[-45, -180], [68, 180]])
+    // GeoJSON
+    let geo: any
+    try {
+      geo = await fetch(
+        "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson"
+      ).then(r => r.json())
+    } catch { return }
+
+    const geoLayer = L.geoJSON(geo, {
+      style: styleFeature,
+      onEachFeature: (feature: any, layer: any) => {
+        const iso = feature.properties?.ADM0_A3 ?? feature.properties?.ISO_A3 ?? ""
+        const name = NAMES[iso] ?? feature.properties?.NAME ?? iso
+
+        layer.on({
+          mouseover: () => {
+            if (iso !== selectedRef.current)
+              layer.setStyle({ weight: 1.5, color: "#4ade80", fillOpacity: 0.95 })
+          },
+          mouseout: () => {
+            if (iso !== selectedRef.current) geoLayer.resetStyle(layer)
+          },
+          click: () => setSelected(prev => prev === iso ? null : iso),
+        })
+
+        layer.bindTooltip(() => {
+          const m = metricRef.current
+          const value = dataRef.current?.[m]?.[iso]
+          const col = metricColor(m, value)
+          const mConf = METRICS.find(x => x.key === m)!
+          return `<div style="background:#0d1825;border:1px solid ${col}60;border-radius:10px;padding:10px 14px;font-family:system-ui,sans-serif;min-width:150px;">
+            <div style="font-weight:700;color:#f1f5f9;font-size:13px;margin-bottom:4px">${name}</div>
+            <div style="color:#64748b;font-size:9px;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:2px">${mConf.label}</div>
+            <div style="font-size:22px;font-weight:800;color:${col}">${fmt(m, value)}</div>
+          </div>`
+        }, { sticky: true, className: "mc-tip", offset: [14, 0] })
+      },
+    })
+
+    geoLayer.addTo(map)
+    geoRef.current = geoLayer
+  }
+
+  const mConf = METRICS.find(m => m.key === metric)!
+  const scale = COLOR_SCALES[metric]
 
   return (
-    <div style={{
-      height: "calc(100dvh - 64px)", // Account for header (pt-16 = 64px)
-      background: "#060a10",
-      display: "flex",
-      flexDirection: "column",
-      fontFamily: "'DM Sans', Inter, system-ui, sans-serif",
-      color: "#e2e8f0",
-      overflow: "hidden",
-    }}>
+    <div className="flex flex-col" style={{ height: "calc(100vh - 64px)" }}>
 
-      {/* ── TOP TABS ── */}
-      <div style={{
-        display: "flex",
-        justifyContent: "center",
-        gap: 8,
-        padding: "14px 24px",
-        borderBottom: "1px solid #1e293b",
-        flexShrink: 0,
-      }}>
-        {TABS.map(t => (
-          <button key={t.key} onClick={() => switchTab(t.key)} style={{
-            padding: "7px 22px", borderRadius: 99,
-            border: tab === t.key ? "1px solid #00e676" : "1px solid #1e293b",
-            background: tab === t.key ? "rgba(0,230,118,0.1)" : "transparent",
-            color: tab === t.key ? "#00e676" : "#64748b",
-            fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.15s",
-          }}>
-            {t.label}
-          </button>
-        ))}
-        <button style={{
-          padding: "7px 22px", borderRadius: 99,
-          border: "1px solid #1e293b", background: "transparent",
-          color: "#334155", fontSize: 13, fontWeight: 600, cursor: "not-allowed",
-        }}>
-          Watchlist
-        </button>
+      {/* ── Controls ── */}
+      <div className="shrink-0 bg-background/95 backdrop-blur-sm border-b border-border px-6 py-3">
+        {/* Metric pills */}
+        <div className="flex items-center gap-2 flex-wrap mb-3">
+          {METRICS.map(m => (
+            <button key={m.key} onClick={() => { setMetric(m.key); setSelected(null) }}
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all border whitespace-nowrap ${metric === m.key
+                  ? "border-primary/50 text-primary bg-primary/10"
+                  : "border-border text-muted-foreground hover:border-primary/30 hover:text-foreground bg-transparent"
+                }`}
+            >{m.label}</button>
+          ))}
+        </div>
+        {/* Tabs */}
+        <div className="flex">
+          {([
+            { key: "map" as TabKey, label: "World Map", Icon: Globe2 },
+            { key: "heatmap" as TabKey, label: "Economic Heatmap", Icon: BarChart3 },
+            { key: "calendar" as TabKey, label: "Economic Calendar", Icon: CalendarDays },
+          ]).map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium border-b-2 transition-colors ${tab === t.key
+                  ? "text-primary border-primary"
+                  : "text-muted-foreground border-transparent hover:text-foreground"
+                }`}
+            ><t.Icon className="w-3.5 h-3.5" />{t.label}</button>
+          ))}
+        </div>
       </div>
 
-      {/* ── MAIN BODY ── */}
-      {loading ? (
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "#334155" }}>
-          <Loader2 size={22} style={{ animation: "spin 1s linear infinite" }} />
-          <span style={{ fontSize: 14 }}>Loading market data…</span>
-        </div>
-      ) : (
-        <>
-          <div style={{ flex: 1, display: "flex", minHeight: 0, overflow: "hidden", minWidth: 0 }}>
+      {/* ── Content ── */}
+      <div className="flex flex-1 overflow-hidden">
 
-            {/* ══ LEFT — MAP or CHART ══ */}
-            <div style={{
-              flex: "0 0 56%",
-              display: "flex",
-              flexDirection: "column",
-              borderRight: "1px solid #1e293b",
-              overflow: "hidden",
-              position: "relative",
-            }}>
-              {tab === "countries" ? (
-                <MarketsMap
-                  countries={countryData}
-                  selectedCountry={selectedCountry}
-                  onCountrySelect={setSelectedCountry}
-                  periodLabel={periodLabel}
-                />
-              ) : (
-                <div style={{ padding: "20px 20px 12px 16px", display: "flex", flexDirection: "column", height: "100%" }}>
-                  <div style={{ fontSize: 11, color: "#334155", marginBottom: 6, letterSpacing: "0.04em" }}>
-                    NORMALIZED TO 100 — 5 YEAR PERFORMANCE
+        {/* MAP */}
+        {tab === "map" && (
+          <>
+            {/* Map area */}
+            <div className="relative flex-1 overflow-hidden">
+              {loading && (
+                <div className="absolute inset-0 flex items-center justify-center z-20 bg-background/80">
+                  <div className="flex items-center gap-3 text-muted-foreground">
+                    <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    <span className="text-sm">Loading World Bank data…</span>
                   </div>
-                  <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", minWidth: 0 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
-                        <XAxis
-                          dataKey="date"
-                          ticks={xTicks}
-                          tickFormatter={fmtChartDate}
-                          tick={{ fill: "#334155", fontSize: 11 }}
-                          axisLine={{ stroke: "#1e293b" }}
-                          tickLine={false}
-                        />
-                        <YAxis
-                          tick={{ fill: "#334155", fontSize: 11 }}
-                          axisLine={false}
-                          tickLine={false}
-                          tickFormatter={v => `$${v}`}
-                          width={44}
-                        />
-                        <Tooltip content={<ChartTooltip labelMap={labelMap} />} />
-                        <Legend
-                          wrapperStyle={{ fontSize: 11, color: "#475569", paddingTop: 6 }}
-                          iconType="plainline"
-                          iconSize={18}
-                          formatter={value => labelMap[value] ?? value}
-                        />
-                        {data?.items.map((item, i) => (
-                          <Line
-                            key={item.safeKey}
-                            type="monotone"
-                            dataKey={item.safeKey}
-                            name={item.safeKey}
-                            stroke={SERIES_COLORS[i % SERIES_COLORS.length]}
-                            strokeWidth={1.5}
-                            dot={false}
-                            activeDot={{ r: 3, strokeWidth: 0 }}
-                            connectNulls
-                          />
-                        ))}
-                      </LineChart>
-                    </ResponsiveContainer>
+                </div>
+              )}
+              <div ref={containerRef} style={{ width: "100%", height: "100%", background: "#060a10" }} />
+
+              {/* Legend — gradient bar, single hue */}
+              {!loading && (
+                <div className="absolute bottom-5 left-4 z-[1000] bg-background/90 backdrop-blur-md border border-border rounded-xl p-4 shadow-xl w-44">
+                  <p className="text-[10px] font-bold text-muted-foreground tracking-widest mb-2.5 uppercase">{mConf.label}</p>
+                  {/* Gradient bar */}
+                  <div className="h-3 rounded-full" style={{
+                    background: `linear-gradient(to right, ${scale.light}, ${scale.dark})`
+                  }} />
+                  <div className="flex justify-between mt-1">
+                    <span className="text-[9px] text-muted-foreground">Low</span>
+                    <span className="text-[9px] text-muted-foreground">High</span>
                   </div>
+                  <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border">
+                    <div className="w-4 h-2.5 rounded shrink-0" style={{ background: NO_DATA, border: "1px solid rgba(255,255,255,0.08)" }} />
+                    <span className="text-[9px] text-muted-foreground">No data</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Source */}
+              {!loading && (
+                <div className="absolute bottom-5 right-4 z-[1000]">
+                  <span className="text-[9px] text-muted-foreground/50 bg-background/60 px-2 py-1 rounded">
+                    World Bank · Most recent available year
+                  </span>
                 </div>
               )}
             </div>
 
-            {/* ══ RIGHT — TABLE ══ */}
-            <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
-              <div style={{ padding: "20px 24px 12px" }}>
-                <h2 style={{ fontSize: 18, fontWeight: 700, color: "#f1f5f9", margin: 0 }}>
-                  {TABLE_TITLE[tab]}
-                </h2>
+            {/* ── RIGHT SIDEBAR ── */}
+            <div ref={sidebarRef}
+              className="w-60 shrink-0 border-l border-border bg-background flex flex-col overflow-hidden"
+            >
+              {/* Sidebar header */}
+              <div className="shrink-0 px-4 py-3 border-b border-border bg-background/80">
+                <p className="text-xs font-bold text-foreground">{mConf.label}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {ranked.length} countries · click to highlight
+                </p>
               </div>
 
-              {/* Table header */}
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: tab === "countries" ? "1fr 80px 80px 80px" : "1fr 90px 90px 90px",
-                padding: "8px 24px",
-                paddingLeft: tab === "countries" ? "44px" : "24px",
-                borderBottom: "1px solid #1e293b",
-                position: "sticky", top: 0,
-                background: "#070c14", zIndex: 5,
-              }}>
-                <span style={thStyle}>{tab === "countries" ? "Country" : "Name"}</span>
-                {(["r1y", "r3y", "r5y"] as const).map(col => (
-                  <button key={col} onClick={() => setSortCol(col)} style={{
-                    ...thStyle, textAlign: "right",
-                    background: "none", border: "none", cursor: "pointer",
-                    color: sortCol === col ? "#00e676" : "#334155",
-                    padding: 0,
-                    textDecoration: sortCol === col ? "underline" : "none",
-                    textUnderlineOffset: 3,
-                  }}>
-                    {col === "r1y" ? "1Y" : col === "r3y" ? "3Y" : "5Y"}
-                  </button>
-                ))}
-              </div>
-
-              {/* Countries Tab — Grouped by Region */}
-              {tab === "countries" ? (
-                <div>
-                  {regionGroups.map(region => (
-                    <RegionSection
-                      key={region.name}
-                      region={region}
-                      sortCol={sortCol}
-                      selectedCountry={selectedCountry}
-                      onCountrySelect={setSelectedCountry}
-                      expanded={expandedRegions.has(region.name)}
-                      onToggle={() => toggleRegion(region.name)}
-                    />
-                  ))}
-                </div>
-              ) : (
-                /* Other Tabs — Flat List */
-                sorted.map((row, i) => {
-                  const colorIdx = data?.items.findIndex(it => it.symbol === row.symbol) ?? i
-                  return (
-                    <div
-                      key={row.symbol}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 90px 90px 90px",
-                        padding: "11px 24px",
-                        borderBottom: "1px solid #0a1018",
-                        alignItems: "center",
-                        transition: "background 0.1s",
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = "#0a1018"}
-                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{
-                          width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
-                          background: SERIES_COLORS[colorIdx % SERIES_COLORS.length],
-                        }} />
-                        <span style={{ fontSize: 14, color: "#e2e8f0", fontWeight: 500 }}>
-                          {row.label}
+              {/* Sidebar list */}
+              <div className="flex-1 overflow-y-auto">
+                {loading ? (
+                  <div className="p-3 space-y-2">
+                    {Array.from({ length: 14 }).map((_, i) => (
+                      <div key={i} className="h-8 bg-secondary/30 rounded-lg animate-pulse" />
+                    ))}
+                  </div>
+                ) : ranked.length === 0 ? (
+                  <p className="text-xs text-muted-foreground p-4">No data available</p>
+                ) : (
+                  ranked.map((item, i) => {
+                    const isSel = item.iso === selected
+                    return (
+                      <div key={item.iso} data-iso={item.iso}
+                        className={`flex items-center justify-between px-3 py-2 cursor-pointer border-b border-border/20 transition-colors ${isSel ? "bg-white/5" : "hover:bg-secondary/20"
+                          }`}
+                        onClick={() => setSelected(p => p === item.iso ? null : item.iso)}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {/* Color swatch */}
+                          <div className="w-2 h-2 rounded-full shrink-0" style={{ background: item.color }} />
+                          <div className="min-w-0">
+                            <p className={`text-xs font-medium truncate ${isSel ? "text-primary" : "text-foreground"}`}>
+                              {item.name}
+                            </p>
+                            <p className="text-[9px] text-muted-foreground/60">
+                              #{isSel ? "selected" : item.rank}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-xs font-bold tabular-nums shrink-0 ml-2"
+                          style={{ color: item.color }}>
+                          {fmt(metric, item.value)}
                         </span>
                       </div>
-                      {(["r1y", "r3y", "r5y"] as const).map(col => {
-                        const v = row[col]
-                        const { bg, text } = returnCellColor(v)
-                        return (
-                          <div key={col} style={{ display: "flex", justifyContent: "flex-end" }}>
-                            <span style={{
-                              display: "inline-block",
-                              padding: "4px 10px", borderRadius: 6,
-                              background: bg, color: text,
-                              fontSize: 13, fontWeight: 600,
-                              minWidth: 72, textAlign: "center",
-                            }}>
-                              {fmtPct(v)}
-                            </span>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* HEATMAP */}
+        {tab === "heatmap" && (
+          <div className="flex-1 overflow-auto">
+            <div className="overflow-x-auto min-w-full">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-background/95 sticky top-0 z-10">
+                    <th className="text-left px-5 py-4 text-xs font-bold text-muted-foreground tracking-widest whitespace-nowrap border-b border-border w-44">
+                      COUNTRY
+                    </th>
+                    {HEAT_METRICS.map(m => (
+                      <th key={m.key} className="text-center px-3 py-4 text-xs font-bold text-muted-foreground tracking-widest whitespace-nowrap border-b border-border min-w-[110px]">
+                        {m.label.toUpperCase()}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {HEAT_COUNTRIES.map((c, i) => (
+                    <tr key={c.iso} className={`border-b border-border/20 hover:bg-white/5 transition-colors ${i % 2 === 1 ? "bg-white/[0.02]" : ""}`}>
+                      <td className="px-5 py-3 whitespace-nowrap">
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-xl leading-none">{c.flag}</span>
+                          <div>
+                            <p className="text-xs font-semibold text-foreground">{NAMES[c.iso] ?? c.iso}</p>
+                            <p className="text-[9px] text-muted-foreground/60">{c.iso2}</p>
                           </div>
+                        </div>
+                      </td>
+                      {HEAT_METRICS.map(m => {
+                        const val = (data as any)?.[m.key]?.[c.iso]
+                        const { bg, text } = heatColor(m, val)
+                        return (
+                          <td key={m.key} className="px-2 py-2 text-center">
+                            {loading ? (
+                              <div className="h-8 bg-secondary/30 rounded-lg animate-pulse mx-1" />
+                            ) : (
+                              <div
+                                className="rounded-lg px-2 py-2 mx-1 transition-all hover:brightness-125"
+                                style={{ background: bg }}
+                              >
+                                <span className="text-xs font-bold tabular-nums" style={{ color: text }}>
+                                  {fmtHeat(m, val)}
+                                </span>
+                              </div>
+                            )}
+                          </td>
                         )
                       })}
-                    </div>
-                  )
-                })
-              )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="px-5 py-3 border-t border-border bg-background/50 flex items-center justify-between flex-wrap gap-3">
+              <p className="text-xs text-muted-foreground">Source: World Bank Open Data · Most recent available year per country</p>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-sm" style={{ background: "#166534" }} />
+                  <span className="text-[10px] text-muted-foreground">Good</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-sm" style={{ background: "#7c2d12" }} />
+                  <span className="text-[10px] text-muted-foreground">Needs attention</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-sm bg-secondary/30" />
+                  <span className="text-[10px] text-muted-foreground">No data</span>
+                </div>
+              </div>
             </div>
           </div>
+        )}
 
-          {/* ══ BOTTOM STATS BAR ══ */}
-          {data && <BottomStats returns={data.returns} col={sortCol} tab={tab} />}
-        </>
-      )}
-
-      <style>{`
-        @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
-        ::-webkit-scrollbar { width: 4px }
-        ::-webkit-scrollbar-track { background: #060a10 }
-        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 2px }
-      `}</style>
+        {/* CALENDAR */}
+        {tab === "calendar" && (
+          <div className="flex-1 overflow-auto p-6">
+            <div className="rounded-2xl border border-border overflow-hidden bg-background/30" style={{ height: "calc(100% - 32px)", minHeight: "500px" }}>
+              <div id="tv-cal" className="tradingview-widget-container" style={{ height: "100%" }}>
+                <div className="tradingview-widget-container__widget" style={{ height: "100%" }} />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
-
-const thStyle: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, color: "#334155",
-  letterSpacing: "0.08em", textTransform: "uppercase",
-}
-
-// Export MarketsWrapper as MacroMapWrapper for backward compatibility with macro page
-export { MarketsWrapper as MacroMapWrapper }

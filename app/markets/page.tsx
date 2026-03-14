@@ -1,4 +1,4 @@
-import { Header } from "@/components/Header"
+import { Header } from "@/components/header"
 import { MarketsWrapper } from "@/components/MarketsWrapper"
 import type { Metadata } from "next"
 

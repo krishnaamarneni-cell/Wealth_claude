@@ -66,45 +66,27 @@ export function LivePreviewSection() {
               </div>
             </div>
 
-            {/* Video placeholder — swap src for your Google Whisk/Flow MP4 */}
-            <div className="relative aspect-video bg-[#060a10] flex items-center justify-center group">
+            {/* Video player */}
+            <div className="relative aspect-video bg-[#060a10]">
+              <video
+                src="/globe-demo.mp4"
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="w-full h-full object-cover"
+              />
 
-              {/* Placeholder content — replace with <video> when ready */}
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-[#060a10] to-emerald-900/10" />
-
-              {/* Animated globe preview hint */}
-              <div className="relative z-10 flex flex-col items-center gap-6 text-center px-8">
-                <div className="w-32 h-32 rounded-full border-2 border-blue-400/20 flex items-center justify-center relative">
-                  <div className="absolute inset-0 rounded-full border border-blue-400/10 animate-ping" style={{ animationDuration: "3s" }} />
-                  <div className="absolute inset-3 rounded-full border border-blue-400/15 animate-pulse" />
-                  <span className="text-5xl">🌍</span>
-                </div>
-                <div>
-                  <p className="text-white/50 text-sm mb-1">Demo video coming soon</p>
-                  <p className="text-white/25 text-xs">Replace this div with your &lt;video&gt; tag</p>
-                </div>
+              {/* Optional: Overlay with CTA button */}
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10">
                 <Link
                   href="/globe"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-sm hover:bg-blue-500/30 transition-colors"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-black/60 backdrop-blur-sm border border-white/20 text-white text-sm hover:bg-black/80 hover:border-white/30 transition-all duration-300 shadow-lg"
                 >
                   <Play className="w-3.5 h-3.5 fill-current" />
-                  Try it live instead
+                  Try it live
                 </Link>
               </div>
-
-              {/*
-                ── WHEN YOUR VIDEO IS READY ──
-                Replace the entire inner div above with:
-
-                <video
-                  src="/demo.mp4"
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover"
-                />
-              */}
             </div>
           </div>
         </div>

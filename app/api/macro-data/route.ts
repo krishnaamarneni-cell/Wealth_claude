@@ -81,13 +81,24 @@ export async function GET() {
     }
 
     console.log("[macro-data] Cache miss or stale, fetching fresh data...")
-    const [inflation, gdpGrowth, gdp, unemployment, debtToGdp] = await Promise.all([
+    
+    // Fetch World Bank data (required)
+    const [inflation, gdpGrowth, gdp, unemployment] = await Promise.all([
       fetchWB(WB_INDICATORS.inflation),
       fetchWB(WB_INDICATORS.gdpGrowth),
       fetchWB(WB_INDICATORS.gdp),
       fetchWB(WB_INDICATORS.unemployment),
-      fetchIMFDebt(),
     ])
+
+    // Fetch IMF data (optional - don't let it block if it fails)
+    let debtToGdp: Record<string, number> = {}
+    try {
+      debtToGdp = await fetchIMFDebt()
+      console.log("[macro-data] IMF debt data fetched successfully")
+    } catch (err) {
+      console.warn("[macro-data] IMF API failed (non-blocking):", err instanceof Error ? err.message : err)
+      console.log("[macro-data] Continuing with World Bank data only")
+    }
 
     console.log("[macro-data] Data fetched - inflation:", Object.keys(inflation).length, "countries")
 

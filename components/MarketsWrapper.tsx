@@ -1,5 +1,3 @@
-"use client"
-
 import { useEffect, useState, useCallback, useMemo } from "react"
 import { useSearchParams } from "next/navigation"
 import {
@@ -8,6 +6,15 @@ import {
 } from "recharts"
 import { Loader2, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronRight } from "lucide-react"
 import { MarketsMap, returnsToCountryData, SYMBOL_TO_ISO } from "./MarketsMap"
+
+// Separate component for handling search params
+function MarketsWrapperInner() {
+  const searchParams = useSearchParams()
+  const tabParam = searchParams?.get("tab") as TabKey | null
+  const initialTab: TabKey = (tabParam === "sectors" || tabParam === "assets") ? tabParam : "countries"
+  
+  return <MarketsWrapper initialTab={initialTab} />
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -350,11 +357,8 @@ const TABLE_TITLE: Record<TabKey, string> = {
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
-export function MarketsWrapper() {
-  const searchParams = useSearchParams()
-  const tabParam = searchParams?.get("tab") as TabKey | null
-  const initialTab: TabKey = (tabParam === "sectors" || tabParam === "assets") ? tabParam : "countries"
-  
+export function MarketsWrapper({ initialTab = "countries" }: { initialTab?: TabKey } = {}) {
+  // Use the passed initialTab prop or default to "countries"
   const [tab, setTab] = useState<TabKey>(initialTab)
   const [data, setData] = useState<ComparisonData | null>(null)
   const [loading, setLoading] = useState(true)

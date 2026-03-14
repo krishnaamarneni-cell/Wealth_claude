@@ -1,5 +1,6 @@
+import { Suspense } from "react"
 import { Header } from "@/components/header"
-import { MarketsWrapper } from "@/components/MarketsWrapper"
+import { MarketsWrapperInner } from "@/components/MarketsWrapper"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
@@ -12,7 +13,9 @@ export default function MarketsPage() {
     <>
       <Header />
       <main className="pt-16 bg-[#060a10]">
-        <MarketsWrapper />
+        <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: "#334155" }}>Loading markets...</div>}>
+          <MarketsWrapperInner />
+        </Suspense>
       </main>
     </>
   )

@@ -18,6 +18,8 @@ import {
   Share2,
   RefreshCw,
 } from "lucide-react";
+import Header from "@/components/header";
+import BookCallModal from "@/components/book-call-modal";
 
 // Types
 interface ScoreResult {
@@ -143,6 +145,7 @@ export default function FireScoreResults() {
   const [tips, setTips] = useState<Tip[]>([]);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [showEmailSent, setShowEmailSent] = useState(false);
+  const [isBookCallModalOpen, setIsBookCallModalOpen] = useState(false);
 
   useEffect(() => {
     // Get result from localStorage
@@ -407,8 +410,19 @@ export default function FireScoreResults() {
 
   return (
     <div className="min-h-screen bg-[#0a0f18] text-white">
+      {/* Header */}
+      <Header />
+
+      {/* Book Call Modal */}
+      <BookCallModal
+        isOpen={isBookCallModalOpen}
+        onClose={() => setIsBookCallModalOpen(false)}
+        userName={result?.name}
+        userEmail={result?.email}
+      />
+
       {/* Hero Section with Score */}
-      <section className="relative pt-16 pb-12 px-4 overflow-hidden">
+      <section className="relative pt-24 pb-12 px-4 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-primary/10 via-transparent to-transparent" />
 
         <div className="max-w-4xl mx-auto relative z-10">
@@ -652,14 +666,14 @@ export default function FireScoreResults() {
                   <p className="text-white/50 text-sm">Free 30-min consultation</p>
                 </div>
               </div>
-              <a
-                href="/book"
+              <button
+                onClick={() => setIsBookCallModalOpen(true)}
                 className="w-full py-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl transition-all flex items-center justify-center gap-2 font-semibold"
               >
                 <Calendar className="w-5 h-5" />
                 Schedule Now
                 <ArrowRight className="w-5 h-5" />
-              </a>
+              </button>
             </motion.div>
           </div>
         </div>
@@ -728,14 +742,14 @@ export default function FireScoreResults() {
               Your detailed breakdown and personalized tips have been sent to your email.
               Book a free call to create your acceleration plan.
             </p>
-            <a
-              href="/book"
+            <button
+              onClick={() => setIsBookCallModalOpen(true)}
               className="inline-flex items-center gap-2 px-8 py-4 bg-primary hover:bg-primary/90 text-black font-semibold rounded-xl transition-all hover:scale-105"
             >
               <Calendar className="w-5 h-5" />
               Book Free Strategy Call
               <ArrowRight className="w-5 h-5" />
-            </a>
+            </button>
           </motion.div>
         </div>
       </section>

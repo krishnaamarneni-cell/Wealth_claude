@@ -157,6 +157,9 @@ export function MarketsMap({
     }
 
     const init = async () => {
+      // Prevent re-initialization if map already exists
+      if (mapRef.current) return
+      
       if (!document.getElementById("leaflet-css")) {
         const link = document.createElement("link")
         link.id = "leaflet-css"
@@ -293,6 +296,12 @@ function renderMap(
   selectedCountry: string | null,
   onCountrySelect: (iso: string | null) => void
 ) {
+  // Safety check: ensure map is valid and has a container
+  if (!map || !map._container || !geoData) {
+    console.warn("renderMap: Map not properly initialized, skipping render")
+    return
+  }
+
   if ((map as any)._marketsLayer) {
     map.removeLayer((map as any)._marketsLayer)
   }

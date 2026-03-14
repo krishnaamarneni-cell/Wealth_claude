@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { LineChart, ArrowLeft, Search, MapPin, Clock, Upload, CheckCircle, Loader2 } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
+import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
 
 const supabase = createClient(
@@ -166,6 +167,8 @@ export default function CareersPage() {
 
   return (
     <>
+      <Header />
+
       {/* Navbar */}
       <nav className="border-b border-border px-6 py-4 flex items-center justify-between bg-background">
         <Link href="/" className="flex items-center gap-2">

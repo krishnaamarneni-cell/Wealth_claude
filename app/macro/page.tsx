@@ -1,3 +1,4 @@
+import { Header } from "@/components/header"
 import { MacroMapWrapper } from "@/components/MacroMapWrapper"
 import type { Metadata } from "next"
 
@@ -8,9 +9,12 @@ export const metadata: Metadata = {
 
 export default function MacroPage() {
   return (
-    // pt-16 = 64px — pushes content below the fixed header
-    <main className="pt-16 bg-background overflow-hidden" style={{ height: "100dvh" }}>
-      <MacroMapWrapper />
-    </main>
+    <>
+      <Header />
+      {/* pt-16 = 64px — pushes content below the fixed header */}
+      <main className="pt-16 bg-background overflow-hidden" style={{ height: "100dvh" }}>
+        <MacroMapWrapper />
+      </main>
+    </>
   )
 }

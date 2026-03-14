@@ -1,3 +1,4 @@
+import { Header } from "@/components/header"
 import { CalendarWrapper } from "@/components/CalendarWrapper"
 import type { Metadata } from "next"
 
@@ -8,8 +9,11 @@ export const metadata: Metadata = {
 
 export default function CalendarPage() {
   return (
-    <main className="pt-16 bg-background overflow-hidden" style={{ height: "100dvh" }}>
-      <CalendarWrapper />
-    </main>
+    <>
+      <Header />
+      <main className="pt-16 bg-background overflow-hidden" style={{ height: "100dvh" }}>
+        <CalendarWrapper />
+      </main>
+    </>
   )
 }

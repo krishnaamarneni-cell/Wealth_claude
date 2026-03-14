@@ -179,19 +179,31 @@ export default function ServicesPage() {
         <section className="py-16 px-4 relative">
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-red-500/5 to-transparent" />
           <div className="max-w-6xl mx-auto relative z-10">
-          <div className={animationClasses.fadeInUp + " text-center mb-12"}>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Why 90% Stay Stuck Forever
-            </h2>
-            <p className="text-white/60 text-lg">
-              The difference isn't income — it's strategy
-            </p>
-          </div>
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeInUp}
+              className="text-center mb-12"
+            >
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                Why 90% Stay Stuck Forever
+              </h2>
+              <p className="text-white/60 text-lg">
+                The difference isn't income — it's strategy
+              </p>
+            </motion.div>
 
           {/* Comparison Grid */}
-          <div className="grid md:grid-cols-2 gap-8 mb-12">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+            className="grid md:grid-cols-2 gap-8 mb-12"
+          >
             {/* Retail Column */}
-            <div className={animationClasses.scaleIn + " space-y-4"}>
+            <motion.div variants={scaleIn} className="space-y-4">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
                     <X className="w-6 h-6 text-red-500" />
@@ -224,7 +236,7 @@ export default function ServicesPage() {
               </div>
 
             {/* Wealthy Column */}
-            <div className={animationClasses.scaleIn + " space-y-4"}>
+            <motion.div variants={scaleIn} className="space-y-4">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
                     <Check className="w-6 h-6 text-primary" />
@@ -282,15 +294,27 @@ export default function ServicesPage() {
         {/* Wealth Pyramid Section */}
         <section className="py-16 px-4 relative">
           <div className="max-w-4xl mx-auto">
-            <div className={animationClasses.fadeInUp + " text-center mb-12"}>
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeInUp}
+              className="text-center mb-12"
+            >
               <h2 className="text-3xl md:text-4xl font-bold mb-4">
                 The Wealth Pyramid
               </h2>
               <p className="text-white/60 text-lg">Where are you?</p>
-            </div>
+            </motion.div>
 
             {/* Pyramid Visualization */}
-            <div className={animationClasses.fadeInUp + " text-center mb-12"}>
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={scaleIn}
+              className="relative mb-12"
+            >
               {/* Pyramid Levels */}
               <div className="flex flex-col items-center space-y-2">
                 {/* Top 1% */}
@@ -330,14 +354,23 @@ export default function ServicesPage() {
 
                 {/* Starting 20% */}
                 <div className="w-[80%] h-14 bg-gray-600/80 rounded-b-lg flex items-center justify-center">
-                  <span className="text-xs font-semibold">STARTING (20%)</span>
-                </div>
+              <span className="text-xs font-semibold">STARTING (20%)</span>
               </div>
             </div>
+            </motion.div>
 
             {/* Mindset Comparison */}
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className={animationClasses.scaleIn + " bg-red-500/5 border border-red-500/20 rounded-xl p-6"}>
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={staggerContainer}
+              className="grid md:grid-cols-2 gap-6"
+            >
+              <motion.div
+                variants={scaleIn}
+                className="bg-red-500/5 border border-red-500/20 rounded-xl p-6"
+              >
                 <h4 className="text-lg font-bold text-red-400 mb-4 flex items-center gap-2">
                   <span className="text-2xl">😰</span> STUCK ZONE MINDSET
                 </h4>
@@ -348,10 +381,13 @@ export default function ServicesPage() {
                   <li>"I'll figure it out later"</li>
                   <li>"Rich people got lucky"</li>
                 </ul>
-                <p className="text-red-400/60 text-sm mt-4 italic">→ Stays stuck for decades</p>
-              </div>
+              <p className="text-red-400/60 text-sm mt-4 italic">→ Stays stuck for decades</p>
+            </motion.div>
 
-              <div className={animationClasses.scaleIn + " bg-primary/5 border border-primary/20 rounded-xl p-6"}>
+            <motion.div
+              variants={scaleIn}
+              className="bg-primary/5 border border-primary/20 rounded-xl p-6"
+            >
                 <h4 className="text-lg font-bold text-primary mb-4 flex items-center gap-2">
                   <span className="text-2xl">🚀</span> GROWTH ZONE MINDSET
                 </h4>
@@ -362,12 +398,18 @@ export default function ServicesPage() {
                   <li>"Time is money — act now"</li>
                   <li>"Rich people have systems"</li>
                 </ul>
-                <p className="text-primary/60 text-sm mt-4 italic">→ Escapes in 5-7 years</p>
-              </div>
-            </div>
+              <p className="text-primary/60 text-sm mt-4 italic">→ Escapes in 5-7 years</p>
+            </motion.div>
+            </motion.div>
 
             {/* CTA */}
-            <div className={animationClasses.fadeInUp + " text-center mt-10"}>
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeInUp}
+              className="text-center mt-10"
+            >
               <p className="text-xl font-semibold mb-4">
                 Which zone are you in? Find out in 2 minutes.
               </p>
@@ -377,9 +419,9 @@ export default function ServicesPage() {
               >
                 <Zap className="w-5 h-5" />
                 Take the FIRE Score Test
-                <ArrowRight className="w-5 h-5" />
-              </a>
-            </div>
+              <ArrowRight className="w-5 h-5" />
+            </a>
+            </motion.div>
           </div>
         </section>
 
@@ -446,7 +488,13 @@ export default function ServicesPage() {
         <section className="py-16 px-4 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-primary/10" />
           <div className="max-w-4xl mx-auto relative z-10">
-            <div className={animationClasses.fadeInUp + " bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 rounded-3xl p-8 md:p-12 text-center"}>
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeInUp}
+              className="bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 rounded-3xl p-8 md:p-12 text-center"
+            >
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/20 rounded-full text-primary text-sm font-medium mb-6">
                 <Star className="w-4 h-4" />
                 INCLUDED FREE WITH ANY SERVICE
@@ -473,25 +521,41 @@ export default function ServicesPage() {
                 className="inline-flex items-center gap-2 px-8 py-4 bg-primary hover:bg-primary/90 text-black font-semibold rounded-xl transition-all hover:scale-105"
               >
                 Start Your Journey
-                <ArrowRight className="w-5 h-5" />
-              </a>
-            </div>
+              <ArrowRight className="w-5 h-5" />
+            </a>
+            </motion.div>
           </div>
         </section>
 
         {/* Reviews Section */}
         <section className="py-16 px-4">
           <div className="max-w-6xl mx-auto">
-            <div className={animationClasses.fadeInUp + " text-center mb-12"}>
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeInUp}
+              className="text-center mb-12"
+            >
               <h2 className="text-3xl md:text-4xl font-bold mb-4">
                 From Stuck to Unstoppable
               </h2>
               <p className="text-white/60 text-lg">Real people. Real transformations.</p>
-            </div>
+            </motion.div>
 
-            <div className="grid md:grid-cols-3 gap-6">
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={staggerContainer}
+              className="grid md:grid-cols-3 gap-6"
+            >
               {reviews.map((review, index) => (
-                <div className={animationClasses.scaleIn + " bg-white/5 border border-white/10 rounded-2xl p-6"}>
+                <motion.div
+                  key={index}
+                  variants={scaleIn}
+                  className="bg-white/5 border border-white/10 rounded-2xl p-6"
+                >
                   <div className="flex items-center gap-4 mb-4">
                     <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
                       {review.avatar}

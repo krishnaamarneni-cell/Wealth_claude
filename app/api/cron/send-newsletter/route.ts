@@ -45,6 +45,12 @@ interface MarketNews {
   category: string;
 }
 
+interface SubjectLine {
+  emoji: string;
+  hook: string;
+  teaser: string;
+}
+
 // Finance quotes database
 const FINANCE_QUOTES = [
   { quote: "The stock market is a device for transferring money from the impatient to the patient.", author: "Warren Buffett" },
@@ -122,8 +128,14 @@ function getFearGreedContext(value: number): string {
   return "Extreme greed! Historically, this precedes corrections. Stay cautious.";
 }
 
-// Fetch market news from Perplexity
-async function fetchMarketNews(): Promise<MarketNews[]> {
+// Fetch market news AND catchy subject line from Perplexity
+async function fetchMarketNewsAndSubject(marketData: MarketData): Promise<{ news: MarketNews[]; subject: SubjectLine }> {
+  const defaultSubject: SubjectLine = {
+    emoji: marketData.sp500_change >= 0 ? "📈" : "📉",
+    hook: marketData.sp500_change >= 0 ? "Green day." : "Red alert.",
+    teaser: `S&P ${marketData.sp500_change >= 0 ? "+" : ""}${marketData.sp500_change.toFixed(1)}%, BTC at $${formatPrice(marketData.btc_price)} and more.`
+  };
+
   try {
     const response = await fetch("https://api.perplexity.ai/chat/completions", {
       method: "POST",
@@ -136,41 +148,74 @@ async function fetchMarketNews(): Promise<MarketNews[]> {
         messages: [
           {
             role: "system",
-            content: "You are a financial news summarizer. Return ONLY valid JSON, no markdown or explanation."
+            content: "You are a witty financial newsletter writer like Morning Brew or Market Briefs. Return ONLY valid JSON, no markdown or explanation."
           },
           {
             role: "user",
-            content: `Give me the top 3 most important financial/market news headlines from today or yesterday. For each, provide a brief 1-2 sentence summary explaining why it matters to investors.
+            content: `Today's market data:
+- S&P 500: ${marketData.sp500_change >= 0 ? "+" : ""}${marketData.sp500_change.toFixed(2)}%
+- Top Gainer: ${marketData.top_gainers[0]?.symbol} +${marketData.top_gainers[0]?.change.toFixed(1)}%
+- Top Loser: ${marketData.top_losers[0]?.symbol} ${marketData.top_losers[0]?.change.toFixed(1)}%
+- Bitcoin: $${formatPrice(marketData.btc_price)} (${marketData.btc_change >= 0 ? "+" : ""}${marketData.btc_change.toFixed(1)}%)
+- Fear & Greed: ${marketData.fear_greed_value} (${marketData.fear_greed_label})
+
+Based on today's top financial news AND the market data above, provide:
+
+1. A catchy 2-4 word email subject headline (punny, clever, attention-grabbing like "Ship wrecked" or "Market madness" or "The Midas touch")
+2. A relevant emoji that matches the headline theme
+3. A teaser (10-15 words summarizing 2-3 top stories, ending with "and more")
+4. The top 3 financial news stories with brief summaries
 
 Return ONLY this JSON format:
-[
-  {"headline": "Short headline", "summary": "Why it matters in 1-2 sentences", "category": "stocks|crypto|economy|earnings|fed"},
-  ...
-]`
+{
+  "subject": {
+    "emoji": "🔥",
+    "hook": "Playing with fire",
+    "teaser": "Tech stocks tumble, Fed hints at rate pause, oil prices surge and more"
+  },
+  "news": [
+    {"headline": "Short headline", "summary": "Why it matters in 1-2 sentences", "category": "stocks"},
+    {"headline": "Short headline", "summary": "Why it matters in 1-2 sentences", "category": "fed"},
+    {"headline": "Short headline", "summary": "Why it matters in 1-2 sentences", "category": "crypto"}
+  ]
+}`
           }
         ],
-        temperature: 0.1,
-        max_tokens: 1000,
+        temperature: 0.7,
+        max_tokens: 1500,
       }),
     });
 
     if (!response.ok) {
-      console.error("Perplexity news fetch failed");
-      return [];
+      console.error("Perplexity API error:", response.status);
+      return { news: [], subject: defaultSubject };
     }
 
     const data = await response.json();
     const content = data.choices[0].message.content;
 
     // Parse JSON from response
-    const jsonMatch = content.match(/\[[\s\S]*\]/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
+    let parsed;
+    try {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        parsed = JSON.parse(jsonMatch[0]);
+      } else {
+        parsed = JSON.parse(content);
+      }
+    } catch (e) {
+      console.error("Failed to parse Perplexity response:", content);
+      return { news: [], subject: defaultSubject };
     }
-    return JSON.parse(content);
+
+    return {
+      news: parsed.news || [],
+      subject: parsed.subject || defaultSubject
+    };
+
   } catch (error) {
-    console.error("Failed to fetch market news:", error);
-    return [];
+    console.error("Failed to fetch from Perplexity:", error);
+    return { news: [], subject: defaultSubject };
   }
 }
 
@@ -182,17 +227,11 @@ function getCategoryEmoji(category: string): string {
     economy: "🏛️",
     earnings: "💰",
     fed: "🏦",
+    tech: "💻",
+    energy: "⛽",
+    retail: "🛒",
   };
   return emojis[category] || "📰";
-}
-
-// Generate subject line
-function generateSubjectLine(marketData: MarketData, issueNumber: number): string {
-  const sp500Change = marketData.sp500_change;
-  const emoji = sp500Change >= 1 ? "🚀" : sp500Change >= 0 ? "📈" : sp500Change >= -1 ? "📉" : "🔴";
-  const sign = sp500Change >= 0 ? "+" : "";
-
-  return `${emoji} S&P ${sign}${sp500Change.toFixed(1)}% | Fear at ${marketData.fear_greed_value} | Issue #${issueNumber}`;
 }
 
 // Build enhanced HTML email
@@ -202,6 +241,7 @@ function buildEmailHTML(
   todayEvents: CalendarEvent[],
   weekEvents: CalendarEvent[],
   marketNews: MarketNews[],
+  subjectLine: SubjectLine,
   issueNumber: number,
   issueDate: string,
   trackingPixelUrl: string
@@ -241,7 +281,7 @@ function buildEmailHTML(
                 <tr>
                   <td>
                     <h1 style="margin: 0; color: #10b981; font-size: 24px; font-weight: bold;">🌐 WealthClaude Daily</h1>
-                    <p style="margin: 4px 0 0 0; color: #64748b; font-size: 13px;">Issue #${issueNumber} · ${dayOfWeek}, ${formattedDate}</p>
+                    <p style="margin: 4px 0 0 0; color: #64748b; font-size: 13px;">${dayOfWeek}, ${formattedDate}</p>
                   </td>
                   <td align="right">
                     <span style="display: inline-block; padding: 6px 12px; background-color: ${isGreenDay ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}; color: ${isGreenDay ? '#10b981' : '#ef4444'}; border-radius: 20px; font-size: 12px; font-weight: 600;">
@@ -625,10 +665,11 @@ async function handleRequest(request: NextRequest) {
 
     const marketData = cachedMarket as MarketData;
 
-    // 3. Fetch market news from Perplexity
-    console.log("Fetching market news...");
-    const marketNews = await fetchMarketNews();
+    // 3. Fetch market news AND catchy subject line from Perplexity
+    console.log("Fetching market news and subject line...");
+    const { news: marketNews, subject: subjectData } = await fetchMarketNewsAndSubject(marketData);
     console.log(`Fetched ${marketNews.length} news items`);
+    console.log(`Subject: ${subjectData.emoji} ${subjectData.hook}`);
 
     // 4. Get today's calendar events
     const { data: todayEvents } = await supabase
@@ -653,7 +694,9 @@ async function handleRequest(request: NextRequest) {
     // 6. Create newsletter issue record
     const { data: issueData } = await supabase.rpc("get_next_issue_number");
     const issueNumber = issueData || 1;
-    const subjectLine = generateSubjectLine(marketData, issueNumber);
+
+    // Build catchy subject line like Market Briefs
+    const subjectLine = `${subjectData.emoji} ${subjectData.hook} - ${subjectData.teaser}`;
 
     const { data: newsletter, error: nlError } = await supabase
       .from("newsletter_issues")
@@ -688,6 +731,7 @@ async function handleRequest(request: NextRequest) {
           todayEvents || [],
           weekEvents || [],
           marketNews,
+          subjectData,
           issueNumber,
           today,
           trackingPixelUrl
@@ -697,7 +741,7 @@ async function handleRequest(request: NextRequest) {
         emailHtml = emailHtml.replace("%UNSUBSCRIBE_URL%", unsubscribeUrl);
 
         await resend.emails.send({
-          from: "Krishna @ WealthClaude <newsletter@wealthclaude.com>",
+          from: "WealthClaude <newsletter@wealthclaude.com>",
           to: [subscriber.email],
           subject: subjectLine,
           html: emailHtml,

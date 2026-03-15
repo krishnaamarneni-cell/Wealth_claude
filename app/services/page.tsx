@@ -86,7 +86,7 @@ const services = [
     description: "Build multiple streams so you're never dependent on one paycheck",
     features: ["Income analysis", "Side business ideas", "Passive income setup", "Dividend strategy"],
     href: "/services/income-diversification"
-  },
+  }
 ];
 
 // Reviews data

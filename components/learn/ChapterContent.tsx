@@ -17,6 +17,7 @@ import {
   DataTable,
   NumberComparison,
 } from "./ComparisonTable";
+import { MiniQuizTrigger } from "./MiniQuiz";
 
 // ===========================================
 // Content Block Renderer
@@ -197,17 +198,18 @@ interface VideoEmbedProps {
 
 function VideoEmbed({ youtubeId, title, optional = true }: VideoEmbedProps) {
   return (
-    <div className="my-6">
+    <div className="my-6" role="region" aria-label={`Video: ${title}`}>
       {optional && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
-          <Play className="w-4 h-4" />
+          <Play className="w-4 h-4" aria-hidden="true" />
           <span>Optional video • {title}</span>
         </div>
       )}
       <div className="relative aspect-video rounded-xl overflow-hidden border border-border bg-black">
         <iframe
-          src={`https://www.youtube.com/embed/${youtubeId}`}
+          src={`https://www.youtube.com/embed/${youtubeId}?rel=0`}
           title={title}
+          loading="lazy"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
           className="absolute inset-0 w-full h-full"
@@ -217,10 +219,11 @@ function VideoEmbed({ youtubeId, title, optional = true }: VideoEmbedProps) {
         href={`https://www.youtube.com/watch?v=${youtubeId}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mt-2 transition-colors"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mt-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
       >
-        <ExternalLink className="w-3.5 h-3.5" />
+        <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
         Watch on YouTube
+        <span className="sr-only">(opens in new tab)</span>
       </a>
     </div>
   );
@@ -294,16 +297,10 @@ export function ChapterContent({
           transition={{ delay: 0.5 }}
           className="mt-12 pt-8 border-t border-border"
         >
-          <h3 className="text-lg font-semibold text-foreground mb-4">
-            Quick check
-          </h3>
-          <p className="text-muted-foreground mb-6">
-            Answer these questions to make sure you understood the key concepts.
-          </p>
-          {/* Mini quiz component will be added in Phase 4 */}
-          <div className="p-6 rounded-xl border border-border bg-card/50 text-center text-muted-foreground">
-            [Mini quiz: {section.mini_quiz.questions.length} questions]
-          </div>
+          <MiniQuizTrigger
+            quiz={section.mini_quiz}
+            onComplete={onMiniQuizComplete}
+          />
         </motion.div>
       )}
     </div>

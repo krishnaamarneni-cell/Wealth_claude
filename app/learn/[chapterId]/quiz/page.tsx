@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowLeft, Lock } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCourse } from "@/lib/learn/CourseContext";
 import { getChapterById } from "@/lib/learn/chapters";
@@ -15,12 +15,28 @@ export default function QuizPage() {
   const params = useParams();
   const router = useRouter();
   const chapterId = Number(params.chapterId);
-  const { state, markQuizPassed, unlockChapter } = useCourse();
+  const { state, isStateReady, markQuizPassed, unlockChapter } = useCourse();
 
   const [chapter, setChapter] = useState<Chapter | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const isUnlocked = state.chapters_unlocked.includes(chapterId);
+  // Check unlock status with localStorage fallback
+  const isUnlocked = (() => {
+    if (state.chapters_unlocked.includes(chapterId)) return true;
+    if (chapterId === 1) return true;
+
+    if (typeof window !== "undefined") {
+      try {
+        const storedProgress = localStorage.getItem("wealthclaude_course_progress");
+        if (storedProgress) {
+          const progress = JSON.parse(storedProgress);
+          if (progress.chapters_unlocked?.includes(chapterId)) return true;
+        }
+      } catch (e) { }
+    }
+    return false;
+  })();
+
   const isCompleted = state.chapters_completed.includes(chapterId);
 
   // Load chapter data
@@ -40,15 +56,20 @@ export default function QuizPage() {
     loadChapter();
   }, [chapterId]);
 
-  // Redirect if not unlocked
+  // Redirect if not unlocked (wait for state to be ready)
   useEffect(() => {
+    if (!isStateReady) return;
     if (!isLoading && !isUnlocked) {
       router.push("/learn");
     }
-  }, [isLoading, isUnlocked, router]);
+  }, [isStateReady, isLoading, isUnlocked, router]);
 
-  // Handle quiz completion
-  const handleQuizComplete = async (passed: boolean, score: number) => {
+  // FIXED: Handle quiz completion with answers
+  const handleQuizComplete = async (
+    passed: boolean,
+    score: number,
+    answers: Record<string, number>
+  ) => {
     // Update local state
     markQuizPassed(chapterId, "final", score);
 
@@ -58,29 +79,37 @@ export default function QuizPage() {
       if (nextChapter <= 14) {
         unlockChapter(nextChapter);
       }
+    }
 
-      // Save to server if user exists
-      if (state.user) {
-        try {
-          await fetch("/api/learn/quiz", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              user_id: state.user.id,
-              chapter_id: chapterId,
-              quiz_type: "final",
-              answers: {}, // The actual answers were handled in the component
-            }),
-          });
-        } catch (error) {
-          console.error("Error saving quiz result:", error);
+    // ALWAYS save to server (whether passed or failed) for tracking
+    if (state.user) {
+      try {
+        const response = await fetch("/api/learn/quiz", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: state.user.id,
+            chapter_id: chapterId,
+            quiz_type: "final",
+            answers: answers, // FIXED: Now passing actual answers
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+          console.error("Quiz API error:", data.error);
+        } else {
+          console.log("Quiz saved:", { score: data.score, passed: data.passed });
         }
+      } catch (error) {
+        console.error("Error saving quiz result:", error);
       }
     }
   };
 
   // Loading state
-  if (isLoading) {
+  if (!isStateReady || isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <motion.div

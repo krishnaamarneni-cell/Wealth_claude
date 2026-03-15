@@ -23,7 +23,8 @@ interface FinalQuizProps {
   chapterTitle: string;
   questions: QuizQuestionType[];
   passThreshold?: number;
-  onComplete: (passed: boolean, score: number) => void;
+  // UPDATED: Now passes answers as well
+  onComplete: (passed: boolean, score: number, answers: Record<string, number>) => void;
   onRetry?: () => void;
   className?: string;
 }
@@ -50,6 +51,7 @@ export function FinalQuiz({
     explanations: Record<string, string>;
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   const currentQuestion = questions[currentIndex];
   const isLastQuestion = currentIndex === questions.length - 1;
@@ -84,7 +86,7 @@ export function FinalQuiz({
     setIsSubmitting(true);
 
     try {
-      // Calculate results locally first
+      // Calculate results locally
       const correctAnswers: Record<string, number> = {};
       const explanations: Record<string, string> = {};
       let correctCount = 0;
@@ -102,9 +104,9 @@ export function FinalQuiz({
 
       setResults({ score, passed, correctAnswers, explanations });
       setPhase("results");
-
-      // Call completion handler
-      onComplete(passed, score);
+      
+      // FIXED: Pass answers to completion handler
+      onComplete(passed, score, answers);
     } catch (error) {
       console.error("Error submitting quiz:", error);
     } finally {
@@ -127,6 +129,26 @@ export function FinalQuiz({
   const handleStart = useCallback(() => {
     setPhase("questions");
   }, []);
+
+  // Navigate with delay to let state sync
+  const handleNavigate = useCallback(async () => {
+    if (isNavigating) return;
+    
+    setIsNavigating(true);
+    
+    // Small delay to ensure localStorage and state are fully synced
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    if (results?.passed) {
+      if (chapterId >= 14) {
+        router.push("/learn/certificate");
+      } else {
+        router.push(`/learn/${chapterId + 1}`);
+      }
+    } else {
+      router.push(`/learn/${chapterId}`);
+    }
+  }, [isNavigating, results, chapterId, router]);
 
   return (
     <div className={cn("max-w-2xl mx-auto", className)}>
@@ -316,13 +338,13 @@ export function FinalQuiz({
               transition={{ type: "spring", damping: 15, delay: 0.2 }}
               className={cn(
                 "inline-flex items-center justify-center w-24 h-24 rounded-full mb-6",
-                results.passed ? "bg-primary/10" : "bg-amber-500/10"
+                results.passed ? "bg-primary/10" : "bg-red-500/10"
               )}
             >
               {results.passed ? (
                 <Trophy className="w-12 h-12 text-primary" />
               ) : (
-                <XCircle className="w-12 h-12 text-amber-500" />
+                <XCircle className="w-12 h-12 text-red-500" />
               )}
             </motion.div>
 
@@ -337,7 +359,7 @@ export function FinalQuiz({
               <p
                 className={cn(
                   "text-lg font-medium mb-6",
-                  results.passed ? "text-primary" : "text-amber-500"
+                  results.passed ? "text-primary" : "text-red-500"
                 )}
               >
                 {results.passed
@@ -352,8 +374,7 @@ export function FinalQuiz({
                 </p>
               ) : (
                 <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-                  Review the sections you struggled with and try again. You've
-                  got this!
+                  Review the chapter content and try again. You've got this!
                 </p>
               )}
             </motion.div>
@@ -376,24 +397,28 @@ export function FinalQuiz({
                   return (
                     <div
                       key={q.id}
-                      className="flex items-center gap-3 text-sm"
+                      className="flex items-start gap-3 text-sm"
                     >
                       {isCorrect ? (
-                        <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />
+                        <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
                       ) : (
-                        <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+                        <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                       )}
-                      <span className="text-muted-foreground">
-                        Q{index + 1}:
-                      </span>
-                      <span
-                        className={cn(
-                          "flex-1 truncate",
-                          isCorrect ? "text-foreground" : "text-red-400"
+                      <div className="flex-1 min-w-0">
+                        <span className="text-muted-foreground mr-2">
+                          Q{index + 1}:
+                        </span>
+                        <span className={cn(
+                          isCorrect ? "text-foreground" : "text-red-500"
+                        )}>
+                          {q.question}
+                        </span>
+                        {!isCorrect && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Correct: {q.options[results.correctAnswers[q.id]]}
+                          </p>
                         )}
-                      >
-                        {q.question}
-                      </span>
+                      </div>
                     </div>
                   );
                 })}
@@ -418,25 +443,28 @@ export function FinalQuiz({
                 </Button>
               )}
               <Button
-                onClick={() => {
-                  if (results.passed) {
-                    // Navigate to next chapter or course overview
-                    if (chapterId >= 14) {
-                      router.push("/learn/certificate");
-                    } else {
-                      router.push(`/learn/${chapterId + 1}`);
-                    }
-                  } else {
-                    // Go back to chapter
-                    router.push(`/learn/${chapterId}`);
-                  }
-                }}
+                onClick={handleNavigate}
+                disabled={isNavigating}
+                className="gap-2"
               >
-                {results.passed
-                  ? chapterId >= 14
-                    ? "Get your certificate"
-                    : "Continue to next chapter"
-                  : "Review chapter"}
+                {isNavigating ? (
+                  <>
+                    <motion.span
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full"
+                    />
+                    Loading...
+                  </>
+                ) : results.passed ? (
+                  chapterId >= 14 ? (
+                    "Get your certificate"
+                  ) : (
+                    "Continue to next chapter"
+                  )
+                ) : (
+                  "Review chapter"
+                )}
               </Button>
             </motion.div>
           </motion.div>

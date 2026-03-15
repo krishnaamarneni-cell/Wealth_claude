@@ -346,7 +346,9 @@ export function CourseProvider({ children }: { children: ReactNode }) {
           const user = JSON.parse(storedUser) as CourseUser;
           dispatch({ type: "SET_USER", payload: user });
 
-          // Load local progress first (for immediate UI)
+          // IMPORTANT: Always fetch from server for accurate data
+          // Don't trust localStorage for chapters_completed (could be stale)
+          // Only use localStorage for chapters_unlocked as a fallback UI hint
           if (storedProgress) {
             const localProgress = JSON.parse(storedProgress);
             if (localProgress.chapters_unlocked) {
@@ -356,13 +358,13 @@ export function CourseProvider({ children }: { children: ReactNode }) {
                   progress: [],
                   quizAttempts: [],
                   chaptersUnlocked: localProgress.chapters_unlocked,
-                  chaptersCompleted: localProgress.chapters_completed || [],
+                  chaptersCompleted: [], // Never trust localStorage for completed - always fetch from DB
                 },
               });
             }
           }
 
-          // Then sync with server for latest data
+          // Sync with server for authoritative data
           await syncWithServer(user.id);
         }
       } catch (err) {

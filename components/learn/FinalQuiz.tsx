@@ -23,7 +23,6 @@ interface FinalQuizProps {
   chapterTitle: string;
   questions: QuizQuestionType[];
   passThreshold?: number;
-  // UPDATED: Now passes answers as well
   onComplete: (passed: boolean, score: number, answers: Record<string, number>) => void;
   onRetry?: () => void;
   className?: string;
@@ -34,7 +33,7 @@ type QuizPhase = "intro" | "questions" | "results";
 export function FinalQuiz({
   chapterId,
   chapterTitle,
-  questions,
+  questions = [],
   passThreshold = 80,
   onComplete,
   onRetry,
@@ -53,11 +52,12 @@ export function FinalQuiz({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
 
-  const currentQuestion = questions[currentIndex];
-  const isLastQuestion = currentIndex === questions.length - 1;
+  // Safely get current question (may be undefined if no questions)
+  const currentQuestion = questions?.[currentIndex];
+  const isLastQuestion = questions.length > 0 && currentIndex === questions.length - 1;
   const isFirstQuestion = currentIndex === 0;
-  const currentAnswer = answers[currentQuestion?.id];
-  const allAnswered = questions.every((q) => answers[q.id] !== undefined);
+  const currentAnswer = currentQuestion ? answers[currentQuestion.id] : undefined;
+  const allAnswered = questions.length > 0 && questions.every((q) => answers[q.id] !== undefined);
   const answeredCount = Object.keys(answers).length;
 
   // Handle answer selection
@@ -67,7 +67,7 @@ export function FinalQuiz({
 
   // Navigate to next question
   const handleNext = useCallback(() => {
-    if (currentIndex < questions.length - 1) {
+    if (questions.length > 0 && currentIndex < questions.length - 1) {
       setCurrentIndex((prev) => prev + 1);
     }
   }, [currentIndex, questions.length]);
@@ -81,12 +81,11 @@ export function FinalQuiz({
 
   // Submit quiz
   const handleSubmit = useCallback(async () => {
-    if (!allAnswered || isSubmitting) return;
+    if (!allAnswered || isSubmitting || questions.length === 0) return;
 
     setIsSubmitting(true);
 
     try {
-      // Calculate results locally
       const correctAnswers: Record<string, number> = {};
       const explanations: Record<string, string> = {};
       let correctCount = 0;
@@ -105,7 +104,6 @@ export function FinalQuiz({
       setResults({ score, passed, correctAnswers, explanations });
       setPhase("results");
       
-      // FIXED: Pass answers to completion handler
       onComplete(passed, score, answers);
     } catch (error) {
       console.error("Error submitting quiz:", error);
@@ -130,13 +128,11 @@ export function FinalQuiz({
     setPhase("questions");
   }, []);
 
-  // Navigate with delay to let state sync
+  // Navigate with delay
   const handleNavigate = useCallback(async () => {
     if (isNavigating) return;
     
     setIsNavigating(true);
-    
-    // Small delay to ensure localStorage and state are fully synced
     await new Promise(resolve => setTimeout(resolve, 300));
     
     if (results?.passed) {
@@ -149,6 +145,16 @@ export function FinalQuiz({
       router.push(`/learn/${chapterId}`);
     }
   }, [isNavigating, results, chapterId, router]);
+
+  // If no questions, show error (after all hooks)
+  if (!questions || questions.length === 0) {
+    return (
+      <div className={cn("max-w-2xl mx-auto text-center py-12", className)}>
+        <h2 className="text-xl font-bold text-foreground mb-4">No questions available</h2>
+        <p className="text-muted-foreground">This quiz doesn't have any questions yet.</p>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("max-w-2xl mx-auto", className)}>

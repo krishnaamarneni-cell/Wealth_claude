@@ -14,7 +14,7 @@ export function getQuizQuestions(
   quizType: "mini" | "final"
 ): QuizQuestion[] {
   const chapter = getChapterById(chapterId);
-
+  
   if (!chapter) {
     return [];
   }
@@ -26,13 +26,13 @@ export function getQuizQuestions(
   // For mini quizzes, collect from all sections
   if (quizType === "mini") {
     const miniQuestions: QuizQuestion[] = [];
-
+    
     for (const section of chapter.sections) {
       if (section.mini_quiz?.questions) {
         miniQuestions.push(...section.mini_quiz.questions);
       }
     }
-
+    
     return miniQuestions;
   }
 
@@ -44,7 +44,7 @@ export function getQuizQuestions(
  */
 export function getChapterQuizData(chapterId: number) {
   const chapter = getChapterById(chapterId);
-
+  
   if (!chapter) {
     return null;
   }

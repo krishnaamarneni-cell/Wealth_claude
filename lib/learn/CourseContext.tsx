@@ -172,7 +172,7 @@ function courseReducer(state: CourseState, action: CourseAction): CourseState {
       let newChaptersUnlocked = state.chapters_unlocked;
       let newChaptersCompleted = state.chapters_completed;
 
-      if (quizType === "final") {
+      if (quizType === "final" && score >= 80) {
         updates.final_quiz_passed = true;
         updates.percentage = 100;
 
@@ -389,7 +389,7 @@ export function CourseProvider({ children }: { children: ReactNode }) {
   const setUserAndFetchProgress = useCallback(async (user: CourseUser) => {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(user));
     dispatch({ type: "SET_USER", payload: user });
-    
+
     // Fetch progress from server for returning users
     await syncWithServer(user.id);
   }, [syncWithServer]);
@@ -441,21 +441,21 @@ export function CourseProvider({ children }: { children: ReactNode }) {
       // Save to localStorage immediately for final quiz
       if (quizType === "final" && score >= 80) {
         const currentProgress = localStorage.getItem(LOCAL_PROGRESS_KEY);
-        const progress = currentProgress 
-          ? JSON.parse(currentProgress) 
+        const progress = currentProgress
+          ? JSON.parse(currentProgress)
           : { chapters_unlocked: [1], chapters_completed: [] };
-        
+
         // Add completed chapter
         if (!progress.chapters_completed.includes(chapterId)) {
           progress.chapters_completed = [...progress.chapters_completed, chapterId].sort((a, b) => a - b);
         }
-        
+
         // Unlock next chapter
         const nextChapter = chapterId + 1;
         if (nextChapter <= TOTAL_CHAPTERS && !progress.chapters_unlocked.includes(nextChapter)) {
           progress.chapters_unlocked = [...progress.chapters_unlocked, nextChapter].sort((a, b) => a - b);
         }
-        
+
         localStorage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify(progress));
         triggerProgressSaved();
       }
@@ -466,13 +466,13 @@ export function CourseProvider({ children }: { children: ReactNode }) {
   // Unlock chapter
   const unlockChapter = useCallback((chapterId: number) => {
     dispatch({ type: "UNLOCK_CHAPTER", payload: chapterId });
-    
+
     // Also save to localStorage
     const currentProgress = localStorage.getItem(LOCAL_PROGRESS_KEY);
-    const progress = currentProgress 
-      ? JSON.parse(currentProgress) 
+    const progress = currentProgress
+      ? JSON.parse(currentProgress)
       : { chapters_unlocked: [1], chapters_completed: [] };
-    
+
     if (!progress.chapters_unlocked.includes(chapterId)) {
       progress.chapters_unlocked = [...progress.chapters_unlocked, chapterId].sort((a, b) => a - b);
       localStorage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify(progress));

@@ -70,7 +70,7 @@ const services = [
     title: "Investment Planning",
     description: "Build a diversified portfolio aligned with your FIRE goals",
     features: ["Risk assessment", "Asset allocation", "401k optimization", "Roth strategies"],
-    href: "/investment-planning",
+    href: "/services/investment-planning",
   },
   {
     icon: Shield,

@@ -4,12 +4,13 @@
 
 // Phase 1 Components
 export { EmailCaptureModal, useEmailCapture } from "./EmailCaptureModal";
-export { 
-  CourseSidebar, 
-  MobileDrawer, 
-  MobileMenuButton, 
-  SidebarContent, 
-  useMobileNav 
+export { ProgressToast, ProgressSavedIndicator } from "./ProgressToast";
+export {
+  CourseSidebar,
+  MobileDrawer,
+  MobileMenuButton,
+  SidebarContent,
+  useMobileNav
 } from "./CourseSidebar";
 export { ProgressBar, SectionProgress, ChapterProgressCard } from "./ProgressBar";
 
@@ -30,13 +31,13 @@ export { ChapterComplete, useConfetti, SuccessMessage } from "./ChapterComplete"
 export { Certificate, CertificatePreview, generateCertificateId } from "./Certificate";
 
 // Phase 6 Components
-export { 
-  PageLoading, 
-  Spinner, 
-  Skeleton, 
-  ChapterSkeleton, 
+export {
+  PageLoading,
+  Spinner,
+  Skeleton,
+  ChapterSkeleton,
   QuizSkeleton,
   LoadingButton,
   ErrorState,
-  EmptyState 
+  EmptyState
 } from "./LoadingStates";

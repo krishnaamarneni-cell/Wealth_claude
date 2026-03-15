@@ -6,6 +6,7 @@ import {
   useReducer,
   useEffect,
   useCallback,
+  useState,
   ReactNode,
 } from "react";
 import type {
@@ -46,10 +47,29 @@ const SECTIONS_PER_CHAPTER: Record<number, number> = {
 // Types
 // ===========================================
 
+// Static chapter data for navigation
+const CHAPTERS_DATA = [
+  { id: 1, title: "Your money blueprint" },
+  { id: 2, title: "Banking & saving smartly" },
+  { id: 3, title: "Conquering debt" },
+  { id: 4, title: "Your financial safety net" },
+  { id: 5, title: "The eighth wonder" },
+  { id: 6, title: "Stock market demystified" },
+  { id: 7, title: "Investment vehicles" },
+  { id: 8, title: "Tax fundamentals" },
+  { id: 9, title: "Tax strategies" },
+  { id: 10, title: "Building income streams" },
+  { id: 11, title: "Understanding FIRE" },
+  { id: 12, title: "Your FIRE number" },
+  { id: 13, title: "FIRE investment strategy" },
+  { id: 14, title: "Executing your plan" },
+];
+
 interface CourseContextType {
   state: CourseState;
   isLoading: boolean;
   error: string | null;
+  chapters: typeof CHAPTERS_DATA;
   // Actions
   setUser: (user: CourseUser) => void;
   clearUser: () => void;
@@ -385,6 +405,22 @@ export function CourseProvider({ children }: { children: ReactNode }) {
         if (nextChapter <= TOTAL_CHAPTERS) {
           dispatch({ type: "UNLOCK_CHAPTER", payload: nextChapter });
         }
+
+        // Save to localStorage immediately
+        const currentProgress = localStorage.getItem(LOCAL_PROGRESS_KEY);
+        const progress = currentProgress ? JSON.parse(currentProgress) : { chapters_unlocked: [1], chapters_completed: [] };
+        
+        // Add completed chapter
+        if (!progress.chapters_completed.includes(chapterId)) {
+          progress.chapters_completed = [...progress.chapters_completed, chapterId].sort((a, b) => a - b);
+        }
+        
+        // Unlock next chapter
+        if (nextChapter <= TOTAL_CHAPTERS && !progress.chapters_unlocked.includes(nextChapter)) {
+          progress.chapters_unlocked = [...progress.chapters_unlocked, nextChapter].sort((a, b) => a - b);
+        }
+        
+        localStorage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify(progress));
       }
     },
     []
@@ -426,6 +462,7 @@ export function CourseProvider({ children }: { children: ReactNode }) {
     state,
     isLoading,
     error,
+    chapters: CHAPTERS_DATA,
     setUser,
     clearUser,
     markSectionComplete,
@@ -452,6 +489,3 @@ export function useCourse() {
   }
   return context;
 }
-
-// Need to import useState
-import { useState } from "react";

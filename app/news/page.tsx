@@ -1,25 +1,25 @@
 import { Header } from "@/components/header"
 import MarketTicker from "@/components/market-ticker"
-import { NewsHub } from "@/components/news-hub"
+import { NewsIntelligence } from "@/components/news/NewsIntelligence"
 import { Footer } from "@/components/footer"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: 'Market News — WealthClaude | AI-Powered Finance News',
-  description: 'Stay ahead of the market with AI-powered US stock market news, pre-market previews, geopolitical analysis and finance education updated 6 times daily.',
+  title: 'Market Intelligence — WealthClaude | AI-Powered Finance News',
+  description: 'AI-powered market intelligence with sentiment analysis. Real-time synthesis of US stock market news, geopolitics, economy, and personal finance. Updated 3x daily.',
   alternates: { canonical: 'https://www.wealthclaude.com/news' },
   openGraph: {
-    title: 'Market News — WealthClaude | AI-Powered Finance News',
-    description: 'Stay ahead of the market with AI-powered US stock market news, pre-market previews, geopolitical analysis and finance education updated 6 times daily.',
+    title: 'Market Intelligence — WealthClaude | AI-Powered Finance News',
+    description: 'AI-powered market intelligence with sentiment analysis. Real-time synthesis of US stock market news, geopolitics, economy, and personal finance.',
     url: 'https://www.wealthclaude.com/news',
     siteName: 'WealthClaude',
     type: 'website',
-    images: [{ url: '/favicon-512.jpg', width: 512, height: 512, alt: 'WealthClaude Market News' }],
+    images: [{ url: '/favicon-512.jpg', width: 512, height: 512, alt: 'WealthClaude Market Intelligence' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Market News — WealthClaude | AI-Powered Finance News',
-    description: 'Stay ahead of the market with AI-powered US stock market news, pre-market previews, geopolitical analysis and finance education updated 6 times daily.',
+    title: 'Market Intelligence — WealthClaude | AI-Powered Finance News',
+    description: 'AI-powered market intelligence with sentiment analysis. Updated 3x daily.',
     images: ['/favicon-512.jpg'],
   },
 }
@@ -31,7 +31,7 @@ export default function NewsPage() {
       <div className="pt-16 flex-1">
         <MarketTicker />
         <div className="container mx-auto px-4 py-8">
-          <NewsHub />
+          <NewsIntelligence />
         </div>
       </div>
       <Footer />

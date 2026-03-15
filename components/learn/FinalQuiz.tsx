@@ -102,7 +102,7 @@ export function FinalQuiz({
 
       setResults({ score, passed, correctAnswers, explanations });
       setPhase("results");
-      
+
       // Call completion handler
       onComplete(passed, score);
     } catch (error) {
@@ -432,10 +432,10 @@ export function FinalQuiz({
                   }
                 }}
               >
-                {results.passed 
-                  ? chapterId >= 14 
-                    ? "Get your certificate" 
-                    : "Continue to next chapter" 
+                {results.passed
+                  ? chapterId >= 14
+                    ? "Get your certificate"
+                    : "Continue to next chapter"
                   : "Review chapter"}
               </Button>
             </motion.div>

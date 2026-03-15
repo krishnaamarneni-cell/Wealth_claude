@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Header } from "@/components/header";
+import { Footer } from "@/components/footer";
 import {
   Building2,
   FileText,
@@ -644,6 +645,9 @@ export default function ServicesPage() {
           </p>
         </div>
       </div>
+
+      {/* Footer Component */}
+      <Footer />
     </>
   );
 }

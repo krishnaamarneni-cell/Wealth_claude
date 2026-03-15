@@ -24,6 +24,7 @@ export default function ChapterPage() {
 
   const {
     state,
+    isStateReady, // NEW: Wait for state to be ready before checking unlock
     markSectionComplete,
     setCurrentPosition,
   } = useCourse();
@@ -69,15 +70,54 @@ export default function ChapterPage() {
     }
   }, [chapterId, currentSection, chapter, setCurrentPosition]);
 
-  // Check if chapter is unlocked
-  const isUnlocked = state.chapters_unlocked.includes(chapterId);
+  // Check if chapter is unlocked - FIXED: Also check localStorage directly
+  const isUnlocked = (() => {
+    // First check state
+    if (state.chapters_unlocked.includes(chapterId)) {
+      return true;
+    }
+    
+    // Chapter 1 is always unlocked
+    if (chapterId === 1) {
+      return true;
+    }
+    
+    // Also check localStorage directly (in case state hasn't synced yet)
+    if (typeof window !== "undefined") {
+      try {
+        const storedProgress = localStorage.getItem("wealthclaude_course_progress");
+        if (storedProgress) {
+          const progress = JSON.parse(storedProgress);
+          if (progress.chapters_unlocked?.includes(chapterId)) {
+            return true;
+          }
+        }
+      } catch (e) {
+        // Ignore errors
+      }
+    }
+    
+    return false;
+  })();
 
-  // Redirect if chapter is locked
+  // FIXED: Only redirect if state is ready AND chapter is locked
   useEffect(() => {
-    if (!isLoading && !isUnlocked) {
+    // Don't redirect until state is fully loaded
+    if (!isStateReady) {
+      return;
+    }
+    
+    // Don't redirect while still loading chapter data
+    if (isLoading) {
+      return;
+    }
+    
+    // Only redirect if chapter is actually locked
+    if (!isUnlocked) {
+      console.log(`Chapter ${chapterId} is locked, redirecting to /learn`);
       router.push("/learn");
     }
-  }, [isLoading, isUnlocked, router]);
+  }, [isStateReady, isLoading, isUnlocked, chapterId, router]);
 
   // Navigation handlers
   const handlePrevious = useCallback(() => {
@@ -103,8 +143,8 @@ export default function ChapterPage() {
     router.push(`/learn/${chapterId}/quiz`);
   }, [chapterId, currentSection, markSectionComplete, router]);
 
-  // Loading state
-  if (isLoading) {
+  // Loading state - show while state is loading OR chapter is loading
+  if (!isStateReady || isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <motion.div

@@ -10,6 +10,7 @@ import {
   SidebarContent,
   useMobileNav 
 } from "@/components/learn/CourseSidebar";
+import { ProgressToast } from "@/components/learn/ProgressToast";
 import { Menu, ChevronLeft, Loader2 } from "lucide-react";
 
 // ===========================================
@@ -129,6 +130,9 @@ function LearnLayoutInner({ children }: { children: React.ReactNode }) {
           {isLoading && !isLandingPage ? <LoadingSkeleton /> : children}
         </main>
       </div>
+
+      {/* Progress Saved Toast */}
+      <ProgressToast />
     </div>
   );
 }

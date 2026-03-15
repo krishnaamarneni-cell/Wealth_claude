@@ -4,15 +4,14 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CourseProvider, useCourse } from "@/lib/learn/CourseContext";
-import { 
-  CourseSidebar, 
-  MobileDrawer, 
+import {
+  CourseSidebar,
+  MobileDrawer,
   SidebarContent,
-  useMobileNav 
+  useMobileNav
 } from "@/components/learn/CourseSidebar";
 import { EmailCaptureModal } from "@/components/learn/EmailCaptureModal";
 import { Menu, ChevronLeft, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import type { CourseUser } from "@/types/learn";
 
 // ===========================================
@@ -26,7 +25,11 @@ interface MobileHeaderProps {
 
 function MobileHeader({ onMenuClick, currentChapter }: MobileHeaderProps) {
   const { chapters } = useCourse();
-  const chapter = currentChapter ? chapters.find(c => c.id === currentChapter) : null;
+
+  // Safe find with proper null checking
+  const chapter = currentChapter && Array.isArray(chapters) && chapters.length > 0
+    ? chapters.find(c => c.id === currentChapter)
+    : null;
 
   return (
     <header className="lg:hidden sticky top-0 z-30 flex items-center gap-3 px-4 py-3 bg-background/95 backdrop-blur-sm border-b border-border">
@@ -37,12 +40,12 @@ function MobileHeader({ onMenuClick, currentChapter }: MobileHeaderProps) {
       >
         <Menu className="w-5 h-5" />
       </button>
-      
+
       <div className="flex-1 min-w-0">
         {chapter ? (
           <div className="flex items-center gap-2">
-            <Link 
-              href="/learn" 
+            <Link
+              href="/learn"
               className="text-muted-foreground hover:text-foreground transition-colors"
               aria-label="Back to course overview"
             >
@@ -95,6 +98,7 @@ function LearnLayoutInner({ children }: { children: React.ReactNode }) {
   // Close mobile nav on route change
   useEffect(() => {
     mobileNav.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
   // Check for existing user on mount
@@ -149,8 +153,8 @@ function LearnLayoutInner({ children }: { children: React.ReactNode }) {
       {/* Main Content Area */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Mobile Header */}
-        <MobileHeader 
-          onMenuClick={mobileNav.toggle} 
+        <MobileHeader
+          onMenuClick={mobileNav.toggle}
           currentChapter={currentChapter}
         />
 

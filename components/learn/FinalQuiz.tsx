@@ -90,10 +90,27 @@ export function FinalQuiz({
       const explanations: Record<string, string> = {};
       let correctCount = 0;
 
-      questions.forEach((q) => {
+      // DEBUG: Log all data
+      console.log("=== QUIZ DEBUG ===");
+      console.log("User answers:", answers);
+      console.log("Questions received:", questions.map(q => ({
+        id: q.id,
+        question: q.question.substring(0, 50),
+        correct_answer: q.correct_answer,
+        options: q.options
+      })));
+
+      questions.forEach((q, index) => {
         correctAnswers[q.id] = q.correct_answer;
         explanations[q.id] = q.explanation;
-        if (answers[q.id] === q.correct_answer) {
+
+        const userAnswer = answers[q.id];
+        const isCorrect = userAnswer === q.correct_answer;
+
+        // DEBUG: Log each comparison
+        console.log(`Q${index + 1}: User selected ${userAnswer}, Correct is ${q.correct_answer}, Match: ${isCorrect}`);
+
+        if (isCorrect) {
           correctCount++;
         }
       });
@@ -101,9 +118,13 @@ export function FinalQuiz({
       const score = Math.round((correctCount / questions.length) * 100);
       const passed = score >= passThreshold;
 
+      // DEBUG: Log final result
+      console.log(`Final: ${correctCount}/${questions.length} correct = ${score}%, Passed: ${passed}`);
+      console.log("=== END DEBUG ===");
+
       setResults({ score, passed, correctAnswers, explanations });
       setPhase("results");
-      
+
       onComplete(passed, score, answers);
     } catch (error) {
       console.error("Error submitting quiz:", error);
@@ -131,10 +152,10 @@ export function FinalQuiz({
   // Navigate with delay
   const handleNavigate = useCallback(async () => {
     if (isNavigating) return;
-    
+
     setIsNavigating(true);
     await new Promise(resolve => setTimeout(resolve, 300));
-    
+
     if (results?.passed) {
       if (chapterId >= 14) {
         router.push("/learn/certificate");

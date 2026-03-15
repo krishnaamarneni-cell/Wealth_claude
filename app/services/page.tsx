@@ -87,7 +87,6 @@ const services = [
     features: ["Income analysis", "Side business ideas", "Passive income setup", "Dividend strategy"],
     href: "/services/income-diversification"
   },
-  },
 ];
 
 // Reviews data

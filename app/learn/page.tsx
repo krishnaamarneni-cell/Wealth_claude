@@ -67,14 +67,14 @@ interface WelcomeBackBannerProps {
   completedChapters: number;
 }
 
-function WelcomeBackBanner({ 
-  userName, 
-  currentChapter, 
+function WelcomeBackBanner({
+  userName,
+  currentChapter,
   totalChapters,
-  completedChapters 
+  completedChapters
 }: WelcomeBackBannerProps) {
   const progress = Math.round((completedChapters / totalChapters) * 100);
-  
+
   return (
     <motion.div
       initial={{ opacity: 0, y: -20 }}
@@ -85,7 +85,7 @@ function WelcomeBackBanner({
         {/* Decorative elements */}
         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl" />
         <div className="absolute bottom-0 left-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl" />
-        
+
         <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
@@ -98,7 +98,7 @@ function WelcomeBackBanner({
             <p className="text-sm text-muted-foreground">
               You're on Chapter {currentChapter} • {completedChapters} of {totalChapters} completed
             </p>
-            
+
             {/* Progress bar */}
             <div className="mt-3 w-full max-w-xs">
               <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -112,7 +112,7 @@ function WelcomeBackBanner({
               <p className="text-xs text-muted-foreground mt-1">{progress}% complete</p>
             </div>
           </div>
-          
+
           <Link href={`/learn/${currentChapter}`}>
             <Button size="lg" className="gap-2 shadow-lg shadow-primary/20">
               Continue Learning
@@ -150,7 +150,7 @@ function CourseCard({ onStartCourse, isEnrolled, currentChapter }: CourseCardPro
             FREE
           </span>
         </div>
-        
+
         <div className="flex items-center gap-3 mb-4">
           <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-primary/20 flex items-center justify-center">
             <Flame className="w-6 h-6 sm:w-7 sm:h-7 text-primary" />
@@ -160,13 +160,13 @@ function CourseCard({ onStartCourse, isEnrolled, currentChapter }: CourseCardPro
             <p className="text-sm text-muted-foreground">Financial Independence, Retire Early</p>
           </div>
         </div>
-        
+
         <p className="text-foreground/80 leading-relaxed max-w-2xl text-sm sm:text-base">
-          A complete roadmap to financial freedom. Follow Maya's journey from $47 in savings 
-          to building a path to early retirement. Learn everything from budgeting basics 
+          A complete roadmap to financial freedom. Follow Maya's journey from $47 in savings
+          to building a path to early retirement. Learn everything from budgeting basics
           to advanced tax strategies.
         </p>
-        
+
         {/* Stats */}
         <div className="flex flex-wrap gap-4 sm:gap-6 mt-6">
           {COURSE_STATS.map((stat) => (
@@ -177,7 +177,7 @@ function CourseCard({ onStartCourse, isEnrolled, currentChapter }: CourseCardPro
           ))}
         </div>
       </div>
-      
+
       {/* Course Content */}
       <div className="p-6 sm:p-8 space-y-8">
         {/* What You'll Learn */}
@@ -203,7 +203,7 @@ function CourseCard({ onStartCourse, isEnrolled, currentChapter }: CourseCardPro
             ))}
           </div>
         </div>
-        
+
         {/* Course Structure */}
         <div>
           <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
@@ -236,13 +236,13 @@ function CourseCard({ onStartCourse, isEnrolled, currentChapter }: CourseCardPro
             <div>
               <h4 className="font-semibold text-foreground mb-1">Meet Maya</h4>
               <p className="text-sm text-muted-foreground">
-                Follow Maya's journey from $47 in savings to financial independence. 
+                Follow Maya's journey from $47 in savings to financial independence.
                 Her story makes every concept real and actionable.
               </p>
             </div>
           </div>
         </div>
-        
+
         {/* CTA Button */}
         <div className="pt-4">
           {isEnrolled ? (
@@ -253,8 +253,8 @@ function CourseCard({ onStartCourse, isEnrolled, currentChapter }: CourseCardPro
               </Button>
             </Link>
           ) : (
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               onClick={onStartCourse}
               className="w-full sm:w-auto gap-2 shadow-lg shadow-primary/20"
             >
@@ -262,7 +262,7 @@ function CourseCard({ onStartCourse, isEnrolled, currentChapter }: CourseCardPro
               Start Course — It's Free
             </Button>
           )}
-          
+
           <p className="text-xs text-muted-foreground mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="flex items-center gap-1">
               <CheckCircle2 className="w-3 h-3 text-primary" /> No credit card
@@ -297,7 +297,7 @@ function ComingSoonCard() {
       </div>
       <h3 className="text-lg font-semibold text-foreground mb-2">More Courses Coming Soon</h3>
       <p className="text-sm text-muted-foreground max-w-md mx-auto">
-        We're working on more courses covering crypto investing, real estate, 
+        We're working on more courses covering crypto investing, real estate,
         and advanced portfolio strategies. Stay tuned!
       </p>
     </motion.div>
@@ -320,7 +320,7 @@ export default function LearnPage() {
   const getCurrentChapter = () => {
     if (completedChapters.length === 0) return 1;
     if (completedChapters.length >= 14) return 14;
-    
+
     // Find first incomplete chapter
     for (let i = 1; i <= 14; i++) {
       if (!completedChapters.includes(i)) return i;
@@ -401,12 +401,12 @@ export default function LearnPage() {
 
         {/* Course Cards */}
         <div className="space-y-6">
-          <CourseCard 
+          <CourseCard
             onStartCourse={handleStartCourse}
             isEnrolled={isEnrolled}
             currentChapter={currentChapter}
           />
-          
+
           <ComingSoonCard />
         </div>
 
@@ -421,12 +421,12 @@ export default function LearnPage() {
             <div className="flex items-center justify-center gap-2 text-muted-foreground mb-4">
               <Users className="w-4 h-4" />
               <p>
-                Join <span className="text-primary font-semibold">1,000+</span> learners 
+                Join <span className="text-primary font-semibold">1,000+</span> learners
                 on their path to financial freedom
               </p>
             </div>
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               onClick={handleStartCourse}
               className="gap-2 shadow-lg shadow-primary/20"
             >

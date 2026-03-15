@@ -77,7 +77,7 @@ const services = [
     title: "Asset Protection",
     description: "Shield your wealth from lawsuits, creditors, and life surprises",
     features: ["Trust setup", "Insurance review", "Umbrella policies", "Estate planning basics"],
-    href: "/asset-protection",
+    href: "/services/asset-protection",
   },
   {
     icon: Briefcase,

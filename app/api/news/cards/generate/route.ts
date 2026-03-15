@@ -45,22 +45,72 @@ function getSupabase() {
   )
 }
 
-// ─── Fetch raw news from existing endpoint ────────────────────────────────────
-async function fetchRawNews(baseUrl: string): Promise<RawArticle[]> {
-  try {
-    const res = await fetch(`${baseUrl}/api/news/market`, {
-      next: { revalidate: 0 }
-    })
-    if (!res.ok) {
-      console.error('[news-cards] Failed to fetch /api/news/market:', res.status)
-      return []
+// ─── Fetch news directly from Polygon + Finnhub ───────────────────────────────
+async function fetchRawNews(): Promise<RawArticle[]> {
+  const articles: RawArticle[] = []
+
+  // Fetch from Polygon
+  const polygonKey = process.env.POLYGON_API_KEY
+  if (polygonKey) {
+    try {
+      const res = await fetch(
+        `https://api.polygon.io/v2/reference/news?limit=15&apiKey=${polygonKey}`,
+        { next: { revalidate: 0 } }
+      )
+      if (res.ok) {
+        const data = await res.json()
+        const results = data.results || []
+        for (const item of results) {
+          articles.push({
+            symbol: item.tickers?.[0] || '',
+            publishedDate: item.published_utc || '',
+            title: item.title || '',
+            image: item.image_url || '',
+            site: item.publisher?.name || 'Polygon',
+            text: item.description || '',
+            url: item.article_url || '',
+            source: 'polygon'
+          })
+        }
+        console.log(`[news-cards] Fetched ${results.length} from Polygon`)
+      }
+    } catch (err) {
+      console.error('[news-cards] Polygon fetch error:', err)
     }
-    const data = await res.json()
-    return Array.isArray(data) ? data : []
-  } catch (err) {
-    console.error('[news-cards] Error fetching raw news:', err)
-    return []
   }
+
+  // Fetch from Finnhub
+  const finnhubKey = process.env.FINNHUB_API_KEY
+  if (finnhubKey) {
+    try {
+      const res = await fetch(
+        `https://finnhub.io/api/v1/news?category=general&token=${finnhubKey}`,
+        { next: { revalidate: 0 } }
+      )
+      if (res.ok) {
+        const data = await res.json()
+        const items = Array.isArray(data) ? data.slice(0, 15) : []
+        for (const item of items) {
+          articles.push({
+            symbol: item.related || '',
+            publishedDate: item.datetime ? new Date(item.datetime * 1000).toISOString() : '',
+            title: item.headline || '',
+            image: item.image || '',
+            site: item.source || 'Finnhub',
+            text: item.summary || '',
+            url: item.url || '',
+            source: 'finnhub'
+          })
+        }
+        console.log(`[news-cards] Fetched ${items.length} from Finnhub`)
+      }
+    } catch (err) {
+      console.error('[news-cards] Finnhub fetch error:', err)
+    }
+  }
+
+  console.log(`[news-cards] Total raw articles: ${articles.length}`)
+  return articles
 }
 
 // ─── Deduplicate articles by similarity ───────────────────────────────────────
@@ -432,20 +482,15 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = getSupabase()
 
-    // Get base URL for internal API calls
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` :
-      'http://localhost:3000'
-
-    // Step 1: Fetch raw news
+    // Step 1: Fetch raw news DIRECTLY from APIs (not via internal endpoint)
     console.log('[news-cards] Fetching raw news from Polygon + Finnhub...')
-    const rawArticles = await fetchRawNews(baseUrl)
+    const rawArticles = await fetchRawNews()
     console.log(`[news-cards] Fetched ${rawArticles.length} raw articles`)
 
     if (rawArticles.length === 0) {
       return NextResponse.json({
         success: false,
-        error: 'No raw news articles fetched'
+        error: 'No raw news articles fetched - check POLYGON_API_KEY and FINNHUB_API_KEY'
       }, { status: 500 })
     }
 
@@ -501,7 +546,7 @@ export async function POST(request: NextRequest) {
       console.error('[news-cards] Failed to create batch:', batchError.message)
       return NextResponse.json({
         success: false,
-        error: 'Failed to create batch'
+        error: 'Failed to create batch: ' + batchError.message
       }, { status: 500 })
     }
 
@@ -531,7 +576,7 @@ export async function POST(request: NextRequest) {
       console.error('[news-cards] Failed to insert cards:', cardsError.message)
       return NextResponse.json({
         success: false,
-        error: 'Failed to insert cards'
+        error: 'Failed to insert cards: ' + cardsError.message
       }, { status: 500 })
     }
 

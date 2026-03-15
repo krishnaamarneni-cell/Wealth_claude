@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronLeft,
@@ -38,6 +39,7 @@ export function FinalQuiz({
   onRetry,
   className,
 }: FinalQuizProps) {
+  const router = useRouter();
   const [phase, setPhase] = useState<QuizPhase>("intro");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
@@ -419,14 +421,22 @@ export function FinalQuiz({
                 onClick={() => {
                   if (results.passed) {
                     // Navigate to next chapter or course overview
-                    window.location.href = `/learn/${chapterId + 1}`;
+                    if (chapterId >= 14) {
+                      router.push("/learn/certificate");
+                    } else {
+                      router.push(`/learn/${chapterId + 1}`);
+                    }
                   } else {
                     // Go back to chapter
-                    window.location.href = `/learn/${chapterId}`;
+                    router.push(`/learn/${chapterId}`);
                   }
                 }}
               >
-                {results.passed ? "Continue to next chapter" : "Review chapter"}
+                {results.passed 
+                  ? chapterId >= 14 
+                    ? "Get your certificate" 
+                    : "Continue to next chapter" 
+                  : "Review chapter"}
               </Button>
             </motion.div>
           </motion.div>

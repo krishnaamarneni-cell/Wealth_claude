@@ -63,7 +63,7 @@ const services = [
     title: "Debt Elimination",
     description: "Strategic payoff plan to free up cash for wealth building",
     features: ["Debt analysis", "Payoff strategy", "Rate negotiation tips", "Progress tracking"],
-    href: "/debt-elimination",
+    href: "/services/debt-elimination",
   },
   {
     icon: TrendingUp,

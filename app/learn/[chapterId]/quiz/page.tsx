@@ -24,7 +24,7 @@ export default function QuizPage() {
   const isUnlocked = (() => {
     if (state.chapters_unlocked.includes(chapterId)) return true;
     if (chapterId === 1) return true;
-    
+
     if (typeof window !== "undefined") {
       try {
         const storedProgress = localStorage.getItem("wealthclaude_course_progress");
@@ -32,7 +32,7 @@ export default function QuizPage() {
           const progress = JSON.parse(storedProgress);
           if (progress.chapters_unlocked?.includes(chapterId)) return true;
         }
-      } catch (e) {}
+      } catch (e) { }
     }
     return false;
   })();
@@ -66,8 +66,8 @@ export default function QuizPage() {
 
   // FIXED: Handle quiz completion with answers
   const handleQuizComplete = async (
-    passed: boolean, 
-    score: number, 
+    passed: boolean,
+    score: number,
     answers: Record<string, number>
   ) => {
     // Update local state
@@ -96,7 +96,7 @@ export default function QuizPage() {
         });
 
         const data = await response.json();
-        
+
         if (!data.success) {
           console.error("Quiz API error:", data.error);
         } else {
@@ -122,7 +122,7 @@ export default function QuizPage() {
   }
 
   // Chapter not found or no quiz
-  if (!chapter || chapter.final_quiz.length === 0) {
+  if (!chapter || !chapter.final_quiz || chapter.final_quiz.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen px-6">
         <h1 className="text-2xl font-bold text-foreground mb-4">

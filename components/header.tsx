@@ -310,7 +310,7 @@ export function Header() {
           <ProductsMegaMenu />
           <MarketsDropdown />
           <Link
-            href="/blog"
+            href="/news"
             className="text-sm text-muted-foreground hover:text-foreground transition-colors h-16 flex items-center px-3 border-b-2 border-transparent hover:border-primary"
           >
             Blog
@@ -363,7 +363,7 @@ export function Header() {
               ))}
             </MobileSection>
 
-            <Link href="/blog" className="block text-sm font-bold text-foreground py-1"
+            <Link href="/news" className="block text-sm font-bold text-foreground py-1"
               onClick={() => setMobileOpen(false)}>
               Blog
             </Link>

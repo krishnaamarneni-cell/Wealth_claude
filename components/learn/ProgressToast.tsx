@@ -10,20 +10,29 @@ interface ProgressToastProps {
 }
 
 export function ProgressToast({ duration = 3000 }: ProgressToastProps) {
-  const { completionProgress, lastNotification } = useCourse();
+  const { state } = useCourse();
   const [show, setShow] = useState(false);
+  const [lastCompletedChapter, setLastCompletedChapter] = useState<number | null>(null);
+
+  // Calculate overall progress
+  const overallProgress = state.chapters_completed.length > 0 
+    ? Math.round((state.chapters_completed.length / 14) * 100)
+    : 0;
 
   useEffect(() => {
-    if (lastNotification) {
+    // Show toast when a chapter is completed
+    if (state.chapters_completed.length > (lastCompletedChapter ? 1 : 0)) {
       setShow(true);
+      const lastChapter = state.chapters_completed[state.chapters_completed.length - 1];
+      setLastCompletedChapter(lastChapter);
       const timer = setTimeout(() => setShow(false), duration);
       return () => clearTimeout(timer);
     }
-  }, [lastNotification, duration]);
+  }, [state.chapters_completed, duration, lastCompletedChapter]);
 
   return (
     <AnimatePresence>
-      {show && lastNotification && (
+      {show && lastCompletedChapter && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -31,18 +40,14 @@ export function ProgressToast({ duration = 3000 }: ProgressToastProps) {
           className="fixed bottom-4 right-4 max-w-sm z-50"
         >
           <div className="bg-card border border-border rounded-lg shadow-lg p-4 flex items-center gap-3">
-            {lastNotification.type === "success" ? (
-              <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />
-            ) : (
-              <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0" />
-            )}
+            <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />
             <div className="flex-1">
               <p className="text-sm font-medium text-foreground">
-                {lastNotification.message}
+                Chapter {lastCompletedChapter} Completed!
               </p>
-              {completionProgress !== undefined && (
+              {overallProgress > 0 && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Progress: {Math.round(completionProgress)}%
+                  Overall Progress: {overallProgress}%
                 </p>
               )}
             </div>

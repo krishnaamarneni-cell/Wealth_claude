@@ -108,7 +108,7 @@ export function getQuizQuestions(
   quizType: "mini" | "final"
 ): QuizQuestion[] {
   const chapterQuizzes = quizData[chapterId];
-  
+
   if (!chapterQuizzes) {
     // Return empty array if chapter doesn't exist yet
     return [];

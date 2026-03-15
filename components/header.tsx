@@ -22,7 +22,7 @@ const PRODUCTS_FEATURED = [
 const PRODUCTS_TOOLS = [
   { icon: Layers, title: "Portfolio Tracker", desc: "Track all your holdings in one place", href: "/auth", badge: null },
   { icon: Flame, title: "Dividend Tracker", desc: "Global dividend income & yield on cost", href: "/auth", badge: null },
-  { icon: GraduationCap, title: "Courses", desc: "Learn investing from scratch", href: "/courses", badge: "Soon" },
+  { icon: GraduationCap, title: "Learn", desc: "FIRE course — path to financial independence", href: "/learn", badge: "New" },
 ]
 
 const MARKETS_ITEMS = [

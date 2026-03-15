@@ -56,7 +56,7 @@ const services = [
     title: "Tax Strategy",
     description: "Stop overpaying. Implement strategies the wealthy use every day",
     features: ["Tax-loss harvesting", "Entity optimization", "Quarterly planning", "Audit protection"],
-    href: "/tax-strategy",
+    href: "/services/tax-strategy",
   },
   {
     icon: PiggyBank,

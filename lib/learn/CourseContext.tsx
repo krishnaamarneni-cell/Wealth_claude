@@ -7,6 +7,7 @@ import {
   useEffect,
   useCallback,
   useState,
+  useRef,
   ReactNode,
 } from "react";
 import type {
@@ -25,7 +26,7 @@ const TOTAL_CHAPTERS = 14;
 const LOCAL_STORAGE_KEY = "wealthclaude_course_user";
 const LOCAL_PROGRESS_KEY = "wealthclaude_course_progress";
 
-// Sections per chapter (will be updated with actual content)
+// Sections per chapter
 const SECTIONS_PER_CHAPTER: Record<number, number> = {
   1: 6,
   2: 6,
@@ -42,10 +43,6 @@ const SECTIONS_PER_CHAPTER: Record<number, number> = {
   13: 6,
   14: 6,
 };
-
-// ===========================================
-// Types
-// ===========================================
 
 // Static chapter data for navigation
 const CHAPTERS_DATA = [
@@ -65,19 +62,26 @@ const CHAPTERS_DATA = [
   { id: 14, title: "Executing your plan" },
 ];
 
+// ===========================================
+// Types
+// ===========================================
+
 interface CourseContextType {
   state: CourseState;
   isLoading: boolean;
+  isStateReady: boolean; // True only after localStorage is fully loaded
   error: string | null;
   chapters: typeof CHAPTERS_DATA;
+  showProgressSaved: boolean; // For progress saved toast
   // Actions
   setUser: (user: CourseUser) => void;
+  setUserAndFetchProgress: (user: CourseUser) => Promise<void>; // For cross-browser sync
   clearUser: () => void;
   markSectionComplete: (chapterId: number, sectionId: number) => void;
   markQuizPassed: (chapterId: number, quizType: "mini" | "final", score: number) => void;
   unlockChapter: (chapterId: number) => void;
   setCurrentPosition: (chapterId: number, sectionId: number) => void;
-  syncWithServer: () => Promise<void>;
+  syncWithServer: (userId?: string) => Promise<void>;
   resetProgress: () => void;
 }
 
@@ -129,7 +133,6 @@ function courseReducer(state: CourseState, action: CourseAction): CourseState {
         best_quiz_score: 0,
       };
 
-      // Add section if not already completed
       const sectionsCompleted = chapterProgress.sections_completed.includes(sectionId)
         ? chapterProgress.sections_completed
         : [...chapterProgress.sections_completed, sectionId];
@@ -166,18 +169,28 @@ function courseReducer(state: CourseState, action: CourseAction): CourseState {
         best_quiz_score: Math.max(chapterProgress.best_quiz_score, score),
       };
 
+      let newChaptersUnlocked = state.chapters_unlocked;
+      let newChaptersCompleted = state.chapters_completed;
+
       if (quizType === "final") {
         updates.final_quiz_passed = true;
         updates.percentage = 100;
-      }
 
-      const newChaptersCompleted =
-        quizType === "final" && !state.chapters_completed.includes(chapterId)
-          ? [...state.chapters_completed, chapterId].sort((a, b) => a - b)
-          : state.chapters_completed;
+        // Add to completed if not already
+        if (!state.chapters_completed.includes(chapterId)) {
+          newChaptersCompleted = [...state.chapters_completed, chapterId].sort((a, b) => a - b);
+        }
+
+        // Unlock next chapter
+        const nextChapter = chapterId + 1;
+        if (nextChapter <= TOTAL_CHAPTERS && !state.chapters_unlocked.includes(nextChapter)) {
+          newChaptersUnlocked = [...state.chapters_unlocked, nextChapter].sort((a, b) => a - b);
+        }
+      }
 
       return {
         ...state,
+        chapters_unlocked: newChaptersUnlocked,
         chapters_completed: newChaptersCompleted,
         progress_by_chapter: {
           ...state.progress_by_chapter,
@@ -211,7 +224,6 @@ function courseReducer(state: CourseState, action: CourseAction): CourseState {
     case "SYNC_PROGRESS": {
       const { progress, quizAttempts, chaptersUnlocked, chaptersCompleted } = action.payload;
 
-      // Build progress by chapter from server data
       const progressByChapter: Record<number, ChapterProgress> = {};
 
       for (let i = 1; i <= TOTAL_CHAPTERS; i++) {
@@ -273,47 +285,20 @@ const CourseContext = createContext<CourseContextType | undefined>(undefined);
 export function CourseProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(courseReducer, initialState);
   const [isLoading, setIsLoading] = useState(true);
+  const [isStateReady, setIsStateReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showProgressSaved, setShowProgressSaved] = useState(false);
+  const progressSavedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load user from localStorage on mount
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const storedUser = localStorage.getItem(LOCAL_STORAGE_KEY);
-        const storedProgress = localStorage.getItem(LOCAL_PROGRESS_KEY);
-
-        if (storedUser) {
-          const user = JSON.parse(storedUser) as CourseUser;
-          dispatch({ type: "SET_USER", payload: user });
-
-          // Load local progress if available
-          if (storedProgress) {
-            const localProgress = JSON.parse(storedProgress);
-            if (localProgress.chapters_unlocked) {
-              dispatch({
-                type: "SYNC_PROGRESS",
-                payload: {
-                  progress: [],
-                  quizAttempts: [],
-                  chaptersUnlocked: localProgress.chapters_unlocked,
-                  chaptersCompleted: localProgress.chapters_completed || [],
-                },
-              });
-            }
-          }
-
-          // Sync with server
-          await syncWithServer(user.id);
-        }
-      } catch (err) {
-        console.error("Error loading user:", err);
-        setError("Failed to load your progress");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadUser();
+  // Show progress saved toast
+  const triggerProgressSaved = useCallback(() => {
+    if (progressSavedTimeoutRef.current) {
+      clearTimeout(progressSavedTimeoutRef.current);
+    }
+    setShowProgressSaved(true);
+    progressSavedTimeoutRef.current = setTimeout(() => {
+      setShowProgressSaved(false);
+    }, 2000);
   }, []);
 
   // Sync with server
@@ -329,10 +314,10 @@ export function CourseProvider({ children }: { children: ReactNode }) {
         dispatch({
           type: "SYNC_PROGRESS",
           payload: {
-            progress: data.progress,
-            quizAttempts: data.quiz_attempts,
-            chaptersUnlocked: data.chapters_unlocked,
-            chaptersCompleted: data.chapters_completed,
+            progress: data.progress || [],
+            quizAttempts: data.quiz_attempts || [],
+            chaptersUnlocked: data.chapters_unlocked || [1],
+            chaptersCompleted: data.chapters_completed || [],
           },
         });
 
@@ -340,8 +325,8 @@ export function CourseProvider({ children }: { children: ReactNode }) {
         localStorage.setItem(
           LOCAL_PROGRESS_KEY,
           JSON.stringify({
-            chapters_unlocked: data.chapters_unlocked,
-            chapters_completed: data.chapters_completed,
+            chapters_unlocked: data.chapters_unlocked || [1],
+            chapters_completed: data.chapters_completed || [],
           })
         );
       }
@@ -350,11 +335,62 @@ export function CourseProvider({ children }: { children: ReactNode }) {
     }
   }, [state.user?.id]);
 
-  // Set user
+  // Load user from localStorage on mount
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const storedUser = localStorage.getItem(LOCAL_STORAGE_KEY);
+        const storedProgress = localStorage.getItem(LOCAL_PROGRESS_KEY);
+
+        if (storedUser) {
+          const user = JSON.parse(storedUser) as CourseUser;
+          dispatch({ type: "SET_USER", payload: user });
+
+          // Load local progress first (for immediate UI)
+          if (storedProgress) {
+            const localProgress = JSON.parse(storedProgress);
+            if (localProgress.chapters_unlocked) {
+              dispatch({
+                type: "SYNC_PROGRESS",
+                payload: {
+                  progress: [],
+                  quizAttempts: [],
+                  chaptersUnlocked: localProgress.chapters_unlocked,
+                  chaptersCompleted: localProgress.chapters_completed || [],
+                },
+              });
+            }
+          }
+
+          // Then sync with server for latest data
+          await syncWithServer(user.id);
+        }
+      } catch (err) {
+        console.error("Error loading user:", err);
+        setError("Failed to load your progress");
+      } finally {
+        setIsLoading(false);
+        setIsStateReady(true);
+      }
+    };
+
+    loadUser();
+  }, []);
+
+  // Set user (basic - for same browser)
   const setUser = useCallback((user: CourseUser) => {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(user));
     dispatch({ type: "SET_USER", payload: user });
   }, []);
+
+  // Set user AND fetch their progress from server (for cross-browser sync)
+  const setUserAndFetchProgress = useCallback(async (user: CourseUser) => {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(user));
+    dispatch({ type: "SET_USER", payload: user });
+    
+    // Fetch progress from server for returning users
+    await syncWithServer(user.id);
+  }, [syncWithServer]);
 
   // Clear user
   const clearUser = useCallback(() => {
@@ -383,12 +419,13 @@ export function CourseProvider({ children }: { children: ReactNode }) {
               section_id: sectionId,
             }),
           });
+          triggerProgressSaved();
         } catch (err) {
           console.error("Error saving progress:", err);
         }
       }
     },
-    [state.user]
+    [state.user, triggerProgressSaved]
   );
 
   // Mark quiz passed
@@ -399,16 +436,12 @@ export function CourseProvider({ children }: { children: ReactNode }) {
         payload: { chapterId, quizType, score },
       });
 
-      // Unlock next chapter if final quiz passed
+      // Save to localStorage immediately for final quiz
       if (quizType === "final" && score >= 80) {
-        const nextChapter = chapterId + 1;
-        if (nextChapter <= TOTAL_CHAPTERS) {
-          dispatch({ type: "UNLOCK_CHAPTER", payload: nextChapter });
-        }
-
-        // Save to localStorage immediately
         const currentProgress = localStorage.getItem(LOCAL_PROGRESS_KEY);
-        const progress = currentProgress ? JSON.parse(currentProgress) : { chapters_unlocked: [1], chapters_completed: [] };
+        const progress = currentProgress 
+          ? JSON.parse(currentProgress) 
+          : { chapters_unlocked: [1], chapters_completed: [] };
         
         // Add completed chapter
         if (!progress.chapters_completed.includes(chapterId)) {
@@ -416,19 +449,32 @@ export function CourseProvider({ children }: { children: ReactNode }) {
         }
         
         // Unlock next chapter
+        const nextChapter = chapterId + 1;
         if (nextChapter <= TOTAL_CHAPTERS && !progress.chapters_unlocked.includes(nextChapter)) {
           progress.chapters_unlocked = [...progress.chapters_unlocked, nextChapter].sort((a, b) => a - b);
         }
         
         localStorage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify(progress));
+        triggerProgressSaved();
       }
     },
-    []
+    [triggerProgressSaved]
   );
 
   // Unlock chapter
   const unlockChapter = useCallback((chapterId: number) => {
     dispatch({ type: "UNLOCK_CHAPTER", payload: chapterId });
+    
+    // Also save to localStorage
+    const currentProgress = localStorage.getItem(LOCAL_PROGRESS_KEY);
+    const progress = currentProgress 
+      ? JSON.parse(currentProgress) 
+      : { chapters_unlocked: [1], chapters_completed: [] };
+    
+    if (!progress.chapters_unlocked.includes(chapterId)) {
+      progress.chapters_unlocked = [...progress.chapters_unlocked, chapterId].sort((a, b) => a - b);
+      localStorage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify(progress));
+    }
   }, []);
 
   // Set current position
@@ -461,15 +507,18 @@ export function CourseProvider({ children }: { children: ReactNode }) {
   const value: CourseContextType = {
     state,
     isLoading,
+    isStateReady,
     error,
     chapters: CHAPTERS_DATA,
+    showProgressSaved,
     setUser,
+    setUserAndFetchProgress,
     clearUser,
     markSectionComplete,
     markQuizPassed,
     unlockChapter,
     setCurrentPosition,
-    syncWithServer: () => syncWithServer(),
+    syncWithServer,
     resetProgress,
   };
 

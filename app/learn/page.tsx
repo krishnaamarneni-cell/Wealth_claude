@@ -1,399 +1,448 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import {
-  ArrowRight,
-  BookOpen,
-  Shield,
-  TrendingUp,
-  Settings,
   Flame,
   Clock,
+  BookOpen,
+  Trophy,
   CheckCircle2,
+  ArrowRight,
+  Play,
+  Target,
+  TrendingUp,
+  PiggyBank,
+  Shield,
+  Calculator,
+  Wallet,
+  GraduationCap,
   Lock,
+  Sparkles,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCourse } from "@/lib/learn/CourseContext";
-import { cn } from "@/lib/utils";
+import { EmailCaptureModal } from "@/components/learn/EmailCaptureModal";
+import type { CourseUser } from "@/types/learn";
 
 // ===========================================
-// Chapter & Phase Data
+// Course Data
 // ===========================================
 
-const phases = [
-  {
-    id: 1,
-    name: "Foundation",
-    description: "Master the basics of money management",
-    icon: BookOpen,
-    color: "emerald",
-    chapters: [
-      { id: 1, title: "Your money blueprint", time: "15 min" },
-      { id: 2, title: "Banking & saving smartly", time: "12 min" },
-      { id: 3, title: "Conquering debt", time: "18 min" },
-    ],
-  },
-  {
-    id: 2,
-    name: "Protection",
-    description: "Build your financial safety net",
-    icon: Shield,
-    color: "blue",
-    chapters: [{ id: 4, title: "Your financial safety net", time: "14 min" }],
-  },
-  {
-    id: 3,
-    name: "Investing",
-    description: "Make your money work for you",
-    icon: TrendingUp,
-    color: "amber",
-    chapters: [
-      { id: 5, title: "The eighth wonder", time: "16 min" },
-      { id: 6, title: "Stock market demystified", time: "20 min" },
-      { id: 7, title: "Investment vehicles", time: "18 min" },
-    ],
-  },
-  {
-    id: 4,
-    name: "Optimization",
-    description: "Keep more of what you earn",
-    icon: Settings,
-    color: "orange",
-    chapters: [
-      { id: 8, title: "Tax fundamentals", time: "15 min" },
-      { id: 9, title: "Tax strategies", time: "17 min" },
-      { id: 10, title: "Building income streams", time: "19 min" },
-    ],
-  },
-  {
-    id: 5,
-    name: "FIRE Path",
-    description: "Your roadmap to financial freedom",
-    icon: Flame,
-    color: "red",
-    chapters: [
-      { id: 11, title: "Understanding FIRE", time: "14 min" },
-      { id: 12, title: "Your FIRE number", time: "16 min" },
-      { id: 13, title: "FIRE investment strategy", time: "18 min" },
-      { id: 14, title: "Executing your plan", time: "20 min" },
-    ],
-  },
+const COURSE_OUTCOMES = [
+  { icon: Target, text: "Calculate your personal FIRE number" },
+  { icon: PiggyBank, text: "Build a high-yield savings system" },
+  { icon: TrendingUp, text: "Master index fund investing" },
+  { icon: Shield, text: "Create a bulletproof emergency fund" },
+  { icon: Calculator, text: "Optimize taxes legally" },
+  { icon: Wallet, text: "Build multiple income streams" },
 ];
 
-const phaseColorClasses: Record<string, { bg: string; text: string; border: string }> = {
-  emerald: {
-    bg: "bg-emerald-500/10",
-    text: "text-emerald-400",
-    border: "border-emerald-500/20",
-  },
-  blue: {
-    bg: "bg-blue-500/10",
-    text: "text-blue-400",
-    border: "border-blue-500/20",
-  },
-  amber: {
-    bg: "bg-amber-500/10",
-    text: "text-amber-400",
-    border: "border-amber-500/20",
-  },
-  orange: {
-    bg: "bg-orange-500/10",
-    text: "text-orange-400",
-    border: "border-orange-500/20",
-  },
-  red: {
-    bg: "bg-red-500/10",
-    text: "text-red-400",
-    border: "border-red-500/20",
-  },
-};
+const COURSE_PHASES = [
+  { phase: 1, name: "Foundation", chapters: "1-3", color: "text-emerald-400", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
+  { phase: 2, name: "Protection", chapters: "4", color: "text-blue-400", bg: "bg-blue-400/10", border: "border-blue-400/20" },
+  { phase: 3, name: "Investing", chapters: "5-7", color: "text-purple-400", bg: "bg-purple-400/10", border: "border-purple-400/20" },
+  { phase: 4, name: "Optimization", chapters: "8-10", color: "text-amber-400", bg: "bg-amber-400/10", border: "border-amber-400/20" },
+  { phase: 5, name: "FIRE Path", chapters: "11-14", color: "text-red-400", bg: "bg-red-400/10", border: "border-red-400/20" },
+];
+
+const COURSE_STATS = [
+  { value: "14", label: "Chapters" },
+  { value: "70", label: "Lessons" },
+  { value: "~3h", label: "Duration" },
+  { value: "Free", label: "Price" },
+];
 
 // ===========================================
-// Component
+// Welcome Back Banner
 // ===========================================
 
-export default function LearnPage() {
-  const { state, isLoading } = useCourse();
-  const { chapters_unlocked, chapters_completed, progress_by_chapter, user } = state;
+interface WelcomeBackBannerProps {
+  userName: string;
+  currentChapter: number;
+  totalChapters: number;
+  completedChapters: number;
+}
 
-  // Find the next chapter to continue
-  const getNextChapter = () => {
-    for (let i = 1; i <= 14; i++) {
-      if (chapters_unlocked.includes(i) && !chapters_completed.includes(i)) {
-        return i;
-      }
-    }
-    return chapters_completed.length === 14 ? null : 1;
-  };
-
-  const nextChapter = getNextChapter();
-  const totalProgress = Math.round((chapters_completed.length / 14) * 100);
-
+function WelcomeBackBanner({ 
+  userName, 
+  currentChapter, 
+  totalChapters,
+  completedChapters 
+}: WelcomeBackBannerProps) {
+  const progress = Math.round((completedChapters / totalChapters) * 100);
+  
   return (
-    <div className="min-h-screen">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden border-b border-border">
-        {/* Background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
-
-        <div className="relative max-w-4xl mx-auto px-6 py-16 md:py-24">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm mb-6">
-              <Flame className="w-4 h-4" />
-              <span>Free course • 14 chapters</span>
+    <motion.div
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mb-8"
+    >
+      <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-primary/5 p-6">
+        {/* Decorative elements */}
+        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl" />
+        
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              <span className="text-sm font-medium text-primary">Welcome back!</span>
             </div>
-
-            {/* Title */}
-            <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
-              The Wealth Blueprint
-            </h1>
-            <p className="text-xl text-muted-foreground mb-8 max-w-2xl">
-              A story-driven journey from financial basics to FIRE.
-              Learn what the wealthy actually do — not what most people think.
+            <h2 className="text-xl font-bold text-foreground mb-1">
+              Hey {userName}! Ready to continue?
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              You're on Chapter {currentChapter} • {completedChapters} of {totalChapters} completed
             </p>
-
-            {/* CTA */}
-            <div className="flex flex-wrap items-center gap-4">
-              {nextChapter ? (
-                <Link href={`/learn/${nextChapter}`}>
-                  <Button size="lg" className="gap-2">
-                    {chapters_completed.length > 0 ? "Continue learning" : "Start chapter 1"}
-                    <ArrowRight className="w-4 h-4" />
-                  </Button>
-                </Link>
-              ) : (
-                <Link href="/learn/certificate">
-                  <Button size="lg" className="gap-2">
-                    Get your certificate
-                    <ArrowRight className="w-4 h-4" />
-                  </Button>
-                </Link>
-              )}
-
-              <div className="text-sm text-muted-foreground">
-                <Clock className="w-4 h-4 inline mr-1" />
-                ~3 hours total
+            
+            {/* Progress bar */}
+            <div className="mt-3 w-full max-w-xs">
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progress}%` }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
+                  className="h-full bg-primary rounded-full"
+                />
               </div>
+              <p className="text-xs text-muted-foreground mt-1">{progress}% complete</p>
             </div>
-
-            {/* Progress (if user has started) */}
-            {user && chapters_completed.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="mt-8 p-4 rounded-xl bg-card border border-border"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-foreground">
-                    Welcome back, {user.name}!
-                  </span>
-                  <span className="text-sm text-muted-foreground">
-                    {totalProgress}% complete
-                  </span>
-                </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full bg-primary rounded-full"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${totalProgress}%` }}
-                    transition={{ duration: 0.8, ease: "easeOut" }}
-                  />
-                </div>
-              </motion.div>
-            )}
-          </motion.div>
+          </div>
+          
+          <Link href={`/learn/${currentChapter}`}>
+            <Button size="lg" className="gap-2 shadow-lg shadow-primary/20">
+              Continue Learning
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          </Link>
         </div>
-      </section>
+      </div>
+    </motion.div>
+  );
+}
 
+// ===========================================
+// Course Card
+// ===========================================
+
+interface CourseCardProps {
+  onStartCourse: () => void;
+  isEnrolled: boolean;
+  currentChapter?: number;
+}
+
+function CourseCard({ onStartCourse, isEnrolled, currentChapter }: CourseCardProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.1 }}
+      className="rounded-2xl border border-border bg-card overflow-hidden"
+    >
+      {/* Course Header */}
+      <div className="relative p-6 sm:p-8 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
+        <div className="absolute top-4 right-4">
+          <span className="px-3 py-1 text-xs font-bold bg-primary/20 text-primary rounded-full">
+            FREE
+          </span>
+        </div>
+        
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-primary/20 flex items-center justify-center">
+            <Flame className="w-6 h-6 sm:w-7 sm:h-7 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground">FIRE Course</h2>
+            <p className="text-sm text-muted-foreground">Financial Independence, Retire Early</p>
+          </div>
+        </div>
+        
+        <p className="text-foreground/80 leading-relaxed max-w-2xl text-sm sm:text-base">
+          A complete roadmap to financial freedom. Follow Maya's journey from $47 in savings 
+          to building a path to early retirement. Learn everything from budgeting basics 
+          to advanced tax strategies.
+        </p>
+        
+        {/* Stats */}
+        <div className="flex flex-wrap gap-4 sm:gap-6 mt-6">
+          {COURSE_STATS.map((stat) => (
+            <div key={stat.label} className="text-center">
+              <div className="text-xl sm:text-2xl font-bold text-primary">{stat.value}</div>
+              <div className="text-xs text-muted-foreground">{stat.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      
       {/* Course Content */}
-      <section className="max-w-4xl mx-auto px-6 py-12">
-        <h2 className="text-2xl font-semibold text-foreground mb-8">
-          Course curriculum
-        </h2>
-
-        <div className="space-y-8">
-          {phases.map((phase, phaseIndex) => {
-            const colorClasses = phaseColorClasses[phase.color];
-            const PhaseIcon = phase.icon;
-
-            return (
+      <div className="p-6 sm:p-8 space-y-8">
+        {/* What You'll Learn */}
+        <div>
+          <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+            <GraduationCap className="w-5 h-5 text-primary" />
+            What You'll Learn
+          </h3>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {COURSE_OUTCOMES.map((outcome, i) => (
               <motion.div
-                key={phase.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: phaseIndex * 0.1 }}
+                key={i}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 + i * 0.05 }}
+                className="flex items-center gap-3 p-3 rounded-xl bg-muted/50"
               >
-                {/* Phase Header */}
-                <div className="flex items-center gap-3 mb-4">
-                  <div
-                    className={cn(
-                      "flex items-center justify-center w-10 h-10 rounded-xl",
-                      colorClasses.bg
-                    )}
-                  >
-                    <PhaseIcon className={cn("w-5 h-5", colorClasses.text)} />
-                  </div>
-                  <div>
-                    <h3 className={cn("font-semibold", colorClasses.text)}>
-                      Phase {phase.id}: {phase.name}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      {phase.description}
-                    </p>
-                  </div>
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <outcome.icon className="w-4 h-4 text-primary" />
                 </div>
-
-                {/* Chapters */}
-                <div className="ml-5 border-l-2 border-border pl-8 space-y-2">
-                  {phase.chapters.map((chapter) => {
-                    const isUnlocked = chapters_unlocked.includes(chapter.id);
-                    const isCompleted = chapters_completed.includes(chapter.id);
-                    const progress = progress_by_chapter[chapter.id];
-                    const percentage = progress?.percentage || 0;
-
-                    return (
-                      <div key={chapter.id}>
-                        {isUnlocked ? (
-                          <Link
-                            href={`/learn/${chapter.id}`}
-                            className={cn(
-                              "flex items-center justify-between p-4 rounded-xl border transition-all",
-                              isCompleted
-                                ? "bg-primary/5 border-primary/20"
-                                : "bg-card border-border hover:border-primary/30 hover:bg-card/80"
-                            )}
-                          >
-                            <div className="flex items-center gap-3">
-                              {isCompleted ? (
-                                <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />
-                              ) : (
-                                <div className="relative w-5 h-5 flex-shrink-0">
-                                  <svg className="w-5 h-5 -rotate-90">
-                                    <circle
-                                      cx="10"
-                                      cy="10"
-                                      r="8"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                      className="text-muted"
-                                    />
-                                    <circle
-                                      cx="10"
-                                      cy="10"
-                                      r="8"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                      strokeDasharray={`${percentage * 0.5} 50`}
-                                      className="text-primary"
-                                    />
-                                  </svg>
-                                </div>
-                              )}
-                              <div>
-                                <span className="text-sm text-muted-foreground mr-2">
-                                  {chapter.id}.
-                                </span>
-                                <span className="font-medium text-foreground">
-                                  {chapter.title}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              {!isCompleted && percentage > 0 && (
-                                <span className="text-xs text-muted-foreground">
-                                  {percentage}%
-                                </span>
-                              )}
-                              <span className="text-xs text-muted-foreground">
-                                {chapter.time}
-                              </span>
-                              <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                            </div>
-                          </Link>
-                        ) : (
-                          <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/30 opacity-60 cursor-not-allowed">
-                            <div className="flex items-center gap-3">
-                              <Lock className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                              <div>
-                                <span className="text-sm text-muted-foreground mr-2">
-                                  {chapter.id}.
-                                </span>
-                                <span className="font-medium text-muted-foreground">
-                                  {chapter.title}
-                                </span>
-                              </div>
-                            </div>
-                            <span className="text-xs text-muted-foreground">
-                              Locked
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                <span className="text-sm text-foreground">{outcome.text}</span>
               </motion.div>
-            );
-          })}
+            ))}
+          </div>
         </div>
-      </section>
+        
+        {/* Course Structure */}
+        <div>
+          <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-primary" />
+            Course Structure
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {COURSE_PHASES.map((phase) => (
+              <div
+                key={phase.phase}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${phase.bg} border ${phase.border}`}
+              >
+                <span className={`text-xs sm:text-sm font-semibold ${phase.color}`}>
+                  Phase {phase.phase}
+                </span>
+                <span className="text-xs sm:text-sm text-muted-foreground">
+                  {phase.name}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
 
-      {/* Story Preview */}
-      <section className="border-t border-border bg-card/30">
-        <div className="max-w-4xl mx-auto px-6 py-12">
-          <div className="flex items-start gap-6">
-            <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-              <span className="text-2xl">👩‍💼</span>
+        {/* Meet Maya Section */}
+        <div className="p-4 rounded-xl bg-muted/30 border border-border">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <span className="text-xl">👩‍💼</span>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">
-                Meet Maya
-              </h3>
-              <p className="text-muted-foreground">
-                Maya is 28, has $47 in savings, and just had her car repossessed. 
-                Throughout this course, you'll follow her transformation from broke 
-                and stressed to financially independent. Her story will help you 
-                understand not just the "what" but the "why" behind every concept.
+              <h4 className="font-semibold text-foreground mb-1">Meet Maya</h4>
+              <p className="text-sm text-muted-foreground">
+                Follow Maya's journey from $47 in savings to financial independence. 
+                Her story makes every concept real and actionable.
               </p>
             </div>
           </div>
         </div>
-      </section>
-
-      {/* Footer CTA */}
-      <section className="border-t border-border">
-        <div className="max-w-4xl mx-auto px-6 py-12 text-center">
-          <h2 className="text-2xl font-semibold text-foreground mb-4">
-            Ready to begin your journey?
-          </h2>
-          <p className="text-muted-foreground mb-6">
-            Join thousands of others learning the wealth blueprint.
-          </p>
-          {nextChapter ? (
-            <Link href={`/learn/${nextChapter}`}>
-              <Button size="lg" className="gap-2">
-                {chapters_completed.length > 0 ? "Continue learning" : "Start chapter 1"}
-                <ArrowRight className="w-4 h-4" />
+        
+        {/* CTA Button */}
+        <div className="pt-4">
+          {isEnrolled ? (
+            <Link href={`/learn/${currentChapter || 1}`} className="block">
+              <Button size="lg" className="w-full sm:w-auto gap-2 shadow-lg shadow-primary/20">
+                <Play className="w-4 h-4" />
+                Continue to Chapter {currentChapter || 1}
               </Button>
             </Link>
           ) : (
-            <Link href="/learn/certificate">
-              <Button size="lg" className="gap-2">
-                Get your certificate
-                <ArrowRight className="w-4 h-4" />
-              </Button>
-            </Link>
+            <Button 
+              size="lg" 
+              onClick={onStartCourse}
+              className="w-full sm:w-auto gap-2 shadow-lg shadow-primary/20"
+            >
+              <Play className="w-4 h-4" />
+              Start Course — It's Free
+            </Button>
           )}
+          
+          <p className="text-xs text-muted-foreground mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3 text-primary" /> No credit card
+            </span>
+            <span className="flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3 text-primary" /> Lifetime access
+            </span>
+            <span className="flex items-center gap-1">
+              <Trophy className="w-3 h-3 text-primary" /> Certificate on completion
+            </span>
+          </p>
         </div>
-      </section>
+      </div>
+    </motion.div>
+  );
+}
+
+// ===========================================
+// Coming Soon Card
+// ===========================================
+
+function ComingSoonCard() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.3 }}
+      className="rounded-2xl border border-dashed border-border bg-card/50 p-6 sm:p-8 text-center"
+    >
+      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+        <Lock className="w-6 h-6 sm:w-7 sm:h-7 text-muted-foreground" />
+      </div>
+      <h3 className="text-lg font-semibold text-foreground mb-2">More Courses Coming Soon</h3>
+      <p className="text-sm text-muted-foreground max-w-md mx-auto">
+        We're working on more courses covering crypto investing, real estate, 
+        and advanced portfolio strategies. Stay tuned!
+      </p>
+    </motion.div>
+  );
+}
+
+// ===========================================
+// Main Page Component
+// ===========================================
+
+export default function LearnPage() {
+  const router = useRouter();
+  const { state, setUser } = useCourse();
+  const [showEmailModal, setShowEmailModal] = useState(false);
+
+  const user = state.user;
+  const completedChapters = state.chapters_completed || [];
+
+  // Find current chapter (first incomplete or next after last completed)
+  const getCurrentChapter = () => {
+    if (completedChapters.length === 0) return 1;
+    if (completedChapters.length >= 14) return 14;
+    
+    // Find first incomplete chapter
+    for (let i = 1; i <= 14; i++) {
+      if (!completedChapters.includes(i)) return i;
+    }
+    return 1;
+  };
+
+  const currentChapter = getCurrentChapter();
+  const isEnrolled = !!user;
+
+  // Handle start course click
+  const handleStartCourse = () => {
+    if (user) {
+      // Already enrolled, go to current chapter
+      router.push(`/learn/${currentChapter}`);
+    } else {
+      // New user, show email modal
+      setShowEmailModal(true);
+    }
+  };
+
+  // Handle email submission
+  const handleEmailSubmit = async (name: string, email: string) => {
+    try {
+      const response = await fetch("/api/learn/user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email }),
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || "Failed to save your information");
+      }
+
+      // Save user to context
+      setUser(data.user as CourseUser);
+      setShowEmailModal(false);
+
+      // Redirect to chapter 1
+      router.push("/learn/1");
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
+        {/* Page Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+            <GraduationCap className="w-4 h-4" />
+            <span>WealthClaude Learn</span>
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-2">
+            Master Your Finances
+          </h1>
+          <p className="text-lg text-muted-foreground">
+            Free courses to help you build wealth and achieve financial independence.
+          </p>
+        </motion.div>
+
+        {/* Welcome Back Banner (for returning users with progress) */}
+        {user && completedChapters.length > 0 && (
+          <WelcomeBackBanner
+            userName={user.name.split(" ")[0]}
+            currentChapter={currentChapter}
+            totalChapters={14}
+            completedChapters={completedChapters.length}
+          />
+        )}
+
+        {/* Course Cards */}
+        <div className="space-y-6">
+          <CourseCard 
+            onStartCourse={handleStartCourse}
+            isEnrolled={isEnrolled}
+            currentChapter={currentChapter}
+          />
+          
+          <ComingSoonCard />
+        </div>
+
+        {/* Bottom CTA for new users */}
+        {!user && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="mt-12 text-center"
+          >
+            <div className="flex items-center justify-center gap-2 text-muted-foreground mb-4">
+              <Users className="w-4 h-4" />
+              <p>
+                Join <span className="text-primary font-semibold">1,000+</span> learners 
+                on their path to financial freedom
+              </p>
+            </div>
+            <Button 
+              size="lg" 
+              onClick={handleStartCourse}
+              className="gap-2 shadow-lg shadow-primary/20"
+            >
+              Get Started Free
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          </motion.div>
+        )}
+      </div>
+
+      {/* Email Capture Modal */}
+      <EmailCaptureModal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        onSubmit={handleEmailSubmit}
+      />
     </div>
   );
 }

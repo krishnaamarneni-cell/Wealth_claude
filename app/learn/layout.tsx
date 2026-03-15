@@ -1,18 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CourseProvider, useCourse } from "@/lib/learn/CourseContext";
-import {
-  CourseSidebar,
-  MobileDrawer,
+import { 
+  CourseSidebar, 
+  MobileDrawer, 
   SidebarContent,
-  useMobileNav
+  useMobileNav 
 } from "@/components/learn/CourseSidebar";
-import { EmailCaptureModal } from "@/components/learn/EmailCaptureModal";
 import { Menu, ChevronLeft, Loader2 } from "lucide-react";
-import type { CourseUser } from "@/types/learn";
 
 // ===========================================
 // Mobile Header
@@ -25,10 +23,10 @@ interface MobileHeaderProps {
 
 function MobileHeader({ onMenuClick, currentChapter }: MobileHeaderProps) {
   const { chapters } = useCourse();
-
+  
   // Safe find with proper null checking
   const chapter = currentChapter && Array.isArray(chapters) && chapters.length > 0
-    ? chapters.find(c => c.id === currentChapter)
+    ? chapters.find(c => c.id === currentChapter) 
     : null;
 
   return (
@@ -40,12 +38,12 @@ function MobileHeader({ onMenuClick, currentChapter }: MobileHeaderProps) {
       >
         <Menu className="w-5 h-5" />
       </button>
-
+      
       <div className="flex-1 min-w-0">
         {chapter ? (
           <div className="flex items-center gap-2">
-            <Link
-              href="/learn"
+            <Link 
+              href="/learn" 
               className="text-muted-foreground hover:text-foreground transition-colors"
               aria-label="Back to course overview"
             >
@@ -86,14 +84,15 @@ function LoadingSkeleton() {
 
 function LearnLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { state, setUser, isLoading } = useCourse();
-  const [showEmailModal, setShowEmailModal] = useState(false);
-  const [hasCheckedUser, setHasCheckedUser] = useState(false);
+  const { isLoading } = useCourse();
   const mobileNav = useMobileNav();
 
   // Extract current chapter from URL
   const chapterMatch = pathname.match(/\/learn\/(\d+)/);
   const currentChapter = chapterMatch ? parseInt(chapterMatch[1]) : undefined;
+
+  // Check if we're on the landing page
+  const isLandingPage = pathname === "/learn";
 
   // Close mobile nav on route change
   useEffect(() => {
@@ -101,75 +100,35 @@ function LearnLayoutInner({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  // Check for existing user on mount
-  useEffect(() => {
-    if (!isLoading && !hasCheckedUser) {
-      setHasCheckedUser(true);
-
-      // Show modal if no user after a short delay
-      if (!state.user) {
-        const timer = setTimeout(() => {
-          setShowEmailModal(true);
-        }, 2000);
-
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [isLoading, state.user, hasCheckedUser]);
-
-  // Handle email submission
-  const handleEmailSubmit = async (name: string, email: string) => {
-    try {
-      const response = await fetch("/api/learn/user", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email }),
-      });
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || "Failed to save your information");
-      }
-
-      // Save user to context
-      setUser(data.user as CourseUser);
-      setShowEmailModal(false);
-    } catch (error) {
-      throw error;
-    }
-  };
-
   return (
     <div className="flex min-h-screen bg-background">
-      {/* Desktop Sidebar - Hidden on mobile */}
-      <CourseSidebar className="sticky top-0 h-screen" />
+      {/* Desktop Sidebar - Hidden on mobile and on landing page */}
+      {!isLandingPage && (
+        <CourseSidebar className="sticky top-0 h-screen" />
+      )}
 
-      {/* Mobile Drawer */}
-      <MobileDrawer isOpen={mobileNav.isOpen} onClose={mobileNav.close}>
-        <SidebarContent onNavigate={mobileNav.close} showCollapse={false} />
-      </MobileDrawer>
+      {/* Mobile Drawer - Only show when not on landing page */}
+      {!isLandingPage && (
+        <MobileDrawer isOpen={mobileNav.isOpen} onClose={mobileNav.close}>
+          <SidebarContent onNavigate={mobileNav.close} showCollapse={false} />
+        </MobileDrawer>
+      )}
 
       {/* Main Content Area */}
       <div className="flex-1 min-w-0 flex flex-col">
-        {/* Mobile Header */}
-        <MobileHeader
-          onMenuClick={mobileNav.toggle}
-          currentChapter={currentChapter}
-        />
+        {/* Mobile Header - Only show when not on landing page */}
+        {!isLandingPage && (
+          <MobileHeader 
+            onMenuClick={mobileNav.toggle} 
+            currentChapter={currentChapter}
+          />
+        )}
 
         {/* Page Content */}
         <main className="flex-1">
-          {isLoading ? <LoadingSkeleton /> : children}
+          {isLoading && !isLandingPage ? <LoadingSkeleton /> : children}
         </main>
       </div>
-
-      {/* Email Capture Modal */}
-      <EmailCaptureModal
-        isOpen={showEmailModal}
-        onClose={() => setShowEmailModal(false)}
-        onSubmit={handleEmailSubmit}
-      />
     </div>
   );
 }

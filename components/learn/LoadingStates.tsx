@@ -66,7 +66,7 @@ interface SkeletonProps {
 
 export function Skeleton({ className }: SkeletonProps) {
   return (
-    <div 
+    <div
       className={cn(
         "animate-pulse bg-muted rounded",
         className
@@ -141,7 +141,7 @@ export function QuizSkeleton() {
 
       <div className="space-y-4">
         <Skeleton className="h-5 w-full" />
-        
+
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="flex items-center gap-3 p-4 rounded-lg border border-border">
             <Skeleton className="h-5 w-5 rounded-full" />
@@ -166,11 +166,11 @@ interface LoadingButtonProps {
   [key: string]: any;
 }
 
-export function LoadingButton({ 
-  loading, 
-  children, 
+export function LoadingButton({
+  loading,
+  children,
   className,
-  ...props 
+  ...props
 }: LoadingButtonProps) {
   return (
     <button
@@ -203,14 +203,14 @@ interface ErrorStateProps {
   className?: string;
 }
 
-export function ErrorState({ 
+export function ErrorState({
   title = "Something went wrong",
   message = "An error occurred. Please try again.",
   onRetry,
-  className 
+  className
 }: ErrorStateProps) {
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
@@ -247,15 +247,15 @@ interface EmptyStateProps {
   className?: string;
 }
 
-export function EmptyState({ 
+export function EmptyState({
   icon,
-  title, 
-  description, 
+  title,
+  description,
   action,
-  className 
+  className
 }: EmptyStateProps) {
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className={cn(

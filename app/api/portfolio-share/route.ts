@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase-server'
+import { createServerSideClient } from '@/lib/supabase-server'
+import { cookies } from 'next/headers'
 
 // Helper to generate slug from name
 function generateSlug(firstName: string, lastName: string): string {
@@ -14,7 +15,8 @@ function generateSlug(firstName: string, lastName: string): string {
 // POST: Create or update shared portfolio
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient()
+    const cookieStore = await cookies()
+    const supabase = createServerSideClient(cookieStore)
     
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser()

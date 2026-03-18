@@ -23,10 +23,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Lock, 
+import {
+  TrendingUp,
+  TrendingDown,
+  Lock,
   Unlock,
   Loader2,
   CheckCircle2,
@@ -37,6 +37,9 @@ import {
   BarChart3
 } from "lucide-react"
 import Link from "next/link"
+
+// ⚠️ ONLY THIS SLUG REQUIRES PAYMENT - Everyone else is FREE
+const PAID_PORTFOLIO_SLUG = "krishna-amarneni"
 
 interface Holding {
   symbol: string
@@ -70,12 +73,15 @@ export default function PublicPortfolioPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const slug = params.slug as string
-  
+
+  // Check if this portfolio requires payment (only Krishna's does)
+  const requiresPayment = slug === PAID_PORTFOLIO_SLUG
+
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
-  // Payment states
+
+  // Payment states (only used for Krishna's portfolio)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [email, setEmail] = useState("")
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
@@ -83,6 +89,8 @@ export default function PublicPortfolioPage() {
 
   // Check for success callback from Stripe
   useEffect(() => {
+    if (!requiresPayment) return
+
     const success = searchParams.get('success')
     const emailParam = searchParams.get('email')
     if (success === 'true' && emailParam) {
@@ -91,7 +99,7 @@ export default function PublicPortfolioPage() {
       // Re-fetch with email to get full access
       fetchPortfolio(emailParam)
     }
-  }, [searchParams])
+  }, [searchParams, requiresPayment])
 
   useEffect(() => {
     fetchPortfolio()
@@ -100,18 +108,29 @@ export default function PublicPortfolioPage() {
   const fetchPortfolio = async (userEmail?: string) => {
     setIsLoading(true)
     setError(null)
-    
+
     try {
       const emailToUse = userEmail || email
-      const url = emailToUse 
-        ? `/api/portfolio-share/public?slug=${slug}&email=${encodeURIComponent(emailToUse)}`
-        : `/api/portfolio-share/public?slug=${slug}`
-      
+
+      // For non-paid portfolios, always fetch full data
+      // For paid portfolios, need email to check payment status
+      let url: string
+      if (requiresPayment && emailToUse) {
+        url = `/api/portfolio-share/public?slug=${slug}&email=${encodeURIComponent(emailToUse)}`
+      } else {
+        url = `/api/portfolio-share/public?slug=${slug}`
+      }
+
       const res = await fetch(url)
       const data = await res.json()
 
       if (!res.ok) {
         throw new Error(data.error || 'Portfolio not found')
+      }
+
+      // If this portfolio doesn't require payment, force hasPaid = true
+      if (!requiresPayment) {
+        data.hasPaid = true
       }
 
       setPortfolio(data)
@@ -124,9 +143,9 @@ export default function PublicPortfolioPage() {
 
   const handleUnlock = async () => {
     if (!email) return
-    
+
     setIsProcessingPayment(true)
-    
+
     try {
       const res = await fetch('/api/stripe-checkout', {
         method: 'POST',
@@ -193,6 +212,9 @@ export default function PublicPortfolioPage() {
 
   if (!portfolio) return null
 
+  // Determine if user has full access
+  const hasFullAccess = portfolio.hasPaid || !requiresPayment
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
@@ -205,31 +227,45 @@ export default function PublicPortfolioPage() {
                 Last updated: {new Date(portfolio.updatedAt).toLocaleDateString()}
               </p>
             </div>
-            {portfolio.hasPaid ? (
+            {requiresPayment ? (
+              hasFullAccess ? (
+                <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                  <Unlock className="h-3 w-3 mr-1" />
+                  Full Access
+                </Badge>
+              ) : (
+                <Badge variant="secondary">
+                  <Lock className="h-3 w-3 mr-1" />
+                  Limited View
+                </Badge>
+              )
+            ) : (
               <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
                 <Unlock className="h-3 w-3 mr-1" />
-                Full Access
-              </Badge>
-            ) : (
-              <Badge variant="secondary">
-                <Lock className="h-3 w-3 mr-1" />
-                Limited View
+                Public Portfolio
               </Badge>
             )}
           </div>
 
           {/* Success Message */}
           {paymentSuccess && (
-            <div className="mb-4 p-4 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
-              <p className="text-green-800 dark:text-green-200">
-                Payment successful! You now have full access to this portfolio.
-              </p>
-            </div>
+            <Card className="mb-6 border-green-500 bg-green-50 dark:bg-green-900/20">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="h-6 w-6 text-green-600" />
+                  <div>
+                    <p className="font-medium text-green-700 dark:text-green-300">Payment Successful!</p>
+                    <p className="text-sm text-green-600 dark:text-green-400">
+                      You now have lifetime access to this portfolio
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </div>
 
-        {/* Stats Cards */}
+        {/* Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <Card>
             <CardContent className="pt-4">
@@ -255,8 +291,8 @@ export default function PublicPortfolioPage() {
             </CardContent>
           </Card>
 
-          <Card className={!portfolio.hasPaid ? "relative overflow-hidden" : ""}>
-            {!portfolio.hasPaid && (
+          <Card className={!hasFullAccess ? "relative overflow-hidden" : ""}>
+            {!hasFullAccess && (
               <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
                 <Lock className="h-6 w-6 text-muted-foreground" />
               </div>
@@ -272,8 +308,8 @@ export default function PublicPortfolioPage() {
             </CardContent>
           </Card>
 
-          <Card className={!portfolio.hasPaid ? "relative overflow-hidden" : ""}>
-            {!portfolio.hasPaid && (
+          <Card className={!hasFullAccess ? "relative overflow-hidden" : ""}>
+            {!hasFullAccess && (
               <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
                 <Lock className="h-6 w-6 text-muted-foreground" />
               </div>
@@ -295,7 +331,7 @@ export default function PublicPortfolioPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Holdings ({portfolio.holdings.length})</CardTitle>
-              {!portfolio.hasPaid && (
+              {!hasFullAccess && requiresPayment && (
                 <Button onClick={() => setShowPaymentModal(true)}>
                   <Unlock className="h-4 w-4 mr-2" />
                   Unlock Full View - $29
@@ -312,7 +348,7 @@ export default function PublicPortfolioPage() {
                     <TableHead>Sector</TableHead>
                     <TableHead className="text-right">Return</TableHead>
                     <TableHead className="text-right">Today</TableHead>
-                    {portfolio.hasPaid && (
+                    {hasFullAccess && (
                       <>
                         <TableHead className="text-right">Shares</TableHead>
                         <TableHead className="text-right">Avg Cost</TableHead>
@@ -339,7 +375,7 @@ export default function PublicPortfolioPage() {
                       <TableCell className={`text-right ${holding.todayGainPercent >= 0 ? "text-green-600" : "text-red-600"}`}>
                         {formatPercent(holding.todayGainPercent)}
                       </TableCell>
-                      {portfolio.hasPaid && (
+                      {hasFullAccess && (
                         <>
                           <TableCell className="text-right">{holding.shares?.toFixed(2)}</TableCell>
                           <TableCell className="text-right">{formatCurrency(holding.avgCost)}</TableCell>
@@ -357,8 +393,8 @@ export default function PublicPortfolioPage() {
               </Table>
             </div>
 
-            {/* Locked columns indicator */}
-            {!portfolio.hasPaid && (
+            {/* Locked columns indicator - only for paid portfolios */}
+            {!hasFullAccess && requiresPayment && (
               <div className="mt-6 p-4 bg-muted/50 rounded-lg text-center">
                 <Lock className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                 <p className="font-medium mb-1">Unlock Full Portfolio Details</p>
@@ -373,8 +409,8 @@ export default function PublicPortfolioPage() {
           </CardContent>
         </Card>
 
-        {/* CTA for non-paid users */}
-        {!portfolio.hasPaid && (
+        {/* CTA for non-paid users viewing paid portfolio */}
+        {!hasFullAccess && requiresPayment && (
           <Card className="mt-8 border-2 border-primary/20">
             <CardContent className="pt-6">
               <div className="flex flex-col md:flex-row items-center justify-between gap-4">
@@ -394,73 +430,97 @@ export default function PublicPortfolioPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* CTA for users viewing free portfolios */}
+        {!requiresPayment && (
+          <Card className="mt-8 border-2 border-primary/20">
+            <CardContent className="pt-6">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-semibold mb-1">Want to Track & Share Your Own Portfolio?</h3>
+                  <p className="text-muted-foreground">
+                    Start tracking your investments with WealthClaude for free
+                  </p>
+                </div>
+                <Link href="/start">
+                  <Button size="lg">
+                    Get Started Free
+                    <ExternalLink className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
-      {/* Payment Modal */}
-      <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Unlock Full Portfolio Access</DialogTitle>
-            <DialogDescription>
-              Get lifetime access to {portfolio.displayName}'s complete portfolio data
-            </DialogDescription>
-          </DialogHeader>
+      {/* Payment Modal - Only for paid portfolios */}
+      {requiresPayment && (
+        <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Unlock Full Portfolio Access</DialogTitle>
+              <DialogDescription>
+                Get lifetime access to {portfolio.displayName}'s complete portfolio data
+              </DialogDescription>
+            </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            <div className="p-4 bg-muted rounded-lg">
-              <p className="font-medium mb-2">What you'll get:</p>
-              <ul className="space-y-2 text-sm">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  Share quantities for all holdings
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  Dollar amounts and cost basis
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  Portfolio allocation percentages
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  Gain/loss in dollars
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  Lifetime access (portfolio updates included)
-                </li>
-              </ul>
+            <div className="space-y-4 py-4">
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="font-medium mb-2">What you'll get:</p>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    Share quantities for all holdings
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    Dollar amounts and cost basis
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    Portfolio allocation percentages
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    Gain/loss in dollars
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    Lifetime access (portfolio updates included)
+                  </li>
+                </ul>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="unlock-email">Your Email</Label>
+                <Input
+                  id="unlock-email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  We'll send your receipt to this email
+                </p>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="unlock-email">Your Email</Label>
-              <Input
-                id="unlock-email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                We'll send your receipt to this email
-              </p>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPaymentModal(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUnlock} disabled={isProcessingPayment || !email}>
-              {isProcessingPayment ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : null}
-              Pay $29
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowPaymentModal(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleUnlock} disabled={isProcessingPayment || !email}>
+                {isProcessingPayment ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : null}
+                Pay $29
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

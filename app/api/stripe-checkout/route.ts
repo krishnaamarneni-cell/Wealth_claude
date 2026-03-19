@@ -50,16 +50,7 @@ export async function POST(request: NextRequest) {
 
     // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      payment_method_options: {
-        card: {
-          setup_future_usage: undefined,
-        },
-      },
-      // Disable Link
-      phone_number_collection: {
-        enabled: false,
-      },
+      payment_method_types: ['card'],
       line_items: [
         {
           price_data: {

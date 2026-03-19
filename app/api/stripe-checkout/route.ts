@@ -11,7 +11,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const PRICE_CENTS = 2900 // $29.00
+const PRICE_CENTS = 499 // $4.99 (was $7.99)
 
 export async function POST(request: NextRequest) {
   try {

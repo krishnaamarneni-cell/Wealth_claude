@@ -23,10 +23,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Lock, 
+import {
+  TrendingUp,
+  TrendingDown,
+  Lock,
   Unlock,
   Loader2,
   CheckCircle2,
@@ -71,14 +71,14 @@ export default function PublicPortfolioPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const slug = params.slug as string
-  
+
   // Check if this portfolio requires payment (only Krishna's does)
   const requiresPayment = slug === PAID_PORTFOLIO_SLUG
-  
+
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
+
   // Payment states (only used for Krishna's portfolio)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [email, setEmail] = useState("")
@@ -95,7 +95,7 @@ export default function PublicPortfolioPage() {
 
       if (success === 'true' && sessionId) {
         setIsVerifying(true)
-        
+
         try {
           // Verify payment with Stripe directly
           const res = await fetch('/api/verify-payment', {
@@ -135,10 +135,10 @@ export default function PublicPortfolioPage() {
   const fetchPortfolio = async (userEmail?: string) => {
     setIsLoading(true)
     setError(null)
-    
+
     try {
       const emailToUse = userEmail || email
-      
+
       // For non-paid portfolios, always fetch full data
       // For paid portfolios, need email to check payment status
       let url: string
@@ -147,7 +147,7 @@ export default function PublicPortfolioPage() {
       } else {
         url = `/api/portfolio-share/public?slug=${slug}`
       }
-      
+
       const res = await fetch(url)
       const data = await res.json()
 
@@ -170,9 +170,9 @@ export default function PublicPortfolioPage() {
 
   const handleUnlock = async () => {
     if (!email) return
-    
+
     setIsProcessingPayment(true)
-    
+
     try {
       const res = await fetch('/api/stripe-checkout', {
         method: 'POST',
@@ -365,7 +365,7 @@ export default function PublicPortfolioPage() {
               {!hasFullAccess && requiresPayment && (
                 <Button onClick={() => setShowPaymentModal(true)}>
                   <Unlock className="h-4 w-4 mr-2" />
-                  Unlock Full View - $29
+                  Unlock Full View - <span className="line-through text-muted-foreground mr-1">$7.99</span> $4.99
                 </Button>
               )}
             </div>
@@ -429,11 +429,14 @@ export default function PublicPortfolioPage() {
               <div className="mt-6 p-4 bg-muted/50 rounded-lg text-center">
                 <Lock className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                 <p className="font-medium mb-1">Unlock Full Portfolio Details</p>
-                <p className="text-sm text-muted-foreground mb-4">
+                <p className="text-sm text-muted-foreground mb-2">
                   See shares, prices, dollar amounts, allocations, and more
                 </p>
+                <p className="text-sm text-green-600 font-medium mb-4">
+                  🔥 37% OFF - Save $3.00!
+                </p>
                 <Button onClick={() => setShowPaymentModal(true)}>
-                  Unlock for $29
+                  Unlock for <span className="line-through text-muted-foreground mx-1">$7.99</span> $4.99
                 </Button>
               </div>
             )}
@@ -490,6 +493,11 @@ export default function PublicPortfolioPage() {
         <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
           <DialogContent>
             <DialogHeader>
+              <div className="flex items-center gap-2 mb-2">
+                <Badge className="bg-red-500 text-white">
+                  🔥 37% OFF - Limited Time
+                </Badge>
+              </div>
               <DialogTitle>Unlock Full Portfolio Access</DialogTitle>
               <DialogDescription>
                 Get lifetime access to {portfolio.displayName}'s complete portfolio data
@@ -546,7 +554,7 @@ export default function PublicPortfolioPage() {
                 {isProcessingPayment ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : null}
-                Pay $29
+                Pay <span className="line-through text-muted-foreground mx-1">$7.99</span> $4.99
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -205,6 +205,132 @@ export default function StartPage() {
             </Card>
           </div>
 
+          {/* Free Tools Section */}
+          <div className="mb-12">
+            <div className="text-center mb-8">
+              <Badge variant="secondary" className="mb-4 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                Free Forever
+              </Badge>
+              <h2 className="text-2xl font-bold mb-2">Free Financial Tools & Calculators</h2>
+              <p className="text-muted-foreground">
+                14 powerful calculators to plan retirement, analyze returns, and crush your debt
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-4 mb-6">
+              {/* Fat FIRE Calculator */}
+              <Link href="/tools/fat-fire-calculator">
+                <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer group">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                        <Flame className="h-5 w-5 text-orange-500" />
+                      </div>
+                      <CardTitle className="text-base group-hover:text-primary transition-colors">Fat FIRE Calculator</CardTitle>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Calculate how much you need to retire with a luxurious lifestyle
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+
+              {/* Barista FIRE Calculator */}
+              <Link href="/tools/barista-fire-calculator">
+                <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer group">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                        <span className="text-lg">☕</span>
+                      </div>
+                      <CardTitle className="text-base group-hover:text-primary transition-colors">Barista FIRE Calculator</CardTitle>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Plan a semi-retirement with part-time income
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+
+              {/* Lean FIRE Calculator */}
+              <Link href="/tools/lean-fire-calculator">
+                <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer group">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                        <span className="text-lg">🌱</span>
+                      </div>
+                      <CardTitle className="text-base group-hover:text-primary transition-colors">Lean FIRE Calculator</CardTitle>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Achieve early retirement on a minimal budget
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+
+              {/* Compound Interest Calculator */}
+              <Link href="/tools/compound-interest-calculator">
+                <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer group">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                        <TrendingUp className="h-5 w-5 text-blue-500" />
+                      </div>
+                      <CardTitle className="text-base group-hover:text-primary transition-colors">Compound Interest</CardTitle>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      See how your money grows over time
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+
+              {/* Investment Return Calculator */}
+              <Link href="/tools/investment-return-calculator">
+                <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer group">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                        <BarChart3 className="h-5 w-5 text-purple-500" />
+                      </div>
+                      <CardTitle className="text-base group-hover:text-primary transition-colors">Investment Return</CardTitle>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Calculate your total investment returns
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+
+              {/* Debt Payoff Calculator */}
+              <Link href="/tools/debt-payoff-calculator">
+                <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer group">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                        <Target className="h-5 w-5 text-red-500" />
+                      </div>
+                      <CardTitle className="text-base group-hover:text-primary transition-colors">Debt Payoff</CardTitle>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Create a plan to become debt-free
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+            </div>
+
+            <div className="text-center">
+              <Link href="/tools">
+                <Button variant="outline" size="lg">
+                  View All 14 Free Tools
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+
           {/* Premium Section */}
           <div className="border-t pt-12">
             <div className="text-center mb-8">
@@ -219,6 +345,11 @@ export default function StartPage() {
             </div>
 
             <Card className="relative overflow-hidden border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+              <div className="absolute top-4 right-4">
+                <Badge className="bg-red-500 text-white">
+                  🔥 37% OFF - Limited Time
+                </Badge>
+              </div>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
@@ -231,7 +362,11 @@ export default function StartPage() {
                     </CardDescription>
                   </div>
                   <div className="text-right">
-                    <p className="text-3xl font-bold text-primary">$29</p>
+                    <div className="flex items-center gap-2 justify-end">
+                      <p className="text-lg line-through text-muted-foreground">$7.99</p>
+                      <p className="text-3xl font-bold text-primary">$4.99</p>
+                    </div>
+                    <p className="text-sm text-green-600 font-medium">Save $3.00!</p>
                     <p className="text-sm text-muted-foreground">one-time</p>
                   </div>
                 </div>

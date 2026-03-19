@@ -23,10 +23,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  TrendingUp,
-  TrendingDown,
-  Lock,
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  Lock, 
   Unlock,
   Loader2,
   CheckCircle2,
@@ -67,51 +67,78 @@ interface PortfolioData {
   portfolioId?: string
 }
 
-const COLORS = ["#22c55e", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#14b8a6"]
-
 export default function PublicPortfolioPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const slug = params.slug as string
-
+  
   // Check if this portfolio requires payment (only Krishna's does)
   const requiresPayment = slug === PAID_PORTFOLIO_SLUG
-
+  
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
+  
   // Payment states (only used for Krishna's portfolio)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [email, setEmail] = useState("")
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
   const [paymentSuccess, setPaymentSuccess] = useState(false)
+  const [isVerifying, setIsVerifying] = useState(false)
 
-  // Check for success callback from Stripe
+  // Verify payment with Stripe when returning from checkout
   useEffect(() => {
-    if (!requiresPayment) return
+    const verifyPayment = async () => {
+      const success = searchParams.get('success')
+      const sessionId = searchParams.get('session_id')
+      const emailParam = searchParams.get('email')
 
-    const success = searchParams.get('success')
-    const emailParam = searchParams.get('email')
-    if (success === 'true' && emailParam) {
-      setEmail(emailParam)
-      setPaymentSuccess(true)
-      // Re-fetch with email to get full access
-      fetchPortfolio(emailParam)
+      if (success === 'true' && sessionId) {
+        setIsVerifying(true)
+        
+        try {
+          // Verify payment with Stripe directly
+          const res = await fetch('/api/verify-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId }),
+          })
+
+          const data = await res.json()
+
+          if (data.verified) {
+            setPaymentSuccess(true)
+            if (emailParam) {
+              setEmail(emailParam)
+            }
+            // Fetch portfolio with verified access
+            await fetchPortfolio(emailParam || data.email)
+          } else {
+            // Payment not complete, fetch normally
+            await fetchPortfolio()
+          }
+        } catch (err) {
+          console.error('Failed to verify payment:', err)
+          await fetchPortfolio()
+        } finally {
+          setIsVerifying(false)
+        }
+      } else {
+        // No payment callback, just fetch portfolio
+        fetchPortfolio()
+      }
     }
-  }, [searchParams, requiresPayment])
 
-  useEffect(() => {
-    fetchPortfolio()
-  }, [slug])
+    verifyPayment()
+  }, [slug, searchParams])
 
   const fetchPortfolio = async (userEmail?: string) => {
     setIsLoading(true)
     setError(null)
-
+    
     try {
       const emailToUse = userEmail || email
-
+      
       // For non-paid portfolios, always fetch full data
       // For paid portfolios, need email to check payment status
       let url: string
@@ -120,7 +147,7 @@ export default function PublicPortfolioPage() {
       } else {
         url = `/api/portfolio-share/public?slug=${slug}`
       }
-
+      
       const res = await fetch(url)
       const data = await res.json()
 
@@ -143,9 +170,9 @@ export default function PublicPortfolioPage() {
 
   const handleUnlock = async () => {
     if (!email) return
-
+    
     setIsProcessingPayment(true)
-
+    
     try {
       const res = await fetch('/api/stripe-checkout', {
         method: 'POST',
@@ -186,10 +213,14 @@ export default function PublicPortfolioPage() {
     return `${value > 0 ? "+" : ""}${value.toFixed(2)}%`
   }
 
-  if (isLoading) {
+  // Show loading while verifying payment
+  if (isVerifying || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        {isVerifying && (
+          <p className="text-muted-foreground">Verifying your payment...</p>
+        )}
       </div>
     )
   }

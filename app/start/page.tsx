@@ -7,14 +7,14 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { 
-  Rocket, 
-  BookOpen, 
-  BarChart3, 
-  Download, 
-  Bell, 
-  Lock, 
-  CheckCircle2, 
+import {
+  Rocket,
+  BookOpen,
+  BarChart3,
+  Download,
+  Bell,
+  Lock,
+  CheckCircle2,
   ArrowRight,
   Loader2,
   Sparkles,
@@ -205,8 +205,86 @@ export default function StartPage() {
             </Card>
           </div>
 
+          {/* Premium Section - MOVED ABOVE FREE TOOLS */}
+          <div className="border-t pt-12 mb-12">
+            <div className="text-center mb-8">
+              <Badge variant="outline" className="mb-4">
+                <Sparkles className="mr-1 h-3 w-3" />
+                Premium
+              </Badge>
+              <h2 className="text-2xl font-bold mb-2">Want to See How I'm Actually Doing It?</h2>
+              <p className="text-muted-foreground">
+                Get access to my real portfolio - every holding, allocation, and return
+              </p>
+            </div>
+
+            <Card className="relative overflow-hidden border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+              <CardHeader>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <Lock className="h-5 w-5 text-primary" />
+                    <div>
+                      <CardTitle className="text-xl">Krishna's Live Portfolio</CardTitle>
+                      <CardDescription>
+                        See exactly what I'm invested in and how it's performing
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <Badge className="bg-red-500 text-white whitespace-nowrap">
+                      🔥 37% OFF
+                    </Badge>
+                    <div className="text-right">
+                      <div className="flex items-center gap-2 justify-end">
+                        <p className="text-lg line-through text-muted-foreground">$7.99</p>
+                        <p className="text-3xl font-bold text-primary">$4.99</p>
+                      </div>
+                      <p className="text-sm text-green-600 font-medium">Save $3.00!</p>
+                      <p className="text-sm text-muted-foreground">one-time</p>
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-2 gap-4 mb-6">
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    All current holdings
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    Dollar amounts & shares
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    Portfolio allocation
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    Performance & returns
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    Cost basis data
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    Lifetime access
+                  </div>
+                </div>
+                <Link href="/u/krishna-amarneni/portfolio">
+                  <Button className="w-full" size="lg">
+                    <TrendingUp className="mr-2 h-4 w-4" />
+                    View Portfolio
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Free Tools Section */}
-          <div className="mb-12">
+          <div className="border-t pt-12 mb-12">
             <div className="text-center mb-8">
               <Badge variant="secondary" className="mb-4 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
                 Free Forever
@@ -330,84 +408,6 @@ export default function StartPage() {
               </Link>
             </div>
           </div>
-
-          {/* Premium Section */}
-          <div className="border-t pt-12">
-            <div className="text-center mb-8">
-              <Badge variant="outline" className="mb-4">
-                <Sparkles className="mr-1 h-3 w-3" />
-                Premium
-              </Badge>
-              <h2 className="text-2xl font-bold mb-2">Want to See How I'm Actually Doing It?</h2>
-              <p className="text-muted-foreground">
-                Get access to my real portfolio - every holding, allocation, and return
-              </p>
-            </div>
-
-            <Card className="relative overflow-hidden border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
-              <div className="absolute top-4 right-4">
-                <Badge className="bg-red-500 text-white">
-                  🔥 37% OFF - Limited Time
-                </Badge>
-              </div>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-xl flex items-center gap-2">
-                      <Lock className="h-5 w-5 text-primary" />
-                      Krishna's Live Portfolio
-                    </CardTitle>
-                    <CardDescription>
-                      See exactly what I'm invested in and how it's performing
-                    </CardDescription>
-                  </div>
-                  <div className="text-right">
-                    <div className="flex items-center gap-2 justify-end">
-                      <p className="text-lg line-through text-muted-foreground">$7.99</p>
-                      <p className="text-3xl font-bold text-primary">$4.99</p>
-                    </div>
-                    <p className="text-sm text-green-600 font-medium">Save $3.00!</p>
-                    <p className="text-sm text-muted-foreground">one-time</p>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-2 gap-4 mb-6">
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    All current holdings
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    Dollar amounts & shares
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    Portfolio allocation
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    Performance & returns
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    Cost basis data
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    Lifetime access
-                  </div>
-                </div>
-                <Link href="/u/krishna-amarneni/portfolio">
-                  <Button className="w-full" size="lg">
-                    <TrendingUp className="mr-2 h-4 w-4" />
-                    View Portfolio
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          </div>
         </div>
       </div>
     )
@@ -462,8 +462,8 @@ export default function StartPage() {
               </div>
 
               <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="book2" 
+                <Checkbox
+                  id="book2"
                   checked={interestedInBook2}
                   onCheckedChange={(checked) => setInterestedInBook2(checked as boolean)}
                 />

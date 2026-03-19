@@ -27,24 +27,41 @@ export async function POST(request: NextRequest) {
     const session = await stripe.checkout.sessions.retrieve(sessionId)
 
     if (session.payment_status === 'paid') {
-      // Update payment record in database
-      const { error } = await supabase
-        .from('portfolio_payments')
-        .update({
-          status: 'completed',
-          stripe_payment_intent: session.payment_intent as string,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('stripe_session_id', sessionId)
+      const email = session.customer_email || session.metadata?.email
+      const portfolioSlug = session.metadata?.portfolioSlug
+      const planType = session.metadata?.planType
 
-      if (error) {
-        console.error('[verify-payment] Failed to update payment:', error)
+      // Update payment record in database
+      if (planType === 'one_time') {
+        await supabase
+          .from('portfolio_payments')
+          .update({
+            status: 'completed',
+            stripe_payment_intent: session.payment_intent as string,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('stripe_session_id', sessionId)
+      }
+
+      // Create or update subscription record
+      if (email && portfolioSlug) {
+        await supabase.from('portfolio_subscriptions').upsert({
+          email: email.toLowerCase(),
+          portfolio_slug: portfolioSlug,
+          stripe_customer_id: session.customer as string,
+          plan_type: planType || 'one_time',
+          status: 'active',
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'email,portfolio_slug',
+        })
       }
 
       return NextResponse.json({
         verified: true,
-        email: session.customer_email,
-        portfolioId: session.metadata?.portfolioId,
+        email: email?.toLowerCase(),
+        portfolioSlug,
+        planType,
       })
     } else {
       return NextResponse.json({

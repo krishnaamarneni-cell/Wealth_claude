@@ -11,7 +11,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const PRICE_CENTS = 50 // $29.00
+const PRICE_CENTS = 2900 // $29.00
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,9 +35,9 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (existingPayment) {
-      return NextResponse.json({
+      return NextResponse.json({ 
         alreadyPaid: true,
-        message: 'You already have access to this portfolio'
+        message: 'You already have access to this portfolio' 
       })
     }
 
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
         },
       ],
       mode: 'payment',
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/u/${slug}/portfolio?success=true&email=${encodeURIComponent(email)}`,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/u/${slug}/portfolio?success=true&email=${encodeURIComponent(email)}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/u/${slug}/portfolio?canceled=true`,
       customer_email: email,
       metadata: {
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       status: 'pending',
     })
 
-    return NextResponse.json({
+    return NextResponse.json({ 
       checkoutUrl: session.url,
       sessionId: session.id,
     })

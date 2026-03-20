@@ -20,21 +20,21 @@ const DEFAULT_STEPS: OnboardingStep[] = [
     id: 'profile',
     title: 'Complete Your Profile',
     description: 'Add your name, username, and preferences',
-    path: '/profile',
+    path: '/dashboard/profile',
     isComplete: false,
   },
   {
     id: 'transactions',
     title: 'Import Transactions',
     description: 'Upload your transaction history from your broker',
-    path: '/transactions',
+    path: '/dashboard/transactions',
     isComplete: false,
   },
   {
     id: 'holdings',
     title: 'View Your Holdings',
-    description: 'See your portfolio holdings and dividends',
-    path: '/holdings',
+    description: 'See your portfolio holdings and performance',
+    path: '/dashboard/holdings',
     tab: 'holdings',
     isComplete: false,
   },
@@ -42,15 +42,23 @@ const DEFAULT_STEPS: OnboardingStep[] = [
     id: 'dividends',
     title: 'Track Dividends',
     description: 'Monitor your dividend income',
-    path: '/holdings',
+    path: '/dashboard/holdings',
     tab: 'dividends',
     isComplete: false,
   },
   {
-    id: 'overview',
+    id: 'portfolio',
+    title: 'Portfolio Overview',
+    description: 'See your complete portfolio summary',
+    path: '/dashboard',
+    tab: 'portfolio',
+    isComplete: false,
+  },
+  {
+    id: 'market',
     title: 'Market Overview',
     description: 'Track money flow across major asset classes',
-    path: '/overview',
+    path: '/dashboard',
     tab: 'market',
     isComplete: false,
   },
@@ -58,14 +66,15 @@ const DEFAULT_STEPS: OnboardingStep[] = [
     id: 'goals',
     title: 'Set Your Goals',
     description: 'Define your financial goals and track progress',
-    path: '/goals',
+    path: '/dashboard/goals',
+    tab: 'goals',
     isComplete: false,
   },
   {
     id: 'compare',
     title: 'Compare Stocks',
     description: 'Compare up to 10 stocks on a chart',
-    path: '/compare',
+    path: '/dashboard/compare',
     tab: 'compare',
     isComplete: false,
   },
@@ -73,7 +82,7 @@ const DEFAULT_STEPS: OnboardingStep[] = [
     id: 'projection',
     title: 'View Projections',
     description: 'See future projections for your investments',
-    path: '/compare',
+    path: '/dashboard/compare',
     tab: 'projection',
     isComplete: false,
   },
@@ -187,7 +196,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     } else {
       // Finished onboarding
       setIsOnboarding(false)
-      router.push('/overview') // Go to main dashboard
+      router.push('/dashboard') // Go to main dashboard
     }
   }
 
@@ -209,14 +218,14 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     } else {
       // Finished onboarding
       setIsOnboarding(false)
-      router.push('/overview')
+      router.push('/dashboard')
     }
   }
 
   // Skip all remaining steps
   const skipAll = () => {
     setIsOnboarding(false)
-    router.push('/overview')
+    router.push('/dashboard')
   }
 
   // Reset onboarding

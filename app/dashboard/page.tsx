@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import {
   TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight,
@@ -11,6 +10,7 @@ import {
 import Link from "next/link"
 import Image from "next/image"
 import { Suspense } from "react"
+import { OnboardingTab } from "@/components/onboarding-spotlight"
 
 // ── Portfolio Tab Components ──────────────────────────────────────────────
 import PortfolioChart from "@/components/portfolio-chart"
@@ -63,6 +63,7 @@ function DashboardSkeleton() {
 
 // ── Main Dashboard ────────────────────────────────────────────────────────
 function DashboardContent() {
+  const [activeTab, setActiveTab] = useState<"portfolio" | "market">("portfolio")
   const {
     holdings,
     portfolioValue,
@@ -105,24 +106,36 @@ function DashboardContent() {
 
   return (
     <div className="p-4 lg:p-6">
-      <Tabs defaultValue="portfolio" className="space-y-6">
+      <div className="space-y-6">
 
         {/* ── Tab Switcher ─────────────────────────────────────────────── */}
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="portfolio" className="flex items-center gap-2">
-            <Briefcase className="h-4 w-4" />
-            My Portfolio
-          </TabsTrigger>
-          <TabsTrigger value="market" className="flex items-center gap-2">
-            <LineChart className="h-4 w-4" />
-            Market Overview
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex gap-2">
+          <OnboardingTab
+            stepId="portfolio"
+            isSelected={activeTab === "portfolio"}
+            onClick={() => setActiveTab("portfolio")}
+          >
+            <div className="flex items-center gap-2">
+              <Briefcase className="h-4 w-4" />
+              My Portfolio
+            </div>
+          </OnboardingTab>
+          <OnboardingTab
+            stepId="overview"
+            isSelected={activeTab === "market"}
+            onClick={() => setActiveTab("market")}
+          >
+            <div className="flex items-center gap-2">
+              <LineChart className="h-4 w-4" />
+              Market Overview
+            </div>
+          </OnboardingTab>
+        </div>
 
         {/* ================================================================
             TAB 1 — MY PORTFOLIO
         ================================================================ */}
-        <TabsContent value="portfolio" className="space-y-6">
+        {activeTab === "portfolio" && (
 
           {/* ── Hero ───────────────────────────────────────────────────── */}
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
@@ -399,12 +412,14 @@ function DashboardContent() {
             </CardContent>
           </Card>
 
-        </TabsContent>
+        )}
 
         {/* ================================================================
             TAB 2 — MARKET OVERVIEW
         ================================================================ */}
-        <TabsContent value="market" className="space-y-6">
+        {activeTab === "market" && (
+
+          <div className="space-y-6">
 
           {/* 1. Scrolling ticker strip */}
           <MarketTicker />
@@ -440,9 +455,10 @@ function DashboardContent() {
             description="Trending stories and market updates"
           />
 
-        </TabsContent>
+          </div>
+        )}
 
-      </Tabs>
+      </div>
     </div>
   )
 }

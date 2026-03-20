@@ -6,6 +6,9 @@ import AnalyticsWrapper from "@/components/Analytics"
 // Analytics is a client component and properly handles ssr: false
 import "./globals.css"
 import { AIChatButtonPublic } from "@/components/ai-chat/chat-button-public"
+import { OnboardingProvider } from "@/lib/onboarding-context"
+import { OnboardingBar } from "@/components/onboarding-bar"
+import { OnboardingWelcome } from "@/components/onboarding-welcome"
 
 const geistSans = Geist({ subsets: ["latin"] })
 const geistMono = Geist_Mono({ subsets: ["latin"] })
@@ -129,7 +132,13 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <OnboardingProvider>
+            <div className="pb-20">
+              {children}
+            </div>
+            <OnboardingWelcome />
+            <OnboardingBar />
+          </OnboardingProvider>
           <AnalyticsWrapper />
           <AIChatButtonPublic />
         </ThemeProvider>

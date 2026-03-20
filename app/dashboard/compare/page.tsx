@@ -17,6 +17,7 @@ import {
   TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import ProjectionTab from "@/components/projection/projection-tab"
+import { OnboardingTab } from "@/components/onboarding-spotlight"
 
 // ── Types ─────────────────────────────────────────────────────────────
 type HistoryPoint = { date: string; price: number }
@@ -724,22 +725,21 @@ export default function ComparePage() {
       </div>
 
       {/* ── Top-level tab bar ──────────────────────────────────── */}
-      <div className="flex gap-0 border-b border-border">
-        {([
-          { key: 'compare', label: 'Compare' },
-          { key: 'projection', label: 'Projection' },
-        ] as { key: PageTab; label: string }[]).map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setPageTab(tab.key)}
-            className={`px-6 py-2.5 text-sm font-medium border-b-2 transition-colors ${pageTab === tab.key
-                ? 'border-primary text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="flex gap-2">
+        <OnboardingTab
+          stepId="compare"
+          isSelected={pageTab === "compare"}
+          onClick={() => setPageTab("compare")}
+        >
+          Compare
+        </OnboardingTab>
+        <OnboardingTab
+          stepId="projection"
+          isSelected={pageTab === "projection"}
+          onClick={() => setPageTab("projection")}
+        >
+          Projection
+        </OnboardingTab>
       </div>
 
       {pageTab === 'compare' && <CompareTab />}

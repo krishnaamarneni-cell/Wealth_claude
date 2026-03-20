@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { RefreshCw, Share2 } from "lucide-react"
 import { usePortfolio } from "@/lib/portfolio-context"
@@ -9,6 +8,7 @@ import HoldingsTab from "@/components/holdings-tab"
 import DividendsTab from "@/components/dividends-tab"
 import StockDetailModal from "@/components/stock-detail-modal"
 import SharePortfolioModal from "@/components/share-portfolio-modal"
+import { OnboardingTab } from "@/components/onboarding-spotlight"
 
 export default function HoldingsPage() {
   const [activeTab, setActiveTab] = useState<"holdings" | "dividends">("holdings")
@@ -55,20 +55,34 @@ export default function HoldingsPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "holdings" | "dividends")}>
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="holdings">Holdings</TabsTrigger>
-          <TabsTrigger value="dividends">Dividends</TabsTrigger>
-        </TabsList>
+      <div className="space-y-6">
+        <div className="flex gap-2">
+          <OnboardingTab
+            stepId="holdings"
+            isSelected={activeTab === "holdings"}
+            onClick={() => setActiveTab("holdings")}
+          >
+            Holdings
+          </OnboardingTab>
+          <OnboardingTab
+            stepId="dividends"
+            isSelected={activeTab === "dividends"}
+            onClick={() => setActiveTab("dividends")}
+          >
+            Dividends
+          </OnboardingTab>
+        </div>
 
-        <TabsContent value="holdings" className="space-y-6 mt-6">
-          <HoldingsTab onStockClick={(symbol) => setSelectedSymbol(symbol)} />
-        </TabsContent>
-
-        <TabsContent value="dividends" className="space-y-6 mt-6">
-          <DividendsTab />
-        </TabsContent>
-      </Tabs>
+        {/* Tab Content */}
+        <div>
+          {activeTab === "holdings" && (
+            <HoldingsTab onStockClick={(symbol) => setSelectedSymbol(symbol)} />
+          )}
+          {activeTab === "dividends" && (
+            <DividendsTab />
+          )}
+        </div>
+      </div>
 
       {/* Stock Detail Modal */}
       <StockDetailModal

@@ -1,8 +1,8 @@
 "use client"
 
+import { usePathname } from 'next/navigation'
 import { useOnboarding } from '@/lib/onboarding-context'
 import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
 import { 
   ChevronRight, 
   ChevronLeft, 
@@ -17,22 +17,26 @@ import {
   BarChart3,
   Target,
   GitCompare,
-  TrendingUp
+  TrendingUp,
+  Briefcase,
+  LineChart
 } from 'lucide-react'
 
-// Icon mapping for each step
+// Icon mapping for each step (9 steps total)
 const stepIcons: Record<string, React.ReactNode> = {
   profile: <User className="h-4 w-4" />,
   transactions: <FileText className="h-4 w-4" />,
   holdings: <Wallet className="h-4 w-4" />,
   dividends: <DollarSign className="h-4 w-4" />,
-  overview: <BarChart3 className="h-4 w-4" />,
+  portfolio: <Briefcase className="h-4 w-4" />,
+  market: <LineChart className="h-4 w-4" />,
   goals: <Target className="h-4 w-4" />,
   compare: <GitCompare className="h-4 w-4" />,
   projection: <TrendingUp className="h-4 w-4" />,
 }
 
 export function OnboardingBar() {
+  const pathname = usePathname()
   const {
     isOnboarding,
     currentStepIndex,
@@ -45,7 +49,10 @@ export function OnboardingBar() {
     skipAll,
   } = useOnboarding()
 
-  if (!isOnboarding || !currentStep) return null
+  // Only show on dashboard pages
+  const isOnDashboard = pathname?.startsWith('/dashboard')
+  
+  if (!isOnboarding || !currentStep || !isOnDashboard) return null
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t shadow-lg">

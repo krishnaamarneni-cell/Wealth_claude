@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import { useOnboarding } from '@/lib/onboarding-context'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,31 +25,46 @@ import {
 } from 'lucide-react'
 
 const WELCOME_STORAGE_KEY = 'wealthclaude_welcome_shown'
+const SIGNUP_FLAG_KEY = 'wealthclaude_just_signed_up'
+
+// Only show onboarding on these paths (authenticated pages)
+const DASHBOARD_PATHS = ['/dashboard']
 
 export function OnboardingWelcome() {
   const { startOnboarding, isOnboarding } = useOnboarding()
   const [showWelcome, setShowWelcome] = useState(false)
+  const pathname = usePathname()
 
   useEffect(() => {
-    // Check if this is first visit
+    // Only show on dashboard pages (means user is logged in)
+    const isOnDashboard = pathname?.startsWith('/dashboard')
+    if (!isOnDashboard) return
+
+    // Check if user just signed up (set this flag in your signup flow)
+    const justSignedUp = localStorage.getItem(SIGNUP_FLAG_KEY)
+    
+    // Check if this user has already seen the welcome
     const hasSeenWelcome = localStorage.getItem(WELCOME_STORAGE_KEY)
+    
+    // Show welcome if: on dashboard + (just signed up OR never seen welcome) + not already onboarding
     if (!hasSeenWelcome && !isOnboarding) {
-      // Small delay for better UX
       const timer = setTimeout(() => {
         setShowWelcome(true)
       }, 500)
       return () => clearTimeout(timer)
     }
-  }, [isOnboarding])
+  }, [isOnboarding, pathname])
 
   const handleStartTour = () => {
     localStorage.setItem(WELCOME_STORAGE_KEY, 'true')
+    localStorage.removeItem(SIGNUP_FLAG_KEY) // Clear signup flag
     setShowWelcome(false)
     startOnboarding()
   }
 
   const handleSkip = () => {
     localStorage.setItem(WELCOME_STORAGE_KEY, 'true')
+    localStorage.removeItem(SIGNUP_FLAG_KEY) // Clear signup flag
     setShowWelcome(false)
   }
 

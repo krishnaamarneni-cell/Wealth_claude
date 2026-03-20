@@ -28,9 +28,9 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp"
-import { 
-  TrendingUp, 
-  Lock, 
+import {
+  TrendingUp,
+  Lock,
   Unlock,
   Loader2,
   CheckCircle2,
@@ -105,7 +105,7 @@ function generateDeviceFingerprint(): string {
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')
   ctx?.fillText('fingerprint', 10, 10)
-  
+
   const components = [
     navigator.userAgent,
     navigator.language,
@@ -114,7 +114,7 @@ function generateDeviceFingerprint(): string {
     new Date().getTimezoneOffset(),
     canvas.toDataURL(),
   ]
-  
+
   // Simple hash
   let hash = 0
   const str = components.join('|')
@@ -123,7 +123,7 @@ function generateDeviceFingerprint(): string {
     hash = ((hash << 5) - hash) + char
     hash = hash & hash
   }
-  
+
   return Math.abs(hash).toString(36)
 }
 
@@ -132,12 +132,12 @@ function getStoredSession(slug: string): SessionData | null {
   try {
     const stored = localStorage.getItem(SESSION_STORAGE_KEY)
     if (!stored) return null
-    
+
     const sessions = JSON.parse(stored)
     const session = sessions[slug]
-    
+
     if (!session) return null
-    
+
     // Check expiry
     if (new Date(session.expiresAt) < new Date()) {
       // Expired, remove it
@@ -145,7 +145,7 @@ function getStoredSession(slug: string): SessionData | null {
       localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessions))
       return null
     }
-    
+
     // Verify device fingerprint
     const currentFingerprint = generateDeviceFingerprint()
     if (session.deviceFingerprint !== currentFingerprint) {
@@ -154,7 +154,7 @@ function getStoredSession(slug: string): SessionData | null {
       localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessions))
       return null
     }
-    
+
     return session
   } catch {
     return null
@@ -194,13 +194,13 @@ export default function SecurePortfolioPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const slug = params.slug as string
-  
+
   const requiresPayment = slug === PAID_PORTFOLIO_SLUG
 
   // =============================================
   // STATE
   // =============================================
-  
+
   // Auth state
   const [authStep, setAuthStep] = useState<'loading' | 'email' | 'code' | 'authenticated' | 'payment'>('loading')
   const [email, setEmail] = useState("")
@@ -208,21 +208,21 @@ export default function SecurePortfolioPage() {
   const [maskedEmail, setMaskedEmail] = useState("")
   const [sessionToken, setSessionToken] = useState<string | null>(null)
   const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null)
-  
+
   // Loading states
   const [isSendingCode, setIsSendingCode] = useState(false)
   const [isVerifyingCode, setIsVerifyingCode] = useState(false)
   const [isCheckingSubscription, setIsCheckingSubscription] = useState(false)
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
-  
+
   // Data state
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(null)
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null)
   const [hasAccess, setHasAccess] = useState(false)
-  
+
   // Error state
   const [error, setError] = useState<string | null>(null)
-  
+
   // Security state
   const [isBlurred, setIsBlurred] = useState(false)
   const [codeExpiresIn, setCodeExpiresIn] = useState<number>(0)
@@ -350,7 +350,7 @@ export default function SecurePortfolioPage() {
   // =============================================
   const handlePaymentCallback = async (sessionId: string) => {
     setAuthStep('loading')
-    
+
     try {
       // Verify payment with Stripe
       const res = await fetch('/api/verify-payment', {
@@ -365,7 +365,7 @@ export default function SecurePortfolioPage() {
         // Create a new session for this verified user
         const deviceFingerprint = generateDeviceFingerprint()
         const expiresAt = new Date(Date.now() + SESSION_DURATION_MS)
-        
+
         // Generate session token
         const tokenRes = await fetch('/api/verify-code', {
           method: 'POST',
@@ -387,13 +387,13 @@ export default function SecurePortfolioPage() {
           expiresAt: expiresAt.toISOString(),
           deviceFingerprint,
         }
-        
+
         storeSession(newSession)
         setSessionToken(sessionId)
         setVerifiedEmail(data.email)
         setSessionExpiresAt(expiresAt)
         setHasAccess(true)
-        
+
         // Fetch portfolio
         await fetchPortfolio(data.email)
         setAuthStep('authenticated')
@@ -414,7 +414,7 @@ export default function SecurePortfolioPage() {
   // =============================================
   const sendVerificationCode = async () => {
     if (!email) return
-    
+
     setIsSendingCode(true)
     setError(null)
 
@@ -449,13 +449,13 @@ export default function SecurePortfolioPage() {
   // =============================================
   const verifyCode = async () => {
     if (verificationCode.length !== 6) return
-    
+
     setIsVerifyingCode(true)
     setError(null)
 
     try {
       const deviceFingerprint = generateDeviceFingerprint()
-      
+
       const res = await fetch('/api/verify-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -481,7 +481,7 @@ export default function SecurePortfolioPage() {
         expiresAt: data.expiresAt,
         deviceFingerprint,
       }
-      
+
       storeSession(session)
       setSessionToken(data.sessionToken)
       setVerifiedEmail(email.toLowerCase().trim())
@@ -678,8 +678,8 @@ export default function SecurePortfolioPage() {
               </div>
             </div>
 
-            <Button 
-              className="w-full" 
+            <Button
+              className="w-full"
               onClick={sendVerificationCode}
               disabled={isSendingCode || !email}
             >
@@ -755,8 +755,8 @@ export default function SecurePortfolioPage() {
               </div>
             )}
 
-            <Button 
-              className="w-full" 
+            <Button
+              className="w-full"
               onClick={verifyCode}
               disabled={isVerifyingCode || verificationCode.length !== 6}
             >
@@ -774,7 +774,7 @@ export default function SecurePortfolioPage() {
             </Button>
 
             <div className="flex justify-between text-sm">
-              <button 
+              <button
                 className="text-muted-foreground hover:text-foreground"
                 onClick={() => {
                   setAuthStep('email')
@@ -784,7 +784,7 @@ export default function SecurePortfolioPage() {
               >
                 ← Use different email
               </button>
-              <button 
+              <button
                 className="text-primary hover:underline"
                 onClick={sendVerificationCode}
                 disabled={isSendingCode}
@@ -840,7 +840,7 @@ export default function SecurePortfolioPage() {
                   <span className="text-3xl font-bold">$4.99</span>
                   <span className="text-muted-foreground ml-1">one-time</span>
                 </div>
-                
+
                 <ul className="space-y-2 text-sm">
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -860,8 +860,8 @@ export default function SecurePortfolioPage() {
                   </li>
                 </ul>
 
-                <Button 
-                  className="w-full" 
+                <Button
+                  className="w-full"
                   variant="outline"
                   onClick={() => handlePayment('one_time')}
                   disabled={isProcessingPayment}
@@ -893,7 +893,7 @@ export default function SecurePortfolioPage() {
                   <span className="text-3xl font-bold">$2.99</span>
                   <span className="text-muted-foreground ml-1">/month</span>
                 </div>
-                
+
                 <ul className="space-y-2 text-sm">
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -913,7 +913,7 @@ export default function SecurePortfolioPage() {
                   </li>
                 </ul>
 
-                <Button 
+                <Button
                   className="w-full"
                   onClick={() => handlePayment('monthly')}
                   disabled={isProcessingPayment}
@@ -927,59 +927,79 @@ export default function SecurePortfolioPage() {
             </Card>
           </div>
 
-          {/* Limited Preview */}
-          {portfolio && (
-            <Card className="mt-8 max-w-2xl mx-auto">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Eye className="h-5 w-5" />
-                  Limited Preview
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="p-4 bg-muted rounded-lg text-center">
-                    <p className="text-sm text-muted-foreground">Total Return</p>
-                    <p className={`text-2xl font-bold ${portfolio.totalGainPercent >= 0 ? "text-green-600" : "text-red-600"}`}>
-                      {formatPercent(portfolio.totalGainPercent)}
-                    </p>
-                  </div>
-                  <div className="p-4 bg-muted rounded-lg text-center">
-                    <p className="text-sm text-muted-foreground">Holdings</p>
-                    <p className="text-2xl font-bold">{portfolio.holdings.length}</p>
-                  </div>
+          {/* Limited Preview - MOCK DATA */}
+          <Card className="mt-8 max-w-2xl mx-auto">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                Limited Preview
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="p-4 bg-muted rounded-lg text-center">
+                  <p className="text-sm text-muted-foreground">Total Return</p>
+                  <p className="text-2xl font-bold text-green-600">+120.47%</p>
                 </div>
-                
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background flex items-end justify-center pb-4 z-10">
-                    <Lock className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Symbol</TableHead>
-                        <TableHead>Return</TableHead>
-                        <TableHead className="text-muted-foreground">Shares</TableHead>
-                        <TableHead className="text-muted-foreground">Value</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {portfolio.holdings.slice(0, 3).map((h) => (
-                        <TableRow key={h.symbol}>
-                          <TableCell className="font-medium">{h.symbol}</TableCell>
-                          <TableCell className={h.totalGainPercent >= 0 ? "text-green-600" : "text-red-600"}>
-                            {formatPercent(h.totalGainPercent)}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">•••</TableCell>
-                          <TableCell className="text-muted-foreground">•••</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                <div className="p-4 bg-muted rounded-lg text-center">
+                  <p className="text-sm text-muted-foreground">Holdings</p>
+                  <p className="text-2xl font-bold">10</p>
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background flex items-end justify-center pb-4 z-10">
+                  <Lock className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Symbol</TableHead>
+                      <TableHead>Return</TableHead>
+                      <TableHead className="text-muted-foreground">Shares</TableHead>
+                      <TableHead className="text-muted-foreground">Value</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell className="font-medium">NVDA</TableCell>
+                      <TableCell className="text-green-600">+285.32%</TableCell>
+                      <TableCell className="text-muted-foreground">•••</TableCell>
+                      <TableCell className="text-muted-foreground">•••</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">TSLA</TableCell>
+                      <TableCell className="text-green-600">+142.18%</TableCell>
+                      <TableCell className="text-muted-foreground">•••</TableCell>
+                      <TableCell className="text-muted-foreground">•••</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">AAPL</TableCell>
+                      <TableCell className="text-green-600">+89.45%</TableCell>
+                      <TableCell className="text-muted-foreground">•••</TableCell>
+                      <TableCell className="text-muted-foreground">•••</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">GOOGL</TableCell>
+                      <TableCell className="text-green-600">+76.21%</TableCell>
+                      <TableCell className="text-muted-foreground">•••</TableCell>
+                      <TableCell className="text-muted-foreground">•••</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">AMZN</TableCell>
+                      <TableCell className="text-green-600">+54.67%</TableCell>
+                      <TableCell className="text-muted-foreground">•••</TableCell>
+                      <TableCell className="text-muted-foreground">•••</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+
+              <p className="text-center text-xs text-muted-foreground mt-4">
+                + 5 more holdings hidden • Unlock to see all details
+              </p>
+            </CardContent>
+          </Card>
         </div>
       </div>
     )
@@ -1003,7 +1023,7 @@ export default function SecurePortfolioPage() {
         )}
 
         {/* Watermark */}
-        <div 
+        <div
           className="fixed inset-0 pointer-events-none z-40 opacity-[0.03] select-none"
           style={{
             backgroundImage: `repeating-linear-gradient(

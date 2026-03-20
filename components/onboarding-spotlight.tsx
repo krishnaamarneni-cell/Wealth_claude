@@ -11,10 +11,10 @@ interface OnboardingSpotlightProps {
   position?: 'top' | 'bottom' | 'left' | 'right'
 }
 
-export function OnboardingSpotlight({ 
-  stepId, 
-  children, 
-  position = 'bottom' 
+export function OnboardingSpotlight({
+  stepId,
+  children,
+  position = 'bottom'
 }: OnboardingSpotlightProps) {
   const { isOnboarding, currentStep } = useOnboarding()
   const [showPulse, setShowPulse] = useState(false)
@@ -50,7 +50,7 @@ export function OnboardingSpotlight({
         bg-primary/20 ring-2 ring-primary ring-offset-2 ring-offset-background
         pointer-events-none
       `} />
-      
+
       {/* Arrow and tooltip */}
       <div className={`
         absolute ${positionClasses[position]} left-1/2 -translate-x-1/2
@@ -81,10 +81,10 @@ interface OnboardingTabProps {
   className?: string
 }
 
-export function OnboardingTab({ 
-  stepId, 
-  isSelected, 
-  onClick, 
+export function OnboardingTab({
+  stepId,
+  isSelected,
+  onClick,
   children,
   className = ''
 }: OnboardingTabProps) {
@@ -103,8 +103,8 @@ export function OnboardingTab({
       onClick={handleClick}
       className={`
         relative px-4 py-2 rounded-lg transition-all
-        ${isSelected 
-          ? 'bg-primary text-primary-foreground' 
+        ${isSelected
+          ? 'bg-primary text-primary-foreground'
           : 'bg-muted text-muted-foreground hover:text-foreground'
         }
         ${isHighlighted ? 'ring-2 ring-primary ring-offset-2 animate-pulse' : ''}
@@ -112,7 +112,7 @@ export function OnboardingTab({
       `}
     >
       {children}
-      
+
       {/* Spotlight indicator */}
       {isHighlighted && !isSelected && (
         <span className="absolute -top-1 -right-1 flex h-3 w-3">

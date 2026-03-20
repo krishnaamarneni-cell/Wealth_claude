@@ -136,9 +136,9 @@ function DashboardContent() {
             TAB 1 — MY PORTFOLIO
         ================================================================ */}
         {activeTab === "portfolio" && (
-
-          {/* ── Hero ───────────────────────────────────────────────────── */}
-          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+          <div className="space-y-6">
+            {/* ── Hero ───────────────────────────────────────────────────── */}
+            <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
             <div>
               <p className="text-muted-foreground mb-1 text-sm">Total Portfolio Value</p>
               <h1 className="text-4xl font-bold">{formatCurrency(safeTotal)}</h1>
@@ -411,7 +411,7 @@ function DashboardContent() {
               )}
             </CardContent>
           </Card>
-
+          </div>
         )}
 
         {/* ================================================================

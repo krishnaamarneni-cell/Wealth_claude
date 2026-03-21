@@ -9,8 +9,10 @@ import { DebtTracker } from "@/components/goals/DebtTracker"
 import { FinancialOverview } from "@/components/goals/FinancialOverview"
 import type { Asset, Debt, DebtType } from "@/components/goals/types"
 import { fetchJSON, dbToDebtType } from "@/components/goals/hooks"
+import { TierGate } from "@/components/tier-gate"
 
-export default function GoalsPage() {
+// ─── Goals Content Component ─────────────────────────────────────────────────
+function GoalsContent() {
   const portfolioContext = usePortfolio()
   const [activeTab, setActiveTab] = useState("goals")
 
@@ -219,5 +221,14 @@ export default function GoalsPage() {
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+// ─── Main Page Export with TierGate ──────────────────────────────────────────
+export default function GoalsPage() {
+  return (
+    <TierGate requiredTier="pro">
+      <GoalsContent />
+    </TierGate>
   )
 }

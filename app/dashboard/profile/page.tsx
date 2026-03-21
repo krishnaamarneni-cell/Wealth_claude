@@ -1,267 +1,397 @@
-"use client"
+'use client'
 
-import { useState, useEffect, useRef } from "react"
-import { Camera, Mail, User, Clock, MapPin, DollarSign, FileText } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { toast } from "sonner"
-import { getProfileFromStorage, saveProfileToStorage } from "@/lib/profile-storage"
-
-const TIMEZONES = [
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "Europe/London",
-  "Europe/Paris",
-  "Asia/Tokyo",
-  "Asia/Shanghai",
-  "Asia/Kolkata",
-  "Australia/Sydney",
-]
-
-const CURRENCIES = ["USD", "EUR", "GBP", "JPY", "INR", "AUD", "CAD", "CHF"]
-
-interface ProfileData {
-  fullName: string
-  username: string
-  email: string
-  bio: string
-  timezone: string
-  currency: string
-  avatar: string
-  memberSince: string
-}
-
-const DEFAULT_PROFILE: ProfileData = {
-  fullName: "",
-  username: "",
-  email: "user@example.com",
-  bio: "",
-  timezone: "America/New_York",
-  currency: "USD",
-  avatar: "",
-  memberSince: new Date().toISOString(),
-}
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase'
+import { useTier } from '@/lib/tier-context'
+import { usePortfolio } from '@/lib/portfolio-context'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { 
+  Loader2, 
+  User, 
+  Mail, 
+  Zap, 
+  Crown, 
+  CreditCard, 
+  Calendar,
+  TrendingUp,
+  Wallet,
+  PieChart,
+  Sparkles,
+  AlertCircle,
+  Check,
+  ExternalLink
+} from 'lucide-react'
+import { PRICING } from '@/lib/tier-config'
+import { UpgradeModal } from '@/components/upgrade-modal'
+import { cn } from '@/lib/utils'
 
 export default function ProfilePage() {
-  const [profile, setProfile] = useState<ProfileData>(DEFAULT_PROFILE)
-  const [isSaving, setIsSaving] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
+  const supabase = createClient()
+  const router = useRouter()
+  const { tier, isTrialing, trialEndsAt, currentPeriodEnd, cancelAtPeriodEnd, subscriptionStatus, refreshTier } = useTier()
+  const { portfolioData } = usePortfolio()
 
+  const [user, setUser] = useState<any>(null)
+  const [profile, setProfile] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [fullName, setFullName] = useState('')
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [cancelingSubscription, setCancelingSubscription] = useState(false)
+  const [resumingSubscription, setResumingSubscription] = useState(false)
+
+  // Fetch user and profile
   useEffect(() => {
-    const loadProfile = async () => {
-      const saved = await getProfileFromStorage()
-      if (saved) setProfile(saved)
-    }
-    loadProfile()
-  }, [])
+    const fetchData = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        setUser(user)
 
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', user.id)
+            .single()
+
+          if (profile) {
+            setProfile(profile)
+            setFullName(profile.full_name || '')
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching profile:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [supabase])
+
+  // Save profile
   const handleSave = async () => {
-    setIsSaving(true)
-    await new Promise((r) => setTimeout(r, 600)) // simulate save
-    await saveProfileToStorage(profile)
-    setIsSaving(false)
-    toast.success("Profile saved successfully")
-  }
+    if (!user) return
+    setSaving(true)
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      setProfile((p) => ({ ...p, avatar: reader.result as string }))
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({
+          user_id: user.id,
+          full_name: fullName,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' })
+
+      if (error) throw error
+      
+      setProfile({ ...profile, full_name: fullName })
+    } catch (error) {
+      console.error('Error saving profile:', error)
+      alert('Failed to save profile')
+    } finally {
+      setSaving(false)
     }
-    reader.readAsDataURL(file)
   }
 
-  const initials = profile.fullName
-    ? profile.fullName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
-    : "U"
+  // Cancel subscription
+  const handleCancelSubscription = async () => {
+    if (!confirm('Are you sure you want to cancel? You\'ll keep access until the end of your billing period.')) {
+      return
+    }
+
+    setCancelingSubscription(true)
+    try {
+      const response = await fetch('/api/cancel-subscription', { method: 'POST' })
+      const data = await response.json()
+
+      if (data.error) throw new Error(data.error)
+
+      await refreshTier()
+      alert('Subscription will be canceled at the end of your billing period.')
+    } catch (error) {
+      console.error('Error canceling:', error)
+      alert('Failed to cancel subscription')
+    } finally {
+      setCancelingSubscription(false)
+    }
+  }
+
+  // Resume subscription
+  const handleResumeSubscription = async () => {
+    setResumingSubscription(true)
+    try {
+      const response = await fetch('/api/cancel-subscription', { method: 'DELETE' })
+      const data = await response.json()
+
+      if (data.error) throw new Error(data.error)
+
+      await refreshTier()
+      alert('Subscription resumed!')
+    } catch (error) {
+      console.error('Error resuming:', error)
+      alert('Failed to resume subscription')
+    } finally {
+      setResumingSubscription(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  const TierIcon = tier === 'premium' ? Crown : tier === 'pro' ? Zap : User
+  const tierColor = tier === 'premium' ? 'text-yellow-500' : tier === 'pro' ? 'text-primary' : 'text-muted-foreground'
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-3xl">
-
-      {/* ── Header ── */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Manage your personal information and preferences
-        </p>
+    <div className="container max-w-4xl mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-2xl font-bold text-primary">
+          {fullName ? fullName.charAt(0).toUpperCase() : user?.email?.charAt(0).toUpperCase()}
+        </div>
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold">{fullName || 'Welcome!'}</h1>
+          <p className="text-muted-foreground">{user?.email}</p>
+        </div>
+        <div className={cn(
+          "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium",
+          tier === 'premium' && "bg-yellow-500/10 text-yellow-600",
+          tier === 'pro' && "bg-primary/10 text-primary",
+          tier === 'free' && "bg-muted text-muted-foreground"
+        )}>
+          <TierIcon className="w-4 h-4" />
+          {PRICING[tier].name}
+          {isTrialing && <span className="text-xs">(Trial)</span>}
+        </div>
       </div>
 
-      {/* ── Avatar + Name Card ── */}
-      <div className="rounded-xl border bg-card p-6 flex items-center gap-6">
-        {/* Avatar */}
-        <div className="relative shrink-0">
-          <div
-            className="h-20 w-20 rounded-full bg-primary flex items-center justify-center overflow-hidden cursor-pointer ring-2 ring-border hover:ring-primary transition-all"
-            onClick={() => fileRef.current?.click()}
-          >
-            {profile.avatar ? (
-              <img src={profile.avatar} alt="avatar" className="h-full w-full object-cover" />
+      {/* Stats */}
+      {portfolioData && (
+        <div className="grid grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-green-500/10">
+                  <Wallet className="w-5 h-5 text-green-500" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Portfolio Value</p>
+                  <p className="text-xl font-bold">
+                    ${portfolioData.totalValue?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-500/10">
+                  <PieChart className="w-5 h-5 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Holdings</p>
+                  <p className="text-xl font-bold">{portfolioData.holdings?.length || 0}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "p-2 rounded-lg",
+                  (portfolioData.totalGainPercent || 0) >= 0 ? "bg-green-500/10" : "bg-red-500/10"
+                )}>
+                  <TrendingUp className={cn(
+                    "w-5 h-5",
+                    (portfolioData.totalGainPercent || 0) >= 0 ? "text-green-500" : "text-red-500"
+                  )} />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Return</p>
+                  <p className={cn(
+                    "text-xl font-bold",
+                    (portfolioData.totalGainPercent || 0) >= 0 ? "text-green-500" : "text-red-500"
+                  )}>
+                    {(portfolioData.totalGainPercent || 0) >= 0 ? '+' : ''}{portfolioData.totalGainPercent?.toFixed(2) || '0.00'}%
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Subscription Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="w-5 h-5" />
+            Subscription
+          </CardTitle>
+          <CardDescription>Manage your plan and billing</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Current Plan */}
+          <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "p-2 rounded-lg",
+                tier === 'premium' && "bg-yellow-500/10",
+                tier === 'pro' && "bg-primary/10",
+                tier === 'free' && "bg-muted"
+              )}>
+                <TierIcon className={cn("w-5 h-5", tierColor)} />
+              </div>
+              <div>
+                <p className="font-semibold">{PRICING[tier].name} Plan</p>
+                <p className="text-sm text-muted-foreground">
+                  {tier === 'free' ? 'Free forever' : `$${PRICING[tier].monthlyPrice}/month`}
+                </p>
+              </div>
+            </div>
+
+            {tier === 'free' ? (
+              <Button onClick={() => setShowUpgradeModal(true)}>
+                <Sparkles className="w-4 h-4 mr-2" />
+                Upgrade
+              </Button>
             ) : (
-              <span className="text-2xl font-bold text-primary-foreground">{initials}</span>
+              <Button variant="outline" onClick={() => setShowUpgradeModal(true)}>
+                Change Plan
+              </Button>
             )}
           </div>
-          <button
-            onClick={() => fileRef.current?.click()}
-            className="absolute bottom-0 right-0 h-6 w-6 rounded-full bg-primary border-2 border-background flex items-center justify-center hover:scale-110 transition-transform"
-          >
-            <Camera className="h-3 w-3 text-primary-foreground" />
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleAvatarChange}
-          />
-        </div>
 
-        {/* Name + meta */}
-        <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold">
-            {profile.fullName || "Your Name"}
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            @{profile.username || "username"}
-          </p>
-          <div className="flex items-center gap-2 mt-1">
-            <Badge variant="outline" className="text-xs">
-              {profile.currency}
-            </Badge>
-            <Badge variant="outline" className="text-xs">
-              {profile.timezone}
-            </Badge>
+          {/* Trial/Billing Info */}
+          {tier !== 'free' && (
+            <div className="space-y-3">
+              {isTrialing && trialEndsAt && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-500/10 text-blue-600">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="text-sm">
+                    Trial ends {trialEndsAt.toLocaleDateString()}
+                  </span>
+                </div>
+              )}
+
+              {cancelAtPeriodEnd && currentPeriodEnd && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/10 text-yellow-600">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="text-sm">
+                    Your subscription will end on {currentPeriodEnd.toLocaleDateString()}
+                  </span>
+                </div>
+              )}
+
+              {currentPeriodEnd && !cancelAtPeriodEnd && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Calendar className="w-4 h-4" />
+                  <span>Next billing date: {currentPeriodEnd.toLocaleDateString()}</span>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                {cancelAtPeriodEnd ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleResumeSubscription}
+                    disabled={resumingSubscription}
+                  >
+                    {resumingSubscription ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <Check className="w-4 h-4 mr-2" />
+                    )}
+                    Resume Subscription
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleCancelSubscription}
+                    disabled={cancelingSubscription}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    {cancelingSubscription ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : null}
+                    Cancel Subscription
+                  </Button>
+                )}
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => window.open('https://billing.stripe.com/p/login/test_xxx', '_blank')}
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Manage Billing
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Profile Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="w-5 h-5" />
+            Profile Settings
+          </CardTitle>
+          <CardDescription>Update your personal information</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Email</label>
+            <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/30">
+              <Mail className="w-4 h-4 text-muted-foreground" />
+              <span>{user?.email}</span>
+            </div>
           </div>
-        </div>
 
-        {/* Member since */}
-        <div className="ml-auto text-right">
-          <p className="text-xs text-muted-foreground">Member since</p>
-          <p className="text-sm font-medium">
-            {new Date(profile.memberSince).toLocaleDateString("en-US", {
-              month: "long",
-              year: "numeric",
-            })}
-          </p>
-        </div>
-      </div>
-
-      {/* ── Form ── */}
-      <div className="rounded-xl border bg-card p-6 space-y-5">
-        <h3 className="text-sm font-semibold border-b pb-3">Personal Information</h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Full Name */}
-          <div className="space-y-1.5">
-            <Label className="flex items-center gap-1.5">
-              <User className="h-3.5 w-3.5" /> Full Name
-            </Label>
+          <div>
+            <label className="block text-sm font-medium mb-2">Display Name</label>
             <Input
-              placeholder="John Doe"
-              value={profile.fullName}
-              onChange={(e) => setProfile((p) => ({ ...p, fullName: e.target.value }))}
+              type="text"
+              placeholder="Your name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
             />
           </div>
 
-          {/* Username */}
-          <div className="space-y-1.5">
-            <Label className="flex items-center gap-1.5">
-              <User className="h-3.5 w-3.5" /> Username
-            </Label>
-            <Input
-              placeholder="johndoe"
-              value={profile.username}
-              onChange={(e) => setProfile((p) => ({ ...p, username: e.target.value }))}
-            />
-          </div>
-
-          {/* Email — read only */}
-          <div className="space-y-1.5">
-            <Label className="flex items-center gap-1.5">
-              <Mail className="h-3.5 w-3.5" /> Email
-              <Badge variant="secondary" className="text-xs ml-1">Read-only</Badge>
-            </Label>
-            <Input
-              value={profile.email}
-              disabled
-              className="opacity-60 cursor-not-allowed"
-            />
-          </div>
-
-          {/* Currency */}
-          <div className="space-y-1.5">
-            <Label className="flex items-center gap-1.5">
-              <DollarSign className="h-3.5 w-3.5" /> Default Currency
-            </Label>
-            <Select
-              value={profile.currency}
-              onValueChange={(val) => setProfile((p) => ({ ...p, currency: val }))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CURRENCIES.map((c) => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Timezone */}
-          <div className="space-y-1.5 md:col-span-2">
-            <Label className="flex items-center gap-1.5">
-              <Clock className="h-3.5 w-3.5" /> Timezone
-            </Label>
-            <Select
-              value={profile.timezone}
-              onValueChange={(val) => setProfile((p) => ({ ...p, timezone: val }))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TIMEZONES.map((tz) => (
-                  <SelectItem key={tz} value={tz}>{tz}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Bio */}
-          <div className="space-y-1.5 md:col-span-2">
-            <Label className="flex items-center gap-1.5">
-              <FileText className="h-3.5 w-3.5" /> Bio
-            </Label>
-            <Textarea
-              placeholder="Tell us a little about yourself..."
-              className="resize-none"
-              rows={3}
-              value={profile.bio}
-              onChange={(e) => setProfile((p) => ({ ...p, bio: e.target.value }))}
-            />
-          </div>
-        </div>
-
-        <div className="flex justify-end pt-2">
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? "Saving..." : "Save Changes"}
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Save Changes'
+            )}
           </Button>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
+
+      {/* Upgrade Modal */}
+      <UpgradeModal 
+        open={showUpgradeModal} 
+        onClose={() => setShowUpgradeModal(false)} 
+      />
     </div>
   )
 }

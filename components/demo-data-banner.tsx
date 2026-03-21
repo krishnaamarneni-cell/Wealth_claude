@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { 
   Sparkles, 
@@ -15,13 +14,11 @@ import {
 interface DemoDataBannerProps {
   onClear?: () => void
   onImport?: () => void
-  showOnPages?: ('transactions' | 'holdings' | 'dashboard' | 'all')[]
 }
 
 export function DemoDataBanner({ 
   onClear, 
   onImport,
-  showOnPages = ['all']
 }: DemoDataBannerProps) {
   const router = useRouter()
   const [isClearing, setIsClearing] = useState(false)
@@ -75,26 +72,28 @@ export function DemoDataBanner({
   }
 
   return (
-    <Alert className="bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-green-500/10 border-purple-500/30 mb-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <Sparkles className="h-5 w-5 text-purple-500 mt-0.5 flex-shrink-0" />
-          <AlertDescription className="text-sm">
+    <div className="mb-6 rounded-lg border border-purple-500/30 bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-green-500/10 p-4">
+      <div className="flex items-center justify-between gap-4">
+        {/* Left side - Icon and text */}
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-purple-500/20">
+            <Sparkles className="h-4 w-4 text-purple-400" />
+          </div>
+          <div className="text-sm">
             <span className="font-semibold text-foreground">This is sample data</span>
-            <span className="text-muted-foreground ml-1">
-              — showing you what WealthClaude can do. Import your own transactions or clear the demo to start fresh.
-            </span>
-          </AlertDescription>
+            <span className="text-muted-foreground"> — showing you what WealthClaude can do.</span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0">
+        {/* Right side - Buttons */}
+        <div className="flex items-center gap-2 shrink-0">
           <Button
             variant="outline"
             size="sm"
             onClick={handleImportClick}
-            className="gap-2 bg-background/50 hover:bg-background"
+            className="gap-1.5 text-xs"
           >
-            <Upload className="h-4 w-4" />
+            <Upload className="h-3.5 w-3.5" />
             Import Your Data
           </Button>
           
@@ -103,12 +102,12 @@ export function DemoDataBanner({
             size="sm"
             onClick={handleClearDemo}
             disabled={isClearing}
-            className="gap-2 text-muted-foreground hover:text-destructive"
+            className="gap-1.5 text-xs text-muted-foreground hover:text-destructive"
           >
             {isClearing ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-3.5 w-3.5" />
             )}
             Clear Demo
           </Button>
@@ -117,14 +116,14 @@ export function DemoDataBanner({
             variant="ghost"
             size="icon"
             onClick={() => setIsDismissed(true)}
-            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-            title="Dismiss banner"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            title="Dismiss"
           >
-            <X className="h-4 w-4" />
+            <X className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
-    </Alert>
+    </div>
   )
 }
 

@@ -17,10 +17,13 @@ import {
   BookOpen,
   Zap,
   Bot,
+  Lock,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { createClient } from "@/lib/supabase"
+import { useTier } from "@/lib/tier-context"
+import { UpgradeModal } from "@/components/upgrade-modal"
 
 import {
   Sidebar,
@@ -40,20 +43,32 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 
-const mainNav = [
+interface NavItem {
+  title: string
+  url: string
+  icon: React.ComponentType<{ className?: string }>
+  requiresPro?: boolean
+}
+
+const mainNav: NavItem[] = [
   { title: "Overview", url: "/dashboard", icon: Home },
   { title: "Holdings", url: "/dashboard/holdings", icon: Briefcase },
-  { title: "Performance", url: "/dashboard/performance", icon: TrendingUp },
-  { title: "Portfolio", url: "/dashboard/portfolio", icon: PieChart },
+  { title: "Performance", url: "/dashboard/performance", icon: TrendingUp, requiresPro: true },
+  { title: "Portfolio", url: "/dashboard/portfolio", icon: PieChart, requiresPro: true },
   { title: "Transactions", url: "/dashboard/transactions", icon: Receipt },
 ]
 
-const analysisNav = [
-  { title: "Trade Analysis", url: "/dashboard/trades", icon: BarChart3 },
-  { title: "Goal Tracker", url: "/dashboard/goals", icon: Target },
+const analysisNav: NavItem[] = [
+  { title: "Trade Analysis", url: "/dashboard/trades", icon: BarChart3, requiresPro: true },
+  { title: "Goal Tracker", url: "/dashboard/goals", icon: Target, requiresPro: true },
 ]
 
-const developmentNav = [
+const marketDataNav: NavItem[] = [
+  { title: "Heat Maps", url: "/dashboard/heatmaps", icon: Flame },
+  { title: "Compare Stocks", url: "/dashboard/compare", icon: GitCompare },
+]
+
+const developmentNav: NavItem[] = [
   { title: "Blog", url: "/admin/blog", icon: BookOpen },
   { title: "AI Usage", url: "/admin/ai-usage", icon: Zap },
   { title: "Data Inspector", url: "/dashboard/data-inspector", icon: Database },
@@ -109,14 +124,7 @@ export function DashboardSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {mainNav.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={pathname === item.url}>
-                    <Link href={item.url}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                <NavMenuItem key={item.title} item={item} pathname={pathname} />
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
@@ -134,14 +142,7 @@ export function DashboardSidebar() {
               <SidebarGroupContent>
                 <SidebarMenu>
                   {analysisNav.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton asChild isActive={pathname === item.url}>
-                        <Link href={item.url}>
-                          <item.icon className="h-4 w-4" />
-                          <span>{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
+                    <NavMenuItem key={item.title} item={item} pathname={pathname} />
                   ))}
                 </SidebarMenu>
               </SidebarGroupContent>
@@ -153,22 +154,9 @@ export function DashboardSidebar() {
           <SidebarGroupLabel>Market Data</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={pathname === "/dashboard/heatmaps"}>
-                  <Link href="/dashboard/heatmaps">
-                    <Flame className="h-4 w-4" />
-                    <span>Heat Maps</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={pathname === "/dashboard/compare"}>
-                  <Link href="/dashboard/compare">
-                    <GitCompare className="h-4 w-4" />
-                    <span>Compare Stocks</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {marketDataNav.map((item) => (
+                <NavMenuItem key={item.title} item={item} pathname={pathname} />
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -180,14 +168,7 @@ export function DashboardSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {developmentNav.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={pathname === item.url}>
-                      <Link href={item.url}>
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                  <NavMenuItem key={item.title} item={item} pathname={pathname} />
                 ))}
               </SidebarMenu>
             </SidebarGroupContent>
@@ -195,5 +176,51 @@ export function DashboardSidebar() {
         )}
       </SidebarContent>
     </Sidebar>
+  )
+}
+
+// ─── Nav Menu Item with Lock Support ─────────────────────────────────────────
+function NavMenuItem({ item, pathname }: { item: NavItem; pathname: string }) {
+  const { tier } = useTier()
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+
+  const isActive = pathname === item.url
+  const hasAccess = !item.requiresPro || tier === 'pro' || tier === 'premium'
+
+  // User has access - render normal link
+  if (hasAccess) {
+    return (
+      <SidebarMenuItem>
+        <SidebarMenuButton asChild isActive={isActive}>
+          <Link href={item.url}>
+            <item.icon className="h-4 w-4" />
+            <span>{item.title}</span>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    )
+  }
+
+  // User doesn't have access - show locked state with click handler
+  return (
+    <>
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          isActive={isActive}
+          onClick={() => setShowUpgradeModal(true)}
+          className="cursor-pointer opacity-40 hover:opacity-60"
+        >
+          <item.icon className="h-4 w-4" />
+          <span className="flex-1">{item.title}</span>
+          <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+
+      <UpgradeModal
+        open={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        highlightTier="pro"
+      />
+    </>
   )
 }

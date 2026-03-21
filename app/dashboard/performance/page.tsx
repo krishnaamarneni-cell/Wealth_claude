@@ -50,6 +50,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { usePortfolio } from "@/lib/portfolio-context"
+import { TierGate } from "@/components/tier-gate"
 import type { Holding } from "@/lib/holdings-calculator"
 
 // ───────────────────────────────────────────────
@@ -164,10 +165,10 @@ const calcFactors = (holdings: Holding[]) => {
 }
 
 // ───────────────────────────────────────────────
-// MAIN COMPONENT
+// PERFORMANCE CONTENT
 // ───────────────────────────────────────────────
 
-export default function PerformancePage() {
+function PerformanceContent() {
   const { benchmarks, holdings, transactions, isLoading, isRefreshing, refresh } = usePortfolio()
   const [lastUpdate, setLastUpdate] = useState(new Date())
   const [selectedTab, setSelectedTab] = useState("overview")
@@ -833,5 +834,17 @@ export default function PerformancePage() {
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+// ───────────────────────────────────────────────
+// MAIN EXPORT - Wrapped with TierGate (Pro required)
+// ───────────────────────────────────────────────
+
+export default function PerformancePage() {
+  return (
+    <TierGate requiredTier="pro">
+      <PerformanceContent />
+    </TierGate>
   )
 }

@@ -11,6 +11,8 @@ import { OnboardingProvider } from "@/lib/onboarding-context"
 import { OnboardingBar } from "@/components/onboarding-bar"
 import { OnboardingWelcome } from "@/components/onboarding-welcome"
 import { DemoDataWrapper } from "@/components/demo-data-wrapper"
+import { TierProvider } from "@/lib/tier-context"
+import { AIChatGate } from "@/components/tier-gate"
 
 export default async function DashboardLayout({
   children,
@@ -36,22 +38,26 @@ export default async function DashboardLayout({
 
   return (
     <PortfolioProvider>
-      <OnboardingProvider>
-        <SidebarProvider>
-          <DashboardSidebar />
-          <SidebarInset className="flex flex-col h-screen">
-            <DashboardHeader />
-            <main className="flex-1 overflow-y-auto h-full p-6">
-              <DemoDataWrapper>
-                {children}
-              </DemoDataWrapper>
-            </main>
-          </SidebarInset>
-        </SidebarProvider>
-        <AIChatButton />
-        <OnboardingWelcome />
-        <OnboardingBar />
-      </OnboardingProvider>
+      <TierProvider>
+        <OnboardingProvider>
+          <SidebarProvider>
+            <DashboardSidebar />
+            <SidebarInset className="flex flex-col h-screen">
+              <DashboardHeader />
+              <main className="flex-1 overflow-y-auto h-full p-6">
+                <DemoDataWrapper>
+                  {children}
+                </DemoDataWrapper>
+              </main>
+            </SidebarInset>
+          </SidebarProvider>
+          <AIChatGate>
+            <AIChatButton />
+          </AIChatGate>
+          <OnboardingWelcome />
+          <OnboardingBar />
+        </OnboardingProvider>
+      </TierProvider>
     </PortfolioProvider>
   )
 }

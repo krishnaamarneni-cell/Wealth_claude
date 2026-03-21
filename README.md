@@ -12,12 +12,24 @@
 - Public portfolio sharing with Stripe paywall
 - Book PDF download
 
-### 3. 🔒 Secure Portfolio System (NEW)
+### 3. 🔒 Secure Portfolio System
 - Email verification (OTP)
 - Device fingerprinting
 - Session management
 - Watermark protection
 - Monthly subscription support
+
+### 4. 🎯 Onboarding System (NEW)
+- 9-step guided tour for new users
+- Progress bar with Back/Skip/Next
+- Welcome modal on first visit
+- Tab spotlight highlighting
+
+### 5. 📊 Demo Data System (NEW)
+- Auto-seed sample portfolio for new signups
+- $50k portfolio with ~120% returns
+- 10 stocks + 3 dividends
+- "Clear Demo Data" banner
 
 ---
 
@@ -207,6 +219,281 @@ User B has NO ACCESS ✅
 
 ---
 
+## Part 4: 🎯 Onboarding System
+
+### Overview
+
+A 9-step guided tour that walks new users through all dashboard features.
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `lib/onboarding-context.tsx` | State management, step tracking, localStorage persistence |
+| `components/onboarding-bar.tsx` | Fixed bottom progress bar with navigation |
+| `components/onboarding-welcome.tsx` | Welcome modal for first-time users |
+| `components/onboarding-spotlight.tsx` | Tab highlighting with pulse animation |
+
+### Onboarding Steps
+
+| Step | Page | Tab | Description |
+|------|------|-----|-------------|
+| 1 | `/dashboard/profile` | - | Set up your profile |
+| 2 | `/dashboard/transactions` | - | Import your transactions |
+| 3 | `/dashboard/holdings` | holdings | View your holdings |
+| 4 | `/dashboard/holdings` | dividends | Track dividends |
+| 5 | `/dashboard` | portfolio | Portfolio overview |
+| 6 | `/dashboard` | market | Market data |
+| 7 | `/dashboard/goals` | goals | Set financial goals |
+| 8 | `/dashboard/compare` | compare | Compare investments |
+| 9 | `/dashboard/compare` | projection | Future projections |
+
+### Installation
+
+**1. Copy files to your project:**
+```
+lib/onboarding-context.tsx
+components/onboarding-bar.tsx
+components/onboarding-welcome.tsx
+components/onboarding-spotlight.tsx
+```
+
+**2. Wrap your app in `app/layout.tsx`:**
+
+```tsx
+import { OnboardingProvider } from '@/lib/onboarding-context'
+import { OnboardingBar } from '@/components/onboarding-bar'
+import { OnboardingWelcome } from '@/components/onboarding-welcome'
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <body>
+        <OnboardingProvider>
+          <div className="pb-20">{children}</div>
+          <OnboardingWelcome />
+          <OnboardingBar />
+        </OnboardingProvider>
+      </body>
+    </html>
+  )
+}
+```
+
+**3. Replace tab buttons with `<OnboardingTab>`:**
+
+```tsx
+import { OnboardingTab } from '@/components/onboarding-spotlight'
+
+// Before:
+<button onClick={() => setTab('holdings')}>Holdings</button>
+
+// After:
+<OnboardingTab 
+  stepId="holdings" 
+  isSelected={activeTab === 'holdings'} 
+  onClick={() => setTab('holdings')}
+>
+  Holdings
+</OnboardingTab>
+```
+
+### Testing / Reset
+
+```javascript
+// Clear onboarding state
+localStorage.removeItem('wealthclaude_onboarding')
+localStorage.removeItem('wealthclaude_welcome_shown')
+location.reload()
+```
+
+### User Flow
+
+```
+NEW USER SIGNS UP
+       ↓
+Redirected to /dashboard
+       ↓
+Welcome Modal appears:
+┌─────────────────────────────────────┐
+│  👋 Welcome to WealthClaude!        │
+│                                      │
+│  Let us show you around. We'll      │
+│  guide you through the key features.│
+│                                      │
+│  [Skip Tour]  [Start Tour →]        │
+└─────────────────────────────────────┘
+       ↓
+User clicks "Start Tour"
+       ↓
+Bottom progress bar appears:
+┌─────────────────────────────────────┐
+│ Step 1 of 9: Set up your profile    │
+│ [Back] [Skip] [●○○○○○○○○] [Next]    │
+└─────────────────────────────────────┘
+       ↓
+Tabs pulse with highlight animation
+       ↓
+User completes 9 steps
+       ↓
+"Finish" button → Onboarding complete!
+```
+
+---
+
+## Part 5: 📊 Demo Data System
+
+### Overview
+
+Automatically seed new users with a sample portfolio so they see a populated dashboard instead of empty screens.
+
+### Demo Portfolio (~$25k → ~$55k, ~120% return)
+
+| Symbol | Shares | Buy Price | Date | Cost | Est. Return |
+|--------|--------|-----------|------|------|-------------|
+| NVDA | 50 | $22 | Jan 2023 | $1,100 | ~490% |
+| META | 25 | $120 | Feb 2023 | $3,000 | ~358% |
+| AAPL | 30 | $140 | Mar 2023 | $4,200 | ~57% |
+| GOOGL | 20 | $95 | Apr 2023 | $1,900 | ~84% |
+| MSFT | 15 | $260 | May 2023 | $3,900 | ~65% |
+| AMZN | 20 | $105 | Jun 2023 | $2,100 | ~90% |
+| TSLA | 10 | $175 | Jul 2023 | $1,750 | ~100% |
+| COST | 5 | $520 | Aug 2023 | $2,600 | ~77% |
+| V | 12 | $235 | Sep 2023 | $2,820 | ~32% |
+| JPM | 15 | $145 | Oct 2023 | $2,175 | ~45% |
+
+**+ 3 Dividends:** AAPL ($7.20), MSFT ($11.25), JPM ($15.00)
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `app/api/seed-demo-data/route.ts` | POST: seed demo data, DELETE: clear demo |
+| `components/demo-data-banner.tsx` | "This is sample data" banner with actions |
+| `components/demo-data-wrapper.tsx` | Wrapper to conditionally show banner |
+
+### Installation
+
+**1. Copy the API route:**
+```
+app/api/seed-demo-data/route.ts
+```
+
+**2. Copy the components:**
+```
+components/demo-data-banner.tsx
+components/demo-data-wrapper.tsx
+```
+
+**3. Update your auth callback (`app/auth/callback/route.ts`):**
+
+Add this after `exchangeCodeForSession` succeeds:
+
+```typescript
+if (!error && data.user) {
+  // Check if NEW user (no transactions)
+  const { data: existingTx } = await supabase
+    .from('transactions')
+    .select('id')
+    .eq('user_id', data.user.id)
+    .limit(1)
+
+  const isNewUser = !existingTx || existingTx.length === 0
+
+  if (isNewUser) {
+    // Seed demo data
+    await fetch(`${origin}/api/seed-demo-data`, {
+      method: 'POST',
+      headers: {
+        'Cookie': cookieStore.getAll().map(c => `${c.name}=${c.value}`).join('; ')
+      },
+    })
+    
+    return NextResponse.redirect(`${origin}/dashboard?welcome=true`)
+  }
+}
+```
+
+**4. Add banner to dashboard layout:**
+
+In `app/dashboard/layout.tsx`:
+
+```tsx
+import { DemoDataWrapper } from '@/components/demo-data-wrapper'
+
+export default function DashboardLayout({ children }) {
+  return (
+    <div className="dashboard-layout">
+      <Sidebar />
+      <main className="flex-1 p-6">
+        <DemoDataWrapper>
+          {children}
+        </DemoDataWrapper>
+      </main>
+    </div>
+  )
+}
+```
+
+### API Endpoints
+
+**POST /api/seed-demo-data**
+- Creates 10 BUY + 3 DIVIDEND transactions
+- All have `source: 'demo'`
+- Only runs if user has 0 existing transactions
+
+**DELETE /api/seed-demo-data**
+- Removes all transactions where `source = 'demo'`
+
+### User Flow
+
+```
+NEW USER SIGNS UP
+       ↓
+Confirms Email → /auth/callback
+       ↓
+Callback checks: Has transactions?
+       ↓
+NO → Call POST /api/seed-demo-data
+       ↓
+10 stocks + 3 dividends inserted (source: 'demo')
+       ↓
+Redirect to /dashboard?welcome=true
+       ↓
+User sees populated dashboard!
+       ↓
+Banner shows:
+┌─────────────────────────────────────────────────────────────┐
+│ ✨ This is sample data — showing you what WealthClaude can  │
+│    do. [Import Your Data] [Clear Demo] [✕]                  │
+└─────────────────────────────────────────────────────────────┘
+       ↓
+User clicks [Import Your Data] or [Clear Demo]
+       ↓
+Demo data deleted, user starts fresh
+```
+
+### Testing
+
+```javascript
+// Manually seed demo data (in browser console)
+fetch('/api/seed-demo-data', { method: 'POST' })
+  .then(r => r.json())
+  .then(console.log)
+
+// Clear demo data
+fetch('/api/seed-demo-data', { method: 'DELETE' })
+  .then(r => r.json())
+  .then(console.log)
+
+// Check if user has demo data
+fetch('/api/transactions')
+  .then(r => r.json())
+  .then(data => console.log('Has demo:', data.some(tx => tx.source === 'demo')))
+```
+
+---
+
 ## Database Migration
 
 Run this in Supabase SQL Editor:
@@ -281,7 +568,7 @@ CREATE POLICY "Anyone can check own payment" ON public.portfolio_payments
   FOR SELECT USING (true);
 
 -- =============================================
--- PART 2: SECURE PORTFOLIO TABLES (NEW)
+-- PART 2: SECURE PORTFOLIO TABLES
 -- =============================================
 
 -- 4. VERIFICATION CODES TABLE (for email OTP)
@@ -422,7 +709,7 @@ EMAIL_FROM=WealthClaude <noreply@wealthclaude.com>
 ## Install Required Components
 
 ```bash
-# For OTP input
+# For OTP input (secure portfolio)
 npx shadcn-ui@latest add input-otp
 ```
 
@@ -431,25 +718,35 @@ npx shadcn-ui@latest add input-otp
 ## Files Overview
 
 ```
-wealthclaude-secure-portfolio/
+wealthclaude-features/
 ├── supabase/
-│   └── migration.sql              # All database tables
+│   └── migration.sql                    # All database tables
 ├── app/
 │   ├── api/
 │   │   ├── leads/route.ts
 │   │   ├── portfolio-share/
 │   │   │   ├── route.ts
 │   │   │   └── public/route.ts
-│   │   ├── send-verification-code/route.ts   # NEW
-│   │   ├── verify-code/route.ts              # NEW
-│   │   ├── check-subscription/route.ts       # NEW
-│   │   ├── stripe-subscription/route.ts      # NEW (replaces stripe-checkout)
-│   │   ├── stripe-webhook/route.ts           # UPDATED
-│   │   └── verify-payment/route.ts
+│   │   ├── send-verification-code/route.ts
+│   │   ├── verify-code/route.ts
+│   │   ├── check-subscription/route.ts
+│   │   ├── stripe-subscription/route.ts
+│   │   ├── stripe-webhook/route.ts
+│   │   ├── verify-payment/route.ts
+│   │   └── seed-demo-data/route.ts      # NEW
+│   ├── auth/
+│   │   └── callback/route.ts            # UPDATED
 │   ├── start/page.tsx
-│   └── u/[slug]/portfolio/page.tsx           # UPDATED with security
+│   └── u/[slug]/portfolio/page.tsx
 ├── components/
-│   └── share-portfolio-modal.tsx
+│   ├── share-portfolio-modal.tsx
+│   ├── demo-data-banner.tsx             # NEW
+│   ├── demo-data-wrapper.tsx            # NEW
+│   ├── onboarding-bar.tsx               # NEW
+│   ├── onboarding-welcome.tsx           # NEW
+│   └── onboarding-spotlight.tsx         # NEW
+├── lib/
+│   └── onboarding-context.tsx           # NEW
 ├── public/
 │   └── drive-to-freedom.pdf
 ├── .env.example
@@ -526,6 +823,20 @@ DELETE FROM portfolio_sessions WHERE email = 'user@example.com';
 - [ ] Test one-time payment ($4.99)
 - [ ] Test monthly subscription ($2.99)
 
+### Onboarding System
+- [ ] Copy 4 onboarding files
+- [ ] Wrap app with `OnboardingProvider`
+- [ ] Add `OnboardingBar` and `OnboardingWelcome` to layout
+- [ ] Replace tab buttons with `OnboardingTab`
+- [ ] Test 9-step tour
+
+### Demo Data System
+- [ ] Copy `seed-demo-data` API route
+- [ ] Copy banner components
+- [ ] Update auth callback to seed new users
+- [ ] Add `DemoDataWrapper` to dashboard layout
+- [ ] Test demo data seeding and clearing
+
 ### Testing
 - [ ] Test /start email capture
 - [ ] Test portfolio sharing from /holdings
@@ -533,6 +844,8 @@ DELETE FROM portfolio_sessions WHERE email = 'user@example.com';
 - [ ] Test Stripe payment (use card `4242 4242 4242 4242`)
 - [ ] Test link sharing protection (try in incognito)
 - [ ] Test tab switch blur
+- [ ] Test onboarding flow (new user tour)
+- [ ] Test demo data (seed and clear)
 
 ### Deploy
 - [ ] Delete `.next` folder
@@ -566,4 +879,4 @@ DELETE FROM portfolio_sessions WHERE email = 'user@example.com';
 
 ---
 
-Made with 🔒 for WealthClaude
+Made with 🚀 for WealthClaude

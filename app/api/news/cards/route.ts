@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     // Optional filters
     const category = searchParams.get('category')
     const sentiment = searchParams.get('sentiment')
-    const limit = parseInt(searchParams.get('limit') || '20', 10)
+    const limit = parseInt(searchParams.get('limit') || '50', 10)
 
     // Get latest batch
     const { data: batches, error: batchError } = await supabase

@@ -12,25 +12,24 @@ interface TierGateProps {
   children: React.ReactNode
   requiredTier?: Tier
   feature?: string
-  fallback?: React.ReactNode
 }
 
 /**
  * Wraps content that requires a specific tier.
- * Shows blurred content with upgrade prompt if user doesn't have access.
+ * Shows BLURRED ACTUAL CONTENT with upgrade prompt if user doesn't have access.
+ * This creates FOMO by letting users see their real data blurred out.
  */
-export function TierGate({ 
-  children, 
+export function TierGate({
+  children,
   requiredTier,
   feature,
-  fallback 
 }: TierGateProps) {
   const pathname = usePathname()
   const { tier, isLoading, canAccess } = useTier()
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
   // Determine if user has access
-  const hasAccess = requiredTier 
+  const hasAccess = requiredTier
     ? (tier === requiredTier || tier === 'premium' || (tier === 'pro' && requiredTier === 'pro'))
     : canAccess(pathname)
 
@@ -43,35 +42,30 @@ export function TierGate({
     )
   }
 
-  // User has access - show content
+  // User has access - show content normally
   if (hasAccess) {
     return <>{children}</>
   }
 
-  // User doesn't have access - show upgrade prompt
+  // User doesn't have access - show BLURRED ACTUAL CONTENT with upgrade overlay
   const upgradeInfo = getUpgradeMessage(pathname)
   const effectiveRequiredTier = requiredTier || upgradeInfo.requiredTier
 
   return (
     <>
       <div className="relative min-h-[500px]">
-        {/* Blurred fallback content */}
-        <div className="absolute inset-0 overflow-hidden">
-          {fallback ? (
-            <div className="blur-sm pointer-events-none opacity-50">
-              {fallback}
-            </div>
-          ) : (
-            <div className="blur-sm pointer-events-none opacity-50">
-              <PlaceholderContent />
-            </div>
-          )}
+        {/* ACTUAL CONTENT - BLURRED */}
+        <div className="blur-md pointer-events-none select-none opacity-60">
+          {children}
         </div>
 
-        {/* Overlay with upgrade prompt */}
-        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
+        {/* Gradient fade at bottom for smooth transition */}
+        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent pointer-events-none" />
+
+        {/* Overlay with upgrade prompt - positioned in center */}
+        <div className="absolute inset-0 flex items-center justify-center z-10">
           <div className="max-w-md w-full mx-4">
-            <div className="bg-card border border-border rounded-2xl p-8 shadow-2xl text-center">
+            <div className="bg-card/95 backdrop-blur-sm border border-border rounded-2xl p-8 shadow-2xl text-center">
               {/* Lock icon */}
               <div className="mb-6 inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10">
                 <Lock className="w-8 h-8 text-primary" />
@@ -85,29 +79,29 @@ export function TierGate({
               <div className="flex gap-3 justify-center mb-6">
                 {effectiveRequiredTier === 'pro' && (
                   <>
-                    <TierBadge 
-                      tier="pro" 
-                      recommended 
-                      onClick={() => setShowUpgradeModal(true)} 
+                    <TierBadge
+                      tier="pro"
+                      recommended
+                      onClick={() => setShowUpgradeModal(true)}
                     />
-                    <TierBadge 
-                      tier="premium" 
-                      onClick={() => setShowUpgradeModal(true)} 
+                    <TierBadge
+                      tier="premium"
+                      onClick={() => setShowUpgradeModal(true)}
                     />
                   </>
                 )}
                 {effectiveRequiredTier === 'premium' && (
-                  <TierBadge 
-                    tier="premium" 
-                    recommended 
-                    onClick={() => setShowUpgradeModal(true)} 
+                  <TierBadge
+                    tier="premium"
+                    recommended
+                    onClick={() => setShowUpgradeModal(true)}
                   />
                 )}
               </div>
 
               {/* CTA Button */}
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 className="w-full gap-2"
                 onClick={() => setShowUpgradeModal(true)}
               >
@@ -127,8 +121,8 @@ export function TierGate({
       </div>
 
       {/* Upgrade Modal */}
-      <UpgradeModal 
-        open={showUpgradeModal} 
+      <UpgradeModal
+        open={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
         highlightTier={effectiveRequiredTier}
       />
@@ -137,14 +131,14 @@ export function TierGate({
 }
 
 // ─── Tier Badge Component ────────────────────────────────────────────────────
-function TierBadge({ 
-  tier, 
+function TierBadge({
+  tier,
   recommended = false,
-  onClick 
-}: { 
+  onClick
+}: {
   tier: 'pro' | 'premium'
   recommended?: boolean
-  onClick?: () => void 
+  onClick?: () => void
 }) {
   const pricing = PRICING[tier]
   const Icon = tier === 'pro' ? Zap : Crown
@@ -155,8 +149,8 @@ function TierBadge({
       className={`
         relative flex flex-col items-center p-4 rounded-xl border-2 transition-all
         hover:scale-105 cursor-pointer min-w-[120px]
-        ${recommended 
-          ? 'border-primary bg-primary/5' 
+        ${recommended
+          ? 'border-primary bg-primary/5'
           : 'border-border hover:border-primary/50'
         }
       `}
@@ -170,50 +164,6 @@ function TierBadge({
       <span className="font-semibold">{pricing.name}</span>
       <span className="text-sm text-muted-foreground">${pricing.monthlyPrice}/mo</span>
     </button>
-  )
-}
-
-// ─── Placeholder Content (shown blurred) ─────────────────────────────────────
-function PlaceholderContent() {
-  return (
-    <div className="p-6 space-y-6">
-      {/* Header placeholder */}
-      <div className="flex justify-between items-center">
-        <div className="h-8 w-48 bg-muted rounded" />
-        <div className="h-10 w-32 bg-muted rounded" />
-      </div>
-
-      {/* Stats row */}
-      <div className="grid grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="bg-card border rounded-lg p-4">
-            <div className="h-4 w-20 bg-muted rounded mb-2" />
-            <div className="h-8 w-24 bg-muted rounded" />
-          </div>
-        ))}
-      </div>
-
-      {/* Chart placeholder */}
-      <div className="bg-card border rounded-lg p-6">
-        <div className="h-4 w-32 bg-muted rounded mb-4" />
-        <div className="h-64 bg-muted rounded" />
-      </div>
-
-      {/* Table placeholder */}
-      <div className="bg-card border rounded-lg p-6">
-        <div className="h-4 w-40 bg-muted rounded mb-4" />
-        <div className="space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="flex gap-4">
-              <div className="h-4 w-24 bg-muted rounded" />
-              <div className="h-4 w-32 bg-muted rounded" />
-              <div className="h-4 w-20 bg-muted rounded" />
-              <div className="h-4 flex-1 bg-muted rounded" />
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
   )
 }
 
@@ -231,8 +181,8 @@ export function AIChatGate({ children }: { children: React.ReactNode }) {
       <div onClick={() => setShowUpgradeModal(true)}>
         {children}
       </div>
-      <UpgradeModal 
-        open={showUpgradeModal} 
+      <UpgradeModal
+        open={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
         highlightTier="premium"
       />

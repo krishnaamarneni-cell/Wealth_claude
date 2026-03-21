@@ -54,7 +54,7 @@ async function fetchRawNews(): Promise<RawArticle[]> {
   if (polygonKey) {
     try {
       const res = await fetch(
-        `https://api.polygon.io/v2/reference/news?limit=15&apiKey=${polygonKey}`,
+        `https://api.polygon.io/v2/reference/news?limit=25&apiKey=${polygonKey}`,
         { next: { revalidate: 0 } }
       )
       if (res.ok) {
@@ -89,7 +89,7 @@ async function fetchRawNews(): Promise<RawArticle[]> {
       )
       if (res.ok) {
         const data = await res.json()
-        const items = Array.isArray(data) ? data.slice(0, 15) : []
+        const items = Array.isArray(data) ? data.slice(0, 25) : []
         for (const item of items) {
           articles.push({
             symbol: item.related || '',
@@ -501,7 +501,7 @@ export async function POST(request: NextRequest) {
 
     // Step 3: Classify with Groq
     console.log('[news-cards] Classifying articles with Groq...')
-    const classifiedCards = await classifyArticles(articleGroups.slice(0, 20)) // Limit to 20 cards
+    const classifiedCards = await classifyArticles(articleGroups.slice(0, 30)) // Limit to 30 cards
     console.log(`[news-cards] Classified ${classifiedCards.length} cards`)
 
     if (classifiedCards.length === 0) {

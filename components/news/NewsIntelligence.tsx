@@ -52,6 +52,16 @@ interface NewsData {
   }
 }
 
+interface BlogPost {
+  id: string
+  slug: string
+  title: string
+  excerpt: string
+  image_url: string | null
+  published_at: string
+  tags: string[]
+}
+
 // ─── Category icons ───────────────────────────────────────────────────────────
 const categoryIcons: Record<string, React.ReactNode> = {
   markets: <BarChart2 className="h-3 w-3" />,
@@ -206,26 +216,50 @@ function HeroStory({ card }: { card: NewsCard }) {
   )
 }
 
-// ─── Quick Stats Row ──────────────────────────────────────────────────────────
-function QuickStats({ stats }: { stats: NewsData["stats"] }) {
+// ─── Clickable Quick Stats Row ────────────────────────────────────────────────
+function QuickStats({
+  stats,
+  activeSentiment,
+  onSentimentClick
+}: {
+  stats: NewsData["stats"]
+  activeSentiment: string | null
+  onSentimentClick: (sentiment: string | null) => void
+}) {
   return (
     <div className="grid grid-cols-4 gap-3 mb-6">
-      <div className="bg-secondary/50 rounded-xl p-3 text-center">
+      <button
+        onClick={() => onSentimentClick(null)}
+        className={`bg-secondary/50 rounded-xl p-3 text-center transition-all hover:bg-secondary ${activeSentiment === null ? 'ring-2 ring-primary' : ''
+          }`}
+      >
         <div className="text-xs text-muted-foreground mb-1">Total Stories</div>
         <div className="text-lg font-semibold">{stats.total}</div>
-      </div>
-      <div className="bg-emerald-500/10 rounded-xl p-3 text-center">
+      </button>
+      <button
+        onClick={() => onSentimentClick('bullish')}
+        className={`bg-emerald-500/10 rounded-xl p-3 text-center transition-all hover:bg-emerald-500/20 cursor-pointer ${activeSentiment === 'bullish' ? 'ring-2 ring-emerald-500' : ''
+          }`}
+      >
         <div className="text-xs text-muted-foreground mb-1">Bullish</div>
         <div className="text-lg font-semibold text-emerald-500">{stats.bullish_count}</div>
-      </div>
-      <div className="bg-red-500/10 rounded-xl p-3 text-center">
+      </button>
+      <button
+        onClick={() => onSentimentClick('bearish')}
+        className={`bg-red-500/10 rounded-xl p-3 text-center transition-all hover:bg-red-500/20 cursor-pointer ${activeSentiment === 'bearish' ? 'ring-2 ring-red-500' : ''
+          }`}
+      >
         <div className="text-xs text-muted-foreground mb-1">Bearish</div>
         <div className="text-lg font-semibold text-red-500">{stats.bearish_count}</div>
-      </div>
-      <div className="bg-amber-500/10 rounded-xl p-3 text-center">
+      </button>
+      <button
+        onClick={() => onSentimentClick('watch')}
+        className={`bg-amber-500/10 rounded-xl p-3 text-center transition-all hover:bg-amber-500/20 cursor-pointer ${activeSentiment === 'watch' ? 'ring-2 ring-amber-500' : ''
+          }`}
+      >
         <div className="text-xs text-muted-foreground mb-1">Watch</div>
         <div className="text-lg font-semibold text-amber-500">{stats.watch_count}</div>
-      </div>
+      </button>
     </div>
   )
 }
@@ -363,7 +397,7 @@ function SidebarCategories({
               }`}
           >
             <span>{cat.label}</span>
-            {cat.key && categorySentiment?.[cat.key] && (
+            {cat.key && categorySentiment?.[cat.key] !== undefined && (
               <span className="text-xs opacity-70">{categorySentiment[cat.key]}%</span>
             )}
           </button>
@@ -462,6 +496,71 @@ function SidebarCTA() {
   )
 }
 
+// ─── Blog Post Card ───────────────────────────────────────────────────────────
+function BlogPostCard({ post }: { post: BlogPost }) {
+  return (
+    <Link
+      href={`/blog/${post.slug}`}
+      className="group block bg-card border rounded-xl overflow-hidden hover:border-primary/30 transition-colors"
+    >
+      {post.image_url && (
+        <div className="aspect-video overflow-hidden">
+          <img
+            src={post.image_url}
+            alt={post.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        </div>
+      )}
+      <div className="p-4">
+        <div className="flex items-center gap-2 mb-2">
+          {post.tags?.slice(0, 2).map((tag) => (
+            <span
+              key={tag}
+              className="text-[10px] font-medium uppercase px-2 py-0.5 rounded bg-primary/10 text-primary"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+        <h3 className="font-semibold text-sm leading-snug mb-2 group-hover:text-primary transition-colors line-clamp-2">
+          {post.title}
+        </h3>
+        <p className="text-xs text-muted-foreground line-clamp-2">
+          {post.excerpt}
+        </p>
+      </div>
+    </Link>
+  )
+}
+
+// ─── Latest Blog Posts Section ────────────────────────────────────────────────
+function LatestBlogPosts({ posts }: { posts: BlogPost[] }) {
+  if (posts.length === 0) return null
+
+  return (
+    <div className="mt-12 pt-8 border-t">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-xl font-bold">Latest Analysis</h2>
+          <p className="text-sm text-muted-foreground">Deep dives and market insights</p>
+        </div>
+        <Link
+          href="/blog"
+          className="flex items-center gap-1 text-sm text-primary hover:underline"
+        >
+          View all <ChevronRight className="h-4 w-4" />
+        </Link>
+      </div>
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {posts.map((post) => (
+          <BlogPostCard key={post.id} post={post} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── Loading Skeleton ─────────────────────────────────────────────────────────
 function LoadingSkeleton() {
   return (
@@ -485,15 +584,21 @@ function LoadingSkeleton() {
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function NewsIntelligence() {
   const [data, setData] = useState<NewsData | null>(null)
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
+  const [activeSentiment, setActiveSentiment] = useState<string | null>(null)
 
   const fetchData = async () => {
     try {
-      const url = activeCategory
-        ? `/api/news/cards?category=${activeCategory}`
-        : "/api/news/cards"
+      // Build URL with filters
+      const params = new URLSearchParams()
+      if (activeCategory) params.set('category', activeCategory)
+      if (activeSentiment) params.set('sentiment', activeSentiment)
+      params.set('limit', '50') // Increased limit
+
+      const url = `/api/news/cards?${params.toString()}`
 
       const res = await fetch(url)
       if (!res.ok) throw new Error("Failed to fetch news")
@@ -508,12 +613,30 @@ export function NewsIntelligence() {
     }
   }
 
+  const fetchBlogPosts = async () => {
+    try {
+      const res = await fetch("/api/blog-posts?limit=6")
+      if (res.ok) {
+        const json = await res.json()
+        setBlogPosts(json.posts || json || [])
+      }
+    } catch (err) {
+      console.error("Failed to fetch blog posts:", err)
+    }
+  }
+
   useEffect(() => {
     fetchData()
+    fetchBlogPosts()
     // Refresh every 5 minutes
     const interval = setInterval(fetchData, 5 * 60 * 1000)
     return () => clearInterval(interval)
-  }, [activeCategory])
+  }, [activeCategory, activeSentiment])
+
+  // Handle sentiment filter click
+  const handleSentimentClick = (sentiment: string | null) => {
+    setActiveSentiment(sentiment)
+  }
 
   if (loading) {
     return <LoadingSkeleton />
@@ -547,6 +670,22 @@ export function NewsIntelligence() {
     )
   }
 
+  // Get all cards for display based on active sentiment filter
+  const getDisplayCards = () => {
+    if (activeSentiment === 'bullish') {
+      return { bullish: [cards.featured, ...cards.bullish].filter(Boolean) as NewsCard[], bearish: [], watch: [] }
+    }
+    if (activeSentiment === 'bearish') {
+      return { bullish: [], bearish: cards.bearish, watch: [] }
+    }
+    if (activeSentiment === 'watch') {
+      return { bullish: [], bearish: [], watch: cards.watch }
+    }
+    return { bullish: cards.bullish, bearish: cards.bearish, watch: cards.watch }
+  }
+
+  const displayCards = getDisplayCards()
+
   return (
     <div>
       {/* Header */}
@@ -571,17 +710,43 @@ export function NewsIntelligence() {
         {/* Left: Main content */}
         <div className="lg:col-span-2">
           {/* Featured Story */}
-          {cards.featured && !activeCategory && (
+          {cards.featured && !activeCategory && !activeSentiment && (
             <HeroStory card={cards.featured} />
           )}
 
-          {/* Quick Stats */}
-          {!activeCategory && <QuickStats stats={stats} />}
+          {/* Quick Stats - Now clickable */}
+          <QuickStats
+            stats={stats}
+            activeSentiment={activeSentiment}
+            onSentimentClick={handleSentimentClick}
+          />
+
+          {/* Active filter indicator */}
+          {activeSentiment && (
+            <div className="flex items-center gap-2 mb-4 p-3 bg-secondary/50 rounded-lg">
+              <span className="text-sm text-muted-foreground">Showing:</span>
+              <span
+                className="text-sm font-medium px-2 py-1 rounded"
+                style={{
+                  background: sentimentConfig[activeSentiment as keyof typeof sentimentConfig]?.bg,
+                  color: sentimentConfig[activeSentiment as keyof typeof sentimentConfig]?.color
+                }}
+              >
+                {activeSentiment.charAt(0).toUpperCase() + activeSentiment.slice(1)} only
+              </span>
+              <button
+                onClick={() => setActiveSentiment(null)}
+                className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+              >
+                Clear filter
+              </button>
+            </div>
+          )}
 
           {/* Sentiment Sections */}
-          <SentimentSection sentiment="bullish" cards={cards.bullish} />
-          <SentimentSection sentiment="bearish" cards={cards.bearish} />
-          <SentimentSection sentiment="watch" cards={cards.watch} />
+          <SentimentSection sentiment="bullish" cards={displayCards.bullish} />
+          <SentimentSection sentiment="bearish" cards={displayCards.bearish} />
+          <SentimentSection sentiment="watch" cards={displayCards.watch} />
         </div>
 
         {/* Right: Sidebar */}
@@ -597,6 +762,9 @@ export function NewsIntelligence() {
           </div>
         </div>
       </div>
+
+      {/* Latest Blog Posts Section */}
+      <LatestBlogPosts posts={blogPosts} />
     </div>
   )
 }

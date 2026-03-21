@@ -7,6 +7,7 @@ import AnalyticsWrapper from "@/components/Analytics"
 import "./globals.css"
 import { AIChatButtonPublic } from "@/components/ai-chat/chat-button-public"
 import { OnboardingProviderWrapper } from "@/components/onboarding-provider-wrapper"
+import { TierProvider } from "@/lib/tier-context"
 
 const geistSans = Geist({ subsets: ["latin"] })
 const geistMono = Geist_Mono({ subsets: ["latin"] })
@@ -130,9 +131,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <OnboardingProviderWrapper>
-            {children}
-          </OnboardingProviderWrapper>
+          <TierProvider>
+            <OnboardingProviderWrapper>
+              {children}
+            </OnboardingProviderWrapper>
+          </TierProvider>
           <AnalyticsWrapper />
           <AIChatButtonPublic />
         </ThemeProvider>

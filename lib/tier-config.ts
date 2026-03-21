@@ -8,12 +8,12 @@ export type BillingInterval = 'monthly' | 'annual'
 // ─── Stripe Price IDs ────────────────────────────────────────────────────────
 export const STRIPE_PRICES = {
   pro: {
-    monthly: 'price_1TDGqf0ObBAvU8bbiXrxHiay',
-    annual: 'price_1TDGqg0ObBAvU8bbS1Wa88Fj',
+    monthly: 'price_1TDGjpIcEsshLKBciiKr605J',
+    annual: 'price_1TDGkWIcEsshLKBchuQ8c9Wx',
   },
   premium: {
-    monthly: 'price_1TDGqu0ObBAvU8bbQjAPZicp',
-    annual: 'price_1TDGqn0ObBAvU8bbSRNlcDq8',
+    monthly: 'price_1TDGlMIcEsshLKBcALVwhGr3',
+    annual: 'price_1TDGm0IcEsshLKBcHTxijoaZ',
   },
 } as const
 
@@ -72,7 +72,7 @@ export const PAGE_ACCESS: Record<string, Tier[]> = {
   '/dashboard/heat-maps': ['free', 'pro', 'premium'],
   '/dashboard/compare': ['free', 'pro', 'premium'],
   '/dashboard/profile': ['free', 'pro', 'premium'],
-  
+
   // Pro tier pages
   '/dashboard/performance': ['pro', 'premium'],
   '/dashboard/portfolio': ['pro', 'premium'],
@@ -97,12 +97,12 @@ export const FEATURE_ACCESS = {
 export function canAccessPage(tier: Tier, path: string): boolean {
   // Normalize path (remove trailing slash, query params)
   const normalizedPath = path.split('?')[0].replace(/\/$/, '')
-  
+
   const allowedTiers = PAGE_ACCESS[normalizedPath]
-  
+
   // If page isn't in our access list, allow access (public pages)
   if (!allowedTiers) return true
-  
+
   return allowedTiers.includes(tier)
 }
 
@@ -119,9 +119,9 @@ export function canAccessFeature(tier: Tier, feature: keyof typeof FEATURE_ACCES
 export function getRequiredTier(path: string): Tier {
   const normalizedPath = path.split('?')[0].replace(/\/$/, '')
   const allowedTiers = PAGE_ACCESS[normalizedPath]
-  
+
   if (!allowedTiers) return 'free'
-  
+
   // Return the lowest tier that has access
   if (allowedTiers.includes('free')) return 'free'
   if (allowedTiers.includes('pro')) return 'pro'
@@ -133,7 +133,7 @@ export function getRequiredTier(path: string): Tier {
  */
 export function getUpgradeMessage(path: string): { title: string; description: string; requiredTier: Tier } {
   const requiredTier = getRequiredTier(path)
-  
+
   const messages: Record<string, { title: string; description: string }> = {
     '/dashboard/performance': {
       title: 'Unlock Performance Analytics',
@@ -152,12 +152,12 @@ export function getUpgradeMessage(path: string): { title: string; description: s
       description: 'Set financial goals, track your progress, and get personalized recommendations.',
     },
   }
-  
+
   const defaultMessage = {
     title: 'Upgrade Required',
     description: 'This feature requires a higher tier subscription.',
   }
-  
+
   return {
     ...(messages[path] || defaultMessage),
     requiredTier,

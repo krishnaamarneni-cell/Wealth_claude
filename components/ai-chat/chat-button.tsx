@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { MessageSquare, X, Maximize2, Sparkles, Send } from 'lucide-react'
+import { MessageSquare, X, Maximize2, Sparkles, Send, Crown } from 'lucide-react'
 import Image from 'next/image'
 import {
   Sheet,
@@ -14,6 +14,23 @@ import {
 import { ChatMessageList, type ChatMessage } from '@/components/ai-chat/chat-message-list'
 import { buildPortfolioSnapshot } from '@/components/ai-chat/financial-snapshot'
 import { usePortfolioSafe } from '@/lib/portfolio-context'
+import { useTier } from '@/lib/tier-context'
+import { UpgradeModal } from '@/components/upgrade-modal'
+
+// ── Premium upgrade message ───────────────────────────────────────────────
+
+const PREMIUM_UPGRADE_MESSAGE = `👋 **Hey! I'm your AI portfolio assistant.**
+
+I can help you with:
+• Analyzing your portfolio performance
+• Suggesting rebalancing strategies  
+• Answering questions about your holdings
+• Providing personalized financial insights
+• Tracking your goals and debt payoff
+
+**Upgrade to Premium** to unlock unlimited AI conversations and get personalized advice based on your real portfolio data.
+
+*Start making smarter financial decisions today!*`
 
 // ── Demo responses for non-logged-in visitors (zero API cost) ─────────────
 
@@ -128,8 +145,14 @@ function ChatButtonCore({
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
+
+  // Get tier info - only available on dashboard (when portfolioCtx exists)
+  const tierContext = useTierSafe()
+  const isPremium = tierContext?.tier === 'premium'
+  const isLoggedIn = !!portfolioCtx
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -174,9 +197,36 @@ function ChatButtonCore({
     setMessages((prev) => [...prev, userMsg, assistantMsg])
   }, [])
 
-  // Real message sender (calls API)
+  // Premium upgrade response (for non-premium logged-in users)
+  const handlePremiumUpgradePrompt = useCallback((text: string) => {
+    const userMsg: ChatMessage = {
+      id: `upgrade-user-${Date.now()}`,
+      role: 'user',
+      content: text,
+      timestamp: new Date(),
+    }
+
+    const assistantMsg: ChatMessage = {
+      id: `upgrade-assistant-${Date.now()}`,
+      role: 'assistant',
+      content: PREMIUM_UPGRADE_MESSAGE,
+      timestamp: new Date(),
+      showUpgradeButton: true, // Custom flag for rendering upgrade button
+    }
+
+    setMessages((prev) => [...prev, userMsg, assistantMsg])
+  }, [])
+
+  // Real message sender (calls API) - ONLY for Premium users
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim()) return
+
+    // If logged in but NOT Premium, show upgrade message
+    if (isLoggedIn && !isPremium) {
+      handlePremiumUpgradePrompt(text)
+      setInput('')
+      return
+    }
 
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
@@ -243,14 +293,29 @@ function ChatButtonCore({
     } finally {
       setIsLoading(false)
     }
-  }, [portfolioCtx, messages])
+  }, [portfolioCtx, messages, isLoggedIn, isPremium, handlePremiumUpgradePrompt])
 
   const handleSend = () => {
     if (!portfolioCtx) {
+      // Public/landing page - show demo responses
       handleDemoPrompt(input)
       setInput('')
     } else {
+      // Dashboard - check premium status inside sendMessage
       sendMessage(input)
+    }
+  }
+
+  const handlePromptClick = (promptText: string) => {
+    if (!portfolioCtx) {
+      // Public - demo mode
+      handleDemoPrompt(promptText)
+    } else if (!isPremium) {
+      // Logged in but not Premium - show upgrade
+      handlePremiumUpgradePrompt(promptText)
+    } else {
+      // Premium user - real API call
+      sendMessage(promptText)
     }
   }
 
@@ -262,6 +327,13 @@ function ChatButtonCore({
 
   return (
     <>
+      {/* ── Upgrade Modal ─────────────────────────────────────────────── */}
+      <UpgradeModal
+        open={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        highlightTier="premium"
+      />
+
       {/* ── Chat Sheet Panel ──────────────────────────────────────────── */}
       <Sheet open={isChatOpen} onOpenChange={setIsChatOpen}>
         <SheetContent
@@ -281,11 +353,18 @@ function ChatButtonCore({
                   />
                 </div>
                 <div>
-                  <SheetTitle className="text-sm font-semibold">
+                  <SheetTitle className="text-sm font-semibold flex items-center gap-1.5">
                     WealthClaude AI
+                    {isLoggedIn && !isPremium && (
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-yellow-500/20 text-yellow-500 border border-yellow-500/30">
+                        Premium
+                      </span>
+                    )}
                   </SheetTitle>
                   <SheetDescription className="text-[11px] leading-tight">
-                    Your financial assistant
+                    {isLoggedIn && !isPremium
+                      ? "Upgrade to unlock AI assistant"
+                      : "Your financial assistant"}
                   </SheetDescription>
                 </div>
               </div>
@@ -332,18 +411,43 @@ function ChatButtonCore({
                   <p className="text-xs text-muted-foreground">
                     {isPublic
                       ? "Your personal financial assistant. Try asking me:"
-                      : "Ask about your portfolio, goals, or market trends"}
+                      : isLoggedIn && !isPremium
+                        ? "Upgrade to Premium to unlock AI insights"
+                        : "Ask about your portfolio, goals, or market trends"}
                   </p>
                 </div>
+
+                {/* Show upgrade banner for non-premium logged in users */}
+                {isLoggedIn && !isPremium && (
+                  <div className="w-full p-3 rounded-xl bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border border-yellow-500/20">
+                    <div className="flex items-start gap-3">
+                      <div className="h-8 w-8 rounded-lg bg-yellow-500/20 flex items-center justify-center shrink-0">
+                        <Crown className="h-4 w-4 text-yellow-500" />
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-foreground">
+                          Unlock AI Portfolio Assistant
+                        </p>
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">
+                          Get personalized insights, portfolio analysis, and smart recommendations.
+                        </p>
+                        <button
+                          onClick={() => setShowUpgradeModal(true)}
+                          className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-yellow-500 hover:text-yellow-400 transition-colors"
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          Upgrade to Premium — $9.99/mo
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="w-full space-y-2">
                   {prompts.map((prompt) => (
                     <button
                       key={prompt.text}
-                      onClick={() =>
-                        isPublic
-                          ? handleDemoPrompt(prompt.text)
-                          : sendMessage(prompt.text)
-                      }
+                      onClick={() => handlePromptClick(prompt.text)}
                       className="w-full flex items-center gap-2.5 text-left px-3 py-2.5 rounded-xl border border-border/50 bg-muted/30 hover:bg-muted/60 hover:border-green-500/30 transition-all group"
                     >
                       <span className="text-base">{prompt.icon}</span>
@@ -361,7 +465,11 @@ function ChatButtonCore({
               </div>
             ) : (
               <>
-                <ChatMessageList messages={messages} isLoading={isLoading} />
+                <ChatMessageList
+                  messages={messages}
+                  isLoading={isLoading}
+                  onUpgradeClick={() => setShowUpgradeModal(true)}
+                />
 
                 {isPublic && messages.length > 1 && (
                   <div className="my-3 p-3 rounded-xl bg-green-600/10 border border-green-500/20 text-center space-y-2">
@@ -374,6 +482,22 @@ function ChatButtonCore({
                     >
                       Sign Up Free — No Card Needed
                     </a>
+                  </div>
+                )}
+
+                {/* Upgrade prompt after first message for non-premium users */}
+                {isLoggedIn && !isPremium && messages.length > 0 && (
+                  <div className="my-3 p-3 rounded-xl bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border border-yellow-500/20 text-center space-y-2">
+                    <p className="text-xs font-medium text-foreground">
+                      🚀 Unlock <strong>unlimited AI conversations</strong>
+                    </p>
+                    <button
+                      onClick={() => setShowUpgradeModal(true)}
+                      className="inline-flex items-center justify-center gap-1.5 bg-yellow-500 hover:bg-yellow-400 text-black text-xs font-semibold rounded-lg px-4 py-2 transition-colors"
+                    >
+                      <Crown className="h-3 w-3" />
+                      Upgrade to Premium
+                    </button>
                   </div>
                 )}
 
@@ -394,7 +518,13 @@ function ChatButtonCore({
                     handleSend()
                   }
                 }}
-                placeholder={isPublic ? "Try asking a question..." : "Ask anything..."}
+                placeholder={
+                  isPublic
+                    ? "Try asking a question..."
+                    : isLoggedIn && !isPremium
+                      ? "Try a question to see what I can do..."
+                      : "Ask anything..."
+                }
                 disabled={isLoading}
                 className="flex-1 h-9 rounded-lg border border-border/50 bg-muted/30 px-3 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-green-500/50 focus:border-green-500/50 transition-all disabled:opacity-50"
               />
@@ -526,6 +656,17 @@ function ChatButtonCore({
       </div>
     </>
   )
+}
+
+// ── Safe tier hook that doesn't throw outside TierProvider ─────────────────
+
+function useTierSafe() {
+  try {
+    return useTier()
+  } catch {
+    // Outside TierProvider (public pages) - return null
+    return null
+  }
 }
 
 // ── Dashboard version — reads PortfolioContext ─────────────────────────────

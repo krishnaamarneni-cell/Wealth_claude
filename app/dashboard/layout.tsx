@@ -7,13 +7,16 @@ import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { PortfolioProvider } from "@/lib/portfolio-context"
 import { AIChatButton } from "@/components/ai-chat/chat-button"
+import { OnboardingProvider } from "@/lib/onboarding-context"
+import { OnboardingBar } from "@/components/onboarding-bar"
+import { OnboardingWelcome } from "@/components/onboarding-welcome"
+import { DemoDataWrapper } from "@/components/demo-data-wrapper"
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  // ─── Protect dashboard - require authentication ────────────────────────
   try {
     const cookieStore = await cookies()
     const supabase = createServerSideClient(cookieStore)
@@ -23,28 +26,32 @@ export default async function DashboardLayout({
       error,
     } = await supabase.auth.getUser()
 
-    console.log('[v0-dashboard] Auth check:', { hasUser: !!user, error: error?.message })
-
     if (!user || error) {
-      console.log('[v0-dashboard] No user, redirecting to /auth')
       redirect('/auth?message=login_required')
     }
   } catch (err) {
-    console.error('[v0-dashboard] Auth check error:', err)
+    console.error('[dashboard] Auth error:', err)
     redirect('/auth?message=auth_error')
   }
 
-  // ─── Render dashboard only if authenticated ────────────────────────────
   return (
     <PortfolioProvider>
-      <SidebarProvider>
-        <DashboardSidebar />
-        <SidebarInset className="flex flex-col h-screen">
-          <DashboardHeader />
-          <main className="flex-1 overflow-y-auto h-full">{children}</main>
-        </SidebarInset>
-      </SidebarProvider>
-      <AIChatButton />
+      <OnboardingProvider>
+        <SidebarProvider>
+          <DashboardSidebar />
+          <SidebarInset className="flex flex-col h-screen">
+            <DashboardHeader />
+            <main className="flex-1 overflow-y-auto h-full p-6">
+              <DemoDataWrapper>
+                {children}
+              </DemoDataWrapper>
+            </main>
+          </SidebarInset>
+        </SidebarProvider>
+        <AIChatButton />
+        <OnboardingWelcome />
+        <OnboardingBar />
+      </OnboardingProvider>
     </PortfolioProvider>
   )
 }

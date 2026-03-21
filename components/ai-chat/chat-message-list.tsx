@@ -2,7 +2,7 @@
 
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Sparkles, User } from 'lucide-react'
+import { Sparkles, User, Crown } from 'lucide-react'
 import type { Components } from 'react-markdown'
 
 export interface ChatMessage {
@@ -10,6 +10,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp: Date
+  showUpgradeButton?: boolean  // Flag for upgrade prompt messages
 }
 
 // ── Custom Markdown Components for proper table rendering ────────────────
@@ -128,7 +129,15 @@ function UserBubble({ content }: { content: string }) {
   )
 }
 
-function AssistantBubble({ content }: { content: string }) {
+function AssistantBubble({
+  content,
+  showUpgradeButton,
+  onUpgradeClick
+}: {
+  content: string
+  showUpgradeButton?: boolean
+  onUpgradeClick?: () => void
+}) {
   return (
     <div className="flex items-start gap-2.5">
       <div className="h-7 w-7 rounded-lg bg-green-600/15 flex items-center justify-center shrink-0 mt-0.5">
@@ -143,6 +152,17 @@ function AssistantBubble({ content }: { content: string }) {
             {content}
           </ReactMarkdown>
         </div>
+
+        {/* Upgrade button for Premium upsell messages */}
+        {showUpgradeButton && onUpgradeClick && (
+          <button
+            onClick={onUpgradeClick}
+            className="mt-3 w-full flex items-center justify-center gap-2 bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-black text-xs font-semibold rounded-lg px-4 py-2.5 transition-all duration-200 shadow-lg shadow-yellow-500/20"
+          >
+            <Crown className="h-3.5 w-3.5" />
+            Upgrade to Premium — $9.99/mo
+          </button>
+        )}
       </div>
     </div>
   )
@@ -151,9 +171,10 @@ function AssistantBubble({ content }: { content: string }) {
 interface ChatMessageListProps {
   messages: ChatMessage[]
   isLoading?: boolean
+  onUpgradeClick?: () => void
 }
 
-export function ChatMessageList({ messages, isLoading }: ChatMessageListProps) {
+export function ChatMessageList({ messages, isLoading, onUpgradeClick }: ChatMessageListProps) {
   if (messages.length === 0 && !isLoading) return null
 
   return (
@@ -162,7 +183,12 @@ export function ChatMessageList({ messages, isLoading }: ChatMessageListProps) {
         msg.role === 'user' ? (
           <UserBubble key={msg.id} content={msg.content} />
         ) : (
-          <AssistantBubble key={msg.id} content={msg.content} />
+          <AssistantBubble
+            key={msg.id}
+            content={msg.content}
+            showUpgradeButton={msg.showUpgradeButton}
+            onUpgradeClick={onUpgradeClick}
+          />
         )
       )}
       {isLoading && <TypingIndicator />}

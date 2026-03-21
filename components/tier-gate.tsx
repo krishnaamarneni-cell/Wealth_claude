@@ -62,9 +62,9 @@ export function TierGate({
         {/* Gradient fade at bottom for smooth transition */}
         <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent pointer-events-none" />
 
-        {/* Overlay with upgrade prompt - positioned in center */}
+        {/* Overlay with upgrade prompt - positioned at top 25-30% */}
         <div className="absolute inset-0 flex items-start justify-center pt-[15%] sm:pt-[20%] z-10">
-          <div className="max-w-md w-full mx-4">
+          <div className="max-w-md w-full mx-4 sticky top-8">
             <div className="bg-card/95 backdrop-blur-sm border border-border rounded-2xl p-8 shadow-2xl text-center">
               {/* Lock icon */}
               <div className="mb-6 inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10">

@@ -14,6 +14,7 @@ import { ArrowDownRight, ArrowUpRight, BarChart3, TrendingUp, ChevronLeft, Chevr
 import { Button } from "@/components/ui/button"
 import type { Trade } from "@/lib/portfolio-data"
 import { usePortfolio } from "@/lib/portfolio-context"
+import { TierGate } from "@/components/tier-gate"
 
 const CHART_COLORS = ["#3b82f6", "#8b5cf6", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899", "#14b8a6"]
 
@@ -130,7 +131,8 @@ function InteractiveTradeDonut({ trades }: { trades: Trade[] }) {
   )
 }
 
-export default function TradesPage() {
+// ─── Trade Analysis Content Component ────────────────────────────────────────
+function TradeAnalysisContent() {
   const { transactions } = usePortfolio()
   const [tradeHistory, setTradeHistory] = useState<Trade[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -138,7 +140,6 @@ export default function TradesPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [timeRange, setTimeRange] = useState<'1m' | '3m' | '6m' | '1y' | 'all'>('all')
 
-  // ✅ FIXED: loadTrades is now async, awaiting getTransactionsFromStorage
   useEffect(() => {
     const trades: Trade[] = transactions
       .filter((t) => t.type === 'BUY' || t.type === 'SELL')
@@ -347,5 +348,14 @@ export default function TradesPage() {
         </>
       )}
     </div>
+  )
+}
+
+// ─── Main Page Export with TierGate ──────────────────────────────────────────
+export default function TradeAnalysisPage() {
+  return (
+    <TierGate requiredTier="pro">
+      <TradeAnalysisContent />
+    </TierGate>
   )
 }

@@ -55,7 +55,7 @@ export function TierGate({
     <>
       <div className="relative min-h-[500px]">
         {/* ACTUAL CONTENT - BLURRED */}
-        <div className="blur-md pointer-events-none select-none opacity-60">
+        <div className="blur pointer-events-none select-none opacity-60">
           {children}
         </div>
 

@@ -97,14 +97,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     // Apply sorting
-    const sortColumn = params.sort === 'score' 
-      ? 'overall_score' 
+    const sortColumn = params.sort === 'score'
+      ? 'overall_score'
       : params.sort === 'name'
         ? 'user_profiles.full_name'
         : 'created_at';
-    
-    query = query.order(sortColumn === 'user_profiles.full_name' ? 'created_at' : sortColumn, { 
-      ascending: params.direction === 'asc' 
+
+    query = query.order(sortColumn === 'user_profiles.full_name' ? 'created_at' : sortColumn, {
+      ascending: params.direction === 'asc'
     });
 
     // Apply pagination
@@ -197,11 +197,11 @@ async function fetchDashboardStats() {
       // Calculate change vs previous week
       const twoWeeksAgo = new Date();
       twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-      
+
       const thisWeekScores = avgData
         .filter(a => new Date(a.created_at) >= weekAgo)
         .map(a => a.overall_score);
-      
+
       const lastWeekScores = avgData
         .filter(a => {
           const date = new Date(a.created_at);
@@ -280,9 +280,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           );
         }
 
-        return NextResponse.json({ 
-          success: true, 
-          message: `Deleted ${assessmentIds.length} assessments` 
+        return NextResponse.json({
+          success: true,
+          message: `Deleted ${assessmentIds.length} assessments`
         });
 
       case 'export':

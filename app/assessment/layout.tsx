@@ -35,7 +35,7 @@ export default async function AssessmentLayout({
         <DashboardSidebar />
         <SidebarInset className="flex flex-col h-screen">
           <DashboardHeader />
-          <main className="flex-1 overflow-y-auto h-full p-6">
+          <main className="flex-1 overflow-y-auto">
             {children}
           </main>
         </SidebarInset>

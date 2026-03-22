@@ -12,7 +12,6 @@ import {
   Sparkles
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 
 // =============================================================================
@@ -683,69 +682,67 @@ export default function AssessmentTestPage() {
   const hasCurrentAnswer = answers[currentQuestion?.id] !== undefined
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <Button
-          variant="ghost"
-          onClick={() => router.push("/admin/assessments")}
-        >
-          <ChevronLeft className="h-4 w-4 mr-1" />
-          Exit Assessment
-        </Button>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Clock className="h-4 w-4" />
-          <span>{mode === "quick" ? "~9 min" : "~14 min"}</span>
+    <div className="p-6">
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <Button
+            variant="ghost"
+            onClick={() => router.push("/admin/assessments")}
+          >
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Exit Assessment
+          </Button>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Clock className="h-4 w-4" />
+            <span>{mode === "quick" ? "~9 min" : "~14 min"}</span>
+          </div>
         </div>
-      </div>
 
-      {/* Progress Card */}
-      <Card>
-        <CardContent className="pt-6">
+        {/* Progress Card */}
+        <div className="rounded-xl border border-border bg-card p-4">
           <div className="flex justify-between text-sm mb-2">
-            <span className="font-medium">{currentTest.name}</span>
+            <span className="font-medium text-foreground">{currentTest.name}</span>
             <span className="text-muted-foreground">{answeredQuestions} of {totalQuestions} questions</span>
           </div>
           <Progress value={progressPercent} className="h-2" />
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Test Navigation Pills */}
-      <div className="flex gap-2 overflow-x-auto pb-2">
-        {activeTests.map((test, index) => {
-          const testAnswered = test.questions.filter(q => answers[q.id] !== undefined).length
-          const isComplete = testAnswered === test.questions.length
-          const isCurrent = index === currentTestIndex
+        {/* Test Navigation Pills */}
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {activeTests.map((test, index) => {
+            const testAnswered = test.questions.filter(q => answers[q.id] !== undefined).length
+            const isComplete = testAnswered === test.questions.length
+            const isCurrent = index === currentTestIndex
 
-          return (
-            <button
-              key={test.id}
-              onClick={() => {
-                setCurrentTestIndex(index)
-                setCurrentQuestionIndex(0)
-              }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm whitespace-nowrap transition-colors border ${isCurrent
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : isComplete
-                    ? "bg-primary/10 text-primary border-primary/30"
-                    : "bg-card text-muted-foreground border-border hover:border-primary/50"
-                }`}
-            >
-              {isComplete ? <CheckCircle2 className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
-              {test.name}
-            </button>
-          )
-        })}
-      </div>
+            return (
+              <button
+                key={test.id}
+                onClick={() => {
+                  setCurrentTestIndex(index)
+                  setCurrentQuestionIndex(0)
+                }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm whitespace-nowrap transition-colors border ${isCurrent
+                    ? "bg-emerald-500 text-white border-emerald-500"
+                    : isComplete
+                      ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                      : "bg-card text-muted-foreground border-border hover:border-emerald-500/50"
+                  }`}
+              >
+                {isComplete ? <CheckCircle2 className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
+                {test.name}
+              </button>
+            )
+          })}
+        </div>
 
-      {/* Question Card */}
-      <Card>
-        <CardContent className="pt-6">
+        {/* Question Card */}
+        <div className="rounded-xl border border-border bg-card p-6">
           <div className="text-sm text-muted-foreground mb-2">
             Question {currentQuestionIndex + 1} of {currentTest.questions.length}
           </div>
 
-          <h2 className="text-xl font-semibold mb-6">
+          <h2 className="text-xl font-semibold text-foreground mb-6">
             {currentQuestion.text}
           </h2>
 
@@ -756,20 +753,20 @@ export default function AssessmentTestPage() {
                 key={option.value}
                 onClick={() => handleAnswer(option.value)}
                 className={`w-full p-4 rounded-xl border text-left transition-all ${answers[currentQuestion.id] === option.value
-                    ? "border-primary bg-primary/10"
-                    : "border-border bg-card hover:border-primary/50"
+                    ? "border-emerald-500 bg-emerald-500/10"
+                    : "border-border bg-background hover:border-emerald-500/50"
                   }`}
               >
                 <div className="flex items-center gap-3">
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${answers[currentQuestion.id] === option.value
-                      ? "border-primary bg-primary"
+                      ? "border-emerald-500 bg-emerald-500"
                       : "border-muted-foreground"
                     }`}>
                     {answers[currentQuestion.id] === option.value && (
-                      <div className="w-2 h-2 rounded-full bg-primary-foreground" />
+                      <div className="w-2 h-2 rounded-full bg-white" />
                     )}
                   </div>
-                  <span>{option.label}</span>
+                  <span className="text-foreground">{option.label}</span>
                 </div>
               </button>
             ))}
@@ -782,8 +779,8 @@ export default function AssessmentTestPage() {
                       key={value}
                       onClick={() => handleAnswer(value)}
                       className={`flex-1 h-14 rounded-xl border-2 text-lg font-semibold transition-all ${answers[currentQuestion.id] === value
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border bg-card hover:border-primary/50"
+                          ? "border-emerald-500 bg-emerald-500 text-white"
+                          : "border-border bg-card hover:border-emerald-500/50 text-foreground"
                         }`}
                     >
                       {value}
@@ -797,41 +794,42 @@ export default function AssessmentTestPage() {
               </div>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Navigation Buttons */}
-      <div className="flex justify-between">
-        <Button
-          variant="outline"
-          onClick={handlePrevious}
-          disabled={isFirstQuestion}
-        >
-          <ChevronLeft className="h-4 w-4 mr-2" />
-          Previous
-        </Button>
+        {/* Navigation Buttons */}
+        <div className="flex justify-between">
+          <Button
+            variant="outline"
+            onClick={handlePrevious}
+            disabled={isFirstQuestion}
+          >
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Previous
+          </Button>
 
-        <Button
-          onClick={handleNext}
-          disabled={!hasCurrentAnswer || isSubmitting}
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Analyzing...
-            </>
-          ) : isLastQuestion ? (
-            <>
-              <Sparkles className="h-4 w-4 mr-2" />
-              Get My Results
-            </>
-          ) : (
-            <>
-              Next
-              <ChevronRight className="h-4 w-4 ml-2" />
-            </>
-          )}
-        </Button>
+          <Button
+            onClick={handleNext}
+            disabled={!hasCurrentAnswer || isSubmitting}
+            className="bg-emerald-500 hover:bg-emerald-600 text-white"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Analyzing...
+              </>
+            ) : isLastQuestion ? (
+              <>
+                <Sparkles className="h-4 w-4 mr-2" />
+                Get My Results
+              </>
+            ) : (
+              <>
+                Next
+                <ChevronRight className="h-4 w-4 ml-2" />
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   )

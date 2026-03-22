@@ -13,7 +13,7 @@ import {
   ArrowUpRight,
   MoreHorizontal,
   PlayCircle,
-  ClipboardCheck,
+  ClipboardList,
   ChevronRight,
   Sparkles,
   Target,
@@ -52,12 +52,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
 
 // Types
 interface Assessment {
@@ -79,33 +73,35 @@ interface DashboardStats { totalAssessments: number; assessmentsThisWeek: number
 
 // Main Component
 export default function AssessmentsPage() {
+  const [activeTab, setActiveTab] = useState<"take" | "results">("take")
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-emerald-400">Financial Assessments</h1>
-        <p className="text-muted-foreground">Take a new assessment or view past results</p>
+    <div className="p-6 space-y-6">
+      {/* Tab Buttons - Matching Overview page style */}
+      <div className="inline-flex items-center rounded-lg border border-border bg-card p-1">
+        <button
+          onClick={() => setActiveTab("take")}
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === "take"
+              ? "bg-emerald-500 text-white"
+              : "text-muted-foreground hover:text-foreground"
+            }`}
+        >
+          <PlayCircle className="h-4 w-4" />
+          Take Assessment
+        </button>
+        <button
+          onClick={() => setActiveTab("results")}
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === "results"
+              ? "bg-emerald-500 text-white"
+              : "text-muted-foreground hover:text-foreground"
+            }`}
+        >
+          <ClipboardList className="h-4 w-4" />
+          View Results
+        </button>
       </div>
 
-      <Tabs defaultValue="take" className="w-full">
-        <TabsList className="bg-card border border-border">
-          <TabsTrigger value="take" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <PlayCircle className="h-4 w-4 mr-2" />
-            Take Assessment
-          </TabsTrigger>
-          <TabsTrigger value="results" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <ClipboardCheck className="h-4 w-4 mr-2" />
-            View Results
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="take" className="mt-6">
-          <TakeAssessmentTab />
-        </TabsContent>
-
-        <TabsContent value="results" className="mt-6">
-          <ViewResultsTab />
-        </TabsContent>
-      </Tabs>
+      {activeTab === "take" ? <TakeAssessmentTab /> : <ViewResultsTab />}
     </div>
   )
 }
@@ -130,11 +126,11 @@ function TakeAssessmentTab() {
 
   return (
     <div className="space-y-6">
-      {/* Hero Card - Matching dashboard card style */}
-      <div className="bg-card border border-border rounded-xl p-6">
+      {/* Hero Card */}
+      <div className="rounded-xl border border-border bg-card p-6">
         <div className="flex flex-col lg:flex-row gap-6 items-center">
           <div className="flex-1">
-            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-sm mb-4">
+            <div className="inline-flex items-center gap-2 bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-full text-sm mb-4">
               <Sparkles className="h-4 w-4" />
               AI-Powered Analysis
             </div>
@@ -146,7 +142,7 @@ function TakeAssessmentTab() {
             <div className="flex flex-wrap gap-3">
               <Button
                 onClick={() => router.push("/assessment")}
-                className="bg-primary hover:bg-primary/90"
+                className="bg-emerald-500 hover:bg-emerald-600 text-white"
               >
                 <PlayCircle className="h-4 w-4 mr-2" />
                 Start Full Assessment
@@ -155,6 +151,7 @@ function TakeAssessmentTab() {
               <Button
                 variant="outline"
                 onClick={() => router.push("/assessment?mode=quick")}
+                className="border-border"
               >
                 Quick Mode (30 questions)
               </Button>
@@ -163,13 +160,13 @@ function TakeAssessmentTab() {
 
           {/* Score Circle */}
           <div className="relative">
-            <div className="w-40 h-40 rounded-full bg-card border-4 border-primary/30 flex items-center justify-center">
+            <div className="w-40 h-40 rounded-full border-4 border-emerald-500/30 flex items-center justify-center bg-card">
               <div className="text-center">
-                <div className="text-4xl font-bold text-primary">?</div>
+                <div className="text-4xl font-bold text-emerald-500">?</div>
                 <div className="text-muted-foreground text-sm mt-1">Your Score</div>
               </div>
             </div>
-            <div className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full">
+            <div className="absolute -top-2 -right-2 bg-emerald-500 text-white text-xs px-2 py-1 rounded-full">
               ~14 min
             </div>
           </div>
@@ -179,9 +176,9 @@ function TakeAssessmentTab() {
       {/* Features Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {features.map((feature, i) => (
-          <div key={i} className="bg-card border border-border rounded-xl p-5">
-            <div className="p-2 bg-primary/10 rounded-lg w-fit mb-3">
-              <feature.icon className="h-5 w-5 text-primary" />
+          <div key={i} className="rounded-xl border border-border bg-card p-5">
+            <div className="p-2 bg-emerald-500/10 rounded-lg w-fit mb-3">
+              <feature.icon className="h-5 w-5 text-emerald-500" />
             </div>
             <h3 className="font-semibold text-foreground mb-1">{feature.title}</h3>
             <p className="text-sm text-muted-foreground">{feature.description}</p>
@@ -190,13 +187,13 @@ function TakeAssessmentTab() {
       </div>
 
       {/* Test Breakdown */}
-      <div className="bg-card border border-border rounded-xl p-6">
+      <div className="rounded-xl border border-border bg-card p-6">
         <h3 className="text-lg font-semibold text-foreground mb-4">Assessment Breakdown</h3>
         <div className="space-y-3">
           {tests.map((test, i) => (
-            <div key={i} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border border-border">
+            <div key={i} className="flex items-center justify-between p-4 rounded-lg border border-border bg-background/50">
               <div className="flex items-center gap-4">
-                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold">{i + 1}</div>
+                <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500 font-semibold text-sm">{i + 1}</div>
                 <div>
                   <div className="font-medium text-foreground">{test.name}</div>
                   <div className="text-sm text-muted-foreground">{test.questions} questions • {test.time}</div>
@@ -204,7 +201,7 @@ function TakeAssessmentTab() {
               </div>
               <div>
                 {test.required ? (
-                  <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded">Required</span>
+                  <span className="text-xs bg-emerald-500/20 text-emerald-500 px-2 py-1 rounded">Required</span>
                 ) : (
                   <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded">Optional</span>
                 )}
@@ -317,7 +314,7 @@ function ViewResultsTab() {
             { label: "Average Score", value: stats.averageScore, icon: TrendingUp, color: "text-purple-500 bg-purple-500/10", change: stats.scoreChange },
             { label: "Users", value: stats.totalAssessments, icon: Users, color: "text-amber-500 bg-amber-500/10" }
           ].map((stat, i) => (
-            <div key={i} className="bg-card border border-border rounded-xl p-5">
+            <div key={i} className="rounded-xl border border-border bg-card p-5">
               <div className="flex items-center justify-between mb-3">
                 <div className={"p-2 rounded-lg " + stat.color}><stat.icon className="h-5 w-5" /></div>
                 {stat.change ? (
@@ -334,7 +331,7 @@ function ViewResultsTab() {
       )}
 
       {/* Filters */}
-      <div className="bg-card border border-border rounded-xl p-4">
+      <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -364,10 +361,10 @@ function ViewResultsTab() {
       </div>
 
       {/* Table */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="border-border">
               <TableHead>User</TableHead>
               <TableHead>Score</TableHead>
               <TableHead>Personality</TableHead>
@@ -380,16 +377,16 @@ function ViewResultsTab() {
             {loading ? (
               <TableRow><TableCell colSpan={6} className="text-center py-12"><RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" /><p className="text-muted-foreground">Loading...</p></TableCell></TableRow>
             ) : assessments.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">No assessments found</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">No assessments found. Take your first assessment to see results here.</TableCell></TableRow>
             ) : assessments.map(a => (
-              <TableRow key={a.id}>
+              <TableRow key={a.id} className="border-border">
                 <TableCell>
-                  <div className="font-medium">{a.user_profiles?.full_name || "Unknown"}</div>
+                  <div className="font-medium text-foreground">{a.user_profiles?.full_name || "Unknown"}</div>
                   <div className="text-sm text-muted-foreground">{a.user_profiles?.email || a.user_id.slice(0, 8)}</div>
                 </TableCell>
                 <TableCell><span className={"px-2.5 py-1 rounded-full text-sm font-semibold " + getScoreBadge(a.overall_score)}>{a.overall_score}</span></TableCell>
-                <TableCell className="text-sm">{formatType(a.personality_type)}</TableCell>
-                <TableCell className="text-sm">Top {100 - (a.rankings?.overallPercentile || 50)}%</TableCell>
+                <TableCell className="text-sm text-foreground">{formatType(a.personality_type)}</TableCell>
+                <TableCell className="text-sm text-foreground">Top {100 - (a.rankings?.overallPercentile || 50)}%</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{formatDate(a.created_at)}</TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
@@ -422,34 +419,34 @@ function DetailModal({ assessment, open, onClose, onDownload, downloading }: { a
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-primary">Assessment Details</DialogTitle>
+          <DialogTitle>Assessment Details</DialogTitle>
           <DialogDescription>{assessment.user_profiles?.full_name || "Unknown"} • {new Date(assessment.created_at).toLocaleDateString()}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
           <div className="grid grid-cols-3 gap-4">
-            <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 text-center">
-              <div className="text-4xl font-bold text-primary">{assessment.overall_score}</div>
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-center">
+              <div className="text-4xl font-bold text-emerald-500">{assessment.overall_score}</div>
               <div className="text-sm text-muted-foreground mt-1">Score</div>
             </div>
             <div className="bg-card border border-border rounded-xl p-4 text-center">
-              <div className="text-2xl font-bold">{assessment.rankings?.overallPercentile || 50}th</div>
+              <div className="text-2xl font-bold text-foreground">{assessment.rankings?.overallPercentile || 50}th</div>
               <div className="text-sm text-muted-foreground mt-1">Percentile</div>
             </div>
             <div className="bg-card border border-border rounded-xl p-4 text-center">
-              <div className="text-lg font-bold">{assessment.personality_type?.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</div>
+              <div className="text-lg font-bold text-foreground">{assessment.personality_type?.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</div>
               <div className="text-sm text-muted-foreground mt-1">Type</div>
             </div>
           </div>
 
           <div>
-            <h3 className="font-semibold mb-4">Factor Breakdown</h3>
+            <h3 className="font-semibold mb-4 text-foreground">Factor Breakdown</h3>
             <div className="space-y-3">
               {(assessment.factor_scores || []).map(f => (
                 <div key={f.factorId} className="flex items-center gap-4">
-                  <div className="w-24 text-sm">{names[f.factorId] || f.factorId}</div>
-                  <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden"><div className="h-full bg-primary rounded-full" style={{ width: f.score + "%" }} /></div>
-                  <div className="w-10 text-right text-sm font-semibold">{f.score}</div>
+                  <div className="w-24 text-sm text-muted-foreground">{names[f.factorId] || f.factorId}</div>
+                  <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: f.score + "%" }} /></div>
+                  <div className="w-10 text-right text-sm font-semibold text-foreground">{f.score}</div>
                 </div>
               ))}
             </div>
@@ -458,7 +455,7 @@ function DetailModal({ assessment, open, onClose, onDownload, downloading }: { a
 
         <div className="flex justify-end gap-3 mt-6">
           <Button variant="outline" onClick={onClose}>Close</Button>
-          <Button onClick={onDownload} disabled={downloading}>
+          <Button onClick={onDownload} disabled={downloading} className="bg-emerald-500 hover:bg-emerald-600">
             {downloading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}Download PDF
           </Button>
         </div>

@@ -18,6 +18,7 @@ import {
   Zap,
   Bot,
   Lock,
+  ClipboardCheck, // Added for Assessment
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -73,6 +74,7 @@ const developmentNav: NavItem[] = [
   { title: "AI Usage", url: "/admin/ai-usage", icon: Zap },
   { title: "Data Inspector", url: "/dashboard/data-inspector", icon: Database },
   { title: "Agents", url: "/agents", icon: Bot },
+  { title: "Assessments", url: "/admin/assessments", icon: ClipboardCheck }, // NEW
 ]
 
 export function DashboardSidebar() {

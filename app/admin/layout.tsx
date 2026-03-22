@@ -7,12 +7,12 @@ import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { TierProvider } from "@/lib/tier-context"
 
-export default async function AdminLayout({
+export default async function AssessmentLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  // Check auth + admin status
+  // Check auth
   try {
     const cookieStore = await cookies()
     const supabase = createServerSideClient(cookieStore)
@@ -25,14 +25,8 @@ export default async function AdminLayout({
     if (!user || error) {
       redirect('/auth?message=login_required')
     }
-
-    // Check if admin
-    const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
-    if (!adminEmail || user.email !== adminEmail) {
-      redirect('/dashboard?message=unauthorized')
-    }
   } catch (err) {
-    console.error('[admin] Auth error:', err)
+    console.error('[assessment] Auth error:', err)
     redirect('/auth?message=auth_error')
   }
 
@@ -42,7 +36,7 @@ export default async function AdminLayout({
         <DashboardSidebar />
         <SidebarInset className="flex flex-col h-screen">
           <DashboardHeader />
-          <main className="flex-1 overflow-y-auto h-full p-6">
+          <main className="flex-1 overflow-y-auto h-full">
             {children}
           </main>
         </SidebarInset>

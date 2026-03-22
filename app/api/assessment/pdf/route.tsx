@@ -7,14 +7,14 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const personalityLabels: Record<string, string> = {
-  cautious_saver: "Cautious Saver",
-  balanced_planner: "Balanced Planner",
-  growth_investor: "Growth Investor",
-  spontaneous_spender: "Spontaneous Spender",
-  risk_taker: "Risk Taker",
-  money_avoider: "Money Avoider",
-  security_seeker: "Security Seeker"
+const personalityLabels: Record<string, { label: string; emoji: string; description: string }> = {
+  cautious_saver: { label: "Cautious Saver", emoji: "🛡️", description: "Security-focused, prefers low-risk strategies" },
+  balanced_planner: { label: "Balanced Planner", emoji: "⚖️", description: "Methodical approach, balances risk and reward" },
+  growth_investor: { label: "Growth Investor", emoji: "📈", description: "Focused on wealth building, embraces calculated risks" },
+  spontaneous_spender: { label: "Spontaneous Spender", emoji: "💳", description: "Impulse-driven, benefits from automation" },
+  risk_taker: { label: "Risk Taker", emoji: "🎯", description: "High risk tolerance, seeks aggressive returns" },
+  money_avoider: { label: "Money Avoider", emoji: "🙈", description: "Needs guidance and simplified strategies" },
+  security_seeker: { label: "Security Seeker", emoji: "🏠", description: "Prioritizes stability over growth" }
 }
 
 // POST - Generate PDF
@@ -33,29 +33,23 @@ export async function POST(request: NextRequest) {
     // Get session
     const { data: session, error: sessionError } = await supabase
       .from("assessment_sessions")
-      .select("full_name")
+      .select("full_name, email, problem_type")
       .eq("id", sessionId)
       .single()
 
     if (sessionError || !session) {
-      return NextResponse.json(
-        { error: "Session not found" },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: "Session not found" }, { status: 404 })
     }
 
     // Get result
     const { data: result, error: resultError } = await supabase
       .from("assessment_results")
-      .select("overall_score, personality_type")
+      .select("overall_score, personality_type, factor_scores, strengths, weaknesses")
       .eq("session_id", sessionId)
       .single()
 
     if (resultError || !result) {
-      return NextResponse.json(
-        { error: "Results not found" },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: "Results not found" }, { status: 404 })
     }
 
     // Get plan
@@ -66,39 +60,73 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (planError || !plan) {
-      return NextResponse.json(
-        { error: "Plan not found" },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: "Plan not found" }, { status: 404 })
     }
 
-    // Parse plan data
+    // Parse data
     const goals = (plan.goals || []) as Array<{ goal: string; target: string; timeline: string; type: string }>
     const actionItems = (plan.action_items || []) as Array<{ action: string }>
+    const factorScores = (result.factor_scores || []) as Array<{ factorId: string; score: number }>
+    const strengths = (result.strengths || []) as string[]
+    const weaknesses = (result.weaknesses || []) as string[]
+
     let warnings: string[] = []
     let recommendations: Array<{ area: string; advice: string }> = []
-
     try {
       warnings = JSON.parse(plan.ai_warnings || "[]")
       recommendations = JSON.parse(plan.ai_recommendations || "[]")
-    } catch {
-      // Ignore parse errors
+    } catch { /* ignore */ }
+
+    const personality = personalityLabels[result.personality_type] || {
+      label: result.personality_type,
+      emoji: "📊",
+      description: "Financial personality profile"
     }
 
     // Create PDF
     const doc = new jsPDF()
     const pageWidth = doc.internal.pageSize.getWidth()
-    const margin = 20
+    const pageHeight = doc.internal.pageSize.getHeight()
+    const margin = 15
     const contentWidth = pageWidth - (margin * 2)
-    let y = margin
+    let y = 0
 
-    // Helper function for wrapped text
-    const addWrappedText = (text: string, x: number, startY: number, maxWidth: number, lineHeight: number = 7): number => {
+    // Colors
+    const primaryGreen = [22, 163, 74] as const    // #16a34a
+    const darkGreen = [21, 128, 61] as const       // #15803d
+    const purple = [147, 51, 234] as const          // #9333ea
+    const darkText = [24, 24, 27] as const          // #18181b
+    const grayText = [113, 113, 122] as const       // #71717a
+    const lightBg = [250, 250, 250] as const        // #fafafa
+    const cardBg = [255, 255, 255] as const         // white
+    const amberBg = [254, 243, 199] as const        // amber light
+    const amberText = [180, 83, 9] as const         // amber dark
+
+    // Helper: Draw rounded rectangle
+    const roundedRect = (x: number, y: number, w: number, h: number, r: number, fill: readonly [number, number, number]) => {
+      doc.setFillColor(fill[0], fill[1], fill[2])
+      doc.roundedRect(x, y, w, h, r, r, "F")
+    }
+
+    // Helper: Draw progress bar
+    const drawProgressBar = (x: number, y: number, width: number, height: number, progress: number, color: readonly [number, number, number]) => {
+      // Background
+      doc.setFillColor(229, 231, 235) // gray-200
+      doc.roundedRect(x, y, width, height, height / 2, height / 2, "F")
+      // Progress
+      if (progress > 0) {
+        doc.setFillColor(color[0], color[1], color[2])
+        doc.roundedRect(x, y, Math.max(width * (progress / 100), height), height, height / 2, height / 2, "F")
+      }
+    }
+
+    // Helper: Wrapped text
+    const addWrappedText = (text: string, x: number, startY: number, maxWidth: number, lineHeight: number = 5): number => {
       const lines = doc.splitTextToSize(text, maxWidth)
       lines.forEach((line: string) => {
-        if (startY > 270) {
+        if (startY > 275) {
           doc.addPage()
-          startY = margin
+          startY = margin + 10
         }
         doc.text(line, x, startY)
         startY += lineHeight
@@ -106,137 +134,274 @@ export async function POST(request: NextRequest) {
       return startY
     }
 
-    // ============ PAGE 1 ============
-
-    // Header
-    doc.setFillColor(22, 163, 74) // Green
-    doc.rect(0, 0, pageWidth, 40, "F")
-
-    doc.setTextColor(255, 255, 255)
-    doc.setFontSize(24)
-    doc.setFont("helvetica", "bold")
-    doc.text("Financial Plan", margin, 25)
-
-    doc.setFontSize(12)
-    doc.setFont("helvetica", "normal")
-    doc.text(`Prepared for ${session.full_name}`, margin, 35)
-
-    y = 55
-
-    // Score Box
-    doc.setFillColor(244, 244, 245)
-    doc.roundedRect(margin, y, contentWidth, 35, 3, 3, "F")
-
-    doc.setTextColor(22, 163, 74)
-    doc.setFontSize(28)
-    doc.setFont("helvetica", "bold")
-    doc.text(String(result.overall_score), margin + 30, y + 22)
-
-    doc.setTextColor(100, 100, 100)
-    doc.setFontSize(10)
-    doc.setFont("helvetica", "normal")
-    doc.text("Financial Health Score", margin + 15, y + 30)
-
-    doc.setTextColor(51, 51, 51)
-    doc.setFontSize(14)
-    doc.setFont("helvetica", "bold")
-    const personalityText = personalityLabels[result.personality_type] || result.personality_type
-    doc.text(personalityText, margin + 100, y + 20)
-
-    doc.setTextColor(100, 100, 100)
-    doc.setFontSize(10)
-    doc.setFont("helvetica", "normal")
-    doc.text("Personality Type", margin + 100, y + 30)
-
-    y += 50
-
-    // Plan Type Badge
-    doc.setFillColor(22, 163, 74)
-    const planTypeText = `${plan.plan_type.charAt(0).toUpperCase() + plan.plan_type.slice(1)} Plan`
-    doc.roundedRect(margin, y, 60, 8, 2, 2, "F")
-    doc.setTextColor(255, 255, 255)
-    doc.setFontSize(9)
-    doc.text(planTypeText, margin + 5, y + 6)
-
-    y += 20
-
-    // Executive Summary
-    doc.setTextColor(22, 163, 74)
-    doc.setFontSize(14)
-    doc.setFont("helvetica", "bold")
-    doc.text("Executive Summary", margin, y)
-    y += 8
-
-    doc.setTextColor(60, 60, 60)
-    doc.setFontSize(10)
-    doc.setFont("helvetica", "normal")
-    y = addWrappedText(plan.executive_summary || "", margin, y, contentWidth, 6)
-
-    y += 10
-
-    // Immediate Actions
-    if (actionItems.length > 0) {
-      doc.setTextColor(22, 163, 74)
-      doc.setFontSize(14)
-      doc.setFont("helvetica", "bold")
-      doc.text("Your First Steps", margin, y)
-      y += 10
-
-      doc.setFontSize(10)
-      actionItems.slice(0, 5).forEach((item, i) => {
-        if (y > 270) {
-          doc.addPage()
-          y = margin
-        }
-
-        // Number circle
-        doc.setFillColor(22, 163, 74)
-        doc.circle(margin + 5, y - 2, 4, "F")
-        doc.setTextColor(255, 255, 255)
-        doc.setFont("helvetica", "bold")
-        doc.text(String(i + 1), margin + 3.5, y)
-
-        // Action text
-        doc.setTextColor(60, 60, 60)
-        doc.setFont("helvetica", "normal")
-        y = addWrappedText(item.action, margin + 15, y, contentWidth - 15, 6)
-        y += 4
-      })
+    // Helper: Add new page if needed
+    const checkPageBreak = (neededSpace: number): void => {
+      if (y + neededSpace > pageHeight - 20) {
+        doc.addPage()
+        y = margin + 10
+      }
     }
 
-    // ============ PAGE 2 ============
+    // ============ PAGE 1: COVER ============
+
+    // Gradient Header (simulated with rectangles)
+    for (let i = 0; i < 60; i++) {
+      const ratio = i / 60
+      const r = Math.round(primaryGreen[0] + (purple[0] - primaryGreen[0]) * ratio)
+      const g = Math.round(primaryGreen[1] + (purple[1] - primaryGreen[1]) * ratio)
+      const b = Math.round(primaryGreen[2] + (purple[2] - primaryGreen[2]) * ratio)
+      doc.setFillColor(r, g, b)
+      doc.rect(0, i, pageWidth, 1, "F")
+    }
+
+    // Logo & Title
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(28)
+    doc.setFont("helvetica", "bold")
+    doc.text("WEALTHCLAUDE", margin, 28)
+
+    doc.setFontSize(14)
+    doc.setFont("helvetica", "normal")
+    doc.text("Your Personal Financial Plan", margin, 38)
+
+    doc.setFontSize(10)
+    doc.text(`Prepared for ${session.full_name}  •  ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`, margin, 52)
+
+    y = 75
+
+    // Score Cards Row
+    const cardWidth = (contentWidth - 10) / 3
+    const cardHeight = 45
+
+    // Card 1: Score
+    roundedRect(margin, y, cardWidth, cardHeight, 4, cardBg)
+    doc.setFillColor(primaryGreen[0], primaryGreen[1], primaryGreen[2])
+    doc.roundedRect(margin, y, cardWidth, 4, 2, 2, "F") // top accent
+
+    doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2])
+    doc.setFontSize(32)
+    doc.setFont("helvetica", "bold")
+    doc.text(String(result.overall_score), margin + cardWidth / 2, y + 25, { align: "center" })
+
+    doc.setTextColor(grayText[0], grayText[1], grayText[2])
+    doc.setFontSize(9)
+    doc.setFont("helvetica", "normal")
+    doc.text("Financial Score", margin + cardWidth / 2, y + 38, { align: "center" })
+
+    // Card 2: Personality
+    const card2X = margin + cardWidth + 5
+    roundedRect(card2X, y, cardWidth, cardHeight, 4, cardBg)
+    doc.setFillColor(purple[0], purple[1], purple[2])
+    doc.roundedRect(card2X, y, cardWidth, 4, 2, 2, "F")
+
+    doc.setTextColor(purple[0], purple[1], purple[2])
+    doc.setFontSize(11)
+    doc.setFont("helvetica", "bold")
+    doc.text(personality.label, card2X + cardWidth / 2, y + 22, { align: "center" })
+
+    doc.setTextColor(grayText[0], grayText[1], grayText[2])
+    doc.setFontSize(8)
+    doc.setFont("helvetica", "normal")
+    const descLines = doc.splitTextToSize(personality.description, cardWidth - 10)
+    doc.text(descLines, card2X + cardWidth / 2, y + 32, { align: "center" })
+
+    // Card 3: Plan Type
+    const card3X = margin + (cardWidth + 5) * 2
+    roundedRect(card3X, y, cardWidth, cardHeight, 4, cardBg)
+    doc.setFillColor(darkGreen[0], darkGreen[1], darkGreen[2])
+    doc.roundedRect(card3X, y, cardWidth, 4, 2, 2, "F")
+
+    doc.setTextColor(darkGreen[0], darkGreen[1], darkGreen[2])
+    doc.setFontSize(14)
+    doc.setFont("helvetica", "bold")
+    doc.text(plan.plan_type.charAt(0).toUpperCase() + plan.plan_type.slice(1), card3X + cardWidth / 2, y + 22, { align: "center" })
+
+    doc.setTextColor(grayText[0], grayText[1], grayText[2])
+    doc.setFontSize(9)
+    doc.setFont("helvetica", "normal")
+    doc.text("Plan Type", card3X + cardWidth / 2, y + 34, { align: "center" })
+
+    y += cardHeight + 15
+
+    // Section: Score Breakdown
+    doc.setTextColor(darkText[0], darkText[1], darkText[2])
+    doc.setFontSize(14)
+    doc.setFont("helvetica", "bold")
+    doc.text("Your Financial Health Breakdown", margin, y)
+    y += 10
+
+    // Progress bars for each factor
+    const barHeight = 6
+    const sortedFactors = [...factorScores].sort((a, b) => b.score - a.score)
+
+    sortedFactors.slice(0, 6).forEach((factor) => {
+      checkPageBreak(15)
+
+      const label = factor.factorId.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())
+      const score = factor.score
+
+      // Status indicator
+      let statusColor: readonly [number, number, number]
+      let statusIcon: string
+      if (score >= 70) {
+        statusColor = primaryGreen
+        statusIcon = "●"
+      } else if (score >= 40) {
+        statusColor = [234, 179, 8] // yellow
+        statusIcon = "●"
+      } else {
+        statusColor = [239, 68, 68] // red
+        statusIcon = "●"
+      }
+
+      doc.setTextColor(statusColor[0], statusColor[1], statusColor[2])
+      doc.setFontSize(10)
+      doc.text(statusIcon, margin, y + 1)
+
+      doc.setTextColor(darkText[0], darkText[1], darkText[2])
+      doc.setFontSize(9)
+      doc.setFont("helvetica", "normal")
+      doc.text(label, margin + 6, y)
+
+      doc.setTextColor(grayText[0], grayText[1], grayText[2])
+      doc.setFontSize(9)
+      doc.setFont("helvetica", "bold")
+      doc.text(`${score}%`, pageWidth - margin, y, { align: "right" })
+
+      y += 4
+      drawProgressBar(margin + 6, y, contentWidth - 30, barHeight, score, statusColor)
+      y += barHeight + 8
+    })
+
+    y += 5
+
+    // Strengths & Weaknesses
+    checkPageBreak(50)
+
+    const halfWidth = (contentWidth - 10) / 2
+
+    // Strengths Card
+    roundedRect(margin, y, halfWidth, 45, 4, [240, 253, 244]) // green-50
+    doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2])
+    doc.setFontSize(10)
+    doc.setFont("helvetica", "bold")
+    doc.text("✓ Strengths", margin + 8, y + 12)
+
+    doc.setTextColor(darkText[0], darkText[1], darkText[2])
+    doc.setFontSize(8)
+    doc.setFont("helvetica", "normal")
+    let strengthY = y + 20
+    strengths.slice(0, 3).forEach(s => {
+      doc.text(`• ${s.replace(/_/g, " ")}`, margin + 8, strengthY)
+      strengthY += 7
+    })
+
+    // Weaknesses Card
+    const weakX = margin + halfWidth + 10
+    roundedRect(weakX, y, halfWidth, 45, 4, [254, 242, 242]) // red-50
+    doc.setTextColor(239, 68, 68)
+    doc.setFontSize(10)
+    doc.setFont("helvetica", "bold")
+    doc.text("↗ Areas to Improve", weakX + 8, y + 12)
+
+    doc.setTextColor(darkText[0], darkText[1], darkText[2])
+    doc.setFontSize(8)
+    doc.setFont("helvetica", "normal")
+    let weakY = y + 20
+    weaknesses.slice(0, 3).forEach(w => {
+      doc.text(`• ${w.replace(/_/g, " ")}`, weakX + 8, weakY)
+      weakY += 7
+    })
+
+    // ============ PAGE 2: ACTION PLAN ============
     doc.addPage()
     y = margin
+
+    // Header bar
+    doc.setFillColor(primaryGreen[0], primaryGreen[1], primaryGreen[2])
+    doc.rect(0, 0, pageWidth, 8, "F")
+
+    doc.setTextColor(darkText[0], darkText[1], darkText[2])
+    doc.setFontSize(18)
+    doc.setFont("helvetica", "bold")
+    doc.text("Your Action Plan", margin, y + 18)
+    y += 28
+
+    // Executive Summary
+    roundedRect(margin, y, contentWidth, 40, 4, lightBg)
+    doc.setTextColor(grayText[0], grayText[1], grayText[2])
+    doc.setFontSize(8)
+    doc.setFont("helvetica", "bold")
+    doc.text("EXECUTIVE SUMMARY", margin + 8, y + 10)
+
+    doc.setTextColor(darkText[0], darkText[1], darkText[2])
+    doc.setFontSize(9)
+    doc.setFont("helvetica", "normal")
+    const summaryLines = doc.splitTextToSize(plan.executive_summary || "", contentWidth - 16)
+    doc.text(summaryLines.slice(0, 4), margin + 8, y + 18)
+    y += 50
+
+    // First Steps
+    doc.setTextColor(darkText[0], darkText[1], darkText[2])
+    doc.setFontSize(12)
+    doc.setFont("helvetica", "bold")
+    doc.text("🚀 Your First Steps (Next 30 Days)", margin, y)
+    y += 8
+
+    actionItems.slice(0, 5).forEach((item, i) => {
+      checkPageBreak(18)
+
+      // Number badge
+      doc.setFillColor(primaryGreen[0], primaryGreen[1], primaryGreen[2])
+      doc.circle(margin + 6, y + 4, 5, "F")
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(8)
+      doc.setFont("helvetica", "bold")
+      doc.text(String(i + 1), margin + 4.5, y + 6)
+
+      // Action text
+      doc.setTextColor(darkText[0], darkText[1], darkText[2])
+      doc.setFontSize(9)
+      doc.setFont("helvetica", "normal")
+      const actionLines = doc.splitTextToSize(item.action, contentWidth - 20)
+      doc.text(actionLines[0], margin + 16, y + 5)
+      if (actionLines[1]) {
+        doc.text(actionLines[1], margin + 16, y + 10)
+      }
+      y += actionLines.length > 1 ? 16 : 12
+    })
+
+    y += 10
 
     // Short-Term Goals
     const shortTermGoals = goals.filter(g => g.type === "short_term")
     if (shortTermGoals.length > 0) {
-      doc.setTextColor(22, 163, 74)
-      doc.setFontSize(14)
+      checkPageBreak(30)
+
+      doc.setTextColor(darkText[0], darkText[1], darkText[2])
+      doc.setFontSize(12)
       doc.setFont("helvetica", "bold")
-      doc.text("Short-Term Goals (1-6 Months)", margin, y)
-      y += 10
+      doc.text("📅 Short-Term Goals (1-6 Months)", margin, y)
+      y += 8
 
       shortTermGoals.forEach((goal) => {
-        if (y > 260) {
-          doc.addPage()
-          y = margin
-        }
+        checkPageBreak(22)
 
-        doc.setFillColor(249, 250, 251)
-        doc.roundedRect(margin, y - 4, contentWidth, 20, 2, 2, "F")
+        roundedRect(margin, y, contentWidth, 18, 3, cardBg)
+        doc.setDrawColor(229, 231, 235)
+        doc.roundedRect(margin, y, contentWidth, 18, 3, 3, "S")
 
-        doc.setTextColor(51, 51, 51)
-        doc.setFontSize(11)
-        doc.setFont("helvetica", "bold")
-        doc.text(goal.goal, margin + 5, y + 3)
-
-        doc.setTextColor(100, 100, 100)
+        doc.setTextColor(darkText[0], darkText[1], darkText[2])
         doc.setFontSize(9)
-        doc.setFont("helvetica", "normal")
-        doc.text(`Target: ${goal.target} | Timeline: ${goal.timeline}`, margin + 5, y + 12)
+        doc.setFont("helvetica", "bold")
+        doc.text(goal.goal, margin + 6, y + 7)
 
-        y += 25
+        doc.setTextColor(grayText[0], grayText[1], grayText[2])
+        doc.setFontSize(8)
+        doc.setFont("helvetica", "normal")
+        doc.text(`Target: ${goal.target}  •  ${goal.timeline}`, margin + 6, y + 14)
+
+        y += 22
       })
     }
 
@@ -245,125 +410,125 @@ export async function POST(request: NextRequest) {
     // Medium-Term Goals
     const mediumTermGoals = goals.filter(g => g.type === "medium_term")
     if (mediumTermGoals.length > 0) {
-      doc.setTextColor(22, 163, 74)
-      doc.setFontSize(14)
+      checkPageBreak(30)
+
+      doc.setTextColor(darkText[0], darkText[1], darkText[2])
+      doc.setFontSize(12)
       doc.setFont("helvetica", "bold")
-      doc.text("Medium-Term Goals (6-12 Months)", margin, y)
-      y += 10
+      doc.text("🎯 Medium-Term Goals (6-12 Months)", margin, y)
+      y += 8
 
       mediumTermGoals.forEach((goal) => {
-        if (y > 260) {
-          doc.addPage()
-          y = margin
-        }
+        checkPageBreak(22)
 
-        doc.setFillColor(249, 250, 251)
-        doc.roundedRect(margin, y - 4, contentWidth, 20, 2, 2, "F")
+        roundedRect(margin, y, contentWidth, 18, 3, cardBg)
+        doc.setDrawColor(229, 231, 235)
+        doc.roundedRect(margin, y, contentWidth, 18, 3, 3, "S")
 
-        doc.setTextColor(51, 51, 51)
-        doc.setFontSize(11)
-        doc.setFont("helvetica", "bold")
-        doc.text(goal.goal, margin + 5, y + 3)
-
-        doc.setTextColor(100, 100, 100)
+        doc.setTextColor(darkText[0], darkText[1], darkText[2])
         doc.setFontSize(9)
-        doc.setFont("helvetica", "normal")
-        doc.text(`Target: ${goal.target} | Timeline: ${goal.timeline}`, margin + 5, y + 12)
+        doc.setFont("helvetica", "bold")
+        doc.text(goal.goal, margin + 6, y + 7)
 
-        y += 25
+        doc.setTextColor(grayText[0], grayText[1], grayText[2])
+        doc.setFontSize(8)
+        doc.setFont("helvetica", "normal")
+        doc.text(`Target: ${goal.target}  •  ${goal.timeline}`, margin + 6, y + 14)
+
+        y += 22
       })
     }
 
-    y += 5
+    // ============ PAGE 3: RECOMMENDATIONS ============
+    doc.addPage()
+    y = margin
+
+    // Header bar
+    doc.setFillColor(purple[0], purple[1], purple[2])
+    doc.rect(0, 0, pageWidth, 8, "F")
+
+    doc.setTextColor(darkText[0], darkText[1], darkText[2])
+    doc.setFontSize(18)
+    doc.setFont("helvetica", "bold")
+    doc.text("Personalized Recommendations", margin, y + 18)
+    y += 30
 
     // Recommendations
-    if (recommendations.length > 0) {
-      if (y > 220) {
-        doc.addPage()
-        y = margin
-      }
+    recommendations.forEach((rec) => {
+      checkPageBreak(35)
 
-      doc.setTextColor(22, 163, 74)
-      doc.setFontSize(14)
+      doc.setFillColor(purple[0], purple[1], purple[2])
+      doc.circle(margin + 4, y + 2, 3, "F")
+
+      doc.setTextColor(darkText[0], darkText[1], darkText[2])
+      doc.setFontSize(11)
       doc.setFont("helvetica", "bold")
-      doc.text("Personalized Recommendations", margin, y)
+      doc.text(rec.area.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()), margin + 12, y + 4)
       y += 10
 
-      recommendations.forEach((rec) => {
-        if (y > 250) {
-          doc.addPage()
-          y = margin
-        }
+      doc.setTextColor(grayText[0], grayText[1], grayText[2])
+      doc.setFontSize(9)
+      doc.setFont("helvetica", "normal")
+      y = addWrappedText(rec.advice, margin + 12, y, contentWidth - 12, 5)
+      y += 10
+    })
 
-        doc.setTextColor(51, 51, 51)
-        doc.setFontSize(11)
-        doc.setFont("helvetica", "bold")
-        doc.text(`• ${rec.area.replace(/_/g, " ")}`, margin, y)
-        y += 6
-
-        doc.setTextColor(80, 80, 80)
-        doc.setFontSize(10)
-        doc.setFont("helvetica", "normal")
-        y = addWrappedText(rec.advice, margin + 5, y, contentWidth - 5, 5)
-        y += 5
-      })
-    }
-
-    y += 5
+    y += 10
 
     // Warnings
     if (warnings.length > 0) {
-      if (y > 230) {
-        doc.addPage()
-        y = margin
-      }
+      checkPageBreak(40)
 
-      doc.setTextColor(217, 119, 6) // Amber
-      doc.setFontSize(14)
+      doc.setTextColor(amberText[0], amberText[1], amberText[2])
+      doc.setFontSize(12)
       doc.setFont("helvetica", "bold")
-      doc.text("⚠ Important Considerations", margin, y)
+      doc.text("⚠️ Important Considerations", margin, y)
       y += 10
 
       warnings.forEach((warning) => {
-        if (y > 260) {
-          doc.addPage()
-          y = margin
-        }
+        checkPageBreak(25)
 
-        doc.setFillColor(254, 243, 199) // Amber light
-        doc.roundedRect(margin, y - 4, contentWidth, 15, 2, 2, "F")
+        roundedRect(margin, y, contentWidth, 18, 3, amberBg)
+        doc.setDrawColor(251, 191, 36)
+        doc.roundedRect(margin, y, contentWidth, 18, 3, 3, "S")
 
-        doc.setTextColor(146, 64, 14) // Amber dark
-        doc.setFontSize(9)
+        doc.setTextColor(amberText[0], amberText[1], amberText[2])
+        doc.setFontSize(8)
         doc.setFont("helvetica", "normal")
-        y = addWrappedText(warning, margin + 5, y + 2, contentWidth - 10, 5)
-        y += 8
+        const warningLines = doc.splitTextToSize(warning, contentWidth - 16)
+        doc.text(warningLines.slice(0, 2), margin + 8, y + 8)
+
+        y += 22
       })
     }
 
-    // Footer on all pages
+    // ============ FOOTER ON ALL PAGES ============
     const totalPages = doc.getNumberOfPages()
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i)
-      doc.setTextColor(150, 150, 150)
-      doc.setFontSize(8)
+
+      // Footer line
+      doc.setDrawColor(229, 231, 235)
+      doc.setLineWidth(0.5)
+      doc.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15)
+
+      // Footer text
+      doc.setTextColor(grayText[0], grayText[1], grayText[2])
+      doc.setFontSize(7)
       doc.setFont("helvetica", "normal")
-      doc.text(
-        `WealthClaude | wealthclaude.com | Generated ${new Date().toLocaleDateString()} | Page ${i} of ${totalPages}`,
-        pageWidth / 2,
-        287,
-        { align: "center" }
-      )
+      doc.text("WEALTHCLAUDE", margin, pageHeight - 8)
+      doc.text("wealthclaude.com", margin + 30, pageHeight - 8)
+      doc.text("Confidential", pageWidth / 2, pageHeight - 8, { align: "center" })
+      doc.text(`Page ${i} of ${totalPages}`, pageWidth - margin, pageHeight - 8, { align: "right" })
     }
 
     // Generate PDF buffer
     const pdfBuffer = Buffer.from(doc.output("arraybuffer"))
 
-    // Return PDF
     return new NextResponse(pdfBuffer, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${session.full_name.replace(/\s+/g, "_")}_Financial_Plan.pdf"`
+        "Content-Disposition": `attachment; filename="${session.full_name.replace(/\s+/g, "_")}_WealthClaude_Plan.pdf"`
       }
     })
   } catch (err) {

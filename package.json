@@ -55,6 +55,7 @@
     "jspdf-autotable": "latest",
     "lucide-react": "^0.454.0",
     "mammoth": "^1.6.0",
+    "@react-pdf/renderer": "^3.4.0",
     "next": "16.0.10",
     "next-themes": "latest",
     "pdf-parse": "^1.1.1",

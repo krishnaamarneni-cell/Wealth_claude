@@ -49,6 +49,7 @@
     "embla-carousel-react": "latest",
     "framer-motion": "^12.36.0",
     "globe.gl": "latest",
+    "groq-sdk": "^0.5.0",
     "input-otp": "latest",
     "jspdf": "latest",
     "jspdf-autotable": "latest",

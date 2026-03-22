@@ -1,10 +1,29 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useState, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { CheckCircle2, Clock, Loader2 } from "lucide-react"
 
 export default function AssessmentThankYouPage() {
+  return (
+    <Suspense fallback={<ThankYouLoadingFallback />}>
+      <AssessmentThankYouContent />
+    </Suspense>
+  )
+}
+
+function ThankYouLoadingFallback() {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="text-center">
+        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    </div>
+  )
+}
+
+function AssessmentThankYouContent() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get("session")
   const [userName, setUserName] = useState("")

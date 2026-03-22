@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   ChevronLeft,
@@ -628,6 +628,25 @@ const tests: Test[] = [
 // =============================================================================
 
 export default function AssessmentTestPage() {
+  return (
+    <Suspense fallback={<AssessmentLoadingFallback />}>
+      <AssessmentTestContent />
+    </Suspense>
+  )
+}
+
+function AssessmentLoadingFallback() {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="text-center">
+        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+        <p className="text-muted-foreground">Loading assessment...</p>
+      </div>
+    </div>
+  )
+}
+
+function AssessmentTestContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const mode = searchParams.get("mode") || "full"

@@ -6,38 +6,74 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// GET - List all assessments with results
+// GET - Get all assessments or single by ID
 export async function GET(request: NextRequest) {
   try {
-    // Get all sessions with their results
+    const { searchParams } = new URL(request.url)
+    const sessionId = searchParams.get("sessionId")
+
+    if (sessionId) {
+      // Get single assessment
+      const { data: session, error } = await supabase
+        .from("assessment_sessions")
+        .select("*")
+        .eq("id", sessionId)
+        .single()
+
+      if (error || !session) {
+        return NextResponse.json(
+          { error: "Session not found" },
+          { status: 404 }
+        )
+      }
+
+      // Get result for score
+      const { data: result } = await supabase
+        .from("assessment_results")
+        .select("overall_score, personality_type")
+        .eq("session_id", sessionId)
+        .single()
+
+      return NextResponse.json({
+        ...session,
+        overall_score: result?.overall_score,
+        personality_type: result?.personality_type
+      })
+    }
+
+    // Get all assessments with scores
     const { data: sessions, error } = await supabase
       .from("assessment_sessions")
-      .select(`
-        *,
-        assessment_results (
-          overall_score,
-          personality_type
-        )
-      `)
+      .select("*")
       .order("created_at", { ascending: false })
 
     if (error) {
-      console.error("Error fetching assessments:", error)
+      console.error("Error fetching sessions:", error)
       return NextResponse.json(
         { error: "Failed to fetch assessments" },
         { status: 500 }
       )
     }
 
-    // Flatten the data
-    const assessments = sessions.map(session => ({
+    // Get results for all sessions
+    const sessionIds = sessions.map(s => s.id)
+    const { data: results } = await supabase
+      .from("assessment_results")
+      .select("session_id, overall_score, personality_type")
+      .in("session_id", sessionIds)
+
+    // Merge results with sessions
+    const resultsMap = new Map(
+      (results || []).map(r => [r.session_id, r])
+    )
+
+    const assessmentsWithScores = sessions.map(session => ({
       ...session,
-      overall_score: session.assessment_results?.[0]?.overall_score || null,
-      personality_type: session.assessment_results?.[0]?.personality_type || null,
-      assessment_results: undefined // Remove nested object
+      overall_score: resultsMap.get(session.id)?.overall_score,
+      personality_type: resultsMap.get(session.id)?.personality_type
     }))
 
-    return NextResponse.json(assessments)
+    return NextResponse.json(assessmentsWithScores)
   } catch (err) {
     console.error("Admin assessments error:", err)
     return NextResponse.json(

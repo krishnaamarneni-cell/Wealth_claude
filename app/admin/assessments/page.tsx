@@ -25,7 +25,9 @@ import {
   Download,
   RefreshCw,
   Search,
-  Filter
+  Filter,
+  BarChart3,
+  Info
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -77,6 +79,20 @@ interface FinancialPlan {
   pdf_shared_at: string | null
 }
 
+// Industry benchmark data (based on financial wellness surveys)
+const industryBenchmarks: Record<string, { average: number; top25: number; description: string }> = {
+  savings_discipline: { average: 52, top25: 78, description: "Regular savings habits and automation" },
+  debt_management: { average: 48, top25: 72, description: "Debt-to-income ratio and payoff strategy" },
+  financial_planning: { average: 45, top25: 75, description: "Goal setting and financial roadmap" },
+  spending_control: { average: 50, top25: 74, description: "Budget adherence and impulse control" },
+  investment_readiness: { average: 42, top25: 70, description: "Investment knowledge and portfolio diversity" },
+  risk_tolerance: { average: 55, top25: 68, description: "Comfort with market volatility" },
+  financial_literacy: { average: 47, top25: 76, description: "Understanding of financial concepts" },
+  emergency_preparedness: { average: 40, top25: 72, description: "Emergency fund coverage (3-6 months)" },
+  future_orientation: { average: 53, top25: 80, description: "Retirement and long-term planning" },
+  money_wellness: { average: 48, top25: 75, description: "Financial stress and confidence levels" }
+}
+
 const problemLabels: Record<string, string> = {
   debt: "Debt Management",
   investments: "Investment Growth",
@@ -119,6 +135,7 @@ export default function AdminAssessmentsPage() {
   const [assessmentResult, setAssessmentResult] = useState<AssessmentResult | null>(null)
   const [financialPlan, setFinancialPlan] = useState<FinancialPlan | null>(null)
   const [loadingDetails, setLoadingDetails] = useState(false)
+  const [showBenchmarks, setShowBenchmarks] = useState(true)
 
   // Action states
   const [generatingPlan, setGeneratingPlan] = useState(false)
@@ -189,7 +206,9 @@ export default function AdminAssessmentsPage() {
       const planResponse = await fetch(`/api/assessment/plan?sessionId=${assessment.id}`)
       if (planResponse.ok) {
         const planData = await planResponse.json()
-        setFinancialPlan(planData)
+        if (planData && !planData.error) {
+          setFinancialPlan(planData)
+        }
       }
     } catch (err) {
       console.error("Error loading details:", err)
@@ -215,17 +234,19 @@ export default function AdminAssessmentsPage() {
         })
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        const data = await response.json()
         throw new Error(data.error || "Failed to generate plan")
       }
-
-      const data = await response.json()
 
       // Reload plan
       const planResponse = await fetch(`/api/assessment/plan?sessionId=${selectedAssessment.id}`)
       if (planResponse.ok) {
-        setFinancialPlan(await planResponse.json())
+        const planData = await planResponse.json()
+        if (planData && !planData.error) {
+          setFinancialPlan(planData)
+        }
       }
 
       setActionSuccess("Plan generated successfully!")
@@ -235,6 +256,7 @@ export default function AdminAssessmentsPage() {
         prev.map(a => a.id === selectedAssessment.id ? { ...a, status: "plan_generated" } : a)
       )
     } catch (err) {
+      console.error("Plan generation error:", err)
       setActionError(err instanceof Error ? err.message : "Failed to generate plan")
     } finally {
       setGeneratingPlan(false)
@@ -257,7 +279,10 @@ export default function AdminAssessmentsPage() {
         })
       })
 
-      if (!response.ok) throw new Error("Failed to generate PDF")
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || "Failed to generate PDF")
+      }
 
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
@@ -271,7 +296,8 @@ export default function AdminAssessmentsPage() {
 
       setActionSuccess("PDF downloaded!")
     } catch (err) {
-      setActionError("Failed to generate PDF")
+      console.error("PDF error:", err)
+      setActionError(err instanceof Error ? err.message : "Failed to generate PDF")
     } finally {
       setGeneratingPdf(false)
     }
@@ -293,7 +319,10 @@ export default function AdminAssessmentsPage() {
         })
       })
 
-      if (!response.ok) throw new Error("Failed to send email")
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || "Failed to send email")
+      }
 
       setActionSuccess(`Plan sent to ${selectedAssessment.email}!`)
 
@@ -301,169 +330,150 @@ export default function AdminAssessmentsPage() {
       setAssessments(prev =>
         prev.map(a => a.id === selectedAssessment.id ? { ...a, status: "plan_shared", is_contacted: true } : a)
       )
+
+      // Reload plan to get updated pdf_shared_at
+      const planResponse = await fetch(`/api/assessment/plan?sessionId=${selectedAssessment.id}`)
+      if (planResponse.ok) {
+        const planData = await planResponse.json()
+        if (planData && !planData.error) {
+          setFinancialPlan(planData)
+        }
+      }
     } catch (err) {
-      setActionError("Failed to send email")
+      console.error("Email error:", err)
+      setActionError(err instanceof Error ? err.message : "Failed to send email")
     } finally {
       setSendingEmail(false)
     }
   }
 
-  // Filter assessments
+  // Helper to get comparison with benchmark
+  const getBenchmarkComparison = (factorId: string, score: number) => {
+    const benchmark = industryBenchmarks[factorId]
+    if (!benchmark) return null
+
+    const vsAverage = score - benchmark.average
+    const vsTop25 = score - benchmark.top25
+
+    return {
+      ...benchmark,
+      vsAverage,
+      vsTop25,
+      percentile: vsAverage >= 0
+        ? (vsTop25 >= 0 ? "Top 25%" : "Above Average")
+        : "Below Average"
+    }
+  }
+
   const filteredAssessments = assessments.filter(a => {
-    const matchesSearch =
+    const matchesSearch = searchQuery === "" ||
       a.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       a.email.toLowerCase().includes(searchQuery.toLowerCase())
+
     const matchesStatus = statusFilter === "all" || a.status === statusFilter
+
     return matchesSearch && matchesStatus
   })
 
-  // Stats
-  const stats = {
-    total: assessments.length,
-    completed: assessments.filter(a => ["goals_complete", "plan_generated", "plan_shared"].includes(a.status)).length,
-    needsAttention: assessments.filter(a => a.status === "goals_complete" && !a.is_viewed).length,
-    shared: assessments.filter(a => a.status === "plan_shared").length
-  }
+  const completedAssessments = assessments.filter(a =>
+    ["goals_complete", "plan_generated", "plan_shared"].includes(a.status)
+  )
+
+  const needsReview = assessments.filter(a =>
+    a.status === "goals_complete" && !a.is_viewed
+  )
 
   return (
-    <div className="p-6">
+    <div className="min-h-full bg-background">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Financial Assessments</h1>
-          <p className="text-muted-foreground">Manage client assessments and generate personalized plans</p>
+      <div className="border-b border-border bg-card px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">Financial Assessments</h1>
+            <p className="text-muted-foreground">Manage client assessments and generate personalized plans</p>
+          </div>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6">
-        <button
-          onClick={() => setActiveTab("take")}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "take"
-              ? "bg-card border border-primary text-foreground"
-              : "bg-card border border-border text-muted-foreground hover:text-foreground"
-            }`}
-        >
-          <ClipboardList className="h-4 w-4 inline mr-2" />
-          Take Assessment
-        </button>
-        <button
-          onClick={() => setActiveTab("results")}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "results"
-              ? "bg-card border border-primary text-foreground"
-              : "bg-card border border-border text-muted-foreground hover:text-foreground"
-            }`}
-        >
-          <Users className="h-4 w-4 inline mr-2" />
-          View Results
-          {stats.needsAttention > 0 && (
-            <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-primary text-primary-foreground">
-              {stats.needsAttention}
-            </span>
-          )}
-        </button>
+        {/* Tabs */}
+        <div className="flex gap-2 mt-4">
+          <Button
+            variant={activeTab === "take" ? "default" : "ghost"}
+            onClick={() => setActiveTab("take")}
+            size="sm"
+          >
+            <ClipboardList className="h-4 w-4 mr-2" />
+            Take Assessment
+          </Button>
+          <Button
+            variant={activeTab === "results" ? "default" : "ghost"}
+            onClick={() => setActiveTab("results")}
+            size="sm"
+          >
+            <Users className="h-4 w-4 mr-2" />
+            View Results
+          </Button>
+        </div>
       </div>
 
       {activeTab === "take" ? (
-        /* Take Assessment Tab */
-        <div className="space-y-6">
-          {/* Share Link Card */}
-          <div className="bg-card border border-border rounded-xl p-6">
-            <h2 className="text-lg font-semibold text-foreground mb-2">Share Assessment Link</h2>
-            <p className="text-muted-foreground mb-4">Send this link to clients to start their assessment:</p>
-            <div className="flex gap-2">
-              <Input
-                value={`${typeof window !== "undefined" ? window.location.origin : ""}/assessment/start`}
-                readOnly
-                className="flex-1"
-              />
-              <Button
-                variant="outline"
-                onClick={() => {
-                  navigator.clipboard.writeText(`${window.location.origin}/assessment/start`)
-                  setActionSuccess("Link copied!")
-                  setTimeout(() => setActionSuccess(""), 2000)
-                }}
-              >
-                Copy Link
-              </Button>
-            </div>
-          </div>
-
-          {/* Assessment Overview */}
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="bg-card border border-border rounded-xl p-6">
-              <h3 className="font-semibold text-foreground mb-4">Assessment Structure</h3>
-              <div className="space-y-3">
-                {[
-                  { step: "1", title: "User Intake", desc: "Name, email, and primary goal" },
-                  { step: "2", title: "Dynamic Tests", desc: "3-9 tests based on their goal" },
-                  { step: "3", title: "Goal Selection", desc: "Priority and timeline preferences" },
-                  { step: "4", title: "Thank You", desc: "They wait for your follow-up" }
-                ].map(item => (
-                  <div key={item.step} className="flex gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center text-sm font-medium flex-shrink-0">
-                      {item.step}
-                    </div>
-                    <div>
-                      <p className="font-medium text-foreground">{item.title}</p>
-                      <p className="text-sm text-muted-foreground">{item.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-card border border-border rounded-xl p-6">
-              <h3 className="font-semibold text-foreground mb-4">Your Workflow</h3>
-              <div className="space-y-3">
-                {[
-                  { icon: Mail, title: "Get Notified", desc: "Email alert when assessment completes" },
-                  { icon: Eye, title: "Review Results", desc: "See scores, personality, weaknesses" },
-                  { icon: Sparkles, title: "Generate Plan", desc: "AI creates personalized plan" },
-                  { icon: Send, title: "Share with Client", desc: "Send PDF via email" }
-                ].map((item, i) => (
-                  <div key={i} className="flex gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                      <item.icon className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-foreground">{item.title}</p>
-                      <p className="text-sm text-muted-foreground">{item.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+        // Take Assessment Tab
+        <div className="p-6">
+          <div className="max-w-2xl mx-auto text-center py-12">
+            <ClipboardList className="h-16 w-16 text-primary mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Start a New Assessment</h2>
+            <p className="text-muted-foreground mb-6">
+              Begin the financial assessment process for a new client or yourself.
+            </p>
+            <Button asChild size="lg">
+              <a href="/assessment/start" target="_blank">
+                Start Assessment
+                <ChevronRight className="h-4 w-4 ml-2" />
+              </a>
+            </Button>
           </div>
         </div>
       ) : (
-        /* View Results Tab */
-        <div className="space-y-6">
+        // View Results Tab
+        <div className="p-6">
           {/* Stats */}
-          <div className="grid grid-cols-4 gap-4">
-            {[
-              { label: "Total Assessments", value: stats.total, icon: ClipboardList },
-              { label: "Completed", value: stats.completed, icon: CheckCircle2 },
-              { label: "Needs Review", value: stats.needsAttention, icon: AlertCircle },
-              { label: "Plans Shared", value: stats.shared, icon: Send }
-            ].map((stat, i) => (
-              <div key={i} className="bg-card border border-border rounded-xl p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                    <stat.icon className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                    <p className="text-sm text-muted-foreground">{stat.label}</p>
-                  </div>
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="bg-card border border-border rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <ClipboardList className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{assessments.length}</p>
+                  <p className="text-sm text-muted-foreground">Total Assessments</p>
                 </div>
               </div>
-            ))}
+            </div>
+            <div className="bg-card border border-border rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-500/10 rounded-lg">
+                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{completedAssessments.length}</p>
+                  <p className="text-sm text-muted-foreground">Completed</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-card border border-border rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-yellow-500/10 rounded-lg">
+                  <Eye className="h-5 w-5 text-yellow-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{needsReview.length}</p>
+                  <p className="text-sm text-muted-foreground">Needs Review</p>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Filters */}
-          <div className="flex gap-4">
+          <div className="flex gap-4 mb-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -479,102 +489,86 @@ export default function AdminAssessmentsPage() {
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="goals_complete">Completed</SelectItem>
                 <SelectItem value="plan_generated">Plan Ready</SelectItem>
                 <SelectItem value="plan_shared">Plan Shared</SelectItem>
-                <SelectItem value="tests_in_progress">In Progress</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" onClick={loadAssessments}>
-              <RefreshCw className="h-4 w-4" />
-            </Button>
           </div>
 
-          {/* Assessment List */}
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
-            {loading ? (
-              <div className="p-8 text-center">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
-                <p className="text-muted-foreground">Loading assessments...</p>
-              </div>
-            ) : filteredAssessments.length === 0 ? (
-              <div className="p-8 text-center">
-                <ClipboardList className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-foreground font-medium">No assessments yet</p>
-                <p className="text-muted-foreground">Share the assessment link with clients to get started</p>
-              </div>
-            ) : (
+          {/* Assessments List */}
+          {loading ? (
+            <div className="text-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+            </div>
+          ) : filteredAssessments.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              No assessments found
+            </div>
+          ) : (
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
               <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Client</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Goal</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Status</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Score</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Date</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Action</th>
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Client</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Goal</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Status</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">Date</th>
+                    <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-border">
                   {filteredAssessments.map((assessment) => (
                     <tr
                       key={assessment.id}
-                      className={`border-b border-border hover:bg-muted/50 cursor-pointer ${!assessment.is_viewed && assessment.status === "goals_complete" ? "bg-primary/5" : ""
-                        }`}
+                      className="hover:bg-muted/30 cursor-pointer"
                       onClick={() => openAssessmentDetail(assessment)}
                     >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
                             <span className="text-sm font-medium text-primary">
-                              {assessment.full_name.charAt(0)}
+                              {assessment.full_name.charAt(0).toUpperCase()}
                             </span>
                           </div>
                           <div>
-                            <p className="font-medium text-foreground">{assessment.full_name}</p>
+                            <p className="font-medium text-foreground flex items-center gap-2">
+                              {assessment.full_name}
+                              {!assessment.is_viewed && (
+                                <span className="w-2 h-2 rounded-full bg-primary" />
+                              )}
+                            </p>
                             <p className="text-sm text-muted-foreground">{assessment.email}</p>
                           </div>
-                          {!assessment.is_viewed && assessment.status === "goals_complete" && (
-                            <Badge className="bg-primary text-primary-foreground">New</Badge>
-                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-foreground">
-                        {problemLabels[assessment.problem_type] || assessment.problem_type}
+                        {problemLabels[assessment.problem_type]}
                       </td>
                       <td className="px-4 py-3">
                         <Badge className={statusLabels[assessment.status]?.color || "bg-muted"}>
                           {statusLabels[assessment.status]?.label || assessment.status}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3">
-                        {assessment.overall_score ? (
-                          <span className="font-medium text-foreground">{assessment.overall_score}/100</span>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {new Date(assessment.created_at).toLocaleDateString()}
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <Button variant="ghost" size="sm">
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
+                      <td className="px-4 py-3">
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Detail Slide-over Panel */}
+      {/* Detail Slide-Over */}
       {selectedAssessment && (
-        <div className="fixed inset-0 z-50 flex">
+        <div className="fixed inset-0 z-50 flex justify-end">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/50"
@@ -582,43 +576,43 @@ export default function AdminAssessmentsPage() {
           />
 
           {/* Panel */}
-          <div className="absolute right-0 top-0 bottom-0 w-full max-w-2xl bg-background border-l border-border overflow-y-auto">
-            {/* Header */}
-            <div className="sticky top-0 bg-background border-b border-border p-4 flex items-center justify-between">
+          <div className="relative w-full max-w-lg bg-background border-l border-border overflow-y-auto">
+            {/* Panel Header */}
+            <div className="sticky top-0 bg-background border-b border-border px-6 py-4 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-foreground">{selectedAssessment.full_name}</h2>
                 <p className="text-sm text-muted-foreground">{selectedAssessment.email}</p>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => setSelectedAssessment(null)}>
+              <Button variant="ghost" size="icon" onClick={() => setSelectedAssessment(null)}>
                 <X className="h-5 w-5" />
               </Button>
             </div>
 
+            {/* Panel Content */}
             {loadingDetails ? (
-              <div className="p-8 text-center">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
-                <p className="text-muted-foreground">Loading details...</p>
+              <div className="p-6 text-center">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
               </div>
             ) : (
               <div className="p-6 space-y-6">
-                {/* Success/Error Messages */}
-                {actionSuccess && (
-                  <div className="bg-green-500/10 border border-green-500/30 text-green-600 px-4 py-3 rounded-lg flex items-center gap-2">
-                    <CheckCircle2 className="h-5 w-5" />
-                    {actionSuccess}
+                {/* Action Messages */}
+                {actionError && (
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 flex items-center gap-2 text-red-500">
+                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                    <span className="text-sm">{actionError}</span>
                   </div>
                 )}
-                {actionError && (
-                  <div className="bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 rounded-lg flex items-center gap-2">
-                    <AlertCircle className="h-5 w-5" />
-                    {actionError}
+                {actionSuccess && (
+                  <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3 flex items-center gap-2 text-green-500">
+                    <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                    <span className="text-sm">{actionSuccess}</span>
                   </div>
                 )}
 
                 {/* Client Info */}
                 <div className="bg-card border border-border rounded-xl p-4">
                   <h3 className="font-semibold text-foreground mb-3">Client Information</h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="grid grid-cols-2 gap-3 text-sm">
                     <div className="flex items-center gap-2">
                       <Mail className="h-4 w-4 text-muted-foreground" />
                       <span className="text-foreground">{selectedAssessment.email}</span>
@@ -698,24 +692,92 @@ export default function AdminAssessmentsPage() {
                       </div>
                     </div>
 
-                    {/* Factor Scores */}
+                    {/* Detailed Scores with Industry Comparison */}
                     <div className="mt-4 pt-4 border-t border-border">
-                      <p className="text-sm font-medium text-foreground mb-2">Detailed Scores</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {assessmentResult.factor_scores.map((factor) => (
-                          <div key={factor.factorId} className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground capitalize">
-                              {factor.factorId.replace(/_/g, " ")}
-                            </span>
-                            <span className={`font-medium ${factor.score >= 70 ? "text-green-500" :
-                                factor.score >= 50 ? "text-yellow-500" :
-                                  "text-red-500"
-                              }`}>
-                              {factor.score}
-                            </span>
-                          </div>
-                        ))}
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-sm font-medium text-foreground flex items-center gap-2">
+                          <BarChart3 className="h-4 w-4 text-primary" />
+                          Detailed Scores vs Industry
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowBenchmarks(!showBenchmarks)}
+                          className="text-xs"
+                        >
+                          {showBenchmarks ? "Hide" : "Show"} Benchmarks
+                        </Button>
                       </div>
+
+                      <div className="space-y-3">
+                        {assessmentResult.factor_scores.map((factor) => {
+                          const benchmark = getBenchmarkComparison(factor.factorId, factor.score)
+                          return (
+                            <div key={factor.factorId} className="space-y-1">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground capitalize">
+                                  {factor.factorId.replace(/_/g, " ")}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <span className={`font-medium ${factor.score >= 70 ? "text-green-500" :
+                                      factor.score >= 50 ? "text-yellow-500" :
+                                        "text-red-500"
+                                    }`}>
+                                    {factor.score}
+                                  </span>
+                                  {showBenchmarks && benchmark && (
+                                    <span className={`text-xs px-1.5 py-0.5 rounded ${benchmark.vsAverage >= 10 ? "bg-green-500/20 text-green-500" :
+                                        benchmark.vsAverage >= 0 ? "bg-blue-500/20 text-blue-500" :
+                                          "bg-red-500/20 text-red-500"
+                                      }`}>
+                                      {benchmark.vsAverage >= 0 ? "+" : ""}{benchmark.vsAverage} vs avg
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Progress bar with benchmark markers */}
+                              {showBenchmarks && benchmark && (
+                                <div className="relative h-2 bg-muted rounded-full overflow-visible">
+                                  {/* Client score bar */}
+                                  <div
+                                    className={`h-full rounded-full ${factor.score >= 70 ? "bg-green-500" :
+                                        factor.score >= 50 ? "bg-yellow-500" :
+                                          "bg-red-500"
+                                      }`}
+                                    style={{ width: `${factor.score}%` }}
+                                  />
+                                  {/* Industry average marker */}
+                                  <div
+                                    className="absolute top-0 w-0.5 h-4 -translate-y-1 bg-muted-foreground"
+                                    style={{ left: `${benchmark.average}%` }}
+                                    title={`Industry Avg: ${benchmark.average}`}
+                                  />
+                                  {/* Top 25% marker */}
+                                  <div
+                                    className="absolute top-0 w-0.5 h-4 -translate-y-1 bg-primary"
+                                    style={{ left: `${benchmark.top25}%` }}
+                                    title={`Top 25%: ${benchmark.top25}`}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      {showBenchmarks && (
+                        <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 rounded-full bg-muted-foreground" />
+                            <span>Industry Avg</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 rounded-full bg-primary" />
+                            <span>Top 25%</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

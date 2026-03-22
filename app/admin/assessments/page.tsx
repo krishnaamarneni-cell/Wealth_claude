@@ -1,29 +1,35 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import {
-  Search,
-  Download,
-  Eye,
-  RefreshCw,
-  Users,
-  FileText,
-  TrendingUp,
-  Clock,
-  ArrowUpRight,
-  MoreHorizontal,
-  PlayCircle,
   ClipboardList,
-  ChevronRight,
-  Sparkles,
+  Users,
+  Eye,
+  Mail,
+  Phone,
+  Calendar,
   Target,
+  Clock,
   Brain,
-  Shield
+  TrendingUp,
+  TrendingDown,
+  FileText,
+  Send,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  ChevronRight,
+  X,
+  Sparkles,
+  Download,
+  RefreshCw,
+  Search,
+  Filter
 } from "lucide-react"
-import { createClient } from "@/lib/supabase"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
 import {
   Select,
   SelectContent,
@@ -31,435 +37,791 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 
-// Types
 interface Assessment {
   id: string
-  user_id: string
-  overall_score: number
-  personality_type: string
-  factor_scores: FactorScore[]
-  rankings: Rankings
+  full_name: string
+  email: string
+  phone: string | null
+  problem_type: string
+  status: string
+  primary_goal: string | null
+  timeline: string | null
+  additional_notes: string | null
+  is_viewed: boolean
+  is_contacted: boolean
   created_at: string
-  user_profiles?: { full_name: string | null; email: string | null }
-  financial_plans?: FinancialPlan[]
+  completed_at: string | null
+  overall_score?: number
+  personality_type?: string
 }
 
-interface FactorScore { factorId: string; score: number; status: string }
-interface Rankings { overallPercentile: number; vsAgeGroup: number; vsIncomeGroup: number }
-interface FinancialPlan { id: string; goal_path: string; chosen_path: string; created_at: string }
-interface DashboardStats { totalAssessments: number; assessmentsThisWeek: number; averageScore: number; scoreChange: number }
+interface AssessmentResult {
+  overall_score: number
+  personality_type: string
+  factor_scores: Array<{ factorId: string; score: number; status: string }>
+  test_scores: Record<string, number>
+  strengths: string[]
+  weaknesses: string[]
+}
 
-// Main Component
-export default function AssessmentsPage() {
-  const [activeTab, setActiveTab] = useState<"take" | "results">("take")
+interface FinancialPlan {
+  id: string
+  plan_type: string
+  executive_summary: string
+  goals: Array<{ goal: string; target: string; timeline: string; type: string }>
+  action_items: Array<{ action: string; category: string }>
+  ai_recommendations: string
+  ai_warnings: string
+  pdf_url: string | null
+  pdf_shared_at: string | null
+}
+
+const problemLabels: Record<string, string> = {
+  debt: "Debt Management",
+  investments: "Investment Growth",
+  retirement: "Retirement Planning",
+  budgeting: "Budget & Cash Flow",
+  complete_checkup: "Complete Checkup"
+}
+
+const statusLabels: Record<string, { label: string; color: string }> = {
+  intake_complete: { label: "Started", color: "bg-muted text-muted-foreground" },
+  tests_in_progress: { label: "In Progress", color: "bg-yellow-500/20 text-yellow-600" },
+  tests_complete: { label: "Tests Done", color: "bg-blue-500/20 text-blue-600" },
+  goals_complete: { label: "Completed", color: "bg-primary/20 text-primary" },
+  plan_generated: { label: "Plan Ready", color: "bg-purple-500/20 text-purple-600" },
+  plan_shared: { label: "Plan Shared", color: "bg-green-500/20 text-green-600" }
+}
+
+const personalityLabels: Record<string, string> = {
+  cautious_saver: "Cautious Saver",
+  balanced_planner: "Balanced Planner",
+  growth_investor: "Growth Investor",
+  spontaneous_spender: "Spontaneous Spender",
+  risk_taker: "Risk Taker",
+  money_avoider: "Money Avoider",
+  security_seeker: "Security Seeker"
+}
+
+export default function AdminAssessmentsPage() {
+  const searchParams = useSearchParams()
+  const viewId = searchParams.get("view")
+
+  const [activeTab, setActiveTab] = useState<"take" | "results">(viewId ? "results" : "take")
+  const [assessments, setAssessments] = useState<Assessment[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+
+  // Detail view state
+  const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null)
+  const [assessmentResult, setAssessmentResult] = useState<AssessmentResult | null>(null)
+  const [financialPlan, setFinancialPlan] = useState<FinancialPlan | null>(null)
+  const [loadingDetails, setLoadingDetails] = useState(false)
+
+  // Action states
+  const [generatingPlan, setGeneratingPlan] = useState(false)
+  const [selectedPlanType, setSelectedPlanType] = useState<string>("moderate")
+  const [generatingPdf, setGeneratingPdf] = useState(false)
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [actionError, setActionError] = useState("")
+  const [actionSuccess, setActionSuccess] = useState("")
+
+  // Load assessments
+  useEffect(() => {
+    loadAssessments()
+  }, [])
+
+  // Auto-open if view param present
+  useEffect(() => {
+    if (viewId && assessments.length > 0) {
+      const assessment = assessments.find(a => a.id === viewId)
+      if (assessment) {
+        openAssessmentDetail(assessment)
+      }
+    }
+  }, [viewId, assessments])
+
+  const loadAssessments = async () => {
+    try {
+      const response = await fetch("/api/admin/assessments")
+      if (response.ok) {
+        const data = await response.json()
+        setAssessments(data)
+      }
+    } catch (err) {
+      console.error("Error loading assessments:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const openAssessmentDetail = async (assessment: Assessment) => {
+    setSelectedAssessment(assessment)
+    setLoadingDetails(true)
+    setAssessmentResult(null)
+    setFinancialPlan(null)
+    setActionError("")
+    setActionSuccess("")
+
+    try {
+      // Mark as viewed
+      if (!assessment.is_viewed) {
+        await fetch("/api/assessment/session", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: assessment.id, isViewed: true })
+        })
+        setAssessments(prev =>
+          prev.map(a => a.id === assessment.id ? { ...a, is_viewed: true } : a)
+        )
+      }
+
+      // Load results
+      const resultResponse = await fetch(`/api/admin/assessments/results?sessionId=${assessment.id}`)
+      if (resultResponse.ok) {
+        const resultData = await resultResponse.json()
+        setAssessmentResult(resultData)
+      }
+
+      // Load existing plan if any
+      const planResponse = await fetch(`/api/assessment/plan?sessionId=${assessment.id}`)
+      if (planResponse.ok) {
+        const planData = await planResponse.json()
+        setFinancialPlan(planData)
+      }
+    } catch (err) {
+      console.error("Error loading details:", err)
+    } finally {
+      setLoadingDetails(false)
+    }
+  }
+
+  const generatePlan = async () => {
+    if (!selectedAssessment) return
+
+    setGeneratingPlan(true)
+    setActionError("")
+    setActionSuccess("")
+
+    try {
+      const response = await fetch("/api/assessment/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: selectedAssessment.id,
+          planType: selectedPlanType
+        })
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to generate plan")
+      }
+
+      const data = await response.json()
+
+      // Reload plan
+      const planResponse = await fetch(`/api/assessment/plan?sessionId=${selectedAssessment.id}`)
+      if (planResponse.ok) {
+        setFinancialPlan(await planResponse.json())
+      }
+
+      setActionSuccess("Plan generated successfully!")
+
+      // Update assessment status in list
+      setAssessments(prev =>
+        prev.map(a => a.id === selectedAssessment.id ? { ...a, status: "plan_generated" } : a)
+      )
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to generate plan")
+    } finally {
+      setGeneratingPlan(false)
+    }
+  }
+
+  const generatePdf = async () => {
+    if (!selectedAssessment || !financialPlan) return
+
+    setGeneratingPdf(true)
+    setActionError("")
+
+    try {
+      const response = await fetch("/api/assessment/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: selectedAssessment.id,
+          planId: financialPlan.id
+        })
+      })
+
+      if (!response.ok) throw new Error("Failed to generate PDF")
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `${selectedAssessment.full_name.replace(/\s+/g, "_")}_Financial_Plan.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      setActionSuccess("PDF downloaded!")
+    } catch (err) {
+      setActionError("Failed to generate PDF")
+    } finally {
+      setGeneratingPdf(false)
+    }
+  }
+
+  const sendPlanEmail = async () => {
+    if (!selectedAssessment || !financialPlan) return
+
+    setSendingEmail(true)
+    setActionError("")
+
+    try {
+      const response = await fetch("/api/assessment/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: selectedAssessment.id,
+          planId: financialPlan.id
+        })
+      })
+
+      if (!response.ok) throw new Error("Failed to send email")
+
+      setActionSuccess(`Plan sent to ${selectedAssessment.email}!`)
+
+      // Update status
+      setAssessments(prev =>
+        prev.map(a => a.id === selectedAssessment.id ? { ...a, status: "plan_shared", is_contacted: true } : a)
+      )
+    } catch (err) {
+      setActionError("Failed to send email")
+    } finally {
+      setSendingEmail(false)
+    }
+  }
+
+  // Filter assessments
+  const filteredAssessments = assessments.filter(a => {
+    const matchesSearch =
+      a.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      a.email.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesStatus = statusFilter === "all" || a.status === statusFilter
+    return matchesSearch && matchesStatus
+  })
+
+  // Stats
+  const stats = {
+    total: assessments.length,
+    completed: assessments.filter(a => ["goals_complete", "plan_generated", "plan_shared"].includes(a.status)).length,
+    needsAttention: assessments.filter(a => a.status === "goals_complete" && !a.is_viewed).length,
+    shared: assessments.filter(a => a.status === "plan_shared").length
+  }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Tab Buttons - Using CSS variable tokens */}
-      <div className="inline-flex items-center gap-2">
+    <div className="p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Financial Assessments</h1>
+          <p className="text-muted-foreground">Manage client assessments and generate personalized plans</p>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 mb-6">
         <button
           onClick={() => setActiveTab("take")}
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "take"
-              ? "border border-primary text-foreground"
-              : "text-muted-foreground hover:text-foreground"
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "take"
+              ? "bg-card border border-primary text-foreground"
+              : "bg-card border border-border text-muted-foreground hover:text-foreground"
             }`}
         >
-          <PlayCircle className="h-4 w-4" />
+          <ClipboardList className="h-4 w-4 inline mr-2" />
           Take Assessment
         </button>
         <button
           onClick={() => setActiveTab("results")}
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "results"
-              ? "border border-primary text-foreground"
-              : "text-muted-foreground hover:text-foreground"
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "results"
+              ? "bg-card border border-primary text-foreground"
+              : "bg-card border border-border text-muted-foreground hover:text-foreground"
             }`}
         >
-          <ClipboardList className="h-4 w-4" />
+          <Users className="h-4 w-4 inline mr-2" />
           View Results
+          {stats.needsAttention > 0 && (
+            <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-primary text-primary-foreground">
+              {stats.needsAttention}
+            </span>
+          )}
         </button>
       </div>
 
-      {activeTab === "take" ? <TakeAssessmentTab /> : <ViewResultsTab />}
-    </div>
-  )
-}
-
-// Take Assessment Tab
-function TakeAssessmentTab() {
-  const router = useRouter()
-
-  const features = [
-    { icon: Brain, title: "Financial Personality", description: "Discover your money mindset and behavioral patterns" },
-    { icon: Target, title: "Goal Planning", description: "Get a personalized roadmap to achieve your financial goals" },
-    { icon: Shield, title: "Risk Assessment", description: "Understand your risk tolerance and investment readiness" },
-    { icon: Sparkles, title: "AI-Powered Insights", description: "Receive tailored recommendations based on your responses" }
-  ]
-
-  const tests = [
-    { name: "Financial Personality", questions: 15, time: "4 min", required: true },
-    { name: "Financial Health Check", questions: 15, time: "5 min", required: true },
-    { name: "Investment Profile", questions: 12, time: "3 min", required: false },
-    { name: "Money Mindset", questions: 10, time: "2 min", required: false },
-  ]
-
-  return (
-    <div className="space-y-6">
-      {/* Hero Card */}
-      <div className="rounded-xl border border-border bg-card p-6">
-        <div className="flex flex-col lg:flex-row gap-6 items-center">
-          <div className="flex-1">
-            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-sm mb-4">
-              <Sparkles className="h-4 w-4" />
-              AI-Powered Analysis
-            </div>
-            <h2 className="text-2xl font-bold text-foreground mb-2">Discover Your Financial DNA</h2>
-            <p className="text-muted-foreground mb-6">
-              Take our comprehensive 52-question assessment to understand your financial personality,
-              identify areas for improvement, and get a personalized action plan.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <Button
-                onClick={() => router.push("/assessment")}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-              >
-                <PlayCircle className="h-4 w-4 mr-2" />
-                Start Full Assessment
-                <ChevronRight className="h-4 w-4 ml-2" />
-              </Button>
+      {activeTab === "take" ? (
+        /* Take Assessment Tab */
+        <div className="space-y-6">
+          {/* Share Link Card */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-2">Share Assessment Link</h2>
+            <p className="text-muted-foreground mb-4">Send this link to clients to start their assessment:</p>
+            <div className="flex gap-2">
+              <Input
+                value={`${typeof window !== "undefined" ? window.location.origin : ""}/assessment/start`}
+                readOnly
+                className="flex-1"
+              />
               <Button
                 variant="outline"
-                onClick={() => router.push("/assessment?mode=quick")}
-                className="border-border text-foreground hover:bg-accent"
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/assessment/start`)
+                  setActionSuccess("Link copied!")
+                  setTimeout(() => setActionSuccess(""), 2000)
+                }}
               >
-                Quick Mode (30 questions)
+                Copy Link
               </Button>
             </div>
           </div>
 
-          {/* Score Circle */}
-          <div className="relative">
-            <div className="w-40 h-40 rounded-full border-4 border-primary/30 flex items-center justify-center bg-card">
-              <div className="text-center">
-                <div className="text-4xl font-bold text-primary">?</div>
-                <div className="text-muted-foreground text-sm mt-1">Your Score</div>
+          {/* Assessment Overview */}
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="bg-card border border-border rounded-xl p-6">
+              <h3 className="font-semibold text-foreground mb-4">Assessment Structure</h3>
+              <div className="space-y-3">
+                {[
+                  { step: "1", title: "User Intake", desc: "Name, email, and primary goal" },
+                  { step: "2", title: "Dynamic Tests", desc: "3-9 tests based on their goal" },
+                  { step: "3", title: "Goal Selection", desc: "Priority and timeline preferences" },
+                  { step: "4", title: "Thank You", desc: "They wait for your follow-up" }
+                ].map(item => (
+                  <div key={item.step} className="flex gap-3">
+                    <div className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center text-sm font-medium flex-shrink-0">
+                      {item.step}
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">{item.title}</p>
+                      <p className="text-sm text-muted-foreground">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full">
-              ~14 min
+
+            <div className="bg-card border border-border rounded-xl p-6">
+              <h3 className="font-semibold text-foreground mb-4">Your Workflow</h3>
+              <div className="space-y-3">
+                {[
+                  { icon: Mail, title: "Get Notified", desc: "Email alert when assessment completes" },
+                  { icon: Eye, title: "Review Results", desc: "See scores, personality, weaknesses" },
+                  { icon: Sparkles, title: "Generate Plan", desc: "AI creates personalized plan" },
+                  { icon: Send, title: "Share with Client", desc: "Send PDF via email" }
+                ].map((item, i) => (
+                  <div key={i} className="flex gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                      <item.icon className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">{item.title}</p>
+                      <p className="text-sm text-muted-foreground">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Features Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {features.map((feature, i) => (
-          <div key={i} className="rounded-xl border border-border bg-card p-5">
-            <div className="p-2 bg-primary/10 rounded-lg w-fit mb-3">
-              <feature.icon className="h-5 w-5 text-primary" />
-            </div>
-            <h3 className="font-semibold text-foreground mb-1">{feature.title}</h3>
-            <p className="text-sm text-muted-foreground">{feature.description}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Test Breakdown */}
-      <div className="rounded-xl border border-border bg-card p-6">
-        <h3 className="text-lg font-semibold text-foreground mb-4">Assessment Breakdown</h3>
-        <div className="space-y-3">
-          {tests.map((test, i) => (
-            <div key={i} className="flex items-center justify-between p-4 rounded-lg border border-border bg-background">
-              <div className="flex items-center gap-4">
-                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-sm">{i + 1}</div>
-                <div>
-                  <div className="font-medium text-foreground">{test.name}</div>
-                  <div className="text-sm text-muted-foreground">{test.questions} questions • {test.time}</div>
+      ) : (
+        /* View Results Tab */
+        <div className="space-y-6">
+          {/* Stats */}
+          <div className="grid grid-cols-4 gap-4">
+            {[
+              { label: "Total Assessments", value: stats.total, icon: ClipboardList },
+              { label: "Completed", value: stats.completed, icon: CheckCircle2 },
+              { label: "Needs Review", value: stats.needsAttention, icon: AlertCircle },
+              { label: "Plans Shared", value: stats.shared, icon: Send }
+            ].map((stat, i) => (
+              <div key={i} className="bg-card border border-border rounded-xl p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                    <stat.icon className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                    <p className="text-sm text-muted-foreground">{stat.label}</p>
+                  </div>
                 </div>
               </div>
-              <div>
-                {test.required ? (
-                  <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded">Required</span>
-                ) : (
-                  <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded">Optional</span>
-                )}
-              </div>
+            ))}
+          </div>
+
+          {/* Filters */}
+          <div className="flex gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
             </div>
-          ))}
-        </div>
-        <div className="mt-4 pt-4 border-t border-border flex justify-between text-sm text-muted-foreground">
-          <span>Total: 52 questions</span>
-          <span>Estimated time: ~14 minutes</span>
-        </div>
-      </div>
-    </div>
-  )
-}
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-48">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="goals_complete">Completed</SelectItem>
+                <SelectItem value="plan_generated">Plan Ready</SelectItem>
+                <SelectItem value="plan_shared">Plan Shared</SelectItem>
+                <SelectItem value="tests_in_progress">In Progress</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" onClick={loadAssessments}>
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
 
-// View Results Tab
-function ViewResultsTab() {
-  const [assessments, setAssessments] = useState<Assessment[]>([])
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [dateFilter, setDateFilter] = useState<string>("all")
-  const [scoreFilter, setScoreFilter] = useState<string>("all")
-  const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null)
-  const [downloadingId, setDownloadingId] = useState<string | null>(null)
-
-  const fetchAssessments = useCallback(async () => {
-    setLoading(true)
-    try {
-      const supabase = createClient()
-      let query = supabase
-        .from("assessment_results")
-        .select("*, user_profiles (full_name, email), financial_plans (id, goal_path, chosen_path, created_at)")
-        .order("created_at", { ascending: false })
-
-      if (dateFilter === "week") {
-        const weekAgo = new Date()
-        weekAgo.setDate(weekAgo.getDate() - 7)
-        query = query.gte("created_at", weekAgo.toISOString())
-      } else if (dateFilter === "month") {
-        const monthAgo = new Date()
-        monthAgo.setMonth(monthAgo.getMonth() - 1)
-        query = query.gte("created_at", monthAgo.toISOString())
-      }
-
-      if (scoreFilter === "high") query = query.gte("overall_score", 70)
-      else if (scoreFilter === "medium") query = query.gte("overall_score", 50).lt("overall_score", 70)
-      else if (scoreFilter === "low") query = query.lt("overall_score", 50)
-
-      const { data, error } = await query.limit(100)
-      if (error) { console.error("Error:", error); return }
-
-      let filtered = data || []
-      if (searchQuery) {
-        const lowerQuery = searchQuery.toLowerCase()
-        filtered = filtered.filter(a =>
-          a.user_profiles?.full_name?.toLowerCase().includes(lowerQuery) ||
-          a.user_profiles?.email?.toLowerCase().includes(lowerQuery)
-        )
-      }
-      setAssessments(filtered)
-
-      const weekAgo = new Date()
-      weekAgo.setDate(weekAgo.getDate() - 7)
-      const thisWeek = (data || []).filter(a => new Date(a.created_at) >= weekAgo)
-      const avgScore = data && data.length > 0 ? Math.round(data.reduce((sum, a) => sum + a.overall_score, 0) / data.length) : 0
-      setStats({ totalAssessments: data?.length || 0, assessmentsThisWeek: thisWeek.length, averageScore: avgScore, scoreChange: 3.2 })
-    } catch (error) { console.error("Failed:", error) }
-    finally { setLoading(false) }
-  }, [searchQuery, dateFilter, scoreFilter])
-
-  useEffect(() => { fetchAssessments() }, [fetchAssessments])
-
-  const handleDownloadPdf = async (id: string) => {
-    setDownloadingId(id)
-    try {
-      const res = await fetch("/api/assessment/pdf?id=" + id)
-      if (!res.ok) throw new Error("Failed")
-      const blob = await res.blob()
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = "WealthClaude_Report_" + id.slice(0, 8) + ".pdf"
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      window.URL.revokeObjectURL(url)
-    } catch (e) { console.error(e) }
-    finally { setDownloadingId(null) }
-  }
-
-  const getScoreBadge = (score: number) => {
-    if (score >= 70) return "bg-primary/20 text-primary"
-    if (score >= 50) return "bg-chart-2/20 text-chart-2"
-    return "bg-destructive/20 text-destructive"
-  }
-
-  const formatDate = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-  const formatType = (t: string) => t?.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) || "Unknown"
-
-  return (
-    <div className="space-y-6">
-      {/* Stats */}
-      {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[
-            { label: "Total Assessments", value: stats.totalAssessments, icon: FileText, color: "text-primary bg-primary/10" },
-            { label: "This Week", value: stats.assessmentsThisWeek, icon: Clock, color: "text-chart-1 bg-chart-1/10" },
-            { label: "Average Score", value: stats.averageScore, icon: TrendingUp, color: "text-chart-4 bg-chart-4/10", change: stats.scoreChange },
-            { label: "Users", value: stats.totalAssessments, icon: Users, color: "text-chart-2 bg-chart-2/10" }
-          ].map((stat, i) => (
-            <div key={i} className="rounded-xl border border-border bg-card p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className={"p-2 rounded-lg " + stat.color}><stat.icon className="h-5 w-5" /></div>
-                {stat.change ? (
-                  <span className="text-xs text-primary flex items-center"><ArrowUpRight className="h-3 w-3 mr-1" />{stat.change}%</span>
-                ) : (
-                  <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
-                )}
+          {/* Assessment List */}
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            {loading ? (
+              <div className="p-8 text-center">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
+                <p className="text-muted-foreground">Loading assessments...</p>
               </div>
-              <div className="text-3xl font-bold text-foreground">{stat.value}</div>
-              <div className="text-sm text-muted-foreground mt-1">{stat.label}</div>
-            </div>
-          ))}
+            ) : filteredAssessments.length === 0 ? (
+              <div className="p-8 text-center">
+                <ClipboardList className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-foreground font-medium">No assessments yet</p>
+                <p className="text-muted-foreground">Share the assessment link with clients to get started</p>
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Client</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Goal</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Status</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Score</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Date</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredAssessments.map((assessment) => (
+                    <tr
+                      key={assessment.id}
+                      className={`border-b border-border hover:bg-muted/50 cursor-pointer ${!assessment.is_viewed && assessment.status === "goals_complete" ? "bg-primary/5" : ""
+                        }`}
+                      onClick={() => openAssessmentDetail(assessment)}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                            <span className="text-sm font-medium text-primary">
+                              {assessment.full_name.charAt(0)}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">{assessment.full_name}</p>
+                            <p className="text-sm text-muted-foreground">{assessment.email}</p>
+                          </div>
+                          {!assessment.is_viewed && assessment.status === "goals_complete" && (
+                            <Badge className="bg-primary text-primary-foreground">New</Badge>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-foreground">
+                        {problemLabels[assessment.problem_type] || assessment.problem_type}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge className={statusLabels[assessment.status]?.color || "bg-muted"}>
+                          {statusLabels[assessment.status]?.label || assessment.status}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        {assessment.overall_score ? (
+                          <span className="font-medium text-foreground">{assessment.overall_score}/100</span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {new Date(assessment.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Button variant="ghost" size="sm">
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Filters */}
-      <div className="rounded-xl border border-border bg-card p-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search by name or email..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9" />
-          </div>
-          <Select value={dateFilter} onValueChange={setDateFilter}>
-            <SelectTrigger className="w-[150px]"><SelectValue placeholder="Date Range" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Time</SelectItem>
-              <SelectItem value="week">This Week</SelectItem>
-              <SelectItem value="month">This Month</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={scoreFilter} onValueChange={setScoreFilter}>
-            <SelectTrigger className="w-[150px]"><SelectValue placeholder="Score Filter" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Scores</SelectItem>
-              <SelectItem value="high">High (70+)</SelectItem>
-              <SelectItem value="medium">Medium (50-69)</SelectItem>
-              <SelectItem value="low">Low (&lt;50)</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button onClick={fetchAssessments} variant="outline" size="sm">
-            <RefreshCw className={loading ? "h-4 w-4 mr-2 animate-spin" : "h-4 w-4 mr-2"} />Refresh
-          </Button>
-        </div>
-      </div>
+      {/* Detail Slide-over Panel */}
+      {selectedAssessment && (
+        <div className="fixed inset-0 z-50 flex">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setSelectedAssessment(null)}
+          />
 
-      {/* Table */}
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-border">
-              <TableHead>User</TableHead>
-              <TableHead>Score</TableHead>
-              <TableHead>Personality</TableHead>
-              <TableHead>Percentile</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-12"><RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" /><p className="text-muted-foreground">Loading...</p></TableCell></TableRow>
-            ) : assessments.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">No assessments found. Take your first assessment to see results here.</TableCell></TableRow>
-            ) : assessments.map(a => (
-              <TableRow key={a.id} className="border-border">
-                <TableCell>
-                  <div className="font-medium text-foreground">{a.user_profiles?.full_name || "Unknown"}</div>
-                  <div className="text-sm text-muted-foreground">{a.user_profiles?.email || a.user_id.slice(0, 8)}</div>
-                </TableCell>
-                <TableCell><span className={"px-2.5 py-1 rounded-full text-sm font-semibold " + getScoreBadge(a.overall_score)}>{a.overall_score}</span></TableCell>
-                <TableCell className="text-sm text-foreground">{formatType(a.personality_type)}</TableCell>
-                <TableCell className="text-sm text-foreground">Top {100 - (a.rankings?.overallPercentile || 50)}%</TableCell>
-                <TableCell className="text-sm text-muted-foreground">{formatDate(a.created_at)}</TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setSelectedAssessment(a)}><Eye className="h-4 w-4 mr-2" />View Details</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDownloadPdf(a.id)} disabled={downloadingId === a.id}>
-                        {downloadingId === a.id ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}Download PDF
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      <DetailModal assessment={selectedAssessment} open={!!selectedAssessment} onClose={() => setSelectedAssessment(null)} onDownload={() => selectedAssessment && handleDownloadPdf(selectedAssessment.id)} downloading={downloadingId === selectedAssessment?.id} />
-    </div>
-  )
-}
-
-// Detail Modal
-function DetailModal({ assessment, open, onClose, onDownload, downloading }: { assessment: Assessment | null; open: boolean; onClose: () => void; onDownload: () => void; downloading: boolean }) {
-  if (!assessment) return null
-  const names: Record<string, string> = { savings_discipline: "Savings", debt_management: "Debt", financial_planning: "Planning", spending_control: "Spending", investment_readiness: "Investing", risk_tolerance: "Risk", financial_literacy: "Literacy", emergency_preparedness: "Emergency", future_orientation: "Future", money_wellness: "Wellness" }
-
-  return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Assessment Details</DialogTitle>
-          <DialogDescription>{assessment.user_profiles?.full_name || "Unknown"} • {new Date(assessment.created_at).toLocaleDateString()}</DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-6">
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 text-center">
-              <div className="text-4xl font-bold text-primary">{assessment.overall_score}</div>
-              <div className="text-sm text-muted-foreground mt-1">Score</div>
+          {/* Panel */}
+          <div className="absolute right-0 top-0 bottom-0 w-full max-w-2xl bg-background border-l border-border overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-background border-b border-border p-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">{selectedAssessment.full_name}</h2>
+                <p className="text-sm text-muted-foreground">{selectedAssessment.email}</p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedAssessment(null)}>
+                <X className="h-5 w-5" />
+              </Button>
             </div>
-            <div className="bg-card border border-border rounded-xl p-4 text-center">
-              <div className="text-2xl font-bold text-foreground">{assessment.rankings?.overallPercentile || 50}th</div>
-              <div className="text-sm text-muted-foreground mt-1">Percentile</div>
-            </div>
-            <div className="bg-card border border-border rounded-xl p-4 text-center">
-              <div className="text-lg font-bold text-foreground">{assessment.personality_type?.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</div>
-              <div className="text-sm text-muted-foreground mt-1">Type</div>
-            </div>
-          </div>
 
-          <div>
-            <h3 className="font-semibold mb-4 text-foreground">Factor Breakdown</h3>
-            <div className="space-y-3">
-              {(assessment.factor_scores || []).map(f => (
-                <div key={f.factorId} className="flex items-center gap-4">
-                  <div className="w-24 text-sm text-muted-foreground">{names[f.factorId] || f.factorId}</div>
-                  <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden"><div className="h-full bg-primary rounded-full" style={{ width: f.score + "%" }} /></div>
-                  <div className="w-10 text-right text-sm font-semibold text-foreground">{f.score}</div>
+            {loadingDetails ? (
+              <div className="p-8 text-center">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
+                <p className="text-muted-foreground">Loading details...</p>
+              </div>
+            ) : (
+              <div className="p-6 space-y-6">
+                {/* Success/Error Messages */}
+                {actionSuccess && (
+                  <div className="bg-green-500/10 border border-green-500/30 text-green-600 px-4 py-3 rounded-lg flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5" />
+                    {actionSuccess}
+                  </div>
+                )}
+                {actionError && (
+                  <div className="bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 rounded-lg flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5" />
+                    {actionError}
+                  </div>
+                )}
+
+                {/* Client Info */}
+                <div className="bg-card border border-border rounded-xl p-4">
+                  <h3 className="font-semibold text-foreground mb-3">Client Information</h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-foreground">{selectedAssessment.email}</span>
+                    </div>
+                    {selectedAssessment.phone && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-foreground">{selectedAssessment.phone}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <Target className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-foreground">{problemLabels[selectedAssessment.problem_type]}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-foreground">
+                        {new Date(selectedAssessment.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                  {selectedAssessment.additional_notes && (
+                    <div className="mt-4 pt-4 border-t border-border">
+                      <p className="text-sm text-muted-foreground mb-1">Additional Notes:</p>
+                      <p className="text-foreground">{selectedAssessment.additional_notes}</p>
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+
+                {/* Results */}
+                {assessmentResult && (
+                  <div className="bg-card border border-border rounded-xl p-4">
+                    <h3 className="font-semibold text-foreground mb-4">Assessment Results</h3>
+
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="bg-muted rounded-lg p-4 text-center">
+                        <p className="text-3xl font-bold text-foreground">{assessmentResult.overall_score}</p>
+                        <p className="text-sm text-muted-foreground">Overall Score</p>
+                      </div>
+                      <div className="bg-muted rounded-lg p-4 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <Brain className="h-5 w-5 text-primary" />
+                          <span className="font-medium text-foreground">
+                            {personalityLabels[assessmentResult.personality_type] || assessmentResult.personality_type}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">Personality Type</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+                          <TrendingUp className="h-4 w-4 text-green-500" />
+                          Strengths
+                        </p>
+                        <ul className="space-y-1">
+                          {assessmentResult.strengths.map((s, i) => (
+                            <li key={i} className="text-sm text-muted-foreground">
+                              • {s.replace(/_/g, " ")}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+                          <TrendingDown className="h-4 w-4 text-red-500" />
+                          Needs Improvement
+                        </p>
+                        <ul className="space-y-1">
+                          {assessmentResult.weaknesses.map((w, i) => (
+                            <li key={i} className="text-sm text-muted-foreground">
+                              • {w.replace(/_/g, " ")}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+
+                    {/* Factor Scores */}
+                    <div className="mt-4 pt-4 border-t border-border">
+                      <p className="text-sm font-medium text-foreground mb-2">Detailed Scores</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {assessmentResult.factor_scores.map((factor) => (
+                          <div key={factor.factorId} className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground capitalize">
+                              {factor.factorId.replace(/_/g, " ")}
+                            </span>
+                            <span className={`font-medium ${factor.score >= 70 ? "text-green-500" :
+                                factor.score >= 50 ? "text-yellow-500" :
+                                  "text-red-500"
+                              }`}>
+                              {factor.score}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Generate Plan Section */}
+                {assessmentResult && !financialPlan && (
+                  <div className="bg-card border border-border rounded-xl p-4">
+                    <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-primary" />
+                      Generate AI Plan
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Create a personalized financial plan using AI based on their assessment results.
+                    </p>
+                    <div className="flex gap-2">
+                      <Select value={selectedPlanType} onValueChange={setSelectedPlanType}>
+                        <SelectTrigger className="w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="aggressive">Aggressive</SelectItem>
+                          <SelectItem value="moderate">Moderate</SelectItem>
+                          <SelectItem value="conservative">Conservative</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button onClick={generatePlan} disabled={generatingPlan} className="flex-1">
+                        {generatingPlan ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-4 w-4 mr-2" />
+                            Generate Plan
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Existing Plan */}
+                {financialPlan && (
+                  <div className="bg-card border border-border rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-semibold text-foreground flex items-center gap-2">
+                        <FileText className="h-5 w-5 text-primary" />
+                        Financial Plan
+                      </h3>
+                      <Badge>{financialPlan.plan_type} plan</Badge>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-sm font-medium text-foreground mb-1">Executive Summary</p>
+                        <p className="text-sm text-muted-foreground line-clamp-4">
+                          {financialPlan.executive_summary}
+                        </p>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button variant="outline" onClick={generatePdf} disabled={generatingPdf} className="flex-1">
+                          {generatingPdf ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4 mr-2" />
+                          )}
+                          Download PDF
+                        </Button>
+                        <Button onClick={sendPlanEmail} disabled={sendingEmail} className="flex-1">
+                          {sendingEmail ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Send className="h-4 w-4 mr-2" />
+                          )}
+                          Send to Client
+                        </Button>
+                      </div>
+
+                      {financialPlan.pdf_shared_at && (
+                        <p className="text-sm text-green-500 flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4" />
+                          Plan shared on {new Date(financialPlan.pdf_shared_at).toLocaleDateString()}
+                        </p>
+                      )}
+
+                      <div className="pt-4 border-t border-border">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setFinancialPlan(null)}
+                          className="text-muted-foreground"
+                        >
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Regenerate Plan
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
-
-        <div className="flex justify-end gap-3 mt-6">
-          <Button variant="outline" onClick={onClose}>Close</Button>
-          <Button onClick={onDownload} disabled={downloading}>
-            {downloading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}Download PDF
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+      )}
+    </div>
   )
 }

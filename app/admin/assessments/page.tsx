@@ -77,13 +77,13 @@ export default function AssessmentsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Tab Buttons - Exact match to Overview page style */}
+      {/* Tab Buttons - Using CSS variable tokens */}
       <div className="inline-flex items-center gap-2">
         <button
           onClick={() => setActiveTab("take")}
           className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "take"
-              ? "border border-emerald-500 text-white"
-              : "text-zinc-400 hover:text-white"
+              ? "border border-primary text-foreground"
+              : "text-muted-foreground hover:text-foreground"
             }`}
         >
           <PlayCircle className="h-4 w-4" />
@@ -92,8 +92,8 @@ export default function AssessmentsPage() {
         <button
           onClick={() => setActiveTab("results")}
           className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "results"
-              ? "border border-emerald-500 text-white"
-              : "text-zinc-400 hover:text-white"
+              ? "border border-primary text-foreground"
+              : "text-muted-foreground hover:text-foreground"
             }`}
         >
           <ClipboardList className="h-4 w-4" />
@@ -127,22 +127,22 @@ function TakeAssessmentTab() {
   return (
     <div className="space-y-6">
       {/* Hero Card */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+      <div className="rounded-xl border border-border bg-card p-6">
         <div className="flex flex-col lg:flex-row gap-6 items-center">
           <div className="flex-1">
-            <div className="inline-flex items-center gap-2 bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-full text-sm mb-4">
+            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-sm mb-4">
               <Sparkles className="h-4 w-4" />
               AI-Powered Analysis
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2">Discover Your Financial DNA</h2>
-            <p className="text-zinc-400 mb-6">
+            <h2 className="text-2xl font-bold text-foreground mb-2">Discover Your Financial DNA</h2>
+            <p className="text-muted-foreground mb-6">
               Take our comprehensive 52-question assessment to understand your financial personality,
               identify areas for improvement, and get a personalized action plan.
             </p>
             <div className="flex flex-wrap gap-3">
               <Button
                 onClick={() => router.push("/assessment")}
-                className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 <PlayCircle className="h-4 w-4 mr-2" />
                 Start Full Assessment
@@ -151,7 +151,7 @@ function TakeAssessmentTab() {
               <Button
                 variant="outline"
                 onClick={() => router.push("/assessment?mode=quick")}
-                className="border-zinc-700 text-white hover:bg-zinc-800"
+                className="border-border text-foreground hover:bg-accent"
               >
                 Quick Mode (30 questions)
               </Button>
@@ -160,13 +160,13 @@ function TakeAssessmentTab() {
 
           {/* Score Circle */}
           <div className="relative">
-            <div className="w-40 h-40 rounded-full border-4 border-emerald-500/30 flex items-center justify-center bg-zinc-900">
+            <div className="w-40 h-40 rounded-full border-4 border-primary/30 flex items-center justify-center bg-card">
               <div className="text-center">
-                <div className="text-4xl font-bold text-emerald-500">?</div>
-                <div className="text-zinc-400 text-sm mt-1">Your Score</div>
+                <div className="text-4xl font-bold text-primary">?</div>
+                <div className="text-muted-foreground text-sm mt-1">Your Score</div>
               </div>
             </div>
-            <div className="absolute -top-2 -right-2 bg-emerald-500 text-white text-xs px-2 py-1 rounded-full">
+            <div className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full">
               ~14 min
             </div>
           </div>
@@ -176,40 +176,40 @@ function TakeAssessmentTab() {
       {/* Features Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {features.map((feature, i) => (
-          <div key={i} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
-            <div className="p-2 bg-emerald-500/10 rounded-lg w-fit mb-3">
-              <feature.icon className="h-5 w-5 text-emerald-500" />
+          <div key={i} className="rounded-xl border border-border bg-card p-5">
+            <div className="p-2 bg-primary/10 rounded-lg w-fit mb-3">
+              <feature.icon className="h-5 w-5 text-primary" />
             </div>
-            <h3 className="font-semibold text-white mb-1">{feature.title}</h3>
-            <p className="text-sm text-zinc-400">{feature.description}</p>
+            <h3 className="font-semibold text-foreground mb-1">{feature.title}</h3>
+            <p className="text-sm text-muted-foreground">{feature.description}</p>
           </div>
         ))}
       </div>
 
       {/* Test Breakdown */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Assessment Breakdown</h3>
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h3 className="text-lg font-semibold text-foreground mb-4">Assessment Breakdown</h3>
         <div className="space-y-3">
           {tests.map((test, i) => (
-            <div key={i} className="flex items-center justify-between p-4 rounded-lg border border-zinc-800 bg-zinc-900">
+            <div key={i} className="flex items-center justify-between p-4 rounded-lg border border-border bg-background">
               <div className="flex items-center gap-4">
-                <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500 font-semibold text-sm">{i + 1}</div>
+                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-sm">{i + 1}</div>
                 <div>
-                  <div className="font-medium text-white">{test.name}</div>
-                  <div className="text-sm text-zinc-400">{test.questions} questions • {test.time}</div>
+                  <div className="font-medium text-foreground">{test.name}</div>
+                  <div className="text-sm text-muted-foreground">{test.questions} questions • {test.time}</div>
                 </div>
               </div>
               <div>
                 {test.required ? (
-                  <span className="text-xs bg-emerald-500/20 text-emerald-500 px-2 py-1 rounded">Required</span>
+                  <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded">Required</span>
                 ) : (
-                  <span className="text-xs bg-zinc-800 text-zinc-400 px-2 py-1 rounded">Optional</span>
+                  <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded">Optional</span>
                 )}
               </div>
             </div>
           ))}
         </div>
-        <div className="mt-4 pt-4 border-t border-zinc-800 flex justify-between text-sm text-zinc-400">
+        <div className="mt-4 pt-4 border-t border-border flex justify-between text-sm text-muted-foreground">
           <span>Total: 52 questions</span>
           <span>Estimated time: ~14 minutes</span>
         </div>
@@ -295,9 +295,9 @@ function ViewResultsTab() {
   }
 
   const getScoreBadge = (score: number) => {
-    if (score >= 70) return "bg-emerald-500/20 text-emerald-500"
-    if (score >= 50) return "bg-amber-500/20 text-amber-500"
-    return "bg-red-500/20 text-red-500"
+    if (score >= 70) return "bg-primary/20 text-primary"
+    if (score >= 50) return "bg-chart-2/20 text-chart-2"
+    return "bg-destructive/20 text-destructive"
   }
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
@@ -309,36 +309,36 @@ function ViewResultsTab() {
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[
-            { label: "Total Assessments", value: stats.totalAssessments, icon: FileText, color: "text-emerald-500 bg-emerald-500/10" },
-            { label: "This Week", value: stats.assessmentsThisWeek, icon: Clock, color: "text-blue-500 bg-blue-500/10" },
-            { label: "Average Score", value: stats.averageScore, icon: TrendingUp, color: "text-purple-500 bg-purple-500/10", change: stats.scoreChange },
-            { label: "Users", value: stats.totalAssessments, icon: Users, color: "text-amber-500 bg-amber-500/10" }
+            { label: "Total Assessments", value: stats.totalAssessments, icon: FileText, color: "text-primary bg-primary/10" },
+            { label: "This Week", value: stats.assessmentsThisWeek, icon: Clock, color: "text-chart-1 bg-chart-1/10" },
+            { label: "Average Score", value: stats.averageScore, icon: TrendingUp, color: "text-chart-4 bg-chart-4/10", change: stats.scoreChange },
+            { label: "Users", value: stats.totalAssessments, icon: Users, color: "text-chart-2 bg-chart-2/10" }
           ].map((stat, i) => (
-            <div key={i} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
+            <div key={i} className="rounded-xl border border-border bg-card p-5">
               <div className="flex items-center justify-between mb-3">
                 <div className={"p-2 rounded-lg " + stat.color}><stat.icon className="h-5 w-5" /></div>
                 {stat.change ? (
-                  <span className="text-xs text-emerald-500 flex items-center"><ArrowUpRight className="h-3 w-3 mr-1" />{stat.change}%</span>
+                  <span className="text-xs text-primary flex items-center"><ArrowUpRight className="h-3 w-3 mr-1" />{stat.change}%</span>
                 ) : (
-                  <ArrowUpRight className="h-4 w-4 text-zinc-500" />
+                  <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
                 )}
               </div>
-              <div className="text-3xl font-bold text-white">{stat.value}</div>
-              <div className="text-sm text-zinc-400 mt-1">{stat.label}</div>
+              <div className="text-3xl font-bold text-foreground">{stat.value}</div>
+              <div className="text-sm text-muted-foreground mt-1">{stat.label}</div>
             </div>
           ))}
         </div>
       )}
 
       {/* Filters */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
+      <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-            <Input placeholder="Search by name or email..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 bg-zinc-900 border-zinc-700" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Search by name or email..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9" />
           </div>
           <Select value={dateFilter} onValueChange={setDateFilter}>
-            <SelectTrigger className="w-[150px] bg-zinc-900 border-zinc-700"><SelectValue placeholder="Date Range" /></SelectTrigger>
+            <SelectTrigger className="w-[150px]"><SelectValue placeholder="Date Range" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Time</SelectItem>
               <SelectItem value="week">This Week</SelectItem>
@@ -346,7 +346,7 @@ function ViewResultsTab() {
             </SelectContent>
           </Select>
           <Select value={scoreFilter} onValueChange={setScoreFilter}>
-            <SelectTrigger className="w-[150px] bg-zinc-900 border-zinc-700"><SelectValue placeholder="Score Filter" /></SelectTrigger>
+            <SelectTrigger className="w-[150px]"><SelectValue placeholder="Score Filter" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Scores</SelectItem>
               <SelectItem value="high">High (70+)</SelectItem>
@@ -354,40 +354,40 @@ function ViewResultsTab() {
               <SelectItem value="low">Low (&lt;50)</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={fetchAssessments} variant="outline" size="sm" className="border-zinc-700">
+          <Button onClick={fetchAssessments} variant="outline" size="sm">
             <RefreshCw className={loading ? "h-4 w-4 mr-2 animate-spin" : "h-4 w-4 mr-2"} />Refresh
           </Button>
         </div>
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 overflow-hidden">
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="border-zinc-800">
-              <TableHead className="text-zinc-400">User</TableHead>
-              <TableHead className="text-zinc-400">Score</TableHead>
-              <TableHead className="text-zinc-400">Personality</TableHead>
-              <TableHead className="text-zinc-400">Percentile</TableHead>
-              <TableHead className="text-zinc-400">Date</TableHead>
-              <TableHead className="text-right text-zinc-400">Actions</TableHead>
+            <TableRow className="border-border">
+              <TableHead>User</TableHead>
+              <TableHead>Score</TableHead>
+              <TableHead>Personality</TableHead>
+              <TableHead>Percentile</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-12"><RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-zinc-400" /><p className="text-zinc-400">Loading...</p></TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-12"><RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" /><p className="text-muted-foreground">Loading...</p></TableCell></TableRow>
             ) : assessments.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-12 text-zinc-400">No assessments found. Take your first assessment to see results here.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">No assessments found. Take your first assessment to see results here.</TableCell></TableRow>
             ) : assessments.map(a => (
-              <TableRow key={a.id} className="border-zinc-800">
+              <TableRow key={a.id} className="border-border">
                 <TableCell>
-                  <div className="font-medium text-white">{a.user_profiles?.full_name || "Unknown"}</div>
-                  <div className="text-sm text-zinc-400">{a.user_profiles?.email || a.user_id.slice(0, 8)}</div>
+                  <div className="font-medium text-foreground">{a.user_profiles?.full_name || "Unknown"}</div>
+                  <div className="text-sm text-muted-foreground">{a.user_profiles?.email || a.user_id.slice(0, 8)}</div>
                 </TableCell>
                 <TableCell><span className={"px-2.5 py-1 rounded-full text-sm font-semibold " + getScoreBadge(a.overall_score)}>{a.overall_score}</span></TableCell>
-                <TableCell className="text-sm text-white">{formatType(a.personality_type)}</TableCell>
-                <TableCell className="text-sm text-white">Top {100 - (a.rankings?.overallPercentile || 50)}%</TableCell>
-                <TableCell className="text-sm text-zinc-400">{formatDate(a.created_at)}</TableCell>
+                <TableCell className="text-sm text-foreground">{formatType(a.personality_type)}</TableCell>
+                <TableCell className="text-sm text-foreground">Top {100 - (a.rankings?.overallPercentile || 50)}%</TableCell>
+                <TableCell className="text-sm text-muted-foreground">{formatDate(a.created_at)}</TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
@@ -417,36 +417,36 @@ function DetailModal({ assessment, open, onClose, onDownload, downloading }: { a
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-zinc-900 border-zinc-800">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-white">Assessment Details</DialogTitle>
-          <DialogDescription className="text-zinc-400">{assessment.user_profiles?.full_name || "Unknown"} • {new Date(assessment.created_at).toLocaleDateString()}</DialogDescription>
+          <DialogTitle>Assessment Details</DialogTitle>
+          <DialogDescription>{assessment.user_profiles?.full_name || "Unknown"} • {new Date(assessment.created_at).toLocaleDateString()}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
           <div className="grid grid-cols-3 gap-4">
-            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-center">
-              <div className="text-4xl font-bold text-emerald-500">{assessment.overall_score}</div>
-              <div className="text-sm text-zinc-400 mt-1">Score</div>
+            <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 text-center">
+              <div className="text-4xl font-bold text-primary">{assessment.overall_score}</div>
+              <div className="text-sm text-muted-foreground mt-1">Score</div>
             </div>
-            <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 text-center">
-              <div className="text-2xl font-bold text-white">{assessment.rankings?.overallPercentile || 50}th</div>
-              <div className="text-sm text-zinc-400 mt-1">Percentile</div>
+            <div className="bg-card border border-border rounded-xl p-4 text-center">
+              <div className="text-2xl font-bold text-foreground">{assessment.rankings?.overallPercentile || 50}th</div>
+              <div className="text-sm text-muted-foreground mt-1">Percentile</div>
             </div>
-            <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 text-center">
-              <div className="text-lg font-bold text-white">{assessment.personality_type?.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</div>
-              <div className="text-sm text-zinc-400 mt-1">Type</div>
+            <div className="bg-card border border-border rounded-xl p-4 text-center">
+              <div className="text-lg font-bold text-foreground">{assessment.personality_type?.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</div>
+              <div className="text-sm text-muted-foreground mt-1">Type</div>
             </div>
           </div>
 
           <div>
-            <h3 className="font-semibold mb-4 text-white">Factor Breakdown</h3>
+            <h3 className="font-semibold mb-4 text-foreground">Factor Breakdown</h3>
             <div className="space-y-3">
               {(assessment.factor_scores || []).map(f => (
                 <div key={f.factorId} className="flex items-center gap-4">
-                  <div className="w-24 text-sm text-zinc-400">{names[f.factorId] || f.factorId}</div>
-                  <div className="flex-1 bg-zinc-800 rounded-full h-2 overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: f.score + "%" }} /></div>
-                  <div className="w-10 text-right text-sm font-semibold text-white">{f.score}</div>
+                  <div className="w-24 text-sm text-muted-foreground">{names[f.factorId] || f.factorId}</div>
+                  <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden"><div className="h-full bg-primary rounded-full" style={{ width: f.score + "%" }} /></div>
+                  <div className="w-10 text-right text-sm font-semibold text-foreground">{f.score}</div>
                 </div>
               ))}
             </div>
@@ -454,8 +454,8 @@ function DetailModal({ assessment, open, onClose, onDownload, downloading }: { a
         </div>
 
         <div className="flex justify-end gap-3 mt-6">
-          <Button variant="outline" onClick={onClose} className="border-zinc-700">Close</Button>
-          <Button onClick={onDownload} disabled={downloading} className="bg-emerald-500 hover:bg-emerald-600">
+          <Button variant="outline" onClick={onClose}>Close</Button>
+          <Button onClick={onDownload} disabled={downloading}>
             {downloading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}Download PDF
           </Button>
         </div>

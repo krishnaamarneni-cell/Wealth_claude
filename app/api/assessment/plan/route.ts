@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import Groq from "groq-sdk"
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
-
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY
-})
 
 // POST - Generate AI financial plan
 export async function POST(request: NextRequest) {
@@ -24,6 +19,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Check for GROQ API key
+    if (!process.env.GROQ_API_KEY) {
+      console.error("GROQ_API_KEY not configured")
+      return NextResponse.json(
+        { error: "AI service not configured. Please add GROQ_API_KEY to environment variables." },
+        { status: 500 }
+      )
+    }
+
     // Get session with results
     const { data: session, error: sessionError } = await supabase
       .from("assessment_sessions")
@@ -32,6 +36,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (sessionError || !session) {
+      console.error("Session error:", sessionError)
       return NextResponse.json(
         { error: "Session not found" },
         { status: 404 }
@@ -45,8 +50,9 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (resultError || !result) {
+      console.error("Result error:", resultError)
       return NextResponse.json(
-        { error: "Results not found" },
+        { error: "Assessment results not found. The user may not have completed the assessment." },
         { status: 404 }
       )
     }
@@ -79,28 +85,31 @@ export async function POST(request: NextRequest) {
     }
 
     // Format factor scores for context
-    const factorScores = result.factor_scores as Array<{ factorId: string; score: number; status: string }>
+    const factorScores = (result.factor_scores || []) as Array<{ factorId: string; score: number; status: string }>
     const scoresText = factorScores
       .map(f => `- ${f.factorId.replace(/_/g, " ")}: ${f.score}/100 (${f.status})`)
       .join("\n")
+
+    const strengths = (result.strengths || []) as string[]
+    const weaknesses = (result.weaknesses || []) as string[]
 
     const prompt = `You are a certified financial planner creating a personalized financial plan.
 
 CLIENT PROFILE:
 - Name: ${session.full_name}
-- Primary Goal: ${problemNames[session.problem_type]}
+- Primary Goal: ${problemNames[session.problem_type] || session.problem_type}
 - Priority: ${priorityDescriptions[session.primary_goal] || "Not specified"}
 - Timeline: ${timelineDescriptions[session.timeline] || "Not specified"}
 ${session.additional_notes ? `- Additional Context: ${session.additional_notes}` : ""}
 
 ASSESSMENT RESULTS:
 - Overall Financial Health Score: ${result.overall_score}/100
-- Financial Personality Type: ${result.personality_type.replace(/_/g, " ")}
-- Strengths: ${(result.strengths as string[]).join(", ")}
-- Areas for Improvement: ${(result.weaknesses as string[]).join(", ")}
+- Financial Personality Type: ${(result.personality_type || "unknown").replace(/_/g, " ")}
+- Strengths: ${strengths.length > 0 ? strengths.join(", ") : "Not identified"}
+- Areas for Improvement: ${weaknesses.length > 0 ? weaknesses.join(", ") : "Not identified"}
 
 DETAILED SCORES:
-${scoresText}
+${scoresText || "No detailed scores available"}
 
 PLAN REQUIREMENTS:
 ${planTypeDescriptions[planType]}
@@ -123,8 +132,7 @@ List 3-5 measurable goals building on the short-term foundation.
 Describe where they should be and key milestones.
 
 6. SPECIFIC RECOMMENDATIONS
-Based on their weak areas, provide tailored advice:
-${(result.weaknesses as string[]).map(w => `- For ${w.replace(/_/g, " ")}: [specific advice]`).join("\n")}
+Based on their weak areas, provide tailored advice.
 
 7. WARNINGS & CONSIDERATIONS
 List 2-3 potential pitfalls to avoid based on their personality type.
@@ -144,36 +152,61 @@ Format your response as JSON with this structure:
   "nextSteps": ["string"]
 }`
 
-    // Call Groq API
-    const completion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert financial planner. Always respond with valid JSON only, no additional text."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      model: "llama-3.3-70b-versatile",
-      temperature: 0.7,
-      max_tokens: 4000,
-      response_format: { type: "json_object" }
+    // Call Groq API directly using fetch
+    const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert financial planner. Always respond with valid JSON only, no additional text or markdown."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 4000,
+        response_format: { type: "json_object" }
+      })
     })
 
-    const aiResponse = completion.choices[0]?.message?.content
+    if (!groqResponse.ok) {
+      const errorText = await groqResponse.text()
+      console.error("Groq API error:", errorText)
+      return NextResponse.json(
+        { error: "AI service error. Please try again." },
+        { status: 500 }
+      )
+    }
+
+    const groqData = await groqResponse.json()
+    const aiResponse = groqData.choices?.[0]?.message?.content
+
     if (!aiResponse) {
-      throw new Error("No response from AI")
+      console.error("No response from Groq")
+      return NextResponse.json(
+        { error: "No response from AI" },
+        { status: 500 }
+      )
     }
 
     // Parse AI response
     let planContent
     try {
       planContent = JSON.parse(aiResponse)
-    } catch {
+    } catch (parseErr) {
       console.error("Failed to parse AI response:", aiResponse)
-      throw new Error("Invalid AI response format")
+      return NextResponse.json(
+        { error: "Invalid AI response format" },
+        { status: 500 }
+      )
     }
 
     // Format goals and action items for database
@@ -206,11 +239,41 @@ Format your response as JSON with this structure:
       priority: i + 1
     }))
 
-    // Save plan to database
-    const { data: plan, error: planError } = await supabase
+    // Check if plan already exists
+    const { data: existingPlan } = await supabase
       .from("financial_plans")
-      .upsert(
-        {
+      .select("id")
+      .eq("session_id", sessionId)
+      .single()
+
+    let plan
+    let planError
+
+    if (existingPlan) {
+      // Update existing plan
+      const { data, error } = await supabase
+        .from("financial_plans")
+        .update({
+          plan_type: planType,
+          executive_summary: planContent.executiveSummary,
+          goals,
+          action_items: actionItems,
+          milestones,
+          ai_recommendations: JSON.stringify(planContent.recommendations),
+          ai_warnings: JSON.stringify(planContent.warnings),
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", existingPlan.id)
+        .select("id")
+        .single()
+
+      plan = data
+      planError = error
+    } else {
+      // Insert new plan
+      const { data, error } = await supabase
+        .from("financial_plans")
+        .insert({
           session_id: sessionId,
           result_id: result.id,
           plan_type: planType,
@@ -220,18 +283,18 @@ Format your response as JSON with this structure:
           milestones,
           ai_recommendations: JSON.stringify(planContent.recommendations),
           ai_warnings: JSON.stringify(planContent.warnings)
-        },
-        {
-          onConflict: "session_id"
-        }
-      )
-      .select("id")
-      .single()
+        })
+        .select("id")
+        .single()
+
+      plan = data
+      planError = error
+    }
 
     if (planError) {
       console.error("Error saving plan:", planError)
       return NextResponse.json(
-        { error: "Failed to save plan" },
+        { error: `Failed to save plan: ${planError.message}` },
         { status: 500 }
       )
     }
@@ -244,7 +307,7 @@ Format your response as JSON with this structure:
 
     return NextResponse.json({
       success: true,
-      planId: plan.id,
+      planId: plan?.id,
       plan: planContent
     })
   } catch (err) {

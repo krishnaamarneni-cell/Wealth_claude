@@ -1,45 +1,44 @@
 import React from "react"
-import { redirect } from 'next/navigation'
-import { cookies } from 'next/headers'
-import { createServerSideClient } from '@/lib/supabase'
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
-import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar"
-import { DashboardHeader } from "@/components/dashboard/dashboard-header"
-import { TierProvider } from "@/lib/tier-context"
+import Link from "next/link"
 
-export default async function AssessmentLayout({
+// ============================================
+// PUBLIC LAYOUT - No authentication required
+// ============================================
+// This layout is for clients taking assessments
+// They should NOT need to log in
+
+export default function AssessmentLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  try {
-    const cookieStore = await cookies()
-    const supabase = createServerSideClient(cookieStore)
-
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser()
-
-    if (!user || error) {
-      redirect('/auth?message=login_required')
-    }
-  } catch (err) {
-    console.error('[assessment] Auth error:', err)
-    redirect('/auth?message=auth_error')
-  }
-
   return (
-    <TierProvider>
-      <SidebarProvider>
-        <DashboardSidebar />
-        <SidebarInset className="flex flex-col h-screen">
-          <DashboardHeader />
-          <main className="flex-1 overflow-y-auto">
-            {children}
-          </main>
-        </SidebarInset>
-      </SidebarProvider>
-    </TierProvider>
+    <div className="min-h-screen bg-background">
+      {/* Simple header for branding */}
+      <header className="border-b border-border bg-card">
+        <div className="max-w-4xl mx-auto px-6 py-4">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+              <span className="text-primary-foreground font-bold text-sm">W</span>
+            </div>
+            <span className="font-semibold text-foreground">WealthClaude</span>
+          </Link>
+        </div>
+      </header>
+
+      {/* Main content */}
+      <main className="flex-1">
+        {children}
+      </main>
+
+      {/* Simple footer */}
+      <footer className="border-t border-border bg-card mt-auto">
+        <div className="max-w-4xl mx-auto px-6 py-4 text-center">
+          <p className="text-sm text-muted-foreground">
+            © {new Date().getFullYear()} WealthClaude. Your responses are confidential.
+          </p>
+        </div>
+      </footer>
+    </div>
   )
 }

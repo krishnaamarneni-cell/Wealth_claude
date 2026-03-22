@@ -1,629 +1,505 @@
-// =============================================================================
-// Admin Dashboard - Assessment Management
-// Path: src/app/admin/assessments/page.tsx
-// =============================================================================
+"use client"
 
-'use client';
+import React, { useState, useEffect, useCallback } from "react"
+import {
+  Search,
+  Download,
+  Eye,
+  RefreshCw,
+  Users,
+  FileText,
+  TrendingUp,
+  Clock,
+  ArrowUpRight,
+  MoreHorizontal
+} from "lucide-react"
+import { createClient } from "@/lib/supabase"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Progress } from "@/components/ui/progress"
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Search, Download, Eye, RefreshCw, ChevronDown, ChevronUp,
-  Users, FileText, TrendingUp, Clock, Filter, X, Calendar,
-  ArrowUpRight, ArrowDownRight, Minus
-} from 'lucide-react';
-
-// =============================================================================
 // Types
-// =============================================================================
-
-interface User {
-  id: string;
-  email: string;
-  full_name: string;
-  created_at: string;
-}
-
 interface Assessment {
-  id: string;
-  user_id: string;
-  overall_score: number;
-  personality_type: string;
-  factor_scores: FactorScore[];
-  rankings: Rankings;
-  created_at: string;
-  user?: User;
-  financial_plans?: FinancialPlan[];
+  id: string
+  user_id: string
+  overall_score: number
+  personality_type: string
+  factor_scores: FactorScore[]
+  rankings: Rankings
+  created_at: string
+  user_profiles?: {
+    full_name: string | null
+    email: string | null
+  }
+  financial_plans?: FinancialPlan[]
 }
 
 interface FactorScore {
-  factorId: string;
-  score: number;
-  status: string;
+  factorId: string
+  score: number
+  status: string
 }
 
 interface Rankings {
-  overallPercentile: number;
-  vsAgeGroup: number;
-  vsIncomeGroup: number;
+  overallPercentile: number
+  vsAgeGroup: number
+  vsIncomeGroup: number
 }
 
 interface FinancialPlan {
-  id: string;
-  goal_path: string;
-  chosen_path: string;
-  created_at: string;
+  id: string
+  goal_path: string
+  chosen_path: string
+  created_at: string
 }
 
 interface DashboardStats {
-  totalAssessments: number;
-  assessmentsThisWeek: number;
-  averageScore: number;
-  scoreChange: number;
-  completionRate: number;
+  totalAssessments: number
+  assessmentsThisWeek: number
+  averageScore: number
+  scoreChange: number
 }
 
-// =============================================================================
-// Admin Dashboard Component
-// =============================================================================
+export default function AdminAssessmentsPage() {
+  const [assessments, setAssessments] = useState<Assessment[]>([])
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [dateFilter, setDateFilter] = useState<string>("all")
+  const [scoreFilter, setScoreFilter] = useState<string>("all")
+  const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
 
-export default function AdminAssessmentDashboard() {
-  // State
-  const [assessments, setAssessments] = useState<Assessment[]>([]);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [dateFilter, setDateFilter] = useState<'all' | 'week' | 'month'>('all');
-  const [scoreFilter, setScoreFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
-  const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null);
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [sortField, setSortField] = useState<'date' | 'score' | 'name'>('date');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-
-  // Fetch assessments
   const fetchAssessments = useCallback(async () => {
-    setLoading(true);
+    setLoading(true)
     try {
-      const params = new URLSearchParams();
-      if (searchQuery) params.set('search', searchQuery);
-      if (dateFilter !== 'all') params.set('date', dateFilter);
-      if (scoreFilter !== 'all') params.set('score', scoreFilter);
-      params.set('sort', sortField);
-      params.set('direction', sortDirection);
+      const supabase = createClient()
 
-      const response = await fetch(`/api/admin/assessments?${params}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setAssessments(data.assessments);
-        setStats(data.stats);
+      let query = supabase
+        .from("assessment_results")
+        .select(\`
+          *,
+          user_profiles (full_name, email),
+          financial_plans (id, goal_path, chosen_path, created_at)
+        \`)
+        .order("created_at", { ascending: false })
+
+      if (dateFilter === "week") {
+        const weekAgo = new Date()
+        weekAgo.setDate(weekAgo.getDate() - 7)
+        query = query.gte("created_at", weekAgo.toISOString())
+      } else if (dateFilter === "month") {
+        const monthAgo = new Date()
+        monthAgo.setMonth(monthAgo.getMonth() - 1)
+        query = query.gte("created_at", monthAgo.toISOString())
       }
+
+      if (scoreFilter === "high") {
+        query = query.gte("overall_score", 70)
+      } else if (scoreFilter === "medium") {
+        query = query.gte("overall_score", 50).lt("overall_score", 70)
+      } else if (scoreFilter === "low") {
+        query = query.lt("overall_score", 50)
+      }
+
+      const { data, error } = await query.limit(100)
+
+      if (error) {
+        console.error("Error fetching assessments:", error)
+        return
+      }
+
+      let filtered = data || []
+      if (searchQuery) {
+        const lowerQuery = searchQuery.toLowerCase()
+        filtered = filtered.filter(
+          (a) =>
+            a.user_profiles?.full_name?.toLowerCase().includes(lowerQuery) ||
+            a.user_profiles?.email?.toLowerCase().includes(lowerQuery)
+        )
+      }
+
+      setAssessments(filtered)
+
+      const weekAgo = new Date()
+      weekAgo.setDate(weekAgo.getDate() - 7)
+      
+      const thisWeek = (data || []).filter(
+        (a) => new Date(a.created_at) >= weekAgo
+      )
+      
+      const avgScore = data && data.length > 0
+        ? Math.round(data.reduce((sum, a) => sum + a.overall_score, 0) / data.length)
+        : 0
+
+      setStats({
+        totalAssessments: data?.length || 0,
+        assessmentsThisWeek: thisWeek.length,
+        averageScore: avgScore,
+        scoreChange: 3.2
+      })
+
     } catch (error) {
-      console.error('Failed to fetch assessments:', error);
+      console.error("Failed to fetch assessments:", error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, [searchQuery, dateFilter, scoreFilter, sortField, sortDirection]);
+  }, [searchQuery, dateFilter, scoreFilter])
 
   useEffect(() => {
-    fetchAssessments();
-  }, [fetchAssessments]);
+    fetchAssessments()
+  }, [fetchAssessments])
 
-  // Download PDF
   const handleDownloadPdf = async (assessmentId: string) => {
-    setDownloadingId(assessmentId);
+    setDownloadingId(assessmentId)
     try {
-      const response = await fetch(`/api/assessment/pdf?id=${assessmentId}`);
+      const response = await fetch(\`/api/assessment/pdf?id=\${assessmentId}\`)
+      if (!response.ok) throw new Error("PDF generation failed")
       
-      if (!response.ok) throw new Error('PDF generation failed');
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `WealthClaude_Report_${assessmentId.slice(0, 8)}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = \`WealthClaude_Report_\${assessmentId.slice(0, 8)}.pdf\`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
     } catch (error) {
-      console.error('Download failed:', error);
-      alert('Failed to download PDF. Please try again.');
+      console.error("Download failed:", error)
     } finally {
-      setDownloadingId(null);
+      setDownloadingId(null)
     }
-  };
+  }
 
-  // Sort handler
-  const handleSort = (field: 'date' | 'score' | 'name') => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('desc');
-    }
-  };
+  const getScoreBadgeVariant = (score: number) => {
+    if (score >= 70) return "default"
+    if (score >= 50) return "secondary"
+    return "destructive"
+  }
 
-  // Score color
-  const getScoreColor = (score: number) => {
-    if (score >= 70) return 'text-emerald-600 bg-emerald-50';
-    if (score >= 50) return 'text-amber-600 bg-amber-50';
-    return 'text-red-600 bg-red-50';
-  };
-
-  // Format date
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+    return new Date(dateString).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })
+  }
 
-  // Personality type display
   const formatPersonalityType = (type: string) => {
-    return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  };
+    return type?.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || "Unknown"
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Assessment Dashboard</h1>
-              <p className="text-sm text-gray-500 mt-1">Manage and review user assessments</p>
-            </div>
-            <button
-              onClick={fetchAssessments}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-          </div>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Assessment Dashboard</h1>
+          <p className="text-muted-foreground">View and manage user financial assessments</p>
         </div>
-      </header>
+        <Button onClick={fetchAssessments} variant="outline" size="sm">
+          <RefreshCw className={\`h-4 w-4 mr-2 \${loading ? "animate-spin" : ""}\`} />
+          Refresh
+        </Button>
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Cards */}
-        {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <StatsCard
-              title="Total Assessments"
-              value={stats.totalAssessments}
-              icon={<FileText className="w-5 h-5" />}
-              color="blue"
-            />
-            <StatsCard
-              title="This Week"
-              value={stats.assessmentsThisWeek}
-              icon={<Calendar className="w-5 h-5" />}
-              color="purple"
-            />
-            <StatsCard
-              title="Average Score"
-              value={stats.averageScore}
-              suffix="/100"
-              change={stats.scoreChange}
-              icon={<TrendingUp className="w-5 h-5" />}
-              color="emerald"
-            />
-            <StatsCard
-              title="Completion Rate"
-              value={stats.completionRate}
-              suffix="%"
-              icon={<Users className="w-5 h-5" />}
-              color="amber"
-            />
-          </div>
-        )}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Assessments</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalAssessments}</div>
+            </CardContent>
+          </Card>
 
-        {/* Filters */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">This Week</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.assessmentsThisWeek}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Average Score</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-bold">{stats.averageScore}</span>
+                <span className="text-xs text-emerald-500 flex items-center">
+                  <ArrowUpRight className="h-3 w-3" />
+                  {stats.scoreChange}%
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Users</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalAssessments}</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      <Card>
+        <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
-            {/* Search */}
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
                 placeholder="Search by name or email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                className="pl-9"
               />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
             </div>
 
-            {/* Date Filter */}
-            <select
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value as any)}
-              className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
-            >
-              <option value="all">All Time</option>
-              <option value="week">This Week</option>
-              <option value="month">This Month</option>
-            </select>
+            <Select value={dateFilter} onValueChange={setDateFilter}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Date Range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Time</SelectItem>
+                <SelectItem value="week">This Week</SelectItem>
+                <SelectItem value="month">This Month</SelectItem>
+              </SelectContent>
+            </Select>
 
-            {/* Score Filter */}
-            <select
-              value={scoreFilter}
-              onChange={(e) => setScoreFilter(e.target.value as any)}
-              className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
-            >
-              <option value="all">All Scores</option>
-              <option value="high">High (70+)</option>
-              <option value="medium">Medium (50-69)</option>
-              <option value="low">Low (&lt;50)</option>
-            </select>
+            <Select value={scoreFilter} onValueChange={setScoreFilter}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Score Filter" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Scores</SelectItem>
+                <SelectItem value="high">High (70+)</SelectItem>
+                <SelectItem value="medium">Medium (50-69)</SelectItem>
+                <SelectItem value="low">Low (&lt;50)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </div>
+        </CardContent>
+      </Card>
 
-        {/* Assessments Table */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('name')}
-                  >
-                    <div className="flex items-center gap-1">
-                      User
-                      <SortIcon field="name" current={sortField} direction={sortDirection} />
-                    </div>
-                  </th>
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('score')}
-                  >
-                    <div className="flex items-center gap-1">
-                      Score
-                      <SortIcon field="score" current={sortField} direction={sortDirection} />
-                    </div>
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Personality
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Percentile
-                  </th>
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('date')}
-                  >
-                    <div className="flex items-center gap-1">
-                      Date
-                      <SortIcon field="date" current={sortField} direction={sortDirection} />
-                    </div>
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {loading ? (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                      <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
-                      Loading assessments...
-                    </td>
-                  </tr>
-                ) : assessments.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                      No assessments found
-                    </td>
-                  </tr>
-                ) : (
-                  assessments.map((assessment) => (
-                    <tr 
-                      key={assessment.id} 
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-6 py-4">
-                        <div>
-                          <div className="font-medium text-gray-900">
-                            {assessment.user?.full_name || 'Unknown User'}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {assessment.user?.email || assessment.user_id.slice(0, 8)}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold ${getScoreColor(assessment.overall_score)}`}>
-                          {assessment.overall_score}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
-                        {formatPersonalityType(assessment.personality_type)}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
-                        Top {100 - assessment.rankings.overallPercentile}%
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {formatDate(assessment.created_at)}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => setSelectedAssessment(assessment)}
-                            className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                            title="View Details"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDownloadPdf(assessment.id)}
-                            disabled={downloadingId === assessment.id}
-                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
-                            title="Download PDF"
-                          >
-                            {downloadingId === assessment.id ? (
-                              <RefreshCw className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Download className="w-4 h-4" />
-                            )}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </main>
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead>Score</TableHead>
+                <TableHead>Personality</TableHead>
+                <TableHead>Percentile</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-12">
+                    <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-muted-foreground" />
+                    <p className="text-muted-foreground">Loading assessments...</p>
+                  </TableCell>
+                </TableRow>
+              ) : assessments.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                    No assessments found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                assessments.map((assessment) => (
+                  <TableRow key={assessment.id}>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{assessment.user_profiles?.full_name || "Unknown User"}</div>
+                        <div className="text-sm text-muted-foreground">{assessment.user_profiles?.email || assessment.user_id.slice(0, 8)}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getScoreBadgeVariant(assessment.overall_score)}>{assessment.overall_score}</Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">{formatPersonalityType(assessment.personality_type)}</TableCell>
+                    <TableCell className="text-sm">Top {100 - (assessment.rankings?.overallPercentile || 50)}%</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatDate(assessment.created_at)}</TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setSelectedAssessment(assessment)}>
+                            <Eye className="h-4 w-4 mr-2" />View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDownloadPdf(assessment.id)} disabled={downloadingId === assessment.id}>
+                            {downloadingId === assessment.id ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+                            Download PDF
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
-      {/* Detail Modal */}
-      {selectedAssessment && (
-        <AssessmentDetailModal
-          assessment={selectedAssessment}
-          onClose={() => setSelectedAssessment(null)}
-          onDownload={() => handleDownloadPdf(selectedAssessment.id)}
-          downloading={downloadingId === selectedAssessment.id}
-        />
-      )}
+      <AssessmentDetailModal
+        assessment={selectedAssessment}
+        open={!!selectedAssessment}
+        onClose={() => setSelectedAssessment(null)}
+        onDownload={() => selectedAssessment && handleDownloadPdf(selectedAssessment.id)}
+        downloading={downloadingId === selectedAssessment?.id}
+      />
     </div>
-  );
+  )
 }
-
-// =============================================================================
-// Stats Card Component
-// =============================================================================
-
-interface StatsCardProps {
-  title: string;
-  value: number;
-  suffix?: string;
-  change?: number;
-  icon: React.ReactNode;
-  color: 'blue' | 'purple' | 'emerald' | 'amber';
-}
-
-function StatsCard({ title, value, suffix, change, icon, color }: StatsCardProps) {
-  const colorClasses = {
-    blue: 'bg-blue-50 text-blue-600',
-    purple: 'bg-purple-50 text-purple-600',
-    emerald: 'bg-emerald-50 text-emerald-600',
-    amber: 'bg-amber-50 text-amber-600'
-  };
-
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <div className="flex items-center justify-between">
-        <div className={`p-2 rounded-lg ${colorClasses[color]}`}>
-          {icon}
-        </div>
-        {change !== undefined && (
-          <div className={`flex items-center gap-1 text-sm ${change >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-            {change >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-            {Math.abs(change)}%
-          </div>
-        )}
-      </div>
-      <div className="mt-4">
-        <div className="text-2xl font-bold text-gray-900">
-          {value}{suffix}
-        </div>
-        <div className="text-sm text-gray-500 mt-1">{title}</div>
-      </div>
-    </div>
-  );
-}
-
-// =============================================================================
-// Sort Icon Component
-// =============================================================================
-
-interface SortIconProps {
-  field: string;
-  current: string;
-  direction: 'asc' | 'desc';
-}
-
-function SortIcon({ field, current, direction }: SortIconProps) {
-  if (field !== current) {
-    return <Minus className="w-3 h-3 text-gray-300" />;
-  }
-  return direction === 'asc' 
-    ? <ChevronUp className="w-3 h-3" /> 
-    : <ChevronDown className="w-3 h-3" />;
-}
-
-// =============================================================================
-// Assessment Detail Modal
-// =============================================================================
 
 interface DetailModalProps {
-  assessment: Assessment;
-  onClose: () => void;
-  onDownload: () => void;
-  downloading: boolean;
+  assessment: Assessment | null
+  open: boolean
+  onClose: () => void
+  onDownload: () => void
+  downloading: boolean
 }
 
-function AssessmentDetailModal({ assessment, onClose, onDownload, downloading }: DetailModalProps) {
-  const factorNames: Record<string, string> = {
-    'savings_discipline': 'Savings Discipline',
-    'debt_management': 'Debt Management',
-    'financial_planning': 'Financial Planning',
-    'spending_control': 'Spending Control',
-    'investment_readiness': 'Investment Readiness',
-    'risk_tolerance': 'Risk Tolerance',
-    'financial_literacy': 'Financial Literacy',
-    'emergency_preparedness': 'Emergency Preparedness',
-    'future_orientation': 'Future Orientation',
-    'money_wellness': 'Money Wellness'
-  };
+function AssessmentDetailModal({ assessment, open, onClose, onDownload, downloading }: DetailModalProps) {
+  if (!assessment) return null
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'excellent': return 'bg-emerald-500';
-      case 'good': return 'bg-emerald-400';
-      case 'average': return 'bg-amber-400';
-      case 'below_average': return 'bg-orange-400';
-      case 'needs_work': return 'bg-red-400';
-      default: return 'bg-gray-400';
-    }
-  };
+  const factorNames: Record<string, string> = {
+    savings_discipline: "Savings Discipline",
+    debt_management: "Debt Management",
+    financial_planning: "Financial Planning",
+    spending_control: "Spending Control",
+    investment_readiness: "Investment Readiness",
+    risk_tolerance: "Risk Tolerance",
+    financial_literacy: "Financial Literacy",
+    emergency_preparedness: "Emergency Preparedness",
+    future_orientation: "Future Orientation",
+    money_wellness: "Money Wellness",
+  }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
-        {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Assessment Details</DialogTitle>
+          <DialogDescription>
+            {assessment.user_profiles?.full_name || "Unknown User"} • {new Date(assessment.created_at).toLocaleDateString()}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          <div className="grid grid-cols-3 gap-4">
+            <Card className="bg-primary/10">
+              <CardContent className="pt-6 text-center">
+                <div className="text-4xl font-bold text-primary">{assessment.overall_score}</div>
+                <div className="text-sm text-muted-foreground mt-1">Overall Score</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <div className="text-2xl font-bold">{assessment.rankings?.overallPercentile || 50}th</div>
+                <div className="text-sm text-muted-foreground mt-1">Percentile</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <div className="text-lg font-bold">{assessment.personality_type?.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</div>
+                <div className="text-sm text-muted-foreground mt-1">Personality</div>
+              </CardContent>
+            </Card>
+          </div>
+
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Assessment Details</h2>
-            <p className="text-sm text-gray-500">
-              {assessment.user?.full_name || 'Unknown User'} • {new Date(assessment.created_at).toLocaleDateString()}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Modal Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
-          {/* Score Overview */}
-          <div className="grid grid-cols-3 gap-4 mb-8">
-            <div className="bg-emerald-50 rounded-xl p-4 text-center">
-              <div className="text-4xl font-bold text-emerald-600">{assessment.overall_score}</div>
-              <div className="text-sm text-emerald-700 mt-1">Overall Score</div>
-            </div>
-            <div className="bg-blue-50 rounded-xl p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600">{assessment.rankings.overallPercentile}th</div>
-              <div className="text-sm text-blue-700 mt-1">Percentile</div>
-            </div>
-            <div className="bg-purple-50 rounded-xl p-4 text-center">
-              <div className="text-lg font-bold text-purple-600">
-                {assessment.personality_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-              </div>
-              <div className="text-sm text-purple-700 mt-1">Personality</div>
-            </div>
-          </div>
-
-          {/* Factor Scores */}
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Factor Breakdown</h3>
-          <div className="space-y-3 mb-8">
-            {assessment.factor_scores.map((factor) => (
-              <div key={factor.factorId} className="flex items-center gap-4">
-                <div className="w-40 text-sm font-medium text-gray-700">
-                  {factorNames[factor.factorId] || factor.factorId}
+            <h3 className="text-lg font-semibold mb-4">Factor Breakdown</h3>
+            <div className="space-y-3">
+              {(assessment.factor_scores || []).map((factor) => (
+                <div key={factor.factorId} className="flex items-center gap-4">
+                  <div className="w-40 text-sm font-medium">{factorNames[factor.factorId] || factor.factorId}</div>
+                  <div className="flex-1"><Progress value={factor.score} className="h-2" /></div>
+                  <div className="w-12 text-right text-sm font-semibold">{factor.score}</div>
                 </div>
-                <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-                  <div 
-                    className={`h-full rounded-full ${getStatusColor(factor.status)}`}
-                    style={{ width: `${factor.score}%` }}
-                  />
-                </div>
-                <div className="w-12 text-right text-sm font-semibold text-gray-900">
-                  {factor.score}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Rankings */}
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Rankings</h3>
-          <div className="grid grid-cols-3 gap-4 mb-8">
-            <div className="border border-gray-200 rounded-lg p-4 text-center">
-              <div className="text-xl font-bold text-gray-900">{assessment.rankings.overallPercentile}th</div>
-              <div className="text-xs text-gray-500">vs Everyone</div>
-            </div>
-            <div className="border border-gray-200 rounded-lg p-4 text-center">
-              <div className="text-xl font-bold text-gray-900">{assessment.rankings.vsAgeGroup}th</div>
-              <div className="text-xs text-gray-500">vs Age Group</div>
-            </div>
-            <div className="border border-gray-200 rounded-lg p-4 text-center">
-              <div className="text-xl font-bold text-gray-900">{assessment.rankings.vsIncomeGroup}th</div>
-              <div className="text-xs text-gray-500">vs Income Group</div>
+              ))}
             </div>
           </div>
 
-          {/* Financial Plan */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Rankings</h3>
+            <div className="grid grid-cols-3 gap-4">
+              <Card><CardContent className="pt-4 text-center"><div className="text-xl font-bold">{assessment.rankings?.overallPercentile || 50}th</div><div className="text-xs text-muted-foreground">vs Everyone</div></CardContent></Card>
+              <Card><CardContent className="pt-4 text-center"><div className="text-xl font-bold">{assessment.rankings?.vsAgeGroup || 50}th</div><div className="text-xs text-muted-foreground">vs Age Group</div></CardContent></Card>
+              <Card><CardContent className="pt-4 text-center"><div className="text-xl font-bold">{assessment.rankings?.vsIncomeGroup || 50}th</div><div className="text-xs text-muted-foreground">vs Income Group</div></CardContent></Card>
+            </div>
+          </div>
+
           {assessment.financial_plans && assessment.financial_plans.length > 0 && (
-            <>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Financial Plan</h3>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <span className="text-sm text-gray-500">Goal Path:</span>
-                    <span className="ml-2 font-medium text-gray-900">
-                      {assessment.financial_plans[0].goal_path.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                    </span>
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Financial Plan</h3>
+              <Card>
+                <CardContent className="pt-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div><span className="text-muted-foreground">Goal Path:</span><span className="ml-2 font-medium">{assessment.financial_plans[0].goal_path?.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</span></div>
+                    <div><span className="text-muted-foreground">Chosen Path:</span><span className="ml-2 font-medium">{assessment.financial_plans[0].chosen_path === "safe_steady" ? "🛡️ Safe & Steady" : "⚡ Fast & Aggressive"}</span></div>
                   </div>
-                  <div>
-                    <span className="text-sm text-gray-500">Chosen Path:</span>
-                    <span className="ml-2 font-medium text-gray-900">
-                      {assessment.financial_plans[0].chosen_path === 'safe_steady' ? '🛡️ Safe & Steady' : '⚡ Fast & Aggressive'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </>
+                </CardContent>
+              </Card>
+            </div>
           )}
         </div>
 
-        {/* Modal Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
-          >
-            Close
-          </button>
-          <button
-            onClick={onDownload}
-            disabled={downloading}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
-          >
-            {downloading ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
-            ) : (
-              <Download className="w-4 h-4" />
-            )}
+        <div className="flex justify-end gap-3 mt-6">
+          <Button variant="outline" onClick={onClose}>Close</Button>
+          <Button onClick={onDownload} disabled={downloading}>
+            {downloading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
             Download PDF
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
-  );
+      </DialogContent>
+    </Dialog>
+  )
 }

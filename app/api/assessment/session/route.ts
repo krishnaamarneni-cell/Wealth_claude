@@ -1,299 +1,182 @@
-// =============================================================================
-// API Route: /api/assessment/session
-// Manages assessment sessions - create, update, get
-// =============================================================================
-
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { randomUUID } from 'crypto';
+import { NextRequest, NextResponse } from "next/server"
+import { createClient } from "@supabase/supabase-js"
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+)
 
-// =============================================================================
-// Types
-// =============================================================================
-
-interface CreateSessionRequest {
-  userId: string;
-  assessmentMode: 'quick' | 'full';
-  goalPath?: string;
+// Problem to tests mapping
+const problemToTests: Record<string, string[]> = {
+  debt: ["financial_health", "debt_management", "money_mindset"],
+  investments: ["financial_personality", "investment_profile", "money_mindset"],
+  retirement: ["retirement_readiness", "investment_profile", "financial_health"],
+  budgeting: ["budget_cashflow", "financial_personality", "financial_health"],
+  complete_checkup: [
+    "financial_personality",
+    "financial_health",
+    "investment_profile",
+    "money_mindset",
+    "debt_management",
+    "retirement_readiness",
+    "budget_cashflow",
+    "income_career",
+    "insurance_protection"
+  ]
 }
 
-interface UpdateSessionRequest {
-  sessionId: string;
-  status?: 'in_progress' | 'paused' | 'completed' | 'abandoned';
-  currentTestId?: string;
-  currentQuestionIndex?: number;
-  testsCompleted?: string[];
-  totalTimeSeconds?: number;
-}
-
-// =============================================================================
 // POST - Create new session
-// =============================================================================
-
-export async function POST(request: NextRequest): Promise<NextResponse> {
+export async function POST(request: NextRequest) {
   try {
-    const body: CreateSessionRequest = await request.json();
+    const body = await request.json()
+    const { fullName, email, phone, problemType } = body
 
-    if (!body.userId) {
+    // Validate required fields
+    if (!fullName || !email || !problemType) {
       return NextResponse.json(
-        { success: false, error: 'userId required' },
+        { error: "Missing required fields" },
         { status: 400 }
-      );
+      )
     }
 
-    // Check for existing in-progress session
-    const { data: existingSession } = await supabase
-      .from('assessment_sessions')
-      .select('id, status, current_test_id, current_question_index, created_at')
-      .eq('user_id', body.userId)
-      .eq('status', 'in_progress')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    // If there's an existing session less than 24 hours old, return it
-    if (existingSession) {
-      const sessionAge = Date.now() - new Date(existingSession.created_at).getTime();
-      const hoursOld = sessionAge / (1000 * 60 * 60);
-
-      if (hoursOld < 24) {
-        return NextResponse.json({
-          success: true,
-          session: existingSession,
-          resumed: true,
-          message: 'Resuming existing session'
-        });
-      } else {
-        // Mark old session as abandoned
-        await supabase
-          .from('assessment_sessions')
-          .update({ status: 'abandoned' })
-          .eq('id', existingSession.id);
-      }
+    // Validate problem type
+    if (!problemToTests[problemType]) {
+      return NextResponse.json(
+        { error: "Invalid problem type" },
+        { status: 400 }
+      )
     }
 
-    // Create new session
-    const sessionId = randomUUID();
-    const { data: newSession, error } = await supabase
-      .from('assessment_sessions')
+    // Get assigned tests based on problem
+    const assignedTests = problemToTests[problemType]
+
+    // Create session
+    const { data, error } = await supabase
+      .from("assessment_sessions")
       .insert({
-        id: sessionId,
-        user_id: body.userId,
-        status: 'in_progress',
-        assessment_mode: body.assessmentMode,
-        goal_path: body.goalPath || null,
-        current_test_id: 'financial_personality',
-        current_question_index: 0,
-        tests_completed: [],
-        started_at: new Date().toISOString()
+        full_name: fullName,
+        email: email.toLowerCase(),
+        phone: phone || null,
+        problem_type: problemType,
+        assigned_tests: assignedTests,
+        status: "intake_complete"
       })
-      .select()
-      .single();
+      .select("id")
+      .single()
 
     if (error) {
-      console.error('Session create error:', error);
+      console.error("Error creating session:", error)
       return NextResponse.json(
-        { success: false, error: 'Failed to create session' },
+        { error: "Failed to create session" },
         { status: 500 }
-      );
+      )
     }
 
-    return NextResponse.json({
-      success: true,
-      session: newSession,
-      resumed: false,
-      message: 'New session created'
-    });
-
-  } catch (error) {
-    console.error('Session POST error:', error);
+    return NextResponse.json({ sessionId: data.id })
+  } catch (err) {
+    console.error("Session POST error:", err)
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { error: "Internal server error" },
       { status: 500 }
-    );
+    )
   }
 }
 
-// =============================================================================
-// GET - Get session by ID or user's latest
-// =============================================================================
-
-export async function GET(request: NextRequest): Promise<NextResponse> {
+// GET - Get session data
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const sessionId = searchParams.get('id');
-    const userId = searchParams.get('userId');
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get("id")
 
-    if (!sessionId && !userId) {
+    if (!id) {
       return NextResponse.json(
-        { success: false, error: 'id or userId required' },
+        { error: "Session ID required" },
         { status: 400 }
-      );
+      )
     }
 
-    let query = supabase
-      .from('assessment_sessions')
-      .select(`
-        *,
-        assessment_results (
-          id,
-          overall_score,
-          personality_type
-        )
-      `);
+    // Get session
+    const { data: session, error: sessionError } = await supabase
+      .from("assessment_sessions")
+      .select("*")
+      .eq("id", id)
+      .single()
 
-    if (sessionId) {
-      query = query.eq('id', sessionId);
-    } else if (userId) {
-      query = query
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(1);
-    }
-
-    const { data: session, error } = await query.single();
-
-    if (error || !session) {
+    if (sessionError || !session) {
       return NextResponse.json(
-        { success: false, error: 'Session not found' },
+        { error: "Session not found" },
         { status: 404 }
-      );
+      )
     }
 
-    return NextResponse.json({
-      success: true,
-      session
-    });
+    // Get responses
+    const { data: responses } = await supabase
+      .from("assessment_responses")
+      .select("question_id, answer_value, answer_score")
+      .eq("session_id", id)
 
-  } catch (error) {
-    console.error('Session GET error:', error);
+    return NextResponse.json({
+      ...session,
+      responses: responses || []
+    })
+  } catch (err) {
+    console.error("Session GET error:", err)
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { error: "Internal server error" },
       { status: 500 }
-    );
+    )
   }
 }
 
-// =============================================================================
-// PATCH - Update session (progress, pause, etc.)
-// =============================================================================
-
-export async function PATCH(request: NextRequest): Promise<NextResponse> {
+// PATCH - Update session
+export async function PATCH(request: NextRequest) {
   try {
-    const body: UpdateSessionRequest = await request.json();
-
-    if (!body.sessionId) {
-      return NextResponse.json(
-        { success: false, error: 'sessionId required' },
-        { status: 400 }
-      );
-    }
-
-    // Build update object
-    const updates: Record<string, any> = {
-      updated_at: new Date().toISOString()
-    };
-
-    if (body.status) {
-      updates.status = body.status;
-      if (body.status === 'completed') {
-        updates.completed_at = new Date().toISOString();
-      }
-    }
-
-    if (body.currentTestId !== undefined) {
-      updates.current_test_id = body.currentTestId;
-    }
-
-    if (body.currentQuestionIndex !== undefined) {
-      updates.current_question_index = body.currentQuestionIndex;
-    }
-
-    if (body.testsCompleted) {
-      updates.tests_completed = body.testsCompleted;
-    }
-
-    if (body.totalTimeSeconds !== undefined) {
-      updates.total_time_seconds = body.totalTimeSeconds;
-    }
-
-    const { data: updatedSession, error } = await supabase
-      .from('assessment_sessions')
-      .update(updates)
-      .eq('id', body.sessionId)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Session update error:', error);
-      return NextResponse.json(
-        { success: false, error: 'Failed to update session' },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      session: updatedSession
-    });
-
-  } catch (error) {
-    console.error('Session PATCH error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
-}
-
-// =============================================================================
-// DELETE - Abandon/delete session
-// =============================================================================
-
-export async function DELETE(request: NextRequest): Promise<NextResponse> {
-  try {
-    const { searchParams } = new URL(request.url);
-    const sessionId = searchParams.get('id');
+    const body = await request.json()
+    const { sessionId, ...updates } = body
 
     if (!sessionId) {
       return NextResponse.json(
-        { success: false, error: 'id required' },
+        { error: "Session ID required" },
         { status: 400 }
-      );
+      )
     }
 
-    // Mark as abandoned rather than hard delete
+    // Build update object
+    const updateData: Record<string, unknown> = {}
+    
+    if (updates.status) updateData.status = updates.status
+    if (updates.primaryGoal) updateData.primary_goal = updates.primaryGoal
+    if (updates.timeline) updateData.timeline = updates.timeline
+    if (updates.additionalNotes !== undefined) updateData.additional_notes = updates.additionalNotes
+    if (updates.completedTests) updateData.completed_tests = updates.completedTests
+    if (updates.isViewed !== undefined) updateData.is_viewed = updates.isViewed
+    if (updates.isContacted !== undefined) updateData.is_contacted = updates.isContacted
+    if (updates.adminNotes !== undefined) updateData.admin_notes = updates.adminNotes
+
+    // Set completed_at if goals are complete
+    if (updates.status === "goals_complete") {
+      updateData.completed_at = new Date().toISOString()
+    }
+
     const { error } = await supabase
-      .from('assessment_sessions')
-      .update({ 
-        status: 'abandoned',
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', sessionId);
+      .from("assessment_sessions")
+      .update(updateData)
+      .eq("id", sessionId)
 
     if (error) {
-      console.error('Session delete error:', error);
+      console.error("Error updating session:", error)
       return NextResponse.json(
-        { success: false, error: 'Failed to abandon session' },
+        { error: "Failed to update session" },
         { status: 500 }
-      );
+      )
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Session abandoned'
-    });
-
-  } catch (error) {
-    console.error('Session DELETE error:', error);
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    console.error("Session PATCH error:", err)
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { error: "Internal server error" },
       { status: 500 }
-    );
+    )
   }
 }

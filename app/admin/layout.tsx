@@ -7,12 +7,12 @@ import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { TierProvider } from "@/lib/tier-context"
 
-export default async function AssessmentLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  // Check auth
+  // Check auth + admin status
   try {
     const cookieStore = await cookies()
     const supabase = createServerSideClient(cookieStore)
@@ -22,11 +22,19 @@ export default async function AssessmentLayout({
       error,
     } = await supabase.auth.getUser()
 
+    // Step 1: Check if logged in
     if (!user || error) {
       redirect('/auth?message=login_required')
     }
+
+    // Step 2: Check if admin (THIS WAS MISSING!)
+    const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
+    if (!adminEmail || user.email !== adminEmail) {
+      redirect('/dashboard?message=unauthorized')
+    }
+
   } catch (err) {
-    console.error('[assessment] Auth error:', err)
+    console.error('[admin] Auth error:', err)
     redirect('/auth?message=auth_error')
   }
 

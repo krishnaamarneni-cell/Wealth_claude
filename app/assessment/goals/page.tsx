@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { 
   ArrowRight,
@@ -65,21 +65,40 @@ const timelineOptions = [
 ]
 
 export default function AssessmentGoalsPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <AssessmentGoalsContent />
+    </Suspense>
+  )
+}
+
+function LoadingFallback() {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="text-center">
+        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    </div>
+  )
+}
+
+function AssessmentGoalsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const sessionId = searchParams.get("session")
 
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [sessionData, setSessionData] = useState<{ full_name: string } | null>(null)
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState("")
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [sessionData, setSessionData] = React.useState<{ full_name: string } | null>(null)
 
-  const [selectedPriority, setSelectedPriority] = useState("")
-  const [selectedTimeline, setSelectedTimeline] = useState("")
-  const [additionalNotes, setAdditionalNotes] = useState("")
+  const [selectedPriority, setSelectedPriority] = React.useState("")
+  const [selectedTimeline, setSelectedTimeline] = React.useState("")
+  const [additionalNotes, setAdditionalNotes] = React.useState("")
 
   // Load session
-  useEffect(() => {
+  React.useEffect(() => {
     if (!sessionId) {
       router.push("/assessment/start")
       return

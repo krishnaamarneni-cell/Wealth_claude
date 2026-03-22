@@ -6,11 +6,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// POST - Generate AI financial plan
+// POST - Generate AI financial plan (with versioning)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { sessionId, planType } = body // planType: aggressive, moderate, conservative
+    const { sessionId, planType, source = "preset", customPrompt } = body
 
     if (!sessionId || !planType) {
       return NextResponse.json(
@@ -19,16 +19,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check for GROQ API key
     if (!process.env.GROQ_API_KEY) {
-      console.error("GROQ_API_KEY not configured")
       return NextResponse.json(
-        { error: "AI service not configured. Please add GROQ_API_KEY to environment variables." },
+        { error: "GROQ_API_KEY not configured" },
         { status: 500 }
       )
     }
 
-    // Get session with results
+    // Get session
     const { data: session, error: sessionError } = await supabase
       .from("assessment_sessions")
       .select("*")
@@ -36,13 +34,13 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (sessionError || !session) {
-      console.error("Session error:", sessionError)
       return NextResponse.json(
         { error: "Session not found" },
         { status: 404 }
       )
     }
 
+    // Get results
     const { data: result, error: resultError } = await supabase
       .from("assessment_results")
       .select("*")
@@ -50,32 +48,30 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (resultError || !result) {
-      console.error("Result error:", resultError)
       return NextResponse.json(
-        { error: "Assessment results not found. The user may not have completed the assessment." },
+        { error: "Assessment results not found" },
         { status: 404 }
       )
     }
 
-    // Build context for AI
-    const problemNames: Record<string, string> = {
+    // Get next version number
+    const { data: maxVersionData } = await supabase
+      .from("financial_plans")
+      .select("version")
+      .eq("session_id", sessionId)
+      .order("version", { ascending: false })
+      .limit(1)
+      .single()
+
+    const nextVersion = (maxVersionData?.version || 0) + 1
+
+    // Build AI prompt
+    const problemLabels: Record<string, string> = {
       debt: "paying off debt",
       investments: "growing investments",
       retirement: "planning for retirement",
       budgeting: "managing budget and cash flow",
       complete_checkup: "comprehensive financial improvement"
-    }
-
-    const priorityDescriptions: Record<string, string> = {
-      pay_debt_first: "They want to focus on paying off debt before building investments.",
-      build_investments_first: "They want to prioritize investment growth while managing debt.",
-      balanced_approach: "They want a balanced approach between debt payoff and investing."
-    }
-
-    const timelineDescriptions: Record<string, string> = {
-      aggressive: "1-2 years (aggressive pace, maximum effort)",
-      moderate: "3-5 years (steady progress with flexibility)",
-      slow_steady: "5+ years (gradual changes, sustainable habits)"
     }
 
     const planTypeDescriptions: Record<string, string> = {
@@ -84,75 +80,55 @@ export async function POST(request: NextRequest) {
       conservative: "Create a conservative plan with cautious goals and longer timelines."
     }
 
-    // Format factor scores for context
-    const factorScores = (result.factor_scores || []) as Array<{ factorId: string; score: number; status: string }>
+    const factorScores = (result.factor_scores || []) as Array<{ factorId: string; score: number }>
     const scoresText = factorScores
-      .map(f => `- ${f.factorId.replace(/_/g, " ")}: ${f.score}/100 (${f.status})`)
+      .map(f => `- ${f.factorId.replace(/_/g, " ")}: ${f.score}/100`)
       .join("\n")
 
     const strengths = (result.strengths || []) as string[]
     const weaknesses = (result.weaknesses || []) as string[]
 
-    const prompt = `You are a certified financial planner creating a personalized financial plan.
+    let prompt = `You are a certified financial planner creating a personalized financial plan.
 
 CLIENT PROFILE:
 - Name: ${session.full_name}
-- Primary Goal: ${problemNames[session.problem_type] || session.problem_type}
-- Priority: ${priorityDescriptions[session.primary_goal] || "Not specified"}
-- Timeline: ${timelineDescriptions[session.timeline] || "Not specified"}
-${session.additional_notes ? `- Additional Context: ${session.additional_notes}` : ""}
+- Primary Goal: ${problemLabels[session.problem_type] || session.problem_type}
+- Priority: ${session.primary_goal || "Not specified"}
+- Timeline: ${session.timeline || "Not specified"}
 
 ASSESSMENT RESULTS:
-- Overall Financial Health Score: ${result.overall_score}/100
-- Financial Personality Type: ${(result.personality_type || "unknown").replace(/_/g, " ")}
+- Overall Score: ${result.overall_score}/100
+- Personality Type: ${(result.personality_type || "unknown").replace(/_/g, " ")}
 - Strengths: ${strengths.length > 0 ? strengths.join(", ") : "Not identified"}
-- Areas for Improvement: ${weaknesses.length > 0 ? weaknesses.join(", ") : "Not identified"}
+- Weaknesses: ${weaknesses.length > 0 ? weaknesses.join(", ") : "Not identified"}
 
 DETAILED SCORES:
-${scoresText || "No detailed scores available"}
+${scoresText}
 
 PLAN REQUIREMENTS:
-${planTypeDescriptions[planType]}
+${planTypeDescriptions[planType]}`
 
-Please create a comprehensive financial plan with the following sections:
+    // Add custom prompt if provided (from chat)
+    if (customPrompt) {
+      prompt += `\n\nADDITIONAL REQUIREMENTS FROM ADVISOR:
+${customPrompt}`
+    }
 
-1. EXECUTIVE SUMMARY (2-3 paragraphs)
-A personalized overview addressing their specific situation, goals, and personality type.
+    prompt += `
 
-2. IMMEDIATE PRIORITIES (First 30 Days)
-List 3-5 specific action items they should start immediately.
-
-3. SHORT-TERM GOALS (1-6 Months)
-List 3-5 measurable goals with specific targets.
-
-4. MEDIUM-TERM GOALS (6-12 Months)
-List 3-5 measurable goals building on the short-term foundation.
-
-5. LONG-TERM VISION (1-5 Years)
-Describe where they should be and key milestones.
-
-6. SPECIFIC RECOMMENDATIONS
-Based on their weak areas, provide tailored advice.
-
-7. WARNINGS & CONSIDERATIONS
-List 2-3 potential pitfalls to avoid based on their personality type.
-
-8. NEXT STEPS
-Clear action items for their first week.
-
-Format your response as JSON with this structure:
+Create a comprehensive financial plan with these sections in JSON format:
 {
-  "executiveSummary": "string",
-  "immediatePriorities": ["string"],
+  "executiveSummary": "2-3 paragraph personalized overview",
+  "immediatePriorities": ["5 action items for first 30 days"],
   "shortTermGoals": [{"goal": "string", "target": "string", "timeframe": "string"}],
   "mediumTermGoals": [{"goal": "string", "target": "string", "timeframe": "string"}],
-  "longTermVision": "string",
+  "longTermVision": "1-5 year vision paragraph",
   "recommendations": [{"area": "string", "advice": "string"}],
-  "warnings": ["string"],
-  "nextSteps": ["string"]
+  "warnings": ["2-3 pitfalls to avoid"],
+  "nextSteps": ["clear first week actions"]
 }`
 
-    // Call Groq API directly using fetch
+    // Call Groq
     const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -164,12 +140,9 @@ Format your response as JSON with this structure:
         messages: [
           {
             role: "system",
-            content: "You are an expert financial planner. Always respond with valid JSON only, no additional text or markdown."
+            content: "You are an expert financial planner. Respond with valid JSON only."
           },
-          {
-            role: "user",
-            content: prompt
-          }
+          { role: "user", content: prompt }
         ],
         temperature: 0.7,
         max_tokens: 4000,
@@ -179,9 +152,9 @@ Format your response as JSON with this structure:
 
     if (!groqResponse.ok) {
       const errorText = await groqResponse.text()
-      console.error("Groq API error:", errorText)
+      console.error("Groq error:", errorText)
       return NextResponse.json(
-        { error: "AI service error. Please try again." },
+        { error: "AI service error" },
         { status: 500 }
       )
     }
@@ -190,38 +163,32 @@ Format your response as JSON with this structure:
     const aiResponse = groqData.choices?.[0]?.message?.content
 
     if (!aiResponse) {
-      console.error("No response from Groq")
       return NextResponse.json(
-        { error: "No response from AI" },
+        { error: "No AI response" },
         { status: 500 }
       )
     }
 
-    // Parse AI response
     let planContent
     try {
       planContent = JSON.parse(aiResponse)
-    } catch (parseErr) {
-      console.error("Failed to parse AI response:", aiResponse)
+    } catch {
+      console.error("Parse error:", aiResponse)
       return NextResponse.json(
         { error: "Invalid AI response format" },
         { status: 500 }
       )
     }
 
-    // Format goals and action items for database
+    // Format for database
     const goals = [
       ...(planContent.shortTermGoals || []).map((g: { goal: string; target: string; timeframe: string }, i: number) => ({
-        goal: g.goal,
-        target: g.target,
-        timeline: g.timeframe,
+        ...g,
         priority: i + 1,
         type: "short_term"
       })),
       ...(planContent.mediumTermGoals || []).map((g: { goal: string; target: string; timeframe: string }, i: number) => ({
-        goal: g.goal,
-        target: g.target,
-        timeline: g.timeframe,
+        ...g,
         priority: i + 1,
         type: "medium_term"
       }))
@@ -230,69 +197,34 @@ Format your response as JSON with this structure:
     const actionItems = (planContent.immediatePriorities || []).map((action: string, i: number) => ({
       action,
       category: "immediate",
-      week: 1,
       priority: i + 1
     }))
 
-    const milestones = (planContent.nextSteps || []).map((step: string, i: number) => ({
-      milestone: step,
-      priority: i + 1
-    }))
-
-    // Check if plan already exists
-    const { data: existingPlan } = await supabase
+    // Insert new plan version (trigger will deactivate old ones)
+    const { data: plan, error: planError } = await supabase
       .from("financial_plans")
-      .select("id")
-      .eq("session_id", sessionId)
+      .insert({
+        session_id: sessionId,
+        result_id: result.id,
+        plan_type: planType,
+        version: nextVersion,
+        is_active: true,
+        source,
+        executive_summary: planContent.executiveSummary,
+        goals,
+        action_items: actionItems,
+        milestones: (planContent.nextSteps || []).map((step: string, i: number) => ({
+          milestone: step,
+          priority: i + 1
+        })),
+        ai_recommendations: JSON.stringify(planContent.recommendations || []),
+        ai_warnings: JSON.stringify(planContent.warnings || [])
+      })
+      .select()
       .single()
 
-    let plan
-    let planError
-
-    if (existingPlan) {
-      // Update existing plan
-      const { data, error } = await supabase
-        .from("financial_plans")
-        .update({
-          plan_type: planType,
-          executive_summary: planContent.executiveSummary,
-          goals,
-          action_items: actionItems,
-          milestones,
-          ai_recommendations: JSON.stringify(planContent.recommendations),
-          ai_warnings: JSON.stringify(planContent.warnings),
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", existingPlan.id)
-        .select("id")
-        .single()
-
-      plan = data
-      planError = error
-    } else {
-      // Insert new plan
-      const { data, error } = await supabase
-        .from("financial_plans")
-        .insert({
-          session_id: sessionId,
-          result_id: result.id,
-          plan_type: planType,
-          executive_summary: planContent.executiveSummary,
-          goals,
-          action_items: actionItems,
-          milestones,
-          ai_recommendations: JSON.stringify(planContent.recommendations),
-          ai_warnings: JSON.stringify(planContent.warnings)
-        })
-        .select("id")
-        .single()
-
-      plan = data
-      planError = error
-    }
-
     if (planError) {
-      console.error("Error saving plan:", planError)
+      console.error("Save error:", planError)
       return NextResponse.json(
         { error: `Failed to save plan: ${planError.message}` },
         { status: 500 }
@@ -305,13 +237,24 @@ Format your response as JSON with this structure:
       .update({ status: "plan_generated" })
       .eq("id", sessionId)
 
+    // Log the action
+    await supabase
+      .from("assessment_contact_log")
+      .insert({
+        session_id: sessionId,
+        action_type: "plan_generated",
+        description: `Generated ${planType} plan v${nextVersion}`,
+        metadata: { planId: plan.id, version: nextVersion, source }
+      })
+
     return NextResponse.json({
       success: true,
-      planId: plan?.id,
+      planId: plan.id,
+      version: nextVersion,
       plan: planContent
     })
   } catch (err) {
-    console.error("Plan generation error:", err)
+    console.error("Plan error:", err)
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Internal server error" },
       { status: 500 }
@@ -319,11 +262,31 @@ Format your response as JSON with this structure:
   }
 }
 
-// GET - Get existing plan
+// GET - Get plan(s) for a session
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const sessionId = searchParams.get("sessionId")
+    const allVersions = searchParams.get("all") === "true"
+    const planId = searchParams.get("planId")
+
+    if (planId) {
+      // Get specific plan by ID
+      const { data: plan, error } = await supabase
+        .from("financial_plans")
+        .select("*")
+        .eq("id", planId)
+        .single()
+
+      if (error || !plan) {
+        return NextResponse.json(
+          { error: "Plan not found" },
+          { status: 404 }
+        )
+      }
+
+      return NextResponse.json(plan)
+    }
 
     if (!sessionId) {
       return NextResponse.json(
@@ -332,15 +295,35 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    if (allVersions) {
+      // Get all plan versions
+      const { data: plans, error } = await supabase
+        .from("financial_plans")
+        .select("*")
+        .eq("session_id", sessionId)
+        .order("version", { ascending: false })
+
+      if (error) {
+        return NextResponse.json(
+          { error: "Failed to fetch plans" },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json(plans || [])
+    }
+
+    // Get active plan only
     const { data: plan, error } = await supabase
       .from("financial_plans")
       .select("*")
       .eq("session_id", sessionId)
+      .eq("is_active", true)
       .single()
 
     if (error || !plan) {
       return NextResponse.json(
-        { error: "Plan not found" },
+        { error: "No active plan found" },
         { status: 404 }
       )
     }
@@ -348,6 +331,50 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(plan)
   } catch (err) {
     console.error("Get plan error:", err)
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    )
+  }
+}
+
+// PATCH - Set a specific version as active
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { planId, sessionId } = body
+
+    if (!planId || !sessionId) {
+      return NextResponse.json(
+        { error: "Plan ID and Session ID required" },
+        { status: 400 }
+      )
+    }
+
+    // Deactivate all plans for this session
+    await supabase
+      .from("financial_plans")
+      .update({ is_active: false })
+      .eq("session_id", sessionId)
+
+    // Activate the selected plan
+    const { data, error } = await supabase
+      .from("financial_plans")
+      .update({ is_active: true })
+      .eq("id", planId)
+      .select()
+      .single()
+
+    if (error) {
+      return NextResponse.json(
+        { error: "Failed to activate plan" },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json(data)
+  } catch (err) {
+    console.error("Patch plan error:", err)
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

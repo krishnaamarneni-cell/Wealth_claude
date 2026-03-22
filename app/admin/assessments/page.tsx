@@ -44,9 +44,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
 
 // Types
 interface Assessment {
@@ -198,10 +195,10 @@ export default function AdminAssessmentsPage() {
     }
   }
 
-  const getScoreBadgeVariant = (score: number): "default" | "secondary" | "destructive" => {
-    if (score >= 70) return "default"
-    if (score >= 50) return "secondary"
-    return "destructive"
+  const getScoreBadgeClass = (score: number) => {
+    if (score >= 70) return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+    if (score >= 50) return "bg-amber-500/20 text-amber-400 border-amber-500/30"
+    return "bg-red-500/20 text-red-400 border-red-500/30"
   }
 
   const formatDate = (dateString: string) => {
@@ -218,172 +215,190 @@ export default function AdminAssessmentsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Assessment Dashboard</h1>
-          <p className="text-muted-foreground">View and manage user financial assessments</p>
+          <h1 className="text-2xl font-bold text-emerald-400">Assessment Dashboard</h1>
+          <p className="text-zinc-400">View and manage user financial assessments</p>
         </div>
-        <Button onClick={fetchAssessments} variant="outline" size="sm">
+        <Button
+          onClick={fetchAssessments}
+          variant="outline"
+          size="sm"
+          className="border-zinc-700 bg-zinc-800/50 hover:bg-zinc-700 text-zinc-200"
+        >
           <RefreshCw className={loading ? "h-4 w-4 mr-2 animate-spin" : "h-4 w-4 mr-2"} />
           Refresh
         </Button>
       </div>
 
+      {/* Stats Cards */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Assessments</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalAssessments}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">This Week</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.assessmentsThisWeek}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Average Score</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <span className="text-2xl font-bold">{stats.averageScore}</span>
-                <span className="text-xs text-emerald-500 flex items-center">
-                  <ArrowUpRight className="h-3 w-3" />
-                  {stats.scoreChange}%
-                </span>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 bg-emerald-500/10 rounded-lg">
+                <FileText className="h-5 w-5 text-emerald-400" />
               </div>
-            </CardContent>
-          </Card>
+              <ArrowUpRight className="h-4 w-4 text-zinc-500" />
+            </div>
+            <div className="text-3xl font-bold text-white">{stats.totalAssessments}</div>
+            <div className="text-sm text-zinc-400 mt-1">Total Assessments</div>
+          </div>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Users</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalAssessments}</div>
-            </CardContent>
-          </Card>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 bg-blue-500/10 rounded-lg">
+                <Clock className="h-5 w-5 text-blue-400" />
+              </div>
+              <ArrowUpRight className="h-4 w-4 text-zinc-500" />
+            </div>
+            <div className="text-3xl font-bold text-white">{stats.assessmentsThisWeek}</div>
+            <div className="text-sm text-zinc-400 mt-1">This Week</div>
+          </div>
+
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 bg-purple-500/10 rounded-lg">
+                <TrendingUp className="h-5 w-5 text-purple-400" />
+              </div>
+              <span className="text-xs text-emerald-400 flex items-center">
+                <ArrowUpRight className="h-3 w-3 mr-1" />
+                {stats.scoreChange}%
+              </span>
+            </div>
+            <div className="text-3xl font-bold text-white">{stats.averageScore}</div>
+            <div className="text-sm text-zinc-400 mt-1">Average Score</div>
+          </div>
+
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 bg-amber-500/10 rounded-lg">
+                <Users className="h-5 w-5 text-amber-400" />
+              </div>
+              <ArrowUpRight className="h-4 w-4 text-zinc-500" />
+            </div>
+            <div className="text-3xl font-bold text-white">{stats.totalAssessments}</div>
+            <div className="text-sm text-zinc-400 mt-1">Users</div>
+          </div>
         </div>
       )}
 
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by name or email..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-
-            <Select value={dateFilter} onValueChange={setDateFilter}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="Date Range" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Time</SelectItem>
-                <SelectItem value="week">This Week</SelectItem>
-                <SelectItem value="month">This Month</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={scoreFilter} onValueChange={setScoreFilter}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="Score Filter" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Scores</SelectItem>
-                <SelectItem value="high">High (70+)</SelectItem>
-                <SelectItem value="medium">Medium (50-69)</SelectItem>
-                <SelectItem value="low">Low (&lt;50)</SelectItem>
-              </SelectContent>
-            </Select>
+      {/* Filters */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+            <Input
+              placeholder="Search by name or email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-emerald-500"
+            />
           </div>
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Score</TableHead>
-                <TableHead>Personality</TableHead>
-                <TableHead>Percentile</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+          <Select value={dateFilter} onValueChange={setDateFilter}>
+            <SelectTrigger className="w-[150px] bg-zinc-800 border-zinc-700 text-white">
+              <SelectValue placeholder="Date Range" />
+            </SelectTrigger>
+            <SelectContent className="bg-zinc-800 border-zinc-700">
+              <SelectItem value="all">All Time</SelectItem>
+              <SelectItem value="week">This Week</SelectItem>
+              <SelectItem value="month">This Month</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={scoreFilter} onValueChange={setScoreFilter}>
+            <SelectTrigger className="w-[150px] bg-zinc-800 border-zinc-700 text-white">
+              <SelectValue placeholder="Score Filter" />
+            </SelectTrigger>
+            <SelectContent className="bg-zinc-800 border-zinc-700">
+              <SelectItem value="all">All Scores</SelectItem>
+              <SelectItem value="high">High (70+)</SelectItem>
+              <SelectItem value="medium">Medium (50-69)</SelectItem>
+              <SelectItem value="low">Low (&lt;50)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Assessments Table */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="border-zinc-800 hover:bg-zinc-800/50">
+              <TableHead className="text-zinc-400">User</TableHead>
+              <TableHead className="text-zinc-400">Score</TableHead>
+              <TableHead className="text-zinc-400">Personality</TableHead>
+              <TableHead className="text-zinc-400">Percentile</TableHead>
+              <TableHead className="text-zinc-400">Date</TableHead>
+              <TableHead className="text-zinc-400 text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow className="border-zinc-800">
+                <TableCell colSpan={6} className="text-center py-12">
+                  <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-zinc-500" />
+                  <p className="text-zinc-500">Loading assessments...</p>
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12">
-                    <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-muted-foreground" />
-                    <p className="text-muted-foreground">Loading assessments...</p>
+            ) : assessments.length === 0 ? (
+              <TableRow className="border-zinc-800">
+                <TableCell colSpan={6} className="text-center py-12 text-zinc-500">
+                  No assessments found
+                </TableCell>
+              </TableRow>
+            ) : (
+              assessments.map((assessment) => (
+                <TableRow key={assessment.id} className="border-zinc-800 hover:bg-zinc-800/50">
+                  <TableCell>
+                    <div>
+                      <div className="font-medium text-white">{assessment.user_profiles?.full_name || "Unknown User"}</div>
+                      <div className="text-sm text-zinc-500">{assessment.user_profiles?.email || assessment.user_id.slice(0, 8)}</div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className={"inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold border " + getScoreBadgeClass(assessment.overall_score)}>
+                      {assessment.overall_score}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-sm text-zinc-300">{formatPersonalityType(assessment.personality_type)}</TableCell>
+                  <TableCell className="text-sm text-zinc-300">Top {100 - (assessment.rankings?.overallPercentile || 50)}%</TableCell>
+                  <TableCell className="text-sm text-zinc-500">{formatDate(assessment.created_at)}</TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="hover:bg-zinc-800">
+                          <MoreHorizontal className="h-4 w-4 text-zinc-400" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="bg-zinc-800 border-zinc-700">
+                        <DropdownMenuItem
+                          onClick={() => setSelectedAssessment(assessment)}
+                          className="text-zinc-200 focus:bg-zinc-700 focus:text-white"
+                        >
+                          <Eye className="h-4 w-4 mr-2" />View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleDownloadPdf(assessment.id)}
+                          disabled={downloadingId === assessment.id}
+                          className="text-zinc-200 focus:bg-zinc-700 focus:text-white"
+                        >
+                          {downloadingId === assessment.id ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+                          Download PDF
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ) : assessments.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
-                    No assessments found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                assessments.map((assessment) => (
-                  <TableRow key={assessment.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{assessment.user_profiles?.full_name || "Unknown User"}</div>
-                        <div className="text-sm text-muted-foreground">{assessment.user_profiles?.email || assessment.user_id.slice(0, 8)}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={getScoreBadgeVariant(assessment.overall_score)}>{assessment.overall_score}</Badge>
-                    </TableCell>
-                    <TableCell className="text-sm">{formatPersonalityType(assessment.personality_type)}</TableCell>
-                    <TableCell className="text-sm">Top {100 - (assessment.rankings?.overallPercentile || 50)}%</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{formatDate(assessment.created_at)}</TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setSelectedAssessment(assessment)}>
-                            <Eye className="h-4 w-4 mr-2" />View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDownloadPdf(assessment.id)} disabled={downloadingId === assessment.id}>
-                            {downloadingId === assessment.id ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-                            Download PDF
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
+      {/* Detail Modal */}
       <AssessmentDetailModal
         assessment={selectedAssessment}
         open={!!selectedAssessment}
@@ -395,6 +410,7 @@ export default function AdminAssessmentsPage() {
   )
 }
 
+// Detail Modal Component
 interface DetailModalProps {
   assessment: Assessment | null
   open: boolean
@@ -421,76 +437,95 @@ function AssessmentDetailModal({ assessment, open, onClose, onDownload, download
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-zinc-900 border-zinc-800 text-white">
         <DialogHeader>
-          <DialogTitle>Assessment Details</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-emerald-400">Assessment Details</DialogTitle>
+          <DialogDescription className="text-zinc-400">
             {assessment.user_profiles?.full_name || "Unknown User"} • {new Date(assessment.created_at).toLocaleDateString()}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Score Overview */}
           <div className="grid grid-cols-3 gap-4">
-            <Card className="bg-primary/10">
-              <CardContent className="pt-6 text-center">
-                <div className="text-4xl font-bold text-primary">{assessment.overall_score}</div>
-                <div className="text-sm text-muted-foreground mt-1">Overall Score</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6 text-center">
-                <div className="text-2xl font-bold">{assessment.rankings?.overallPercentile || 50}th</div>
-                <div className="text-sm text-muted-foreground mt-1">Percentile</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6 text-center">
-                <div className="text-lg font-bold">{assessment.personality_type?.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</div>
-                <div className="text-sm text-muted-foreground mt-1">Personality</div>
-              </CardContent>
-            </Card>
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-center">
+              <div className="text-4xl font-bold text-emerald-400">{assessment.overall_score}</div>
+              <div className="text-sm text-zinc-400 mt-1">Overall Score</div>
+            </div>
+            <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 text-center">
+              <div className="text-2xl font-bold text-white">{assessment.rankings?.overallPercentile || 50}th</div>
+              <div className="text-sm text-zinc-400 mt-1">Percentile</div>
+            </div>
+            <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 text-center">
+              <div className="text-lg font-bold text-white">{assessment.personality_type?.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</div>
+              <div className="text-sm text-zinc-400 mt-1">Personality</div>
+            </div>
           </div>
 
+          {/* Factor Scores */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Factor Breakdown</h3>
+            <h3 className="text-lg font-semibold mb-4 text-white">Factor Breakdown</h3>
             <div className="space-y-3">
               {(assessment.factor_scores || []).map((factor) => (
                 <div key={factor.factorId} className="flex items-center gap-4">
-                  <div className="w-40 text-sm font-medium">{factorNames[factor.factorId] || factor.factorId}</div>
-                  <div className="flex-1"><Progress value={factor.score} className="h-2" /></div>
-                  <div className="w-12 text-right text-sm font-semibold">{factor.score}</div>
+                  <div className="w-40 text-sm font-medium text-zinc-300">{factorNames[factor.factorId] || factor.factorId}</div>
+                  <div className="flex-1 bg-zinc-800 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-500 rounded-full transition-all"
+                      style={{ width: factor.score + "%" }}
+                    />
+                  </div>
+                  <div className="w-12 text-right text-sm font-semibold text-white">{factor.score}</div>
                 </div>
               ))}
             </div>
           </div>
 
+          {/* Rankings */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Rankings</h3>
+            <h3 className="text-lg font-semibold mb-4 text-white">Rankings</h3>
             <div className="grid grid-cols-3 gap-4">
-              <Card><CardContent className="pt-4 text-center"><div className="text-xl font-bold">{assessment.rankings?.overallPercentile || 50}th</div><div className="text-xs text-muted-foreground">vs Everyone</div></CardContent></Card>
-              <Card><CardContent className="pt-4 text-center"><div className="text-xl font-bold">{assessment.rankings?.vsAgeGroup || 50}th</div><div className="text-xs text-muted-foreground">vs Age Group</div></CardContent></Card>
-              <Card><CardContent className="pt-4 text-center"><div className="text-xl font-bold">{assessment.rankings?.vsIncomeGroup || 50}th</div><div className="text-xs text-muted-foreground">vs Income Group</div></CardContent></Card>
+              <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 text-center">
+                <div className="text-xl font-bold text-white">{assessment.rankings?.overallPercentile || 50}th</div>
+                <div className="text-xs text-zinc-500">vs Everyone</div>
+              </div>
+              <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 text-center">
+                <div className="text-xl font-bold text-white">{assessment.rankings?.vsAgeGroup || 50}th</div>
+                <div className="text-xs text-zinc-500">vs Age Group</div>
+              </div>
+              <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 text-center">
+                <div className="text-xl font-bold text-white">{assessment.rankings?.vsIncomeGroup || 50}th</div>
+                <div className="text-xs text-zinc-500">vs Income Group</div>
+              </div>
             </div>
           </div>
 
+          {/* Financial Plan */}
           {assessment.financial_plans && assessment.financial_plans.length > 0 && (
             <div>
-              <h3 className="text-lg font-semibold mb-4">Financial Plan</h3>
-              <Card>
-                <CardContent className="pt-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div><span className="text-muted-foreground">Goal Path:</span><span className="ml-2 font-medium">{assessment.financial_plans[0].goal_path?.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</span></div>
-                    <div><span className="text-muted-foreground">Chosen Path:</span><span className="ml-2 font-medium">{assessment.financial_plans[0].chosen_path === "safe_steady" ? "🛡️ Safe & Steady" : "⚡ Fast & Aggressive"}</span></div>
+              <h3 className="text-lg font-semibold mb-4 text-white">Financial Plan</h3>
+              <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-zinc-500">Goal Path:</span>
+                    <span className="ml-2 font-medium text-white">{assessment.financial_plans[0].goal_path?.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</span>
                   </div>
-                </CardContent>
-              </Card>
+                  <div>
+                    <span className="text-zinc-500">Chosen Path:</span>
+                    <span className="ml-2 font-medium text-white">{assessment.financial_plans[0].chosen_path === "safe_steady" ? "🛡️ Safe & Steady" : "⚡ Fast & Aggressive"}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
 
+        {/* Footer Actions */}
         <div className="flex justify-end gap-3 mt-6">
-          <Button variant="outline" onClick={onClose}>Close</Button>
-          <Button onClick={onDownload} disabled={downloading}>
+          <Button variant="outline" onClick={onClose} className="border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-white">
+            Close
+          </Button>
+          <Button onClick={onDownload} disabled={downloading} className="bg-emerald-600 hover:bg-emerald-700 text-white">
             {downloading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
             Download PDF
           </Button>

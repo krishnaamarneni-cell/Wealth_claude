@@ -107,11 +107,7 @@ export default function AdminAssessmentsPage() {
 
       let query = supabase
         .from("assessment_results")
-        .select(\`
-          *,
-          user_profiles (full_name, email),
-          financial_plans (id, goal_path, chosen_path, created_at)
-        \`)
+        .select("*, user_profiles (full_name, email), financial_plans (id, goal_path, chosen_path, created_at)")
         .order("created_at", { ascending: false })
 
       if (dateFilter === "week") {
@@ -153,11 +149,11 @@ export default function AdminAssessmentsPage() {
 
       const weekAgo = new Date()
       weekAgo.setDate(weekAgo.getDate() - 7)
-      
+
       const thisWeek = (data || []).filter(
         (a) => new Date(a.created_at) >= weekAgo
       )
-      
+
       const avgScore = data && data.length > 0
         ? Math.round(data.reduce((sum, a) => sum + a.overall_score, 0) / data.length)
         : 0
@@ -183,14 +179,14 @@ export default function AdminAssessmentsPage() {
   const handleDownloadPdf = async (assessmentId: string) => {
     setDownloadingId(assessmentId)
     try {
-      const response = await fetch(\`/api/assessment/pdf?id=\${assessmentId}\`)
+      const response = await fetch("/api/assessment/pdf?id=" + assessmentId)
       if (!response.ok) throw new Error("PDF generation failed")
-      
+
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = \`WealthClaude_Report_\${assessmentId.slice(0, 8)}.pdf\`
+      a.download = "WealthClaude_Report_" + assessmentId.slice(0, 8) + ".pdf"
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -202,7 +198,7 @@ export default function AdminAssessmentsPage() {
     }
   }
 
-  const getScoreBadgeVariant = (score: number) => {
+  const getScoreBadgeVariant = (score: number): "default" | "secondary" | "destructive" => {
     if (score >= 70) return "default"
     if (score >= 50) return "secondary"
     return "destructive"
@@ -228,7 +224,7 @@ export default function AdminAssessmentsPage() {
           <p className="text-muted-foreground">View and manage user financial assessments</p>
         </div>
         <Button onClick={fetchAssessments} variant="outline" size="sm">
-          <RefreshCw className={\`h-4 w-4 mr-2 \${loading ? "animate-spin" : ""}\`} />
+          <RefreshCw className={loading ? "h-4 w-4 mr-2 animate-spin" : "h-4 w-4 mr-2"} />
           Refresh
         </Button>
       </div>

@@ -11,7 +11,12 @@ import {
   Loader2,
   Search,
   Filter,
-  Plus
+  Copy,
+  Mail,
+  Link2,
+  Send,
+  AlertCircle,
+  X
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -62,6 +67,14 @@ export default function AdminAssessmentsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
 
+  // Invite state
+  const [inviteEmail, setInviteEmail] = useState("")
+  const [inviteFirstName, setInviteFirstName] = useState("")
+  const [inviteLastName, setInviteLastName] = useState("")
+  const [sendingInvite, setSendingInvite] = useState(false)
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
+
   useEffect(() => {
     loadAssessments()
   }, [])
@@ -77,6 +90,48 @@ export default function AdminAssessmentsPage() {
       console.error("Error loading assessments:", err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const copyLink = () => {
+    const url = `${window.location.origin}/assessment/start`
+    navigator.clipboard.writeText(url)
+    setSuccess("Link copied to clipboard!")
+    setTimeout(() => setSuccess(""), 3000)
+  }
+
+  const sendInvite = async () => {
+    if (!inviteEmail || !inviteFirstName) {
+      setError("Email and first name are required")
+      return
+    }
+
+    setSendingInvite(true)
+    setError("")
+    setSuccess("")
+
+    try {
+      const res = await fetch("/api/assessment/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: inviteEmail,
+          firstName: inviteFirstName,
+          lastName: inviteLastName
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to send invite")
+
+      setSuccess(`Invite sent to ${inviteEmail}!`)
+      setInviteEmail("")
+      setInviteFirstName("")
+      setInviteLastName("")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send invite")
+    } finally {
+      setSendingInvite(false)
     }
   }
 
@@ -131,20 +186,163 @@ export default function AdminAssessmentsPage() {
       </div>
 
       {activeTab === "take" ? (
-        // Take Assessment Tab
+        // Take Assessment Tab - with invite options
         <div className="p-6">
-          <div className="max-w-2xl mx-auto text-center py-12">
-            <ClipboardList className="h-16 w-16 text-primary mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Start a New Assessment</h2>
-            <p className="text-muted-foreground mb-6">
-              Begin the financial assessment process for a new client or yourself.
-            </p>
-            <Button asChild size="lg">
-              <a href="/assessment/start" target="_blank">
-                Start Assessment
-                <ChevronRight className="h-4 w-4 ml-2" />
-              </a>
-            </Button>
+          <div className="max-w-2xl mx-auto space-y-6">
+            {/* Messages */}
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 flex items-center gap-2 text-red-500">
+                <AlertCircle className="h-4 w-4" />
+                <span className="text-sm">{error}</span>
+                <button onClick={() => setError("")} className="ml-auto">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+            {success && (
+              <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3 flex items-center gap-2 text-green-500">
+                <CheckCircle2 className="h-4 w-4" />
+                <span className="text-sm">{success}</span>
+                <button onClick={() => setSuccess("")} className="ml-auto">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Option 1: Take it yourself */}
+            <div className="bg-card border border-border rounded-xl p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-primary/10 rounded-lg">
+                  <ClipboardList className="h-6 w-6 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-foreground mb-1">Take Assessment Yourself</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Start a new financial assessment for yourself or walk through it with a client.
+                  </p>
+                  <Button asChild>
+                    <a href="/assessment/start" target="_blank">
+                      Start Assessment
+                      <ChevronRight className="h-4 w-4 ml-2" />
+                    </a>
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Option 2: Share direct link */}
+            <div className="bg-card border border-border rounded-xl p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-blue-500/10 rounded-lg">
+                  <Link2 className="h-6 w-6 text-blue-500" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-foreground mb-1">Share Direct Link</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Copy the assessment link and share it via text, WhatsApp, or any channel.
+                  </p>
+                  <div className="flex gap-2">
+                    <Input
+                      value={typeof window !== "undefined" ? `${window.location.origin}/assessment/start` : ""}
+                      readOnly
+                      className="bg-muted text-sm"
+                    />
+                    <Button variant="outline" onClick={copyLink}>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Option 3: Send personalized invite */}
+            <div className="bg-card border border-border rounded-xl p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-green-500/10 rounded-lg">
+                  <Mail className="h-6 w-6 text-green-500" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-foreground mb-1">Send Email Invite</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Send a personalized email invitation to a client with a branded template.
+                  </p>
+
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium text-foreground mb-1 block">
+                          First Name <span className="text-red-500">*</span>
+                        </label>
+                        <Input
+                          placeholder="John"
+                          value={inviteFirstName}
+                          onChange={(e) => setInviteFirstName(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-foreground mb-1 block">
+                          Last Name <span className="text-muted-foreground">(optional)</span>
+                        </label>
+                        <Input
+                          placeholder="Doe"
+                          value={inviteLastName}
+                          onChange={(e) => setInviteLastName(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-1 block">
+                        Email Address <span className="text-red-500">*</span>
+                      </label>
+                      <Input
+                        type="email"
+                        placeholder="john@example.com"
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Email Preview */}
+                    <div className="bg-muted/50 rounded-lg p-4 border border-border">
+                      <p className="text-xs text-muted-foreground mb-2">Email Preview:</p>
+                      <div className="text-sm text-foreground space-y-2">
+                        <p>Hi {inviteFirstName || "[First Name]"},</p>
+                        <p className="text-muted-foreground">
+                          I&apos;d like to better understand your financial situation so I can provide you with personalized advice and a tailored action plan.
+                        </p>
+                        <p className="text-muted-foreground">
+                          Please take a few minutes to complete this confidential financial assessment...
+                        </p>
+                        <div className="pt-2">
+                          <span className="inline-block bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm">
+                            Start Your Assessment →
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={sendInvite}
+                      disabled={sendingInvite || !inviteEmail || !inviteFirstName}
+                      className="w-full"
+                    >
+                      {sendingInvite ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4 mr-2" />
+                          Send Invite Email
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       ) : (
@@ -218,8 +416,12 @@ export default function AdminAssessmentsPage() {
               <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
             </div>
           ) : filteredAssessments.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              No assessments found
+            <div className="text-center py-12">
+              <ClipboardList className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground mb-4">No assessments found</p>
+              <Button variant="outline" onClick={() => setActiveTab("take")}>
+                Send Your First Invite
+              </Button>
             </div>
           ) : (
             <div className="bg-card border border-border rounded-xl overflow-hidden">

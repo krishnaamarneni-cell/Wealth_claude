@@ -7,14 +7,14 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const personalityLabels: Record<string, { label: string; emoji: string; description: string }> = {
-  cautious_saver: { label: "Cautious Saver", emoji: "🛡️", description: "Security-focused, prefers low-risk strategies" },
-  balanced_planner: { label: "Balanced Planner", emoji: "⚖️", description: "Methodical approach, balances risk and reward" },
-  growth_investor: { label: "Growth Investor", emoji: "📈", description: "Focused on wealth building, embraces calculated risks" },
-  spontaneous_spender: { label: "Spontaneous Spender", emoji: "💳", description: "Impulse-driven, benefits from automation" },
-  risk_taker: { label: "Risk Taker", emoji: "🎯", description: "High risk tolerance, seeks aggressive returns" },
-  money_avoider: { label: "Money Avoider", emoji: "🙈", description: "Needs guidance and simplified strategies" },
-  security_seeker: { label: "Security Seeker", emoji: "🏠", description: "Prioritizes stability over growth" }
+const personalityLabels: Record<string, { label: string; description: string }> = {
+  cautious_saver: { label: "Cautious Saver", description: "Security-focused, prefers low-risk strategies" },
+  balanced_planner: { label: "Balanced Planner", description: "Methodical approach, balances risk and reward" },
+  growth_investor: { label: "Growth Investor", description: "Focused on wealth building, embraces calculated risks" },
+  spontaneous_spender: { label: "Spontaneous Spender", description: "Impulse-driven, benefits from automation" },
+  risk_taker: { label: "Risk Taker", description: "High risk tolerance, seeks aggressive returns" },
+  money_avoider: { label: "Money Avoider", description: "Needs guidance and simplified strategies" },
+  security_seeker: { label: "Security Seeker", description: "Prioritizes stability over growth" }
 }
 
 // POST - Generate PDF
@@ -79,7 +79,6 @@ export async function POST(request: NextRequest) {
 
     const personality = personalityLabels[result.personality_type] || {
       label: result.personality_type,
-      emoji: "📊",
       description: "Financial personality profile"
     }
 
@@ -92,15 +91,15 @@ export async function POST(request: NextRequest) {
     let y = 0
 
     // Colors
-    const primaryGreen = [22, 163, 74] as const    // #16a34a
-    const darkGreen = [21, 128, 61] as const       // #15803d
-    const purple = [147, 51, 234] as const          // #9333ea
-    const darkText = [24, 24, 27] as const          // #18181b
-    const grayText = [113, 113, 122] as const       // #71717a
-    const lightBg = [250, 250, 250] as const        // #fafafa
-    const cardBg = [255, 255, 255] as const         // white
-    const amberBg = [254, 243, 199] as const        // amber light
-    const amberText = [180, 83, 9] as const         // amber dark
+    const primaryGreen = [22, 163, 74] as const
+    const darkGreen = [21, 128, 61] as const
+    const purple = [147, 51, 234] as const
+    const darkText = [24, 24, 27] as const
+    const grayText = [113, 113, 122] as const
+    const lightBg = [250, 250, 250] as const
+    const cardBg = [255, 255, 255] as const
+    const amberBg = [254, 243, 199] as const
+    const amberText = [180, 83, 9] as const
 
     // Helper: Draw rounded rectangle
     const roundedRect = (x: number, y: number, w: number, h: number, r: number, fill: readonly [number, number, number]) => {
@@ -110,10 +109,8 @@ export async function POST(request: NextRequest) {
 
     // Helper: Draw progress bar
     const drawProgressBar = (x: number, y: number, width: number, height: number, progress: number, color: readonly [number, number, number]) => {
-      // Background
-      doc.setFillColor(229, 231, 235) // gray-200
+      doc.setFillColor(229, 231, 235)
       doc.roundedRect(x, y, width, height, height / 2, height / 2, "F")
-      // Progress
       if (progress > 0) {
         doc.setFillColor(color[0], color[1], color[2])
         doc.roundedRect(x, y, Math.max(width * (progress / 100), height), height, height / 2, height / 2, "F")
@@ -165,7 +162,7 @@ export async function POST(request: NextRequest) {
     doc.text("Your Personal Financial Plan", margin, 38)
 
     doc.setFontSize(10)
-    doc.text(`Prepared for ${session.full_name}  •  ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`, margin, 52)
+    doc.text("Prepared for " + session.full_name + "  |  " + new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }), margin, 52)
 
     y = 75
 
@@ -176,7 +173,7 @@ export async function POST(request: NextRequest) {
     // Card 1: Score
     roundedRect(margin, y, cardWidth, cardHeight, 4, cardBg)
     doc.setFillColor(primaryGreen[0], primaryGreen[1], primaryGreen[2])
-    doc.roundedRect(margin, y, cardWidth, 4, 2, 2, "F") // top accent
+    doc.roundedRect(margin, y, cardWidth, 4, 2, 2, "F")
 
     doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2])
     doc.setFontSize(32)
@@ -240,36 +237,30 @@ export async function POST(request: NextRequest) {
       const label = factor.factorId.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())
       const score = factor.score
 
-      // Status indicator
       let statusColor: readonly [number, number, number]
-      let statusIcon: string
       if (score >= 70) {
         statusColor = primaryGreen
-        statusIcon = "●"
       } else if (score >= 40) {
-        statusColor = [234, 179, 8] // yellow
-        statusIcon = "●"
+        statusColor = [234, 179, 8]
       } else {
-        statusColor = [239, 68, 68] // red
-        statusIcon = "●"
+        statusColor = [239, 68, 68]
       }
 
-      doc.setTextColor(statusColor[0], statusColor[1], statusColor[2])
-      doc.setFontSize(10)
-      doc.text(statusIcon, margin, y + 1)
+      doc.setFillColor(statusColor[0], statusColor[1], statusColor[2])
+      doc.circle(margin + 3, y - 1, 2, "F")
 
       doc.setTextColor(darkText[0], darkText[1], darkText[2])
       doc.setFontSize(9)
       doc.setFont("helvetica", "normal")
-      doc.text(label, margin + 6, y)
+      doc.text(label, margin + 8, y)
 
       doc.setTextColor(grayText[0], grayText[1], grayText[2])
       doc.setFontSize(9)
       doc.setFont("helvetica", "bold")
-      doc.text(`${score}%`, pageWidth - margin, y, { align: "right" })
+      doc.text(score + "%", pageWidth - margin, y, { align: "right" })
 
       y += 4
-      drawProgressBar(margin + 6, y, contentWidth - 30, barHeight, score, statusColor)
+      drawProgressBar(margin + 8, y, contentWidth - 30, barHeight, score, statusColor)
       y += barHeight + 8
     })
 
@@ -281,35 +272,35 @@ export async function POST(request: NextRequest) {
     const halfWidth = (contentWidth - 10) / 2
 
     // Strengths Card
-    roundedRect(margin, y, halfWidth, 45, 4, [240, 253, 244]) // green-50
+    roundedRect(margin, y, halfWidth, 45, 4, [240, 253, 244])
     doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2])
     doc.setFontSize(10)
     doc.setFont("helvetica", "bold")
-    doc.text("✓ Strengths", margin + 8, y + 12)
+    doc.text("Strengths", margin + 8, y + 12)
 
     doc.setTextColor(darkText[0], darkText[1], darkText[2])
     doc.setFontSize(8)
     doc.setFont("helvetica", "normal")
     let strengthY = y + 20
     strengths.slice(0, 3).forEach(s => {
-      doc.text(`• ${s.replace(/_/g, " ")}`, margin + 8, strengthY)
+      doc.text("- " + s.replace(/_/g, " "), margin + 8, strengthY)
       strengthY += 7
     })
 
     // Weaknesses Card
     const weakX = margin + halfWidth + 10
-    roundedRect(weakX, y, halfWidth, 45, 4, [254, 242, 242]) // red-50
+    roundedRect(weakX, y, halfWidth, 45, 4, [254, 242, 242])
     doc.setTextColor(239, 68, 68)
     doc.setFontSize(10)
     doc.setFont("helvetica", "bold")
-    doc.text("↗ Areas to Improve", weakX + 8, y + 12)
+    doc.text("Areas to Improve", weakX + 8, y + 12)
 
     doc.setTextColor(darkText[0], darkText[1], darkText[2])
     doc.setFontSize(8)
     doc.setFont("helvetica", "normal")
     let weakY = y + 20
     weaknesses.slice(0, 3).forEach(w => {
-      doc.text(`• ${w.replace(/_/g, " ")}`, weakX + 8, weakY)
+      doc.text("- " + w.replace(/_/g, " "), weakX + 8, weakY)
       weakY += 7
     })
 
@@ -345,7 +336,7 @@ export async function POST(request: NextRequest) {
     doc.setTextColor(darkText[0], darkText[1], darkText[2])
     doc.setFontSize(12)
     doc.setFont("helvetica", "bold")
-    doc.text("🚀 Your First Steps (Next 30 Days)", margin, y)
+    doc.text("Your First Steps (Next 30 Days)", margin, y)
     y += 8
 
     actionItems.slice(0, 5).forEach((item, i) => {
@@ -381,7 +372,7 @@ export async function POST(request: NextRequest) {
       doc.setTextColor(darkText[0], darkText[1], darkText[2])
       doc.setFontSize(12)
       doc.setFont("helvetica", "bold")
-      doc.text("📅 Short-Term Goals (1-6 Months)", margin, y)
+      doc.text("Short-Term Goals (1-6 Months)", margin, y)
       y += 8
 
       shortTermGoals.forEach((goal) => {
@@ -399,7 +390,7 @@ export async function POST(request: NextRequest) {
         doc.setTextColor(grayText[0], grayText[1], grayText[2])
         doc.setFontSize(8)
         doc.setFont("helvetica", "normal")
-        doc.text(`Target: ${goal.target}  •  ${goal.timeline}`, margin + 6, y + 14)
+        doc.text("Target: " + goal.target + "  |  " + (goal.timeline || ""), margin + 6, y + 14)
 
         y += 22
       })
@@ -415,7 +406,7 @@ export async function POST(request: NextRequest) {
       doc.setTextColor(darkText[0], darkText[1], darkText[2])
       doc.setFontSize(12)
       doc.setFont("helvetica", "bold")
-      doc.text("🎯 Medium-Term Goals (6-12 Months)", margin, y)
+      doc.text("Medium-Term Goals (6-12 Months)", margin, y)
       y += 8
 
       mediumTermGoals.forEach((goal) => {
@@ -433,7 +424,7 @@ export async function POST(request: NextRequest) {
         doc.setTextColor(grayText[0], grayText[1], grayText[2])
         doc.setFontSize(8)
         doc.setFont("helvetica", "normal")
-        doc.text(`Target: ${goal.target}  •  ${goal.timeline}`, margin + 6, y + 14)
+        doc.text("Target: " + goal.target + "  |  " + (goal.timeline || ""), margin + 6, y + 14)
 
         y += 22
       })
@@ -482,7 +473,7 @@ export async function POST(request: NextRequest) {
       doc.setTextColor(amberText[0], amberText[1], amberText[2])
       doc.setFontSize(12)
       doc.setFont("helvetica", "bold")
-      doc.text("⚠️ Important Considerations", margin, y)
+      doc.text("Important Considerations", margin, y)
       y += 10
 
       warnings.forEach((warning) => {
@@ -519,7 +510,7 @@ export async function POST(request: NextRequest) {
       doc.text("WEALTHCLAUDE", margin, pageHeight - 8)
       doc.text("wealthclaude.com", margin + 30, pageHeight - 8)
       doc.text("Confidential", pageWidth / 2, pageHeight - 8, { align: "center" })
-      doc.text(`Page ${i} of ${totalPages}`, pageWidth - margin, pageHeight - 8, { align: "right" })
+      doc.text("Page " + i + " of " + totalPages, pageWidth - margin, pageHeight - 8, { align: "right" })
     }
 
     // Generate PDF buffer
@@ -528,13 +519,13 @@ export async function POST(request: NextRequest) {
     return new NextResponse(pdfBuffer, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${session.full_name.replace(/\s+/g, "_")}_WealthClaude_Plan.pdf"`
+        "Content-Disposition": "attachment; filename=\"" + session.full_name.replace(/\s+/g, "_") + "_WealthClaude_Plan.pdf\""
       }
     })
   } catch (err) {
     console.error("PDF generation error:", err)
     return NextResponse.json(
-      { error: `Failed to generate PDF: ${err instanceof Error ? err.message : "Unknown error"}` },
+      { error: "Failed to generate PDF: " + (err instanceof Error ? err.message : "Unknown error") },
       { status: 500 }
     )
   }

@@ -122,15 +122,16 @@ export default async function BlogPostPage({ params }: Props) {
       <ViewTracker slug={post.slug} />
       <Header />
       <div className="pt-16">
-        {post.image_url && (
-          <div className="w-full h-72 md:h-[480px] overflow-hidden">
+        <div className="w-full h-72 md:h-[480px] overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5">
+          {post.image_url ? (
             <img
               src={post.image_url}
               alt={post.title}
               className="w-full h-full object-cover"
+              onError={(e) => { e.currentTarget.style.display = 'none' }}
             />
-          </div>
-        )}
+          ) : null}
+        </div>
 
 
         <div className="container mx-auto px-4 py-12 max-w-3xl">
@@ -206,19 +207,16 @@ export default async function BlogPostPage({ params }: Props) {
                     href={`/blog/${recent.slug}`}
                     className="group flex flex-col rounded-xl overflow-hidden border border-border hover:border-primary/50 transition-colors bg-card"
                   >
-                    {recent.image_url ? (
-                      <div className="h-36 overflow-hidden">
+                    <div className="h-36 overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5">
+                      {recent.image_url ? (
                         <img
                           src={recent.image_url}
                           alt={recent.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => { e.currentTarget.style.display = 'none' }}
                         />
-                      </div>
-                    ) : (
-                      <div className="h-36 bg-muted flex items-center justify-center">
-                        <span className="text-muted-foreground text-sm">No image</span>
-                      </div>
-                    )}
+                      ) : null}
+                    </div>
                     <div className="p-4 flex flex-col gap-2 flex-1">
                       {recent.tags?.[0] && (
                         <Badge variant="secondary" className="w-fit text-xs">

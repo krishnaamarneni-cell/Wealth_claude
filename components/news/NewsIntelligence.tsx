@@ -503,15 +503,28 @@ function BlogPostCard({ post }: { post: BlogPost }) {
       href={`/blog/${post.slug}`}
       className="group block bg-card border rounded-xl overflow-hidden hover:border-primary/30 transition-colors"
     >
-      {post.image_url && (
-        <div className="aspect-video overflow-hidden">
+      <div className="aspect-video overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5">
+        {post.image_url ? (
           <img
             src={post.image_url}
             alt={post.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            onError={(e) => {
+              const target = e.currentTarget
+              target.style.display = 'none'
+              target.parentElement!.classList.add('flex', 'items-center', 'justify-center')
+              const fallback = document.createElement('span')
+              fallback.className = 'text-4xl'
+              fallback.textContent = '📰'
+              target.parentElement!.appendChild(fallback)
+            }}
           />
-        </div>
-      )}
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <span className="text-4xl">📰</span>
+          </div>
+        )}
+      </div>
       <div className="p-4">
         <div className="flex items-center gap-2 mb-2">
           {post.tags?.slice(0, 2).map((tag) => (

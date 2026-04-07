@@ -415,17 +415,14 @@ export async function POST(request: NextRequest) {
         results.skipped++
       } else {
         const now = new Date().toISOString()
-        // Download external image to Supabase Storage for permanent hosting
-        const storedImageUrl = post.image_url
-          ? await downloadAndUpload(supabase, post.image_url, post.slug)
-          : null
+        // Use original image URL directly (no download to storage)
         const { error } = await supabase.from('blog_posts').insert([{
           slug: post.slug,
           title: post.title,
           excerpt: post.excerpt,
           content: post.content,
           tags: post.tags,
-          image_url: storedImageUrl,
+          image_url: post.image_url || null,
           ai_model: post.ai_model || null,
           post_type: postType,
           published: true,

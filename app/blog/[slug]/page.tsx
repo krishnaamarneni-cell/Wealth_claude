@@ -7,6 +7,7 @@ import { Clock, ArrowLeft, Calendar } from 'lucide-react'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { ViewTracker } from '@/components/blog/ViewTracker'
+import { BlogImage } from '@/components/blog/BlogImage'
 import MoneyFlowDashboard from '@/components/money-flow-dashboard'
 
 
@@ -141,8 +142,7 @@ export default async function BlogPostPage({ params }: Props) {
       <div className="pt-16">
         <div className="w-full h-72 md:h-[480px] overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5">
           {post.image_url ? (
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <BlogImage
               src={post.image_url}
               alt={post.title}
               className="w-full h-full object-cover"
@@ -231,8 +231,7 @@ export default async function BlogPostPage({ params }: Props) {
                   >
                     <div className="h-36 overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5">
                       {recent.image_url ? (
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
+                        <BlogImage
                           src={recent.image_url}
                           alt={recent.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"

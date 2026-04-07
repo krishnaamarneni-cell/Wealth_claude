@@ -191,8 +191,28 @@ function BlogPostCard({ post }: { post: BlogPost }) {
   )
 }
 
-// ─── Latest Blog Posts Section ───────────────────────────────────────────────
+// ─── Latest Blog Posts Carousel ──────────────────────────────────────────────
 function LatestBlogPosts({ posts }: { posts: BlogPost[] }) {
+  const [slideIndex, setSlideIndex] = useState(0)
+
+  // Group posts into pages of 6 (2 rows x 3 cols)
+  const pageSize = 6
+  const pages: BlogPost[][] = []
+  for (let i = 0; i < posts.length; i += pageSize) {
+    pages.push(posts.slice(i, i + pageSize))
+  }
+
+  const totalPages = pages.length
+
+  // Auto-rotate every 3 seconds
+  useEffect(() => {
+    if (totalPages <= 1) return
+    const timer = setInterval(() => {
+      setSlideIndex((prev) => (prev + 1) % totalPages)
+    }, 3000)
+    return () => clearInterval(timer)
+  }, [totalPages])
+
   if (posts.length === 0) return null
 
   return (
@@ -202,17 +222,46 @@ function LatestBlogPosts({ posts }: { posts: BlogPost[] }) {
           <h2 className="text-xl font-bold">Latest Analysis</h2>
           <p className="text-sm text-muted-foreground">Deep dives and market insights</p>
         </div>
-        <Link
-          href="/blog"
-          className="flex items-center gap-1 text-sm text-primary hover:underline"
-        >
-          View all <ChevronRight className="h-4 w-4" />
-        </Link>
+        <div className="flex items-center gap-3">
+          {/* Dot indicators */}
+          {totalPages > 1 && (
+            <div className="flex gap-1.5">
+              {pages.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setSlideIndex(i)}
+                  className={`w-2 h-2 rounded-full transition-colors ${
+                    i === slideIndex ? 'bg-primary' : 'bg-muted-foreground/30'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+          <Link
+            href="/blog"
+            className="flex items-center gap-1 text-sm text-primary hover:underline"
+          >
+            View all <ChevronRight className="h-4 w-4" />
+          </Link>
+        </div>
       </div>
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {posts.map((post) => (
-          <BlogPostCard key={post.id} post={post} />
-        ))}
+
+      {/* Carousel */}
+      <div className="overflow-hidden">
+        <div
+          className="flex transition-transform duration-500 ease-in-out"
+          style={{ transform: `translateX(-${slideIndex * 100}%)` }}
+        >
+          {pages.map((page, pageIdx) => (
+            <div key={pageIdx} className="w-full shrink-0">
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {page.map((post) => (
+                  <BlogPostCard key={post.id} post={post} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -242,7 +291,7 @@ export function GlobalIntelligence() {
 
   const fetchBlogPosts = useCallback(async () => {
     try {
-      const res = await fetch('/api/blog-posts?limit=6')
+      const res = await fetch('/api/blog-posts?limit=18')
       if (res.ok) {
         const json = await res.json()
         setBlogPosts(json.posts || json || [])

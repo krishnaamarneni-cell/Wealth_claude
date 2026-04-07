@@ -16,6 +16,17 @@ import { FoodClimate } from '@/components/intelligence/tabs/FoodClimate'
 import { ThreatIndex } from '@/components/intelligence/tabs/ThreatIndex'
 import { Signals } from '@/components/intelligence/tabs/Signals'
 
+// ─── Blog Post Types ──────────────────────────────────────────────────────────
+interface BlogPost {
+  id: string
+  slug: string
+  title: string
+  excerpt: string
+  image_url: string | null
+  published_at: string
+  tags: string[]
+}
+
 // ─── Tab Icons ────────────────────────────────────────────────────────────────
 const tabIcons: Record<TabId, React.ReactNode> = {
   priority: <BarChart2 className="h-4 w-4" />,
@@ -129,9 +140,88 @@ function SidebarCTA() {
   )
 }
 
+// ─── Blog Post Card ──────────────────────────────────────────────────────────
+function BlogPostCard({ post }: { post: BlogPost }) {
+  return (
+    <Link
+      href={`/blog/${post.slug}`}
+      className="group block bg-card border rounded-xl overflow-hidden hover:border-primary/30 transition-colors"
+    >
+      <div className="aspect-video overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5">
+        {post.image_url ? (
+          <img
+            src={post.image_url}
+            alt={post.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            onError={(e) => {
+              const target = e.currentTarget
+              target.style.display = 'none'
+              target.parentElement!.classList.add('flex', 'items-center', 'justify-center')
+              const fallback = document.createElement('span')
+              fallback.className = 'text-4xl'
+              fallback.textContent = '\uD83D\uDCF0'
+              target.parentElement!.appendChild(fallback)
+            }}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <span className="text-4xl">{'\uD83D\uDCF0'}</span>
+          </div>
+        )}
+      </div>
+      <div className="p-4">
+        <div className="flex items-center gap-2 mb-2">
+          {post.tags?.slice(0, 2).map((tag) => (
+            <span
+              key={tag}
+              className="text-[10px] font-medium uppercase px-2 py-0.5 rounded bg-primary/10 text-primary"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+        <h3 className="font-semibold text-sm leading-snug mb-2 group-hover:text-primary transition-colors line-clamp-2">
+          {post.title}
+        </h3>
+        <p className="text-xs text-muted-foreground line-clamp-2">
+          {post.excerpt}
+        </p>
+      </div>
+    </Link>
+  )
+}
+
+// ─── Latest Blog Posts Section ───────────────────────────────────────────────
+function LatestBlogPosts({ posts }: { posts: BlogPost[] }) {
+  if (posts.length === 0) return null
+
+  return (
+    <div className="mt-12 pt-8 border-t">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-xl font-bold">Latest Analysis</h2>
+          <p className="text-sm text-muted-foreground">Deep dives and market insights</p>
+        </div>
+        <Link
+          href="/blog"
+          className="flex items-center gap-1 text-sm text-primary hover:underline"
+        >
+          View all <ChevronRight className="h-4 w-4" />
+        </Link>
+      </div>
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {posts.map((post) => (
+          <BlogPostCard key={post.id} post={post} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function GlobalIntelligence() {
   const [brief, setBrief] = useState<IntelligenceBrief | null>(null)
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<TabId>('priority')
@@ -150,11 +240,22 @@ export function GlobalIntelligence() {
     }
   }, [])
 
+  const fetchBlogPosts = useCallback(async () => {
+    try {
+      const res = await fetch('/api/blog-posts?limit=6')
+      if (res.ok) {
+        const json = await res.json()
+        setBlogPosts(json.posts || json || [])
+      }
+    } catch {}
+  }, [])
+
   useEffect(() => {
     fetchBrief()
+    fetchBlogPosts()
     const interval = setInterval(fetchBrief, 5 * 60 * 1000)
     return () => clearInterval(interval)
-  }, [fetchBrief])
+  }, [fetchBrief, fetchBlogPosts])
 
   if (loading) return <DashboardSkeleton />
 
@@ -277,6 +378,9 @@ export function GlobalIntelligence() {
           </div>
         </div>
       </div>
+
+      {/* Latest Blog Posts */}
+      <LatestBlogPosts posts={blogPosts} />
     </div>
   )
 }

@@ -12,6 +12,15 @@ import {
   RefreshCw,
   ArrowRight,
 } from 'lucide-react'
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts'
 
 interface OverviewData {
   stats: {
@@ -22,6 +31,7 @@ interface OverviewData {
     videosInQueue: number
     videosPosted: number
   }
+  userGrowth: { month: string; users: number }[]
   recentBlogs: { id: string; title: string; created_at: string; status: string }[]
   recentSubscribers: { id: string; email: string; created_at: string }[]
 }
@@ -73,6 +83,46 @@ export default function AdminOverview() {
         <StatCard label="Videos in Queue" value={stats.videosInQueue} icon={Share2} color="border-pink-500" />
         <StatCard label="Videos Posted" value={stats.videosPosted} icon={Share2} color="border-teal-500" />
       </div>
+
+      {/* User Growth Chart */}
+      {data?.userGrowth && data.userGrowth.length > 0 && (
+        <div className="rounded-xl border bg-card p-6">
+          <h2 className="text-lg font-semibold mb-4">User Growth (Last 6 Months)</h2>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data.userGrowth}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: 12 }}
+                  className="fill-muted-foreground"
+                />
+                <YAxis
+                  allowDecimals={false}
+                  tick={{ fontSize: 12 }}
+                  className="fill-muted-foreground"
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px',
+                    color: 'hsl(var(--foreground))',
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="users"
+                  stroke="hsl(var(--primary))"
+                  fill="hsl(var(--primary))"
+                  fillOpacity={0.15}
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
 
       {/* Quick Links */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

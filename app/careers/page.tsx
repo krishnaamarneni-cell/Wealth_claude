@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { LineChart, ArrowLeft, Search, MapPin, Clock, Upload, CheckCircle, Loader2 } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
@@ -12,56 +12,16 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-export const openings = [
-  {
-    id: 'seo-specialist',
-    title: 'SEO Specialist',
-    location: 'Remote',
-    contract: 'Unpaid Internship',
-    description:
-      "Help grow WealthClaude's organic search presence. You will research keywords, optimize on-page content, build backlinks, and track rankings across our portfolio tracking and financial tools pages.",
-    responsibilities: [
-      'Research and implement high-value keywords for fintech audiences',
-      'Optimize meta titles, descriptions, and on-page content',
-      'Build and track backlinks to improve domain authority',
-      'Monitor rankings using Google Search Console',
-      'Write or edit SEO-optimized blog content for the news section',
-    ],
-    skills: ['Keyword Research', 'On-Page SEO', 'Google Search Console', 'Content Strategy'],
-  },
-  {
-    id: 'backend-nodejs',
-    title: 'Backend Developer (Node.js)',
-    location: 'Remote',
-    contract: 'Unpaid Internship',
-    description:
-      'Work on our backend APIs, data pipelines, and Supabase integrations. You will help build scalable endpoints for portfolio tracking, real-time market data, and user account management.',
-    responsibilities: [
-      'Build and maintain REST APIs using Node.js and TypeScript',
-      'Integrate third-party financial data APIs (Polygon, Finnhub, FMP)',
-      'Design and optimize PostgreSQL schemas in Supabase',
-      'Implement authentication and authorization logic',
-      'Write clean, documented, and testable backend code',
-    ],
-    skills: ['Node.js', 'TypeScript', 'REST APIs', 'PostgreSQL', 'Supabase'],
-  },
-  {
-    id: 'ai-agent-specialist',
-    title: 'AI Agent Specialist',
-    location: 'Remote',
-    contract: 'Unpaid Internship',
-    description:
-      'Build and fine-tune AI agents for financial analysis, portfolio insights, and automated reporting. Ideal for someone passionate about LLMs and applying AI to real-world fintech problems.',
-    responsibilities: [
-      'Design and build AI agents for portfolio analysis and market insights',
-      'Engineer prompts for accurate and reliable financial outputs',
-      'Integrate LLM APIs (OpenAI, Anthropic, or similar) into the platform',
-      'Build automated financial reporting pipelines',
-      'Research and apply latest AI agent frameworks',
-    ],
-    skills: ['LLMs', 'Prompt Engineering', 'Python or TypeScript', 'AI APIs', 'Financial Data'],
-  },
-]
+interface JobOpening {
+  id: string
+  title: string
+  location: string
+  contract: string
+  description: string
+  responsibilities: string[]
+  skills: string[]
+  status: string
+}
 
 type MatchResult = {
   topMatch: { id: string; title: string; score: number; matchedKeywords: string[] } | null
@@ -69,6 +29,8 @@ type MatchResult = {
 }
 
 export default function CareersPage() {
+  const [openings, setOpenings] = useState<JobOpening[]>([])
+  const [loadingJobs, setLoadingJobs] = useState(true)
   const [titleSearch, setTitleSearch] = useState('')
   const [locationSearch, setLocationSearch] = useState('')
   const [resumeFile, setResumeFile] = useState<File | null>(null)
@@ -76,6 +38,24 @@ export default function CareersPage() {
   const [matchSuccess, setMatchSuccess] = useState(false)
   const [matchError, setMatchError] = useState('')
   const [matchResult, setMatchResult] = useState<MatchResult | null>(null)
+
+  useEffect(() => {
+    async function fetchJobs() {
+      try {
+        const { data, error } = await supabase
+          .from('jobs')
+          .select('*')
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+        if (!error && data) setOpenings(data)
+      } catch (e) {
+        console.error('Failed to fetch jobs:', e)
+      } finally {
+        setLoadingJobs(false)
+      }
+    }
+    fetchJobs()
+  }, [])
 
   const filtered = openings.filter((o) => {
     const matchTitle = o.title.toLowerCase().includes(titleSearch.toLowerCase())
@@ -102,28 +82,15 @@ export default function CareersPage() {
         throw new Error('Could not read file content.')
       }
 
-      const jobKeywords = [
-        {
-          id: 'seo-specialist',
-          title: 'SEO Specialist',
-          keywords: ['seo', 'search engine', 'keyword', 'backlinks', 'google search console',
-            'on-page', 'content strategy', 'rankings', 'organic', 'meta', 'analytics',
-            'content', 'blog', 'writing', 'marketing', 'traffic'],
-        },
-        {
-          id: 'backend-nodejs',
-          title: 'Backend Developer (Node.js)',
-          keywords: ['node', 'nodejs', 'typescript', 'javascript', 'rest api', 'api',
-            'postgresql', 'supabase', 'backend', 'server', 'express', 'database', 'sql',
-            'react', 'developer', 'software'],
-        },
-        {
-          id: 'ai-agent-specialist',
-          title: 'AI Agent Specialist',
-          keywords: ['ai', 'llm', 'openai', 'gpt', 'prompt', 'langchain', 'machine learning',
-            'python', 'agent', 'automation', 'nlp', 'anthropic', 'deep learning', 'neural'],
-        },
-      ]
+      // Build keywords from actual job skills and responsibilities
+      const jobKeywords = openings.map((job) => ({
+        id: job.id,
+        title: job.title,
+        keywords: [
+          ...job.skills.map((s) => s.toLowerCase()),
+          ...job.title.toLowerCase().split(/\s+/),
+        ],
+      }))
 
       const scores = jobKeywords.map((job) => {
         const matchedKeywords = job.keywords.filter((kw) =>

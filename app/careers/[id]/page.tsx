@@ -1,22 +1,31 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useParams, notFound } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { LineChart, ArrowLeft, MapPin, Clock, Upload, CheckCircle, Loader2 } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
 import { Footer } from '@/components/footer'
-import { openings } from '../page'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
+interface Job {
+  id: string
+  title: string
+  location: string
+  contract: string
+  description: string
+  responsibilities: string[]
+  skills: string[]
+}
+
 export default function JobPage() {
   const { id } = useParams()
-  const job = openings.find((o) => o.id === id)
-
+  const [job, setJob] = useState<Job | null>(null)
+  const [loadingJob, setLoadingJob] = useState(true)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -24,7 +33,41 @@ export default function JobPage() {
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
 
-  if (!job) return notFound()
+  useEffect(() => {
+    async function fetchJob() {
+      try {
+        const { data, error } = await supabase
+          .from('jobs')
+          .select('*')
+          .eq('id', id)
+          .eq('status', 'active')
+          .single()
+        if (!error && data) setJob(data)
+      } catch (e) {
+        console.error('Failed to fetch job:', e)
+      } finally {
+        setLoadingJob(false)
+      }
+    }
+    if (id) fetchJob()
+  }, [id])
+
+  if (loadingJob) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (!job) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <p className="text-muted-foreground">Job not found</p>
+        <Link href="/careers" className="text-primary hover:underline text-sm">Back to Careers</Link>
+      </div>
+    )
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -85,54 +128,49 @@ export default function JobPage() {
       </nav>
 
       <main className="max-w-3xl mx-auto px-6 py-20">
-
-        {/* Job Header */}
         <div className="mb-10">
           <h1 className="text-4xl font-bold text-foreground mb-3">{job.title}</h1>
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1 text-sm text-muted-foreground">
-              <MapPin className="h-4 w-4" />
-              {job.location}
+              <MapPin className="h-4 w-4" /> {job.location}
             </span>
             <span className="flex items-center gap-1 text-sm text-primary">
-              <Clock className="h-4 w-4" />
-              {job.contract}
+              <Clock className="h-4 w-4" /> {job.contract}
             </span>
           </div>
         </div>
 
-        {/* Description */}
         <section className="mb-8">
           <h2 className="text-lg font-semibold text-foreground mb-3">About the Role</h2>
           <p className="text-muted-foreground">{job.description}</p>
         </section>
 
-        {/* Responsibilities */}
-        <section className="mb-8">
-          <h2 className="text-lg font-semibold text-foreground mb-3">Responsibilities</h2>
-          <ul className="space-y-2">
-            {job.responsibilities.map((item) => (
-              <li key={item} className="flex items-start gap-2 text-muted-foreground text-sm">
-                <span className="text-primary mt-1 shrink-0">•</span>
-                {item}
-              </li>
-            ))}
-          </ul>
-        </section>
+        {job.responsibilities.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-lg font-semibold text-foreground mb-3">Responsibilities</h2>
+            <ul className="space-y-2">
+              {job.responsibilities.map((item) => (
+                <li key={item} className="flex items-start gap-2 text-muted-foreground text-sm">
+                  <span className="text-primary mt-1 shrink-0">•</span> {item}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
-        {/* Skills */}
-        <section className="mb-12">
-          <h2 className="text-lg font-semibold text-foreground mb-3">Skills</h2>
-          <div className="flex flex-wrap gap-2">
-            {job.skills.map((skill) => (
-              <span key={skill} className="text-sm px-3 py-1 rounded-full bg-secondary text-muted-foreground border border-border">
-                {skill}
-              </span>
-            ))}
-          </div>
-        </section>
+        {job.skills.length > 0 && (
+          <section className="mb-12">
+            <h2 className="text-lg font-semibold text-foreground mb-3">Skills</h2>
+            <div className="flex flex-wrap gap-2">
+              {job.skills.map((skill) => (
+                <span key={skill} className="text-sm px-3 py-1 rounded-full bg-secondary text-muted-foreground border border-border">
+                  {skill}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
 
-        {/* Application Form */}
         <div className="border border-border rounded-xl p-8 bg-card">
           <h2 className="text-xl font-semibold text-foreground mb-1">Apply for this Role</h2>
           <p className="text-muted-foreground text-sm mb-6">
@@ -150,63 +188,23 @@ export default function JobPage() {
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">Full Name</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="John Doe"
-                  className="w-full px-4 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  required
-                />
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="John Doe" className="w-full px-4 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary" required />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="john@example.com"
-                  className="w-full px-4 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  required
-                />
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="john@example.com" className="w-full px-4 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary" required />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Resume (PDF, DOC, or DOCX)
-                </label>
-
+                <label className="block text-sm font-medium text-foreground mb-1">Resume (PDF, DOC, or DOCX)</label>
                 <label className="flex items-center gap-3 px-4 py-3 rounded-lg border border-dashed border-border bg-background hover:border-primary/50 cursor-pointer transition-colors">
                   <Upload className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span className="text-sm text-muted-foreground truncate">
-                    {file ? file.name : 'Upload your resume (PDF, DOC, DOCX)'}
-                  </span>
-                  <input
-                    type="file"
-                    accept=".pdf,.doc,.docx"
-                    className="hidden"
-                    onChange={(e) => setFile(e.target.files?.[0] || null)}
-                    required
-                  />
+                  <span className="text-sm text-muted-foreground truncate">{file ? file.name : 'Upload your resume'}</span>
+                  <input type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} required />
                 </label>
               </div>
-
               {error && <p className="text-red-500 text-sm">{error}</p>}
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-60"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  'Submit Application'
-                )}
+              <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-60">
+                {loading ? (<><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</>) : 'Submit Application'}
               </button>
             </form>
           )}

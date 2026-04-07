@@ -9,23 +9,14 @@ Local script that:
   5. Sends webhook to Make.com (which posts to Instagram)
 
 Setup:
-  pip install requests yt-dlp cloudinary
+  pip install requests yt-dlp
 
-Environment variables needed:
-  WEALTHCLAUDE_API_URL     — e.g. https://www.wealthclaude.com
-  CRON_SECRET              — same secret as the server
-  GROQ_API_KEY             — for AI caption generation
-  CLOUDINARY_CLOUD_NAME    — Cloudinary cloud name
-  CLOUDINARY_API_KEY       — Cloudinary API key
-  CLOUDINARY_API_SECRET    — Cloudinary API secret
-  MAKE_WEBHOOK_URL         — Make.com webhook URL
-
-Run:
-  python video-processor.py           # Process one video and exit
-  python video-processor.py --loop    # Poll every 60 seconds
+Run from anywhere:
+  python "C:/Users/Krishna/OneDrive/Documents/Codes/Wealth_claude/scripts/video-processor.py" --loop
 """
 
 import os
+import re
 import sys
 import time
 import json
@@ -36,6 +27,31 @@ import tempfile
 from pathlib import Path
 from datetime import datetime
 
+# ─── Load .env from same directory as this script ────────────────────────────
+
+SCRIPT_DIR = Path(__file__).parent
+ENV_FILE = SCRIPT_DIR / ".env"
+
+if ENV_FILE.exists():
+    print(f"Loading config from {ENV_FILE}")
+    for line in ENV_FILE.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" in line:
+            key, _, value = line.partition("=")
+            os.environ.setdefault(key.strip(), value.strip())
+
+# ─── Parse Cloudinary URL (cloudinary://key:secret@cloud_name) ──────────────
+
+cloudinary_url = os.environ.get("CLOUDINARY_URL", "")
+if cloudinary_url and cloudinary_url.startswith("cloudinary://"):
+    m = re.match(r"cloudinary://(\d+):([^@]+)@(.+)", cloudinary_url)
+    if m:
+        os.environ.setdefault("CLOUDINARY_API_KEY", m.group(1))
+        os.environ.setdefault("CLOUDINARY_API_SECRET", m.group(2))
+        os.environ.setdefault("CLOUDINARY_CLOUD_NAME", m.group(3))
+
 # ─── Config ──────────────────────────────────────────────────────────────────
 
 API_URL = os.environ.get("WEALTHCLAUDE_API_URL", "https://www.wealthclaude.com")
@@ -45,6 +61,7 @@ CLOUDINARY_CLOUD = os.environ.get("CLOUDINARY_CLOUD_NAME", "")
 CLOUDINARY_KEY = os.environ.get("CLOUDINARY_API_KEY", "")
 CLOUDINARY_SECRET = os.environ.get("CLOUDINARY_API_SECRET", "")
 MAKE_WEBHOOK_URL = os.environ.get("MAKE_WEBHOOK_URL", "")
+POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL_SECONDS", "60"))
 
 HEADERS = {
     "Authorization": f"Bearer {CRON_SECRET}",
@@ -353,10 +370,9 @@ if __name__ == "__main__":
         sys.exit(1)
 
     if "--loop" in sys.argv:
-        interval = 60
-        print(f"\nRunning in loop mode (polling every {interval}s)")
+        print(f"\nRunning in loop mode (polling every {POLL_INTERVAL}s)")
         print(f"API: {API_URL}")
-        print(f"Cloudinary: {'configured' if CLOUDINARY_CLOUD else 'NOT SET'}")
+        print(f"Cloudinary: {CLOUDINARY_CLOUD or 'NOT SET'}")
         print(f"Make.com: {'configured' if MAKE_WEBHOOK_URL else 'NOT SET'}")
         print(f"Groq: {'configured' if GROQ_API_KEY else 'NOT SET'}")
         print()
@@ -366,7 +382,7 @@ if __name__ == "__main__":
                 process_one()
             except Exception as e:
                 print(f"[{now()}] Unexpected error: {e}")
-            time.sleep(interval)
+            time.sleep(POLL_INTERVAL)
     else:
         print(f"\nProcessing one video...")
         print(f"API: {API_URL}")

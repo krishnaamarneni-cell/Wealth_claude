@@ -28,25 +28,18 @@ export default function DataInspectorPage() {
       data: { user },
     } = await supabase.auth.getUser()
 
-    console.log('[v0] User:', user?.email)
-    console.log('[v0] Admin email from env:', process.env.NEXT_PUBLIC_ADMIN_EMAIL)
-
     if (!user) {
-      console.log('[v0] No user, redirecting to auth')
       router.push('/auth')
       return
     }
 
-    const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
-    console.log('[v0] Checking admin access:', user.email, '===', adminEmail)
-    
-    if (!adminEmail || user.email !== adminEmail) {
-      console.log('[v0] Not admin, redirecting to dashboard')
+    // Verify admin via server-side check
+    const res = await fetch('/api/admin/verify')
+    if (!res.ok) {
       router.push('/dashboard')
       return
     }
 
-    console.log('[v0] Admin access granted!')
     setIsAdmin(true)
     setLoading(false)
   }

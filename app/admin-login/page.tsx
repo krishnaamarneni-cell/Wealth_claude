@@ -26,9 +26,9 @@ export default function AdminLoginPage() {
       })
       if (authError) throw authError
 
-      // Verify this is the admin email
-      const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
-      if (adminEmail && email.toLowerCase() !== adminEmail.toLowerCase()) {
+      // Verify admin status via server-side check (no email exposed in bundle)
+      const res = await fetch('/api/admin/verify')
+      if (!res.ok) {
         await supabase.auth.signOut()
         setError('Access denied. This login is for administrators only.')
         return

@@ -27,6 +27,14 @@
     {
       "path": "/api/cron/run?job=ships",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/run?job=intelligence",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/run?job=intelligence",
+      "schedule": "0 0 * * *"
     }
   ],
   "redirects": [

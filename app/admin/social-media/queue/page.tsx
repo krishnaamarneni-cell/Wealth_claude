@@ -2,23 +2,27 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, RefreshCw, Check, X, Trash2, ExternalLink, Film } from 'lucide-react'
+import { ArrowLeft, RefreshCw, Check, X, Trash2, ExternalLink, Film, Youtube } from 'lucide-react'
 import type { VideoQueueItem, VideoStatusType } from '@/lib/video-studio/types'
 
 const STATUS_TABS: { label: string; value: string }[] = [
   { label: 'All', value: 'all' },
   { label: 'Pending', value: 'pending' },
+  { label: 'Processing', value: 'processing' },
   { label: 'Approved', value: 'approved' },
   { label: 'Ready', value: 'ready' },
   { label: 'Posted', value: 'posted' },
+  { label: 'Failed', value: 'failed' },
   { label: 'Skipped', value: 'skipped' },
 ]
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+  processing: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
   approved: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
   ready: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
   posted: 'bg-green-500/10 text-green-500 border-green-500/20',
+  failed: 'bg-red-500/10 text-red-500 border-red-500/20',
   skipped: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
 }
 
@@ -125,8 +129,10 @@ export default function QueuePage() {
             <div key={video.id} className="rounded-xl border bg-card overflow-hidden">
               {/* Thumbnail or placeholder */}
               <div className="aspect-video bg-secondary/50 flex items-center justify-center relative">
-                {video.thumbnail ? (
-                  <img src={video.thumbnail} alt="" className="w-full h-full object-cover" />
+                {video.thumbnail || video.thumbnail_url ? (
+                  <img src={video.thumbnail || video.thumbnail_url || ''} alt="" className="w-full h-full object-cover" />
+                ) : video.source_type === 'youtube' || video.content_type === 'youtube' ? (
+                  <Youtube className="h-10 w-10 text-red-500/30" />
                 ) : (
                   <Film className="h-10 w-10 text-muted-foreground/30" />
                 )}
@@ -147,7 +153,7 @@ export default function QueuePage() {
               {/* Content */}
               <div className="p-4">
                 <p className="text-sm font-medium line-clamp-2 mb-1">
-                  {video.title || video.source_url || 'Untitled'}
+                  {video.ai_title || video.title || video.source_title || video.source_url || 'Untitled'}
                 </p>
                 {video.source_url && (
                   <p className="text-xs text-muted-foreground truncate mb-2">{video.source_url}</p>
@@ -155,8 +161,12 @@ export default function QueuePage() {
                 {video.text_content && (
                   <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{video.text_content}</p>
                 )}
+                {video.error_message && (
+                  <p className="text-xs text-red-400 line-clamp-2 mb-2">{video.error_message}</p>
+                )}
                 <p className="text-xs text-muted-foreground">
-                  {new Date(video.created_at).toLocaleDateString()} &middot; {video.platform}
+                  {new Date(video.created_at).toLocaleDateString()} &middot; {video.source_type || video.platform}
+                  {video.duration_seconds ? ` &middot; ${Math.floor(video.duration_seconds / 60)}:${String(video.duration_seconds % 60).padStart(2, '0')}` : ''}
                 </p>
 
                 {/* Actions */}

@@ -1,15 +1,18 @@
-export type VideoStatusType = 'pending' | 'approved' | 'posted' | 'skipped' | 'ready'
+export type VideoStatusType = 'pending' | 'processing' | 'approved' | 'posted' | 'skipped' | 'ready' | 'failed'
 export type VideoPlatform = 'youtube' | 'twitter' | 'instagram' | 'linkedin'
-export type VideoContentType = 'reel' | 'image'
+export type VideoContentType = 'reel' | 'image' | 'youtube'
 
 export interface VideoQueueItem {
   id: string
   title: string | null
   source_url: string | null
   source_type: string
+  source_title: string | null
   platform: string
   duration: string | null
+  duration_seconds: number | null
   thumbnail: string | null
+  thumbnail_url: string | null
   url: string | null
   views: number
   status: VideoStatusType
@@ -18,8 +21,17 @@ export interface VideoQueueItem {
   platforms: string[]
   scheduled_for: string | null
   media_url: string | null
+  processed_video_url: string | null
+  video_type: 'short' | 'long' | null
+  ai_title: string | null
+  ai_description: string | null
+  ai_tags: string[] | null
+  youtube_video_id: string | null
+  error_message: string | null
   created_at: string
   posted_at: string | null
+  processed_at: string | null
+  approved_at: string | null
   updated_at: string
 }
 

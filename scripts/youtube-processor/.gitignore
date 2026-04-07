@@ -1,0 +1,15 @@
+# Sensitive files
+client_secrets.json
+youtube_token.pickle
+.env
+
+# Temp and output
+temp/
+output/
+downloads/
+logs/
+__pycache__/
+*.pyc
+
+# Logo (large binary)
+logo.png

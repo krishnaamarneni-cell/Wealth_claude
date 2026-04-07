@@ -1,0 +1,28 @@
+# Video Studio Python Processor Dependencies
+
+# Video processing
+yt-dlp>=2024.1.1
+ffmpeg-python>=0.2.0
+
+# AI
+groq>=0.4.0
+
+# Image processing
+Pillow>=10.0.0
+
+# YouTube API
+google-auth>=2.22.0
+google-auth-oauthlib>=1.0.0
+google-auth-httplib2>=0.1.0
+google-api-python-client>=2.100.0
+
+# Twitter/X
+tweepy>=4.14.0
+
+# Database
+supabase>=2.0.0
+
+# Utilities
+python-dotenv>=1.0.0
+aiohttp>=3.8.0
+requests>=2.31.0

@@ -2,14 +2,17 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Send, Calendar, Sparkles, ImageIcon, Loader2, X } from 'lucide-react'
+import { ArrowLeft, Send, Calendar, Sparkles, ImageIcon, Loader2, X, Youtube, Film } from 'lucide-react'
+
+type ContentType = 'reel' | 'image' | 'youtube'
 
 export default function CreatePostPage() {
   const [text, setText] = useState('')
   const [reelUrl, setReelUrl] = useState('')
-  const [contentType, setContentType] = useState<'reel' | 'image'>('reel')
+  const [youtubeUrl, setYoutubeUrl] = useState('')
+  const [contentType, setContentType] = useState<ContentType>('reel')
   const [imageUrl, setImageUrl] = useState('')
-  const [platforms, setPlatforms] = useState({ instagram: true, linkedin: false })
+  const [platforms, setPlatforms] = useState({ instagram: true, linkedin: false, youtube: false, twitter: false })
   const [scheduleDate, setScheduleDate] = useState('')
   const [scheduleTime, setScheduleTime] = useState('')
   const [textTopic, setTextTopic] = useState('')
@@ -20,6 +23,19 @@ export default function CreatePostPage() {
   const [isScheduling, setIsScheduling] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  // Reset platforms when switching tabs
+  const switchTab = (type: ContentType) => {
+    setContentType(type)
+    setMessage(null)
+    if (type === 'youtube') {
+      setPlatforms({ instagram: false, linkedin: false, youtube: true, twitter: false })
+    } else if (type === 'reel') {
+      setPlatforms({ instagram: true, linkedin: false, youtube: false, twitter: false })
+    } else {
+      setPlatforms({ instagram: true, linkedin: false, youtube: false, twitter: false })
+    }
+  }
+
   const handleGenerateCaption = async () => {
     if (!textTopic.trim()) {
       setMessage({ type: 'error', text: 'Enter a topic for AI to write about' })
@@ -28,20 +44,21 @@ export default function CreatePostPage() {
     setIsGeneratingText(true)
     setMessage(null)
     try {
+      const captionType = contentType === 'youtube' ? 'youtube_description' : contentType === 'reel' ? 'reel_caption' : 'text'
       const res = await fetch('/api/social/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: contentType === 'reel' ? 'reel_caption' : 'text', prompt: textTopic }),
+        body: JSON.stringify({ type: captionType, prompt: textTopic }),
       })
       const data = await res.json()
       if (data.error) {
         setMessage({ type: 'error', text: data.error })
       } else {
         setText(data.text)
-        setMessage({ type: 'success', text: 'Caption generated!' })
+        setMessage({ type: 'success', text: contentType === 'youtube' ? 'Description generated!' : 'Caption generated!' })
       }
     } catch {
-      setMessage({ type: 'error', text: 'Failed to generate caption' })
+      setMessage({ type: 'error', text: 'Failed to generate' })
     } finally {
       setIsGeneratingText(false)
     }
@@ -55,9 +72,7 @@ export default function CreatePostPage() {
     setIsGeneratingImage(true)
     setMessage(null)
     try {
-      // Auto-create a prompt from the caption
       const imagePrompt = `Professional, high-quality social media post image for finance/investing brand. Topic: ${text.slice(0, 200)}. Style: clean, modern, premium dark theme with subtle gradients. No text overlay.`
-
       const res = await fetch('/api/social/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -77,56 +92,44 @@ export default function CreatePostPage() {
     }
   }
 
-  const handlePostNow = async () => {
+  const getSourceUrl = () => {
+    if (contentType === 'reel') return reelUrl
+    if (contentType === 'youtube') return youtubeUrl
+    return null
+  }
+
+  const validateForm = (): string | null => {
     const platformList = Object.entries(platforms).filter(([, v]) => v).map(([k]) => k)
-    if (platformList.length === 0) {
-      setMessage({ type: 'error', text: 'Select at least one platform' })
-      return
-    }
+    if (platformList.length === 0) return 'Select at least one platform'
 
     if (contentType === 'reel') {
-      if (!reelUrl.trim() || !reelUrl.includes('instagram.com')) {
-        setMessage({ type: 'error', text: 'Enter a valid Instagram Reel URL' })
-        return
+      if (!reelUrl.trim() || !reelUrl.includes('instagram.com')) return 'Enter a valid Instagram Reel URL'
+    } else if (contentType === 'youtube') {
+      if (!youtubeUrl.trim() || (!youtubeUrl.includes('youtube.com') && !youtubeUrl.includes('youtu.be'))) {
+        return 'Enter a valid YouTube URL'
       }
     } else if (contentType === 'image') {
-      if (!text.trim()) {
-        setMessage({ type: 'error', text: 'Enter post text' })
-        return
-      }
+      if (!text.trim()) return 'Enter post text'
     }
+    return null
+  }
 
+  const handlePostNow = async () => {
+    const err = validateForm()
+    if (err) { setMessage({ type: 'error', text: err }); return }
+
+    const platformList = Object.entries(platforms).filter(([, v]) => v).map(([k]) => k)
     setIsPosting(true)
     setMessage(null)
 
     try {
-      if (contentType === 'reel') {
-        // Save directly as "approved" so Python script picks it up immediately
-        const res = await fetch('/api/admin/video-queue', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            source_url: reelUrl,
-            text_content: text || null,
-            content_type: 'reel',
-            platforms: platformList,
-            status: 'approved',
-          }),
-        })
-        const data = await res.json()
-        if (data.error) {
-          setMessage({ type: 'error', text: data.error })
-        } else {
-          setMessage({ type: 'success', text: 'Reel approved! Python script will process it shortly.' })
-          clearForm()
-        }
-      } else {
+      if (contentType === 'image') {
         // Image posts go directly to Make.com
         const res = await fetch('/api/social/post', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            platform: platformList.length === 2 ? 'both' : platformList[0],
+            platform: platformList.length > 1 ? 'both' : platformList[0],
             text,
             image_url: imageUrl,
             content_type: 'image',
@@ -139,6 +142,28 @@ export default function CreatePostPage() {
           setMessage({ type: 'success', text: 'Posted successfully!' })
           clearForm()
         }
+      } else {
+        // Reel or YouTube — save as "approved" so Python picks up immediately
+        const res = await fetch('/api/admin/video-queue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            source_url: getSourceUrl(),
+            source_type: contentType === 'youtube' ? 'youtube' : 'instagram',
+            text_content: text || null,
+            content_type: contentType,
+            platforms: platformList,
+            status: 'approved',
+          }),
+        })
+        const data = await res.json()
+        if (data.error) {
+          setMessage({ type: 'error', text: data.error })
+        } else {
+          const label = contentType === 'youtube' ? 'YouTube video' : 'Reel'
+          setMessage({ type: 'success', text: `${label} approved! Python script will process it shortly.` })
+          clearForm()
+        }
       }
     } catch {
       setMessage({ type: 'error', text: 'Failed to post' })
@@ -149,8 +174,10 @@ export default function CreatePostPage() {
 
   const handleAddToQueue = async () => {
     if (contentType === 'reel' && (!reelUrl.trim() || !reelUrl.includes('instagram.com'))) {
-      setMessage({ type: 'error', text: 'Enter a valid Instagram Reel URL' })
-      return
+      setMessage({ type: 'error', text: 'Enter a valid Instagram Reel URL' }); return
+    }
+    if (contentType === 'youtube' && (!youtubeUrl.trim() || (!youtubeUrl.includes('youtube.com') && !youtubeUrl.includes('youtu.be')))) {
+      setMessage({ type: 'error', text: 'Enter a valid YouTube URL' }); return
     }
     const platformList = Object.entries(platforms).filter(([, v]) => v).map(([k]) => k)
 
@@ -161,7 +188,8 @@ export default function CreatePostPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          source_url: contentType === 'reel' ? reelUrl : null,
+          source_url: getSourceUrl(),
+          source_type: contentType === 'youtube' ? 'youtube' : 'instagram',
           text_content: text || null,
           media_url: contentType === 'image' ? imageUrl : null,
           content_type: contentType,
@@ -184,27 +212,24 @@ export default function CreatePostPage() {
   }
 
   const handleSchedule = async () => {
-    const platformList = Object.entries(platforms).filter(([, v]) => v).map(([k]) => k)
-    if (platformList.length === 0) {
-      setMessage({ type: 'error', text: 'Select at least one platform' })
-      return
-    }
+    const err = validateForm()
+    if (err) { setMessage({ type: 'error', text: err }); return }
     if (!scheduleDate || !scheduleTime) {
-      setMessage({ type: 'error', text: 'Pick a date and time' })
-      return
+      setMessage({ type: 'error', text: 'Pick a date and time' }); return
     }
 
+    const platformList = Object.entries(platforms).filter(([, v]) => v).map(([k]) => k)
     setIsScheduling(true)
     setMessage(null)
 
     try {
       const scheduledFor = new Date(`${scheduleDate}T${scheduleTime}`).toISOString()
-
       const res = await fetch('/api/admin/video-queue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          source_url: contentType === 'reel' ? reelUrl : null,
+          source_url: getSourceUrl(),
+          source_type: contentType === 'youtube' ? 'youtube' : 'instagram',
           text_content: text || null,
           media_url: contentType === 'image' ? imageUrl : null,
           content_type: contentType,
@@ -230,11 +255,14 @@ export default function CreatePostPage() {
   function clearForm() {
     setText('')
     setReelUrl('')
+    setYoutubeUrl('')
     setImageUrl('')
     setTextTopic('')
     setScheduleDate('')
     setScheduleTime('')
   }
+
+  const isYoutubeUrl = (url: string) => url.includes('youtube.com') || url.includes('youtu.be')
 
   return (
     <div className="p-6 space-y-6">
@@ -245,7 +273,7 @@ export default function CreatePostPage() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold">Create Post</h1>
-          <p className="text-muted-foreground text-sm">Add a new reel or image post</p>
+          <p className="text-muted-foreground text-sm">Add a new reel, image post, or YouTube video</p>
         </div>
       </div>
 
@@ -263,20 +291,28 @@ export default function CreatePostPage() {
       {/* Content Type Tabs */}
       <div className="flex gap-2">
         <button
-          onClick={() => setContentType('reel')}
-          className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+          onClick={() => switchTab('reel')}
+          className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2 ${
             contentType === 'reel' ? 'bg-purple-600 text-white' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
           }`}
         >
-          Reel / Video
+          <Film className="h-4 w-4" /> Reel / Video
         </button>
         <button
-          onClick={() => setContentType('image')}
-          className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+          onClick={() => switchTab('image')}
+          className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2 ${
             contentType === 'image' ? 'bg-green-600 text-white' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
           }`}
         >
-          Image Post
+          <ImageIcon className="h-4 w-4" /> Image Post
+        </button>
+        <button
+          onClick={() => switchTab('youtube')}
+          className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2 ${
+            contentType === 'youtube' ? 'bg-red-600 text-white' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+          }`}
+        >
+          <Youtube className="h-4 w-4" /> YouTube
         </button>
       </div>
 
@@ -303,9 +339,38 @@ export default function CreatePostPage() {
             </div>
           )}
 
-          {/* Caption */}
+          {/* YouTube URL */}
+          {contentType === 'youtube' && (
+            <div className="rounded-xl border bg-card p-6">
+              <h2 className="text-lg font-semibold mb-4">YouTube Video URL</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Paste the URL. Python script will download, transcribe, generate AI title/description, add headline overlay, and upload to YouTube.
+              </p>
+              <input
+                type="url"
+                value={youtubeUrl}
+                onChange={(e) => setYoutubeUrl(e.target.value)}
+                placeholder="https://www.youtube.com/watch?v=..."
+                className="w-full px-4 py-3 rounded-lg border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+              {youtubeUrl && isYoutubeUrl(youtubeUrl) && (
+                <p className="text-xs text-green-500 mt-2">Valid YouTube URL detected</p>
+              )}
+
+              {/* YouTube-specific info */}
+              <div className="mt-4 p-3 rounded-lg bg-red-500/5 border border-red-500/10">
+                <p className="text-xs text-muted-foreground">
+                  <strong className="text-red-400">Pipeline:</strong> Download → Transcribe → AI Title & Description → Headline Overlay → Upload to YouTube
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Caption / Description */}
           <div className="rounded-xl border bg-card p-6">
-            <h2 className="text-lg font-semibold mb-4">Caption / Text</h2>
+            <h2 className="text-lg font-semibold mb-4">
+              {contentType === 'youtube' ? 'Title & Description' : 'Caption / Text'}
+            </h2>
             <div className="mb-4">
               <label className="block text-sm text-muted-foreground mb-2">Generate with AI</label>
               <div className="flex gap-2">
@@ -313,7 +378,7 @@ export default function CreatePostPage() {
                   type="text"
                   value={textTopic}
                   onChange={(e) => setTextTopic(e.target.value)}
-                  placeholder="e.g., investing tips for beginners"
+                  placeholder={contentType === 'youtube' ? 'e.g., Federal Reserve interest rate decision' : 'e.g., investing tips for beginners'}
                   className="flex-1 px-4 py-2 rounded-lg border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
                 />
                 <button
@@ -329,13 +394,19 @@ export default function CreatePostPage() {
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={contentType === 'reel' ? 'Leave empty for AI-generated caption...' : 'Write your post here...'}
-              rows={5}
+              placeholder={
+                contentType === 'youtube'
+                  ? 'Leave empty for AI-generated title & description...'
+                  : contentType === 'reel'
+                    ? 'Leave empty for AI-generated caption...'
+                    : 'Write your post here...'
+              }
+              rows={contentType === 'youtube' ? 8 : 5}
               className="w-full px-4 py-3 rounded-lg border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none text-sm"
             />
             <div className="flex justify-between mt-2 text-xs text-muted-foreground">
               <span>{text.length} characters</span>
-              <span>Max: 2,200</span>
+              <span>Max: {contentType === 'youtube' ? '5,000' : '2,200'}</span>
             </div>
           </div>
 
@@ -343,8 +414,6 @@ export default function CreatePostPage() {
           {contentType === 'image' && (
             <div className="rounded-xl border bg-card p-6">
               <h2 className="text-lg font-semibold mb-4">Image</h2>
-
-              {/* Option 1: Paste URL */}
               <div className="mb-4">
                 <label className="block text-sm text-muted-foreground mb-2">Paste image URL</label>
                 <input
@@ -355,14 +424,11 @@ export default function CreatePostPage() {
                   className="w-full px-4 py-2 rounded-lg border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
                 />
               </div>
-
               <div className="relative flex items-center my-4">
                 <div className="flex-1 border-t border-border" />
                 <span className="px-3 text-xs text-muted-foreground">or</span>
                 <div className="flex-1 border-t border-border" />
               </div>
-
-              {/* Option 2: Generate with AI */}
               <button
                 onClick={handleGenerateImage}
                 disabled={isGeneratingImage || !text.trim()}
@@ -377,8 +443,6 @@ export default function CreatePostPage() {
               {!text.trim() && (
                 <p className="text-xs text-muted-foreground mt-2">Write a caption first — the image will be based on it</p>
               )}
-
-              {/* Preview */}
               {imageUrl && (
                 <div className="mt-4 relative inline-block">
                   <img
@@ -405,24 +469,51 @@ export default function CreatePostPage() {
           <div className="rounded-xl border bg-card p-6">
             <h2 className="text-lg font-semibold mb-4">Platforms</h2>
             <div className="space-y-3">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={platforms.instagram}
-                  onChange={(e) => setPlatforms({ ...platforms, instagram: e.target.checked })}
-                  className="w-4 h-4 rounded"
-                />
-                <span className="text-sm">Instagram ({contentType === 'reel' ? 'Reel' : 'Post'})</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={platforms.linkedin}
-                  onChange={(e) => setPlatforms({ ...platforms, linkedin: e.target.checked })}
-                  className="w-4 h-4 rounded"
-                />
-                <span className="text-sm">LinkedIn ({contentType === 'reel' ? 'Video' : 'Post'})</span>
-              </label>
+              {contentType === 'youtube' ? (
+                <>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={platforms.youtube}
+                      onChange={(e) => setPlatforms({ ...platforms, youtube: e.target.checked })}
+                      className="w-4 h-4 rounded"
+                    />
+                    <span className="text-sm inline-flex items-center gap-2">
+                      <Youtube className="h-4 w-4 text-red-500" /> YouTube
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={platforms.twitter}
+                      onChange={(e) => setPlatforms({ ...platforms, twitter: e.target.checked })}
+                      className="w-4 h-4 rounded"
+                    />
+                    <span className="text-sm">Twitter / X</span>
+                  </label>
+                </>
+              ) : (
+                <>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={platforms.instagram}
+                      onChange={(e) => setPlatforms({ ...platforms, instagram: e.target.checked })}
+                      className="w-4 h-4 rounded"
+                    />
+                    <span className="text-sm">Instagram ({contentType === 'reel' ? 'Reel' : 'Post'})</span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={platforms.linkedin}
+                      onChange={(e) => setPlatforms({ ...platforms, linkedin: e.target.checked })}
+                      className="w-4 h-4 rounded"
+                    />
+                    <span className="text-sm">LinkedIn ({contentType === 'reel' ? 'Video' : 'Post'})</span>
+                  </label>
+                </>
+              )}
             </div>
           </div>
 
@@ -463,11 +554,25 @@ export default function CreatePostPage() {
                   </div>
                 </div>
               )}
+              {contentType === 'youtube' && youtubeUrl && (
+                <div className="aspect-video rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-3">
+                  <div className="text-center">
+                    <Youtube className="h-8 w-8 text-red-500 mx-auto" />
+                    <p className="text-xs text-muted-foreground mt-1">Video will be downloaded, transcribed & re-uploaded</p>
+                  </div>
+                </div>
+              )}
               {contentType === 'image' && imageUrl && (
                 <img src={imageUrl} alt="Preview" className="aspect-square max-h-[200px] object-cover rounded-lg mb-3" />
               )}
               <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-4">
-                {text || (contentType === 'reel' ? 'Caption will be AI-generated by Python script...' : 'Your post text...')}
+                {text || (
+                  contentType === 'youtube'
+                    ? 'Title & description will be AI-generated by Python script...'
+                    : contentType === 'reel'
+                      ? 'Caption will be AI-generated by Python script...'
+                      : 'Your post text...'
+                )}
               </p>
               <div className="flex gap-2 mt-3">
                 {platforms.instagram && (
@@ -475,6 +580,12 @@ export default function CreatePostPage() {
                 )}
                 {platforms.linkedin && (
                   <span className="px-2 py-1 bg-blue-500/10 text-blue-400 rounded text-xs">LinkedIn</span>
+                )}
+                {platforms.youtube && (
+                  <span className="px-2 py-1 bg-red-500/10 text-red-400 rounded text-xs">YouTube</span>
+                )}
+                {platforms.twitter && (
+                  <span className="px-2 py-1 bg-sky-500/10 text-sky-400 rounded text-xs">Twitter</span>
                 )}
               </div>
             </div>
@@ -485,10 +596,21 @@ export default function CreatePostPage() {
             <button
               onClick={handlePostNow}
               disabled={isPosting}
-              className="w-full py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors font-semibold inline-flex items-center justify-center gap-2"
+              className={`w-full py-3 rounded-lg disabled:opacity-50 transition-colors font-semibold inline-flex items-center justify-center gap-2 ${
+                contentType === 'youtube'
+                  ? 'bg-red-600 text-white hover:bg-red-700'
+                  : 'bg-primary text-primary-foreground hover:bg-primary/90'
+              }`}
             >
               <Send className="h-4 w-4" />
-              {isPosting ? 'Processing...' : contentType === 'reel' ? 'Post Now (Auto-process)' : 'Post Now'}
+              {isPosting
+                ? 'Processing...'
+                : contentType === 'youtube'
+                  ? 'Process & Upload Now'
+                  : contentType === 'reel'
+                    ? 'Post Now (Auto-process)'
+                    : 'Post Now'
+              }
             </button>
             <button
               onClick={handleAddToQueue}

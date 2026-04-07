@@ -14,9 +14,27 @@ export async function POST(request: NextRequest) {
   try {
     const { type, prompt } = await request.json()
 
-    const systemPrompt = type === 'reel_caption'
-      ? `You are a social media expert writing Instagram reel captions. Write engaging, hook-driven captions (150-200 words). Include relevant hashtags (8-12). Use line breaks for readability. Start with a strong hook. End with a CTA.`
-      : `You are a social media expert writing Instagram post captions. Write engaging captions (100-150 words). Include relevant hashtags (5-8). Be concise and punchy.`
+    let systemPrompt: string
+    if (type === 'youtube_description') {
+      systemPrompt = `You are a YouTube SEO expert for WealthClaude, a financial education channel. Write an optimized YouTube title + description. Format:
+
+TITLE: [Compelling title under 70 chars with keywords]
+
+DESCRIPTION:
+[2-3 sentence hook summary]
+
+[Key topics covered as bullet points]
+
+[CTA: Subscribe, like, comment]
+
+[10-15 relevant hashtags]
+
+Make it SEO-optimized, engaging, and professional.`
+    } else if (type === 'reel_caption') {
+      systemPrompt = `You are a social media expert writing Instagram reel captions. Write engaging, hook-driven captions (150-200 words). Include relevant hashtags (8-12). Use line breaks for readability. Start with a strong hook. End with a CTA.`
+    } else {
+      systemPrompt = `You are a social media expert writing Instagram post captions. Write engaging captions (100-150 words). Include relevant hashtags (5-8). Be concise and punchy.`
+    }
 
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -28,7 +46,7 @@ export async function POST(request: NextRequest) {
         model: 'llama-3.3-70b-versatile',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Write a caption about: ${prompt}` },
+          { role: 'user', content: type === 'youtube_description' ? `Write a YouTube title and description about: ${prompt}` : `Write a caption about: ${prompt}` },
         ],
         max_tokens: 500,
         temperature: 0.8,

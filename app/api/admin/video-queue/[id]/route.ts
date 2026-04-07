@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 
 const ALLOWED_VIDEO_FIELDS = new Set([
-  'title', 'source_url', 'source_type', 'platform', 'status',
+  'title', 'source_url', 'source_type', 'source_title', 'platform', 'status',
   'text_content', 'content_type', 'platforms', 'scheduled_for',
-  'media_url', 'posted_at',
+  'media_url', 'posted_at', 'processed_at', 'approved_at',
+  'processed_video_url', 'video_type', 'duration_seconds',
+  'ai_title', 'ai_description', 'ai_tags', 'ai_hook',
+  'youtube_video_id', 'error_message', 'retry_count',
 ])
 
 export async function PATCH(

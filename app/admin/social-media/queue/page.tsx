@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, RefreshCw, Check, X, Trash2, ExternalLink, Film } from 'lucide-react'
-import type { VideoQueueItem, VideoStatusType } from '@/lib/social-media/types'
+import type { VideoQueueItem, VideoStatusType } from '@/lib/video-studio/types'
 
 const STATUS_TABS: { label: string; value: string }[] = [
   { label: 'All', value: 'all' },

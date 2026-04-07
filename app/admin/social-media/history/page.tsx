@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, RefreshCw, ExternalLink, Film } from 'lucide-react'
-import type { VideoActivityItem } from '@/lib/social-media/types'
+import type { VideoActivityItem } from '@/lib/video-studio/types'
 
 const DATE_FILTERS = [
   { label: 'Last 7 Days', days: 7 },

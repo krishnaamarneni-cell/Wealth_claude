@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Film, Plus, Clock, CheckCircle, AlertCircle, TrendingUp, RefreshCw, ExternalLink } from 'lucide-react'
-import type { VideoStats, VideoActivityItem } from '@/lib/social-media/types'
+import type { VideoStats, VideoActivityItem } from '@/lib/video-studio/types'
 
 export default function VideoStudioDashboard() {
   const [stats, setStats] = useState<VideoStats>({ pending: 0, approved: 0, postedToday: 0, totalPosted: 0 })

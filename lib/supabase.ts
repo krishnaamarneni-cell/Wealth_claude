@@ -1,5 +1,4 @@
 import { createBrowserClient, createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import type { Database } from '@/types/database'
 
 // ─── Client-side (browser) ───────────────────────────────────────────────────
@@ -15,7 +14,7 @@ export function createClient() {
 // Use this in Server Components, Route Handlers, Server Actions
 // cookieStore is the already-resolved value from `await cookies()`
 export function createServerSideClient(
-  cookieStore: Awaited<ReturnType<typeof cookies>>
+  cookieStore: { getAll(): { name: string; value: string }[]; set(name: string, value: string, options?: Record<string, unknown>): void }
 ) {
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

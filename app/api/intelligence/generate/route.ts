@@ -84,102 +84,54 @@ async function queryPerplexity(query: string): Promise<string> {
   } catch { return '' }
 }
 
-// ─── Real-Time Price Fetching ────────────────────────────────────────────────
-interface PriceQuote {
-  name: string
-  price: number | null
-  change_pct: number | null
-}
-
-async function fetchFinnhubQuote(symbol: string): Promise<{ c: number; dp: number } | null> {
-  const key = process.env.FINNHUB_API_KEY
-  if (!key) return null
+// ─── Real-Time Price Fetching (reuse /api/market-overview data) ──────────────
+async function fetchLivePrices(): Promise<{ priceText: string }> {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://www.wealthclaude.com'
   try {
-    const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`)
-    if (!res.ok) return null
+    const res = await fetch(`${baseUrl}/api/market-overview`)
+    if (!res.ok) return { priceText: '' }
     const data = await res.json()
-    if (!data.c || data.c === 0) return null
-    return { c: data.c, dp: data.dp || 0 }
-  } catch { return null }
-}
+    const { ticker } = data
 
-async function fetchCryptoPrice(symbol: string): Promise<{ price: number; change_pct: number } | null> {
-  try {
-    // Use Finnhub crypto candle or a free API
-    const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${symbol}&vs_currencies=usd&include_24hr_change=true`)
-    if (!res.ok) return null
-    const data = await res.json()
-    const coin = data[symbol]
-    if (!coin) return null
-    return { price: coin.usd, change_pct: coin.usd_24h_change || 0 }
-  } catch { return null }
-}
+    const lines: string[] = []
+    const fmt = (name: string, item: any) => {
+      if (!item) return
+      lines.push(`${name}: $${item.price.toLocaleString('en-US', { maximumFractionDigits: 2 })} (${item.changePercent >= 0 ? '+' : ''}${item.changePercent.toFixed(2)}% today)`)
+    }
 
-async function fetchLivePrices(): Promise<{ prices: PriceQuote[]; priceText: string }> {
-  const [
-    brent, wti, gold, silver, natgas, wheat,
-    bitcoin, ethereum, spy, dxy
-  ] = await Promise.all([
-    fetchFinnhubQuote('BZ=F'),   // Brent — may not work on Finnhub, fallback below
-    fetchFinnhubQuote('CL=F'),   // WTI crude — may not work
-    fetchFinnhubQuote('GLD'),    // Gold ETF as proxy
-    fetchFinnhubQuote('SLV'),    // Silver ETF
-    fetchFinnhubQuote('UNG'),    // Natural gas ETF
-    fetchFinnhubQuote('WEAT'),   // Wheat ETF
-    fetchCryptoPrice('bitcoin'),
-    fetchCryptoPrice('ethereum'),
-    fetchFinnhubQuote('SPY'),    // S&P 500
-    fetchFinnhubQuote('UUP'),    // Dollar index ETF
-  ])
+    // S&P 500 — convert SPY ETF to approximate index value
+    if (ticker.sp500) {
+      const indexApprox = Math.round(ticker.sp500.price * 9.0)
+      lines.push(`S&P 500: ~${indexApprox.toLocaleString('en-US')} (SPY $${ticker.sp500.price.toFixed(2)}, ${ticker.sp500.changePercent >= 0 ? '+' : ''}${ticker.sp500.changePercent.toFixed(2)}% today)`)
+    }
 
-  const prices: PriceQuote[] = []
-  const lines: string[] = []
+    // Gold — convert GLD ETF to per-oz price
+    if (ticker.gold) {
+      const ozPrice = Math.round(ticker.gold.price / 0.0930)
+      lines.push(`Gold: ~$${ozPrice.toLocaleString('en-US')}/oz (GLD $${ticker.gold.price.toFixed(2)}, ${ticker.gold.changePercent >= 0 ? '+' : ''}${ticker.gold.changePercent.toFixed(2)}% today)`)
+    }
 
-  // Helper to format
-  const add = (name: string, data: { c?: number; dp?: number; price?: number; change_pct?: number } | null, multiplier?: number) => {
-    if (!data) return
-    const price = 'price' in data ? data.price! : data.c! * (multiplier || 1)
-    const change = 'change_pct' in data ? data.change_pct! : data.dp!
-    prices.push({ name, price, change_pct: Math.round(change * 100) / 100 })
-    lines.push(`${name}: $${price.toLocaleString('en-US', { maximumFractionDigits: 2 })} (${change >= 0 ? '+' : ''}${change.toFixed(2)}% today)`)
+    // Oil — USO ETF (note: not barrel price)
+    if (ticker.oil) {
+      lines.push(`Oil (USO ETF): $${ticker.oil.price.toFixed(2)} (${ticker.oil.changePercent >= 0 ? '+' : ''}${ticker.oil.changePercent.toFixed(2)}% today) — NOTE: This is the USO ETF price, not per-barrel price`)
+    }
+
+    fmt('Bonds (AGG)', ticker.bonds)
+    fmt('US Dollar (UUP)', ticker.usdDollar)
+
+    // Bitcoin — actual price
+    if (ticker.bitcoin) {
+      lines.push(`Bitcoin: $${ticker.bitcoin.price.toLocaleString('en-US', { maximumFractionDigits: 0 })} (${ticker.bitcoin.changePercent >= 0 ? '+' : ''}${ticker.bitcoin.changePercent.toFixed(2)}% today)`)
+    }
+
+    const priceText = lines.length > 0
+      ? `VERIFIED LIVE MARKET PRICES (use these EXACT numbers in your commodities section — do NOT make up prices):\n${lines.join('\n')}\n\nIMPORTANT: For the commodities section, use the Gold per-oz price, Bitcoin actual price, and the % changes shown above. For Brent crude and other commodities not listed here, use the Perplexity market intel data.`
+      : ''
+
+    return { priceText }
+  } catch {
+    return { priceText: '' }
   }
-
-  // Gold ETF GLD tracks at ~1/10th of gold price
-  if (gold) add('Gold', { c: gold.c * 10, dp: gold.dp })
-  else add('Gold', gold)
-
-  // Silver ETF SLV tracks at ~1x silver price roughly
-  if (silver) add('Silver', { c: silver.c, dp: silver.dp })
-
-  add('S&P 500 (SPY)', spy)
-  add('Dollar (UUP)', dxy)
-  add('Nat Gas (UNG)', natgas)
-  add('Wheat (WEAT)', wheat)
-  add('Bitcoin', bitcoin)
-  add('Ethereum', ethereum)
-
-  // Try Polygon for Brent/WTI if Finnhub didn't work
-  const polygonKey = process.env.POLYGON_API_KEY
-  if (polygonKey && !brent) {
-    try {
-      const res = await fetch(`https://api.polygon.io/v2/aggs/ticker/C:BCOUSD/prev?apiKey=${polygonKey}`)
-      if (res.ok) {
-        const data = await res.json()
-        const result = data.results?.[0]
-        if (result) {
-          const changePct = result.o ? ((result.c - result.o) / result.o * 100) : 0
-          prices.push({ name: 'Brent Crude', price: result.c, change_pct: Math.round(changePct * 100) / 100 })
-          lines.push(`Brent Crude: $${result.c.toFixed(2)} (${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}% today)`)
-        }
-      }
-    } catch {}
-  }
-
-  const priceText = lines.length > 0
-    ? `VERIFIED LIVE PRICES (use these exact numbers, do NOT make up prices):\n${lines.join('\n')}`
-    : 'No live price data available — use Perplexity market intel for prices.'
-
-  return { prices, priceText }
 }
 
 async function fetchPerplexityEnrichment() {
@@ -577,7 +529,7 @@ export async function POST(request: NextRequest) {
       fetchLivePrices(),
       fetchPerplexityEnrichment(),
     ])
-    console.log(`[intelligence] Got ${livePriceData.prices.length} live prices`)
+    console.log(`[intelligence] Got live prices: ${livePriceData.priceText ? 'yes' : 'no'}`)
 
     // 4. Process with Groq (2 sequential calls)
     console.log('[intelligence] Processing with Groq (tabs 1-4)...')

@@ -153,42 +153,34 @@ export async function GET(req: NextRequest) {
   }
 
   if (job === "intelligence") {
-    try {
-      const baseUrl =
-        process.env.NEXT_PUBLIC_APP_URL ||
-        process.env.NEXT_PUBLIC_SITE_URL ||
-        "https://www.wealthclaude.com"
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "https://www.wealthclaude.com"
 
-      const cronSecret = process.env.CRON_SECRET ?? ""
+    const cronSecret = process.env.CRON_SECRET ?? ""
 
-      console.log(`[CRON] Starting intelligence job at ${new Date().toISOString()}`)
+    console.log(`[CRON] Firing intelligence job at ${new Date().toISOString()}`)
 
-      const res = await fetch(`${baseUrl}/api/intelligence/generate`, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${cronSecret}`,
-          "Content-Type": "application/json",
-        },
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        console.error(`[CRON] intelligence failed:`, data)
-        return NextResponse.json(
-          { job: "intelligence", success: false, error: data },
-          { status: res.status }
-        )
+    // Fire-and-forget — don't await, return immediately so cron-job.org doesn't timeout
+    fetch(`${baseUrl}/api/intelligence/generate`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${cronSecret}`,
+        "Content-Type": "application/json",
+      },
+    }).then(async (res) => {
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        console.log(`[CRON] intelligence completed:`, JSON.stringify(data))
+      } else {
+        console.error(`[CRON] intelligence failed (${res.status}):`, JSON.stringify(data))
       }
+    }).catch((err) => {
+      console.error(`[CRON] intelligence fetch error:`, err?.message)
+    })
 
-      return NextResponse.json({ job: "intelligence", success: true, ...data })
-    } catch (err: any) {
-      console.error(`[CRON] intelligence threw an error:`, err?.message)
-      return NextResponse.json(
-        { job: "intelligence", success: false, error: err?.message },
-        { status: 500 }
-      )
-    }
+    return NextResponse.json({ job: "intelligence", success: true, message: "Generation started" })
   }
 
   return NextResponse.json({ error: "Unknown job" }, { status: 400 })

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSideClient } from '@/lib/supabase'
 import { cookies } from 'next/headers'
 import { requireAdmin } from '@/lib/admin-auth'
+import { downloadAndUpload } from '@/lib/upload-image'
 
 async function fetchFromPixabay(query: string, apiKey: string): Promise<string> {
   const res = await fetch(
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
   // Fetch all posts with empty image_url
   const { data: posts, error } = await supabase
     .from('blog_posts')
-    .select('id, title')
+    .select('id, title, slug')
     .or('image_url.is.null,image_url.eq.')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -102,9 +103,12 @@ export async function GET(request: NextRequest) {
       continue
     }
 
+    // Download to Supabase Storage for permanent hosting
+    const storedUrl = await downloadAndUpload(supabase, image_url, post.slug || post.id)
+
     const { error: updateError } = await supabase
       .from('blog_posts')
-      .update({ image_url })
+      .update({ image_url: storedUrl })
       .eq('id', post.id)
 
     if (updateError) {

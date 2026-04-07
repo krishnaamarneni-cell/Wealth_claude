@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSideClient } from '@/lib/supabase'
 import { cookies } from 'next/headers'
+import { downloadAndUpload } from '@/lib/upload-image'
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 async function isAuthorized(request: NextRequest): Promise<boolean> {
@@ -414,13 +415,17 @@ export async function POST(request: NextRequest) {
         results.skipped++
       } else {
         const now = new Date().toISOString()
+        // Download external image to Supabase Storage for permanent hosting
+        const storedImageUrl = post.image_url
+          ? await downloadAndUpload(supabase, post.image_url, post.slug)
+          : null
         const { error } = await supabase.from('blog_posts').insert([{
           slug: post.slug,
           title: post.title,
           excerpt: post.excerpt,
           content: post.content,
           tags: post.tags,
-          image_url: post.image_url || null,
+          image_url: storedImageUrl,
           ai_model: post.ai_model || null,
           post_type: postType,
           published: true,

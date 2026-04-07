@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { downloadAndUpload } from '@/lib/upload-image'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface RawArticle {
@@ -397,6 +398,9 @@ Respond ONLY with valid JSON, absolutely no markdown or code blocks:
 
     // Insert into blog_posts
     const now = new Date().toISOString()
+    const storedImageUrl = image_url
+      ? await downloadAndUpload(supabase, image_url, slug)
+      : null
     const { data: insertedPost, error } = await supabase
       .from('blog_posts')
       .insert([{
@@ -405,7 +409,7 @@ Respond ONLY with valid JSON, absolutely no markdown or code blocks:
         excerpt: parsed.excerpt,
         content: parsed.content,
         tags: Array.isArray(parsed.tags) ? parsed.tags : [],
-        image_url: image_url || null,
+        image_url: storedImageUrl,
         ai_model: 'llama-3.3-70b-versatile',
         post_type: 'featured-news',
         published: true,

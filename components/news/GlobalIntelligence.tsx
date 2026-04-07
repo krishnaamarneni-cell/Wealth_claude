@@ -14,6 +14,7 @@ import { Markets } from '@/components/intelligence/tabs/Markets'
 import { TechAI } from '@/components/intelligence/tabs/TechAI'
 import { FoodClimate } from '@/components/intelligence/tabs/FoodClimate'
 import { ThreatIndex } from '@/components/intelligence/tabs/ThreatIndex'
+import { ShareButton } from '@/components/intelligence/ShareButton'
 import { Signals } from '@/components/intelligence/tabs/Signals'
 
 // ─── Blog Post Types ──────────────────────────────────────────────────────────
@@ -330,6 +331,18 @@ export function GlobalIntelligence() {
     )
   }
 
+  const getTabData = () => {
+    switch (activeTab) {
+      case 'priority': return brief.priority_index
+      case 'warroom': return brief.war_room
+      case 'markets': return brief.markets
+      case 'techai': return brief.tech_ai
+      case 'foodclimate': return brief.food_climate
+      case 'threat': return brief.threat_index
+      case 'signals': return brief.signals
+    }
+  }
+
   const renderTab = () => {
     switch (activeTab) {
       case 'priority': return <PriorityIndex data={brief.priority_index} />
@@ -341,6 +354,10 @@ export function GlobalIntelligence() {
       case 'signals': return <Signals data={brief.signals} />
     }
   }
+
+  const briefDate = new Date(brief.created_at).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+  })
 
   return (
     <div>
@@ -393,6 +410,9 @@ export function GlobalIntelligence() {
       <div className="grid lg:grid-cols-4 gap-6">
         {/* Content area */}
         <div className="lg:col-span-3">
+          <div className="flex justify-end mb-4">
+            <ShareButton tab={activeTab} data={getTabData()} date={briefDate} />
+          </div>
           {renderTab()}
         </div>
 

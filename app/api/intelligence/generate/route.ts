@@ -84,6 +84,104 @@ async function queryPerplexity(query: string): Promise<string> {
   } catch { return '' }
 }
 
+// ─── Real-Time Price Fetching ────────────────────────────────────────────────
+interface PriceQuote {
+  name: string
+  price: number | null
+  change_pct: number | null
+}
+
+async function fetchFinnhubQuote(symbol: string): Promise<{ c: number; dp: number } | null> {
+  const key = process.env.FINNHUB_API_KEY
+  if (!key) return null
+  try {
+    const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`)
+    if (!res.ok) return null
+    const data = await res.json()
+    if (!data.c || data.c === 0) return null
+    return { c: data.c, dp: data.dp || 0 }
+  } catch { return null }
+}
+
+async function fetchCryptoPrice(symbol: string): Promise<{ price: number; change_pct: number } | null> {
+  try {
+    // Use Finnhub crypto candle or a free API
+    const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${symbol}&vs_currencies=usd&include_24hr_change=true`)
+    if (!res.ok) return null
+    const data = await res.json()
+    const coin = data[symbol]
+    if (!coin) return null
+    return { price: coin.usd, change_pct: coin.usd_24h_change || 0 }
+  } catch { return null }
+}
+
+async function fetchLivePrices(): Promise<{ prices: PriceQuote[]; priceText: string }> {
+  const [
+    brent, wti, gold, silver, natgas, wheat,
+    bitcoin, ethereum, spy, dxy
+  ] = await Promise.all([
+    fetchFinnhubQuote('BZ=F'),   // Brent — may not work on Finnhub, fallback below
+    fetchFinnhubQuote('CL=F'),   // WTI crude — may not work
+    fetchFinnhubQuote('GLD'),    // Gold ETF as proxy
+    fetchFinnhubQuote('SLV'),    // Silver ETF
+    fetchFinnhubQuote('UNG'),    // Natural gas ETF
+    fetchFinnhubQuote('WEAT'),   // Wheat ETF
+    fetchCryptoPrice('bitcoin'),
+    fetchCryptoPrice('ethereum'),
+    fetchFinnhubQuote('SPY'),    // S&P 500
+    fetchFinnhubQuote('UUP'),    // Dollar index ETF
+  ])
+
+  const prices: PriceQuote[] = []
+  const lines: string[] = []
+
+  // Helper to format
+  const add = (name: string, data: { c?: number; dp?: number; price?: number; change_pct?: number } | null, multiplier?: number) => {
+    if (!data) return
+    const price = 'price' in data ? data.price! : data.c! * (multiplier || 1)
+    const change = 'change_pct' in data ? data.change_pct! : data.dp!
+    prices.push({ name, price, change_pct: Math.round(change * 100) / 100 })
+    lines.push(`${name}: $${price.toLocaleString('en-US', { maximumFractionDigits: 2 })} (${change >= 0 ? '+' : ''}${change.toFixed(2)}% today)`)
+  }
+
+  // Gold ETF GLD tracks at ~1/10th of gold price
+  if (gold) add('Gold', { c: gold.c * 10, dp: gold.dp })
+  else add('Gold', gold)
+
+  // Silver ETF SLV tracks at ~1x silver price roughly
+  if (silver) add('Silver', { c: silver.c, dp: silver.dp })
+
+  add('S&P 500 (SPY)', spy)
+  add('Dollar (UUP)', dxy)
+  add('Nat Gas (UNG)', natgas)
+  add('Wheat (WEAT)', wheat)
+  add('Bitcoin', bitcoin)
+  add('Ethereum', ethereum)
+
+  // Try Polygon for Brent/WTI if Finnhub didn't work
+  const polygonKey = process.env.POLYGON_API_KEY
+  if (polygonKey && !brent) {
+    try {
+      const res = await fetch(`https://api.polygon.io/v2/aggs/ticker/C:BCOUSD/prev?apiKey=${polygonKey}`)
+      if (res.ok) {
+        const data = await res.json()
+        const result = data.results?.[0]
+        if (result) {
+          const changePct = result.o ? ((result.c - result.o) / result.o * 100) : 0
+          prices.push({ name: 'Brent Crude', price: result.c, change_pct: Math.round(changePct * 100) / 100 })
+          lines.push(`Brent Crude: $${result.c.toFixed(2)} (${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}% today)`)
+        }
+      }
+    } catch {}
+  }
+
+  const priceText = lines.length > 0
+    ? `VERIFIED LIVE PRICES (use these exact numbers, do NOT make up prices):\n${lines.join('\n')}`
+    : 'No live price data available — use Perplexity market intel for prices.'
+
+  return { prices, priceText }
+}
+
 async function fetchPerplexityEnrichment() {
   const [geopolitical, marketIntel, techClimate] = await Promise.all([
     queryPerplexity(
@@ -131,11 +229,13 @@ function extractJson(raw: string): any {
 }
 
 // ─── Prompt Templates ────────────────────────────────────────────────────────
-function buildPromptTabs1to4(articles: string, enrichment: { geopolitical: string; marketIntel: string; techClimate: string }): string {
+function buildPromptTabs1to4(articles: string, enrichment: { geopolitical: string; marketIntel: string; techClimate: string }, livePrices: string): string {
   return `You are a senior intelligence analyst at a global macro advisory firm writing a daily brief for sophisticated investors. Process these raw news feeds and real-time intelligence to produce DETAILED structured briefs. Be SPECIFIC with numbers, dates, prices, percentages. Never say "N/A" — use your best estimate.
 
 TODAY'S RAW NEWS ARTICLES:
 ${articles}
+
+${livePrices}
 
 REAL-TIME GEOPOLITICAL INTELLIGENCE:
 ${enrichment.geopolitical}
@@ -471,13 +571,17 @@ export async function POST(request: NextRequest) {
       .map((a, i) => `${i + 1}. [${a.source}] ${a.title}\n   ${a.text.substring(0, 150)}`)
       .join('\n')
 
-    // 3. Enrich with Perplexity (3 parallel queries)
-    console.log('[intelligence] Querying Perplexity...')
-    const enrichment = await fetchPerplexityEnrichment()
+    // 3. Fetch live prices + Perplexity enrichment in parallel
+    console.log('[intelligence] Fetching live prices + Perplexity...')
+    const [livePriceData, enrichment] = await Promise.all([
+      fetchLivePrices(),
+      fetchPerplexityEnrichment(),
+    ])
+    console.log(`[intelligence] Got ${livePriceData.prices.length} live prices`)
 
     // 4. Process with Groq (2 sequential calls)
     console.log('[intelligence] Processing with Groq (tabs 1-4)...')
-    const raw1 = await callGroq(buildPromptTabs1to4(articleSummary, enrichment), 8000)
+    const raw1 = await callGroq(buildPromptTabs1to4(articleSummary, enrichment, livePriceData.priceText), 8000)
     const tabs1to4 = extractJson(raw1)
 
     console.log('[intelligence] Processing with Groq (tabs 5-7)...')

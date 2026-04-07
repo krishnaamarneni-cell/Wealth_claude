@@ -52,8 +52,7 @@ async function getRecentPosts(excludeSlug: string) {
 async function getPost(slug: string) {
   const supabase = getSupabase()
 
-
-  // Exact match
+  // 1. Exact match
   const { data } = await supabase
     .from('blog_posts')
     .select('*')
@@ -61,21 +60,38 @@ async function getPost(slug: string) {
     .eq('published', true)
     .maybeSingle()
 
-
   if (data) return data
 
-
-  // Prefix match — handles timestamp suffixes added by auto-blog
+  // 2. Prefix match — URL slug as prefix of DB slug
   const { data: fallback } = await supabase
     .from('blog_posts')
     .select('*')
     .ilike('slug', `${slug}%`)
     .eq('published', true)
+    .order('published_at', { ascending: false })
     .limit(1)
     .maybeSingle()
 
+  if (fallback) return fallback
 
-  return fallback ?? null
+  // 3. Base-slug match — strip trailing timestamp from both URL and DB slugs
+  //    Auto-blog generates slugs like "title-words-1775510343466"
+  //    If user visits with a different timestamp, match on the title part
+  const baseSlug = slug.replace(/-\d{10,}$/, '')
+  if (baseSlug !== slug && baseSlug.length > 10) {
+    const { data: fuzzy } = await supabase
+      .from('blog_posts')
+      .select('*')
+      .ilike('slug', `${baseSlug}%`)
+      .eq('published', true)
+      .order('published_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (fuzzy) return fuzzy
+  }
+
+  return null
 }
 
 

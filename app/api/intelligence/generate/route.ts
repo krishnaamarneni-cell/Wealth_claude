@@ -84,44 +84,48 @@ async function queryPerplexity(query: string): Promise<string> {
   } catch { return '' }
 }
 
-// ─── Real-Time Price Fetching (reuse /api/market-overview data) ──────────────
+// ─── Real-Time Price Fetching (Finnhub + Binance directly) ──────────────────
 async function fetchLivePrices(): Promise<{ priceText: string }> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://www.wealthclaude.com'
+  const FINNHUB_KEY = process.env.FINNHUB_API_KEY
+  if (!FINNHUB_KEY) return { priceText: '' }
+
+  async function fhQuote(sym: string): Promise<{ c: number; dp: number } | null> {
+    try {
+      const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=${FINNHUB_KEY}`, { cache: 'no-store' })
+      if (!r.ok) return null
+      const d = await r.json()
+      return d.c > 0 ? d : null
+    } catch { return null }
+  }
+
   try {
-    const res = await fetch(`${baseUrl}/api/market-overview`)
-    if (!res.ok) return { priceText: '' }
-    const data = await res.json()
-    const { ticker } = data
+    const [spy, gld, uso, agg, uup, btc] = await Promise.all([
+      fhQuote('SPY'),
+      fhQuote('GLD'),
+      fhQuote('USO'),
+      fhQuote('AGG'),
+      fhQuote('UUP'),
+      fhQuote('BINANCE:BTCUSDT'),
+    ])
 
     const lines: string[] = []
-    const fmt = (name: string, item: any) => {
-      if (!item) return
-      lines.push(`${name}: $${item.price.toLocaleString('en-US', { maximumFractionDigits: 2 })} (${item.changePercent >= 0 ? '+' : ''}${item.changePercent.toFixed(2)}% today)`)
+    const pct = (dp: number) => `${dp >= 0 ? '+' : ''}${dp.toFixed(2)}%`
+
+    if (spy) {
+      const idx = Math.round(spy.c * 9.0)
+      lines.push(`S&P 500: ~${idx.toLocaleString('en-US')} (SPY $${spy.c.toFixed(2)}, ${pct(spy.dp)} today)`)
     }
-
-    // S&P 500 — convert SPY ETF to approximate index value
-    if (ticker.sp500) {
-      const indexApprox = Math.round(ticker.sp500.price * 9.0)
-      lines.push(`S&P 500: ~${indexApprox.toLocaleString('en-US')} (SPY $${ticker.sp500.price.toFixed(2)}, ${ticker.sp500.changePercent >= 0 ? '+' : ''}${ticker.sp500.changePercent.toFixed(2)}% today)`)
+    if (gld) {
+      const oz = Math.round(gld.c / 0.0930)
+      lines.push(`Gold: ~$${oz.toLocaleString('en-US')}/oz (GLD $${gld.c.toFixed(2)}, ${pct(gld.dp)} today)`)
     }
-
-    // Gold — convert GLD ETF to per-oz price
-    if (ticker.gold) {
-      const ozPrice = Math.round(ticker.gold.price / 0.0930)
-      lines.push(`Gold: ~$${ozPrice.toLocaleString('en-US')}/oz (GLD $${ticker.gold.price.toFixed(2)}, ${ticker.gold.changePercent >= 0 ? '+' : ''}${ticker.gold.changePercent.toFixed(2)}% today)`)
+    if (uso) {
+      lines.push(`Oil (USO ETF): $${uso.c.toFixed(2)} (${pct(uso.dp)} today) — This is the USO ETF price, not per-barrel`)
     }
-
-    // Oil — USO ETF (note: not barrel price)
-    if (ticker.oil) {
-      lines.push(`Oil (USO ETF): $${ticker.oil.price.toFixed(2)} (${ticker.oil.changePercent >= 0 ? '+' : ''}${ticker.oil.changePercent.toFixed(2)}% today) — NOTE: This is the USO ETF price, not per-barrel price`)
-    }
-
-    fmt('Bonds (AGG)', ticker.bonds)
-    fmt('US Dollar (UUP)', ticker.usdDollar)
-
-    // Bitcoin — actual price
-    if (ticker.bitcoin) {
-      lines.push(`Bitcoin: $${ticker.bitcoin.price.toLocaleString('en-US', { maximumFractionDigits: 0 })} (${ticker.bitcoin.changePercent >= 0 ? '+' : ''}${ticker.bitcoin.changePercent.toFixed(2)}% today)`)
+    if (agg) lines.push(`Bonds (AGG): $${agg.c.toFixed(2)} (${pct(agg.dp)} today)`)
+    if (uup) lines.push(`US Dollar (UUP): $${uup.c.toFixed(2)} (${pct(uup.dp)} today)`)
+    if (btc) {
+      lines.push(`Bitcoin: $${btc.c.toLocaleString('en-US', { maximumFractionDigits: 0 })} (${pct(btc.dp)} today)`)
     }
 
     const priceText = lines.length > 0

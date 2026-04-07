@@ -1,19 +1,15 @@
-import { cookies } from 'next/headers'
-import { createServerSideClient } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
-
-async function getSupabase() {
-  const cookieStore = await cookies()
-  return createServerSideClient(cookieStore)
-}
+import { requireAdmin } from '@/lib/admin-auth'
 
 export async function GET(request: NextRequest) {
+  const auth = await requireAdmin()
+  if ('error' in auth) return auth.error
+
   try {
-    const supabase = await getSupabase()
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
 
-    let query = supabase
+    let query = auth.supabase
       .from('video_queue')
       .select('*')
       .order('created_at', { ascending: false })
@@ -37,11 +33,13 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin()
+  if ('error' in auth) return auth.error
+
   try {
-    const supabase = await getSupabase()
     const body = await request.json()
 
-    const { data, error } = await supabase
+    const { data, error } = await auth.supabase
       .from('video_queue')
       .insert({
         title: body.title || null,

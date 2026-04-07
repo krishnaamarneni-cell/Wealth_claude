@@ -1,11 +1,12 @@
-import { cookies } from 'next/headers'
-import { createServerSideClient } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/admin-auth'
 
 export async function GET() {
+  const auth = await requireAdmin()
+  if ('error' in auth) return auth.error
+
   try {
-    const cookieStore = await cookies()
-    const supabase = createServerSideClient(cookieStore)
+    const supabase = auth.supabase
 
     const { count: pendingCount } = await supabase
       .from('video_queue')

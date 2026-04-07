@@ -1,31 +1,33 @@
-import { cookies } from 'next/headers'
-import { createServerSideClient } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/admin-auth'
 
-async function getSupabase() {
-  const cookieStore = await cookies()
-  return createServerSideClient(cookieStore)
-}
+const ALLOWED_VIDEO_FIELDS = new Set([
+  'title', 'source_url', 'source_type', 'platform', 'status',
+  'text_content', 'content_type', 'platforms', 'scheduled_for',
+  'media_url', 'posted_at',
+])
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAdmin()
+  if ('error' in auth) return auth.error
+
   try {
-    const supabase = await getSupabase()
     const { id } = await params
     const body = await request.json()
 
-    const updateData: Record<string, unknown> = {
-      ...body,
-      updated_at: new Date().toISOString(),
+    const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() }
+    for (const [key, value] of Object.entries(body)) {
+      if (ALLOWED_VIDEO_FIELDS.has(key)) updateData[key] = value
     }
 
     if (body.status === 'posted') {
       updateData.posted_at = new Date().toISOString()
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await auth.supabase
       .from('video_queue')
       .update(updateData)
       .eq('id', id)
@@ -48,11 +50,13 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAdmin()
+  if ('error' in auth) return auth.error
+
   try {
-    const supabase = await getSupabase()
     const { id } = await params
 
-    const { error } = await supabase
+    const { error } = await auth.supabase
       .from('video_queue')
       .delete()
       .eq('id', id)

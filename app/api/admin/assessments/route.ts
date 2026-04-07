@@ -1,20 +1,25 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { requireAdmin } from "@/lib/admin-auth"
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+function getServiceClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
-// GET - Get all assessments or single by ID
 export async function GET(request: NextRequest) {
+  const auth = await requireAdmin()
+  if ('error' in auth) return auth.error
+  const serviceSupabase = getServiceClient()
+
   try {
     const { searchParams } = new URL(request.url)
     const sessionId = searchParams.get("sessionId")
 
     if (sessionId) {
-      // Get single assessment
-      const { data: session, error } = await supabase
+      const { data: session, error } = await serviceSupabase
         .from("assessment_sessions")
         .select("*")
         .eq("id", sessionId)
@@ -27,8 +32,7 @@ export async function GET(request: NextRequest) {
         )
       }
 
-      // Get result for score
-      const { data: result } = await supabase
+      const { data: result } = await serviceSupabase
         .from("assessment_results")
         .select("overall_score, personality_type")
         .eq("session_id", sessionId)
@@ -41,8 +45,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Get all assessments with scores
-    const { data: sessions, error } = await supabase
+    const { data: sessions, error } = await serviceSupabase
       .from("assessment_sessions")
       .select("*")
       .order("created_at", { ascending: false })
@@ -55,14 +58,12 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get results for all sessions
     const sessionIds = sessions.map(s => s.id)
-    const { data: results } = await supabase
+    const { data: results } = await serviceSupabase
       .from("assessment_results")
       .select("session_id, overall_score, personality_type")
       .in("session_id", sessionIds)
 
-    // Merge results with sessions
     const resultsMap = new Map(
       (results || []).map(r => [r.session_id, r])
     )

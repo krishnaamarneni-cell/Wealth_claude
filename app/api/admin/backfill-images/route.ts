@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSideClient } from '@/lib/supabase'
 import { cookies } from 'next/headers'
+import { requireAdmin } from '@/lib/admin-auth'
 
 async function fetchFromPixabay(query: string, apiKey: string): Promise<string> {
   const res = await fetch(
@@ -32,10 +33,8 @@ export async function GET(request: NextRequest) {
   if (urlSecret && cronSecret && urlSecret === cronSecret) {
     // authorized via secret
   } else {
-    const cookieStore = await cookies()
-    const supabase = createServerSideClient(cookieStore)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth.error
   }
 
   const pixabayKey = process.env.PIXABAY_API_KEY

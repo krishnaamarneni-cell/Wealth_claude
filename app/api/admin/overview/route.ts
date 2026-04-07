@@ -1,20 +1,13 @@
-import { cookies } from 'next/headers'
-import { createServerSideClient } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { requireAdmin } from '@/lib/admin-auth'
 
 export async function GET() {
+  const auth = await requireAdmin()
+  if ('error' in auth) return auth.error
+
   try {
-    const cookieStore = await cookies()
-    const supabase = createServerSideClient(cookieStore)
+    const supabase = auth.supabase
 
-    // Use service role client for auth admin operations
-    const serviceSupabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-
-    // Fetch all stats in parallel
     const [
       subscribersResult,
       blogPostsResult,
@@ -31,7 +24,6 @@ export async function GET() {
       supabase.from('profiles').select('*', { count: 'exact', head: true }),
     ])
 
-    // Get user growth data - monthly signups from profiles table (last 6 months)
     const sixMonthsAgo = new Date()
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
 
@@ -41,7 +33,6 @@ export async function GET() {
       .gte('created_at', sixMonthsAgo.toISOString())
       .order('created_at', { ascending: true })
 
-    // Group by month
     const monthlyGrowth: { month: string; users: number }[] = []
     const monthMap = new Map<string, number>()
 
@@ -65,14 +56,12 @@ export async function GET() {
       }
     }
 
-    // Get recent blog posts
     const { data: recentBlogs } = await supabase
       .from('blog_posts')
       .select('id, title, created_at, status')
       .order('created_at', { ascending: false })
       .limit(5)
 
-    // Get recent subscribers
     const { data: recentSubscribers } = await supabase
       .from('subscribers')
       .select('id, email, created_at')

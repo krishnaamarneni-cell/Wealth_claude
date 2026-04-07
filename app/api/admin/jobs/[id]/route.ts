@@ -1,24 +1,30 @@
-import { cookies } from 'next/headers'
-import { createServerSideClient } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/admin-auth'
 
-async function getSupabase() {
-  const cookieStore = await cookies()
-  return createServerSideClient(cookieStore)
-}
+const ALLOWED_JOB_FIELDS = new Set([
+  'title', 'location', 'contract', 'description',
+  'responsibilities', 'skills', 'status',
+])
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAdmin()
+  if ('error' in auth) return auth.error
+
   try {
-    const supabase = await getSupabase()
     const { id } = await params
     const body = await request.json()
 
-    const { data, error } = await supabase
+    const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() }
+    for (const [key, value] of Object.entries(body)) {
+      if (ALLOWED_JOB_FIELDS.has(key)) updateData[key] = value
+    }
+
+    const { data, error } = await auth.supabase
       .from('jobs')
-      .update({ ...body, updated_at: new Date().toISOString() })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single()
@@ -37,11 +43,13 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAdmin()
+  if ('error' in auth) return auth.error
+
   try {
-    const supabase = await getSupabase()
     const { id } = await params
 
-    const { error } = await supabase.from('jobs').delete().eq('id', id)
+    const { error } = await auth.supabase.from('jobs').delete().eq('id', id)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })

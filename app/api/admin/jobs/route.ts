@@ -1,16 +1,12 @@
-import { cookies } from 'next/headers'
-import { createServerSideClient } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
-
-async function getSupabase() {
-  const cookieStore = await cookies()
-  return createServerSideClient(cookieStore)
-}
+import { requireAdmin } from '@/lib/admin-auth'
 
 export async function GET() {
+  const auth = await requireAdmin()
+  if ('error' in auth) return auth.error
+
   try {
-    const supabase = await getSupabase()
-    const { data, error } = await supabase
+    const { data, error } = await auth.supabase
       .from('jobs')
       .select('*')
       .order('created_at', { ascending: false })
@@ -26,11 +22,13 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin()
+  if ('error' in auth) return auth.error
+
   try {
-    const supabase = await getSupabase()
     const body = await request.json()
 
-    const { data, error } = await supabase
+    const { data, error } = await auth.supabase
       .from('jobs')
       .insert({
         title: body.title,

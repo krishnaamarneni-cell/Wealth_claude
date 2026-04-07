@@ -141,7 +141,7 @@ DROP POLICY IF EXISTS "Admin can manage blog posts" ON blog_posts;
 -- Public read for published posts only
 CREATE POLICY "Public can read published posts"
   ON blog_posts FOR SELECT
-  USING (status = 'published');
+  USING (published = true);
 
 -- Admin full access
 CREATE POLICY "Admin can manage blog posts"

@@ -9,13 +9,19 @@ export function Markets({ data }: { data: MarketsData }) {
 
   const { commodities, strong_buy, watch, avoid, petrodollar_erosion, safe_haven, description, action_links } = data
 
+  // Filter out items already shown in the scrolling ticker
+  const HIDDEN_COMMODITIES = ['wheat', 'bonds', 'agg', 'dollar', 'uup', 'us dollar', 'u.s. dollar']
+  const filteredCommodities = (commodities ?? []).filter(
+    c => !HIDDEN_COMMODITIES.some(h => c.name.toLowerCase().includes(h))
+  )
+
   return (
     <div className="space-y-6">
       {/* Commodities */}
-      {commodities && commodities.length > 0 && (
+      {filteredCommodities.length > 0 && (
         <Section title="Commodities">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {commodities.map((c, i) => {
+            {filteredCommodities.map((c, i) => {
               const changeColor = c.change_color === 'green' ? '#10b981' : c.change_color === 'red' ? '#ef4444' : '#94a3b8'
               return (
                 <div key={i} className="bg-card border rounded-xl p-3">

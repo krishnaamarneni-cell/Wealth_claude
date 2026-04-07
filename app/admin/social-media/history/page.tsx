@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, RefreshCw, ExternalLink, Film } from 'lucide-react'
-import type { VideoActivityItem } from '@/lib/video-studio/types'
+import type { VideoActivityItem } from '@/lib/social-media/types'
 
 const DATE_FILTERS = [
   { label: 'Last 7 Days', days: 7 },
@@ -54,7 +54,7 @@ export default function HistoryPage() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/admin/video-studio" className="text-muted-foreground hover:text-foreground">
+        <Link href="/admin/social-media" className="text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="flex-1">

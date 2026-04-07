@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import {
   BarChart3,
   Briefcase,
@@ -13,17 +13,10 @@ import {
   Target,
   TrendingUp,
   GitCompare,
-  Database,
-  BookOpen,
-  Zap,
-  Bot,
   Lock,
-  ClipboardCheck,
-  Film,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { createClient } from "@/lib/supabase"
 import { useTier } from "@/lib/tier-context"
 import { UpgradeModal } from "@/components/upgrade-modal"
 
@@ -70,46 +63,9 @@ const marketDataNav: NavItem[] = [
   { title: "Compare Stocks", url: "/dashboard/compare", icon: GitCompare },
 ]
 
-const developmentNav: NavItem[] = [
-  { title: "Blog", url: "/admin/blog", icon: BookOpen },
-  { title: "AI Usage", url: "/admin/ai-usage", icon: Zap },
-  { title: "Data Inspector", url: "/dashboard/data-inspector", icon: Database },
-  { title: "Agents", url: "/agents", icon: Bot },
-  { title: "Assessments", url: "/admin/assessments", icon: ClipboardCheck },
-  { title: "Video Studio", url: "/admin/video-studio", icon: Film },
-]
 
 export function DashboardSidebar() {
   const pathname = usePathname()
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    checkAdmin()
-  }, [])
-
-  async function checkAdmin() {
-    try {
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (!user) {
-        setLoading(false)
-        return
-      }
-
-      const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
-      if (adminEmail && user.email === adminEmail) {
-        setIsAdmin(true)
-      }
-    } catch (error) {
-      console.error("[v0] Error checking admin status:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   return (
     <Sidebar className="border-r border-border">
@@ -165,19 +121,6 @@ export function DashboardSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Admin-only Development Section */}
-        {isAdmin && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Development</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {developmentNav.map((item) => (
-                  <NavMenuItem key={item.title} item={item} pathname={pathname} />
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
       </SidebarContent>
     </Sidebar>
   )

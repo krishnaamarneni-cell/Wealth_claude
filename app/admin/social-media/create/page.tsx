@@ -254,7 +254,7 @@ export default function CreatePostPage() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/admin/video-studio" className="text-muted-foreground hover:text-foreground">
+        <Link href="/admin/social-media" className="text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div>

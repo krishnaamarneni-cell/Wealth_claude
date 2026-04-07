@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Film, Plus, Clock, CheckCircle, AlertCircle, TrendingUp, RefreshCw, ExternalLink } from 'lucide-react'
-import type { VideoStats, VideoActivityItem } from '@/lib/video-studio/types'
+import type { VideoStats, VideoActivityItem } from '@/lib/social-media/types'
 
 export default function VideoStudioDashboard() {
   const [stats, setStats] = useState<VideoStats>({ pending: 0, approved: 0, postedToday: 0, totalPosted: 0 })
@@ -85,12 +85,12 @@ export default function VideoStudioDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Video Studio</h1>
+          <h1 className="text-2xl font-bold">Social Media</h1>
           <p className="text-muted-foreground text-sm">Manage your Instagram reels and video content</p>
         </div>
         <div className="flex gap-2">
           <Link
-            href="/admin/video-studio/create"
+            href="/admin/social-media/create"
             className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
           >
             <Plus className="h-4 w-4" /> Create Post
@@ -145,14 +145,14 @@ export default function VideoStudioDashboard() {
 
           <div className="mt-4 flex gap-2">
             <Link
-              href="/admin/video-studio/queue"
+              href="/admin/social-media/queue"
               className="text-sm text-primary hover:underline"
             >
               View Queue ({stats.pending + stats.approved})
             </Link>
             <span className="text-muted-foreground">|</span>
             <Link
-              href="/admin/video-studio/history"
+              href="/admin/social-media/history"
               className="text-sm text-primary hover:underline"
             >
               View History
@@ -164,7 +164,7 @@ export default function VideoStudioDashboard() {
         <div className="rounded-xl border bg-card p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Recent Activity</h2>
-            <Link href="/admin/video-studio/history" className="text-sm text-primary hover:underline">
+            <Link href="/admin/social-media/history" className="text-sm text-primary hover:underline">
               View all
             </Link>
           </div>

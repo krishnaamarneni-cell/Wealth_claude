@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, RefreshCw, Check, X, Trash2, ExternalLink, Film } from 'lucide-react'
-import type { VideoQueueItem, VideoStatusType } from '@/lib/video-studio/types'
+import type { VideoQueueItem, VideoStatusType } from '@/lib/social-media/types'
 
 const STATUS_TABS: { label: string; value: string }[] = [
   { label: 'All', value: 'all' },
@@ -74,7 +74,7 @@ export default function QueuePage() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/admin/video-studio" className="text-muted-foreground hover:text-foreground">
+        <Link href="/admin/social-media" className="text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="flex-1">
@@ -115,7 +115,7 @@ export default function QueuePage() {
         <div className="text-center py-16">
           <Film className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
           <p className="text-muted-foreground">No videos in queue</p>
-          <Link href="/admin/video-studio/create" className="text-primary hover:underline text-sm mt-2 inline-block">
+          <Link href="/admin/social-media/create" className="text-primary hover:underline text-sm mt-2 inline-block">
             Add one
           </Link>
         </div>

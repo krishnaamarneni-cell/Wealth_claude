@@ -7,6 +7,7 @@ import { Clock, ArrowLeft, Calendar } from 'lucide-react'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { ViewTracker } from '@/components/blog/ViewTracker'
+import MoneyFlowDashboard from '@/components/money-flow-dashboard'
 
 
 interface Props {
@@ -193,6 +194,11 @@ export default async function BlogPostPage({ params }: Props) {
               Back to all articles
             </Link>
           </div>
+        </div>
+
+        {/* Market Overview */}
+        <div className="container mx-auto px-4 py-8 max-w-5xl">
+          <MoneyFlowDashboard compact />
         </div>
 
         {/* Recent Posts */}

@@ -75,7 +75,7 @@ async function queryPerplexity(query: string): Promise<string> {
       body: JSON.stringify({
         model: 'sonar',
         messages: [{ role: 'user', content: query }],
-        max_tokens: 800,
+        max_tokens: 1200,
       }),
     })
     if (!res.ok) return ''
@@ -87,13 +87,13 @@ async function queryPerplexity(query: string): Promise<string> {
 async function fetchPerplexityEnrichment() {
   const [geopolitical, marketIntel, techClimate] = await Promise.all([
     queryPerplexity(
-      'What are the current active military conflicts globally as of today? Include Iran/Hormuz situation, any nuclear threats, major escalations, and specific deadlines. Be specific with numbers and dates.'
+      'Give me a detailed status of ALL active military conflicts globally as of today. For each conflict include: countries involved, casualty estimates, displacement numbers, escalation level (1-10), and latest developments. Specifically cover: Russia-Ukraine, Israel-Palestine/Gaza, Sudan civil war, Myanmar, Iran/Hormuz tensions, Yemen/Houthis, and any others. Include any upcoming diplomatic deadlines, UN votes, or ceasefire negotiations with exact dates. What is the current Doomsday Clock setting?'
     ),
     queryPerplexity(
-      'What are today\'s prices for: Brent crude oil, gold, natural gas, wheat, and Bitcoin? What are the strongest and weakest market sectors today? Any petrodollar or de-dollarization developments?'
+      'Give me exact current prices for: Brent crude, WTI crude, Gold per oz, Silver, Natural gas (Henry Hub), Wheat (CBOT), Corn, Bitcoin, and the DXY dollar index. For each include the % change today and % change this month. What sectors are outperforming and underperforming in the S&P 500 today? What are the latest de-dollarization developments — any BRICS payment system updates, yuan settlement volumes, central bank gold buying? Give specific numbers.'
     ),
     queryPerplexity(
-      'What are the latest AI/AGI developments today? Any new model benchmarks or breakthroughs? Current major climate disasters or food security crises happening now? Any systemic risks emerging?'
+      'What are the most significant AI/tech developments this week? Include: latest model releases (GPT, Claude, Gemini, Llama), benchmark scores, major AI company announcements, AI regulation updates (EU AI Act, US executive orders), and notable AI investments/acquisitions with dollar amounts. Also cover: current climate disasters (wildfires, floods, droughts, storms) happening NOW with locations and severity, global food security situation (crop yields, food price index, hunger statistics), and any emerging pandemic or biotech developments. Be specific with numbers and dates.'
     ),
   ])
   return { geopolitical, marketIntel, techClimate }
@@ -132,7 +132,7 @@ function extractJson(raw: string): any {
 
 // ─── Prompt Templates ────────────────────────────────────────────────────────
 function buildPromptTabs1to4(articles: string, enrichment: { geopolitical: string; marketIntel: string; techClimate: string }): string {
-  return `You are a senior intelligence analyst at a global macro advisory firm. Process these raw news feeds and real-time intelligence to produce structured briefs.
+  return `You are a senior intelligence analyst at a global macro advisory firm writing a daily brief for sophisticated investors. Process these raw news feeds and real-time intelligence to produce DETAILED structured briefs. Be SPECIFIC with numbers, dates, prices, percentages. Never say "N/A" — use your best estimate.
 
 TODAY'S RAW NEWS ARTICLES:
 ${articles}
@@ -146,96 +146,140 @@ ${enrichment.marketIntel}
 REAL-TIME TECH/CLIMATE INTELLIGENCE:
 ${enrichment.techClimate}
 
-Generate a JSON object with exactly these 4 keys. Use REAL data from the articles above. Do not invent data — if you don't have info for a field, give your best informed estimate based on the articles.
+Generate a JSON object with exactly these 4 keys. CRITICAL RULES:
+- Use REAL data from articles and enrichment above
+- Every array must have the MINIMUM number of items specified
+- Every text field must have substantive content (2+ sentences for descriptions)
+- Include specific numbers, prices, percentages, dates — never vague language
 
 {
   "priority_index": [
-    // Exactly 10 items. Rank by: how big is the gap between media noise and real long-term signal?
+    // EXACTLY 10 items. Rank by noise-vs-signal gap. Cover: geopolitics, markets, tech, climate, finance, energy
     {
       "rank": 1,
       "topic": "Short topic name (max 5 words)",
-      "subtitle": "One-line context (max 10 words)",
+      "subtitle": "One-line context with a specific number or date",
       "status": "breaking|escalating|structural|watch|emerging|de-escalating|peak-risk|underdeveloped|20yr-signal",
-      "noise": 1-5,  // How much media coverage (5=everywhere)
-      "signal": 1-5,  // How much it actually matters for next 5 years (5=transformative)
+      "noise": 1-5,
+      "signal": 1-5,
       "trend": "up|down|flat",
-      "summary": "2-sentence explanation of why this ranks here"
+      "summary": "2-3 sentence explanation with specific data points. Include WHY this ranks here and what investors should know."
     }
   ],
   "war_room": {
     "stats": {
-      "active_conflicts": <number>,
+      "active_conflicts": <number of active military conflicts globally, minimum 5>,
       "active_conflicts_label": "Major theaters",
-      "key_deadline": "<specific deadline with date>",
-      "key_deadline_label": "<what the deadline is about>",
-      "commodity_price": "<Brent crude price like $110-114>",
+      "key_deadline": "<specific upcoming deadline with exact date>",
+      "key_deadline_label": "<2-3 word label for the deadline>",
+      "commodity_price": "<Brent crude price range like $108-112>",
       "commodity_label": "War premium",
-      "doomsday_metric": "<specific metric value>",
-      "doomsday_label": "<what it measures>"
+      "doomsday_metric": "<specific metric like 90 seconds or specific risk score>",
+      "doomsday_label": "<Doomsday Clock or similar metric name>"
     },
     "conflicts": [
+      // MINIMUM 5 conflicts. Include: Ukraine-Russia, Israel-Palestine, Sudan, Myanmar, and others
       {
-        "name": "Country/Region — description",
-        "description": "2-3 sentences of latest situation",
+        "name": "Country/Region — Type of conflict",
+        "description": "3-4 sentences with latest developments, casualty figures, displacement numbers, and escalation triggers.",
         "escalation_pct": 0-100,
-        "is_live": true/false
+        "is_live": true
       }
     ],
     "escalation_heat": [
+      // MINIMUM 6 regions: Middle East, Eastern Europe, East Asia, South Asia, Africa, Latin America
       { "region": "Region name", "heat_pct": 0-100 }
     ],
     "headlines": [
+      // MINIMUM 5 headlines from the news articles
       {
-        "text": "Full headline quote with source attribution",
-        "source": "Source name",
+        "text": "Full headline text — Source Name",
+        "source": "Reuters|AP|Bloomberg|etc",
         "time_ago": "Xhr ago"
       }
     ],
-    "analysis": "Brief paragraph about overall situation",
-    "action_links": [{ "label": "Link text" }]
+    "analysis": "Detailed 4-5 sentence paragraph analyzing the overall global security landscape. Connect the dots between conflicts. Identify the biggest escalation risk.",
+    "action_links": [{ "label": "Track Iran situation" }, { "label": "Ukraine latest" }, { "label": "Conflict map" }]
   },
   "markets": {
     "commodities": [
-      { "name": "Brent crude", "price": "$110", "change": "+68% since Feb 28", "change_color": "green|red|neutral" }
+      // MINIMUM 6 commodities: Brent crude, WTI crude, Gold, Natural gas, Wheat, Bitcoin
+      { "name": "Brent crude", "price": "$XXX", "change": "+X.X% today", "change_color": "green|red|neutral" }
     ],
     "strong_buy": [
-      { "ticker_or_label": "XLE/VDE (energy)", "reason": "Brief reason with specific data" }
+      // MINIMUM 3 items with specific tickers/sectors
+      { "ticker_or_label": "Specific ticker or sector (e.g. XLE, GLD, UNG)", "reason": "2-3 sentences with specific data. Why now? What's the catalyst?" }
     ],
     "watch": [
-      { "ticker_or_label": "AI stocks", "reason": "Brief reason" }
+      // MINIMUM 3 items
+      { "ticker_or_label": "Specific ticker or sector", "reason": "2-3 sentences. What trigger would move this to buy or avoid?" }
     ],
     "avoid": [
-      { "ticker_or_label": "Airlines, cruise lines", "reason": "Brief reason" }
+      // MINIMUM 3 items
+      { "ticker_or_label": "Specific ticker or sector", "reason": "2-3 sentences. What's the specific downside risk? By how much could it drop?" }
     ],
     "petrodollar_erosion": {
       "title": "Petrodollar erosion",
-      "text": "2-3 sentences with specific data points about dollar status, BRICS, mBridge etc."
+      "text": "3-4 sentences with SPECIFIC data: BRICS payment volumes, mBridge status, yuan oil trade %, gold reserve changes. Include dates and numbers."
     },
     "safe_haven": [
-      { "asset": "XLE energy", "allocation_pct": 20 }
+      // MINIMUM 5 items that add up to approximately 100%
+      { "asset": "Gold (GLD)", "allocation_pct": 25 },
+      { "asset": "Energy (XLE)", "allocation_pct": 20 },
+      { "asset": "Defense (ITA)", "allocation_pct": 15 },
+      { "asset": "Short-term Treasuries", "allocation_pct": 25 },
+      { "asset": "Cash", "allocation_pct": 15 }
     ],
-    "description": "Overall market summary paragraph",
-    "action_links": [{ "label": "Track petrodollar" }]
+    "description": "3-4 sentence overall market summary connecting geopolitics to market moves. What's the dominant narrative? Where is smart money flowing?",
+    "action_links": [{ "label": "Track commodities" }, { "label": "Portfolio hedge calculator" }, { "label": "De-dollarization tracker" }]
   },
   "tech_ai": {
     "stats": [
-      { "label": "AGI consensus", "value": "2031", "subtitle": "Was 2057 in 2023" },
-      { "label": "Google AI capex", "value": "$75B", "subtitle": "2026 alone" }
+      // MINIMUM 4 stats
+      { "label": "AGI consensus", "value": "20XX", "subtitle": "Was 2057 in 2023" },
+      { "label": "Google AI capex", "value": "$XXB", "subtitle": "2026 alone" },
+      { "label": "AI model releases this month", "value": "X", "subtitle": "GPT, Claude, Gemini etc" },
+      { "label": "AI regulation bills", "value": "XX+", "subtitle": "Globally pending" }
     ],
     "sections": [
+      // MINIMUM 4 sections covering: AI Race, Regulation, Space/Defense Tech, Biotech
       {
         "title": "AI race — dual track",
         "badge": "Critical",
-        "badge_color": "red",
-        "content": "Overview paragraph",
+        "badge_color": "#ef4444",
+        "content": "3-4 sentence overview of the current state of the AI race with specific company names and model releases.",
         "subsections": [
-          { "flag": "US", "label": "Software AI brain — US leads", "text": "Details..." },
-          { "flag": "CN", "label": "Physical AI body — China leads", "text": "Details..." }
+          { "flag": "🇺🇸", "label": "Software AI brain — US leads", "text": "2-3 sentences with specific companies, models, benchmarks." },
+          { "flag": "🇨🇳", "label": "Physical AI body — China leads", "text": "2-3 sentences with specific developments." }
         ],
-        "action_links": [{ "label": "AGI latest" }]
+        "action_links": [{ "label": "Track AI developments" }]
+      },
+      {
+        "title": "AI regulation & governance",
+        "badge": "Evolving",
+        "badge_color": "#f59e0b",
+        "content": "3-4 sentences about current regulatory landscape. EU AI Act status, US executive orders, China regulations.",
+        "subsections": [
+          { "flag": "🇪🇺", "label": "EU AI Act", "text": "Current implementation status and timeline." },
+          { "flag": "🇺🇸", "label": "US approach", "text": "Executive orders and congressional activity." }
+        ]
+      },
+      {
+        "title": "Space & defense technology",
+        "badge": "Strategic",
+        "badge_color": "#6366f1",
+        "content": "2-3 sentences about latest space and defense tech developments.",
+        "subsections": []
+      },
+      {
+        "title": "Biotech & health tech",
+        "badge": "Emerging",
+        "badge_color": "#10b981",
+        "content": "2-3 sentences about notable biotech/health developments.",
+        "subsections": []
       }
     ],
-    "description": "Overall tech summary"
+    "description": "3-4 sentence summary of the tech landscape. What are the investment implications? What should investors watch?"
   }
 }
 
@@ -243,7 +287,7 @@ Return ONLY the JSON object. No preamble, no markdown code fences, no explanatio
 }
 
 function buildPromptTabs5to7(articles: string, enrichment: { geopolitical: string; marketIntel: string; techClimate: string }): string {
-  return `You are a senior intelligence analyst. Process these feeds to produce structured briefs for the remaining tabs.
+  return `You are a senior intelligence analyst writing a daily brief for sophisticated investors. Be SPECIFIC with numbers, dates, percentages. Never say "N/A" — always provide your best informed estimate.
 
 TODAY'S RAW NEWS ARTICLES:
 ${articles}
@@ -257,24 +301,42 @@ ${enrichment.marketIntel}
 REAL-TIME TECH/CLIMATE INTELLIGENCE:
 ${enrichment.techClimate}
 
-Generate a JSON object with exactly these 3 keys:
+Generate a JSON object with exactly these 3 keys. CRITICAL: Every array must have AT LEAST the minimum items specified. Every description must be 2-3 substantive sentences with specific data.
 
 {
   "food_climate": {
     "stats": [
-      { "label": "Acute hunger Africa", "value": "87M", "subtitle": "E+S Africa now", "color": "red" },
-      { "label": "Urea price spike", "value": "+50%", "subtitle": "Since Feb 28", "color": "orange" },
-      { "label": "CO2 rise 2024", "value": "3.75ppm", "subtitle": "Largest on record", "color": "orange" },
-      { "label": "US wildfires '26", "value": "13,658", "subtitle": "2x 10yr avg", "color": "red" }
+      // EXACTLY 4 stats with real data — never use "N/A"
+      { "label": "Acute hunger globally", "value": "XXM", "subtitle": "Specific region or context", "color": "#ef4444" },
+      { "label": "Fertilizer/food price", "value": "+XX%", "subtitle": "Compared to what baseline", "color": "#f59e0b" },
+      { "label": "CO2/temperature metric", "value": "X.XXppm", "subtitle": "Context vs historical", "color": "#f59e0b" },
+      { "label": "Active climate disaster", "value": "Specific number", "subtitle": "Type and comparison", "color": "#ef4444" }
     ],
     "climate_cascade": {
       "title": "Climate cascade — live",
       "badge": "Active",
       "events": [
+        // MINIMUM 4 cascade events showing chain reactions
+        // Format: "Trigger → Impact 1 → Impact 2" in the title
         {
-          "title": "Event title with arrow chain showing cascade",
-          "description": "Specific details with numbers",
+          "title": "Iran tensions → Hormuz risk → Oil shock → Fertilizer spike → Food price surge",
+          "description": "3 sentences explaining the cascade chain with specific numbers. How does one event trigger the next? What's the timeline?",
           "is_active": true
+        },
+        {
+          "title": "El Niño/La Niña → Crop failure → Export bans → Import-dependent nations at risk",
+          "description": "3 sentences with specific countries affected, crop yield impacts, and price changes.",
+          "is_active": true
+        },
+        {
+          "title": "Deforestation → Carbon sink loss → Accelerated warming → Extreme weather",
+          "description": "3 sentences with latest deforestation data and projected impacts.",
+          "is_active": true
+        },
+        {
+          "title": "Water stress → Agricultural collapse → Migration → Political instability",
+          "description": "3 sentences with regions affected and scale of impact.",
+          "is_active": false
         }
       ]
     },
@@ -282,59 +344,82 @@ Generate a JSON object with exactly these 3 keys:
       "title": "Tipping point watch",
       "badge": "Critical",
       "points": [
-        { "name": "Amazon 3-8% from deforestation tipping", "progress_pct": 75, "color": "red" },
-        { "name": "Carbon sink effectiveness (-15% decade)", "progress_pct": 60, "color": "orange" }
+        // MINIMUM 5 tipping points with progress percentages
+        { "name": "Amazon rainforest — X% from deforestation tipping point", "progress_pct": 75, "color": "#ef4444" },
+        { "name": "Arctic sea ice — summer ice-free by 20XX", "progress_pct": 70, "color": "#ef4444" },
+        { "name": "Atlantic thermohaline circulation (AMOC) weakening", "progress_pct": 55, "color": "#f59e0b" },
+        { "name": "Permafrost methane release — XX Gt at risk", "progress_pct": 50, "color": "#f59e0b" },
+        { "name": "Global carbon sink effectiveness declining", "progress_pct": 60, "color": "#f59e0b" }
       ]
     },
-    "description": "Overall food/climate summary"
+    "description": "4-5 sentence summary connecting food security, climate events, and investor implications. What should people actually prepare for? Include specific price impacts on agriculture commodities."
   },
   "threat_index": {
-    "title": "GLOBAL THREAT COMPOSITE — 7 DIMENSIONS (100 = MAXIMUM)",
-    "subtitle": "",
+    "title": "GLOBAL THREAT COMPOSITE",
+    "subtitle": "7 dimensions scored 0-100 based on current intelligence",
     "dimensions": [
-      { "name": "Energy security", "score": 92, "color": "red" },
-      { "name": "Military conflict", "score": 88, "color": "red" },
-      { "name": "Climate emergency", "score": 78, "color": "orange" },
-      { "name": "Food security", "score": 74, "color": "orange" },
-      { "name": "AI governance gap", "score": 72, "color": "orange" },
-      { "name": "Financial stability", "score": 65, "color": "yellow" },
-      { "name": "Institutional breakdown", "score": 68, "color": "orange" }
+      // EXACTLY 7 dimensions — scores should reflect TODAY's actual threat based on the news articles
+      // Use colors: #ef4444 for >75, #f59e0b for 50-75, #eab308 for 30-50, #10b981 for <30
+      { "name": "Energy security", "score": XX, "color": "#ef4444" },
+      { "name": "Military escalation", "score": XX, "color": "#ef4444" },
+      { "name": "Climate emergency", "score": XX, "color": "#f59e0b" },
+      { "name": "Food security", "score": XX, "color": "#f59e0b" },
+      { "name": "AI governance gap", "score": XX, "color": "#f59e0b" },
+      { "name": "Financial system stress", "score": XX, "color": "#eab308" },
+      { "name": "Institutional trust", "score": XX, "color": "#f59e0b" }
     ],
     "scenario_watch": [
+      // MINIMUM 4 scenarios with realistic probabilities
       {
-        "scenario": "Scenario name with probability",
-        "probability": "20%",
-        "description": "2-3 sentences describing the scenario and its implications"
+        "scenario": "Strait of Hormuz partial closure",
+        "probability": "XX%",
+        "description": "3 sentences: What triggers it? What happens to oil/shipping? What's the economic impact?"
+      },
+      {
+        "scenario": "AI-driven market flash crash",
+        "probability": "XX%",
+        "description": "3 sentences: What could trigger it? How fast? What's the recovery timeline?"
+      },
+      {
+        "scenario": "Major cyber attack on financial infrastructure",
+        "probability": "XX%",
+        "description": "3 sentences with specifics."
+      },
+      {
+        "scenario": "Simultaneous crop failures in 3+ breadbasket regions",
+        "probability": "XX%",
+        "description": "3 sentences with specifics."
       }
     ],
     "contrarian": {
-      "title": "Structural ungovernability",
-      "badge": "Contrarian truth",
-      "text": "A paragraph presenting a contrarian analysis that most people miss. Challenge conventional wisdom with data.",
-      "tags": ["Tag 1", "Tag 2", "Tag 3", "Tag 4"]
+      "title": "What the consensus is missing",
+      "badge": "Contrarian insight",
+      "text": "A substantive 4-5 sentence paragraph presenting a contrarian analysis that sophisticated investors should consider. Challenge the dominant narrative with specific data. What is everyone ignoring? What structural risk is being underpriced?",
+      "tags": ["Specific tag 1", "Specific tag 2", "Specific tag 3", "Specific tag 4", "Specific tag 5"]
     }
   },
   "signals": {
     "title": "Early warning — what to watch before it becomes a headline",
     "subtitle": "ranked by surprise potential",
     "items": [
+      // MINIMUM 8 signals covering different categories
       {
         "rank": 1,
         "signal": "Short signal name (max 8 words)",
-        "description": "2-3 sentences explaining what to watch and why it matters. Include specific data points.",
-        "timeline": "Today|Active now|Imminent|Monthly|Quarterly|2026-2027",
+        "description": "3 sentences: What's happening beneath the surface? Why should you care? What's the specific trigger to watch?",
+        "timeline": "Active now|Imminent|This week|This month|This quarter|2026-2027",
         "category": "geopolitics|markets|tech|climate|finance"
       }
     ],
     "action_links": [
-      { "label": "This week brief" },
+      { "label": "This week's brief" },
       { "label": "Automate my feed" },
       { "label": "What am I missing?" }
     ]
   }
 }
 
-Use REAL data from the articles. Scores should reflect actual current threat levels based on the news. Return ONLY the JSON object.`
+Use REAL data from the articles and enrichment. Never use placeholder text. Return ONLY the JSON object. No preamble, no code fences.`
 }
 
 // ─── Main Handler ────────────────────────────────────────────────────────────
@@ -392,11 +477,11 @@ export async function POST(request: NextRequest) {
 
     // 4. Process with Groq (2 sequential calls)
     console.log('[intelligence] Processing with Groq (tabs 1-4)...')
-    const raw1 = await callGroq(buildPromptTabs1to4(articleSummary, enrichment), 4500)
+    const raw1 = await callGroq(buildPromptTabs1to4(articleSummary, enrichment), 8000)
     const tabs1to4 = extractJson(raw1)
 
     console.log('[intelligence] Processing with Groq (tabs 5-7)...')
-    const raw2 = await callGroq(buildPromptTabs5to7(articleSummary, enrichment), 4000)
+    const raw2 = await callGroq(buildPromptTabs5to7(articleSummary, enrichment), 8000)
     const tabs5to7 = extractJson(raw2)
 
     // 5. Store in database

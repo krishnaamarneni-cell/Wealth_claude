@@ -38,8 +38,8 @@ export async function POST(request: NextRequest) {
 
     const images = data.hits.map((hit: any) => ({
       id: hit.id,
-      preview: hit.webformatURL,
-      full: hit.largeImageURL,
+      preview: hit.previewURL,
+      full: hit.webformatURL.replace('_640', '_1280'),
       width: hit.imageWidth,
       height: hit.imageHeight,
       tags: hit.tags,

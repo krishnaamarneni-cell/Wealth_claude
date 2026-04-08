@@ -34,7 +34,15 @@ export async function POST(request: NextRequest) {
       const configured = configureCloudinary()
       if (configured) {
         try {
-          const upload = await cloudinary.uploader.upload(image_url, {
+          // Download image first (Pixabay blocks server-side fetches by Cloudinary)
+          const imgRes = await fetch(image_url, {
+            headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*' },
+          })
+          if (!imgRes.ok) throw new Error(`Failed to download image: ${imgRes.status}`)
+          const buffer = Buffer.from(await imgRes.arrayBuffer())
+          const base64 = `data:image/jpeg;base64,${buffer.toString('base64')}`
+
+          const upload = await cloudinary.uploader.upload(base64, {
             folder: 'wealthclaude/posts',
             resource_type: 'image',
           })

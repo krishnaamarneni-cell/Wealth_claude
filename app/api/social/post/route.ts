@@ -2,19 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { v2 as cloudinary } from 'cloudinary'
 
-const MAKE_WEBHOOK_URL = process.env.MAKE_WEBHOOK_URL
-
-// Configure Cloudinary from URL
-const cloudinaryUrl = process.env.CLOUDINARY_URL
-if (cloudinaryUrl) {
-  const match = cloudinaryUrl.match(/cloudinary:\/\/(\d+):([^@]+)@(.+)/)
-  if (match) {
-    cloudinary.config({
-      cloud_name: match[3],
-      api_key: match[1],
-      api_secret: match[2],
-    })
-  }
+function configureCloudinary() {
+  const url = process.env.CLOUDINARY_URL
+  if (!url) return false
+  const match = url.match(/cloudinary:\/\/(\d+):([^@]+)@(.+)/)
+  if (!match) return false
+  cloudinary.config({
+    cloud_name: match[3],
+    api_key: match[1],
+    api_secret: match[2],
+  })
+  return true
 }
 
 export async function POST(request: NextRequest) {
@@ -25,22 +23,31 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { platform, text, image_url, content_type } = body
 
-    if (!MAKE_WEBHOOK_URL) {
+    if (!process.env.MAKE_WEBHOOK_URL) {
       return NextResponse.json({ error: 'MAKE_WEBHOOK_URL not configured' }, { status: 500 })
     }
 
     let finalImageUrl = image_url
 
     // Upload image to Cloudinary for reliable public URL
-    if (image_url && content_type === 'image' && cloudinaryUrl) {
-      try {
-        const upload = await cloudinary.uploader.upload(image_url, {
-          folder: 'wealthclaude/posts',
-          resource_type: 'image',
-        })
-        finalImageUrl = upload.secure_url
-      } catch (uploadErr: any) {
-        console.error('Cloudinary upload failed, using original URL:', uploadErr.message)
+    if (image_url && content_type === 'image') {
+      const configured = configureCloudinary()
+      if (configured) {
+        try {
+          const upload = await cloudinary.uploader.upload(image_url, {
+            folder: 'wealthclaude/posts',
+            resource_type: 'image',
+          })
+          finalImageUrl = upload.secure_url
+          console.log('Cloudinary upload success:', finalImageUrl)
+        } catch (uploadErr: any) {
+          console.error('Cloudinary upload failed:', uploadErr.message)
+          return NextResponse.json({
+            error: `Image upload failed: ${uploadErr.message}. Try a different image.`
+          }, { status: 500 })
+        }
+      } else {
+        console.warn('CLOUDINARY_URL not configured or invalid, using original URL')
       }
     }
 
@@ -53,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
     if (finalImageUrl) payload.image_url = finalImageUrl
 
-    const res = await fetch(MAKE_WEBHOOK_URL, {
+    const res = await fetch(process.env.MAKE_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

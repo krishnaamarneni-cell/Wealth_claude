@@ -536,6 +536,147 @@ export interface BufferPostPayload {
 }
 
 // ============================================
+// CAROUSEL CONTENT PACKS
+// ============================================
+
+export type CarouselTemplateType = 'v3' | 'v5' | 'v6' | 'v7' | 'v8' | 'v9' | 'v10';
+export type CarouselCategory = 'product' | 'educational' | 'social-proof' | 'engagement' | 'awareness';
+
+export interface CarouselSlideBase {
+  tag: string;
+  heading: string;
+  body: string;
+  fix?: string;
+}
+
+export interface CarouselSlideV6 extends CarouselSlideBase {
+  stats?: { label: string; value: string; suffix?: string }[];
+  chart_data?: { label: string; value: number; color?: string }[];
+}
+
+export interface CarouselSlideV7 {
+  tag: string;
+  heading: string;
+  before: { title: string; items: string[] };
+  after: { title: string; items: string[] };
+}
+
+export interface CarouselSlideV8 {
+  tag: string;
+  myth: string;
+  fact: string;
+  evidence: string;
+  verdict: string;
+}
+
+export interface CarouselSlideV9 extends CarouselSlideBase {
+  chapter: number;
+  date?: string;
+  card_data?: { label: string; value: string }[];
+}
+
+export interface CarouselSlideV10 {
+  category: string;
+  left_items: string[];
+  right_items: string[];
+  left_summary: string;
+  right_summary: string;
+}
+
+export type CarouselSlides =
+  | CarouselSlideBase[]
+  | CarouselSlideV6[]
+  | CarouselSlideV7[]
+  | CarouselSlideV8[]
+  | CarouselSlideV9[]
+  | CarouselSlideV10[];
+
+export interface CarouselContentPack {
+  id: string;
+  template_type: CarouselTemplateType;
+  title: string;
+  description: string | null;
+  category: CarouselCategory;
+  slides: CarouselSlides;
+  is_featured: boolean;
+  usage_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CarouselContentPackInsert {
+  template_type: CarouselTemplateType;
+  title: string;
+  description?: string | null;
+  category?: CarouselCategory;
+  slides: CarouselSlides;
+  is_featured?: boolean;
+}
+
+// ============================================
+// NEWS IMAGE POSTS
+// ============================================
+
+export type NewsTemplateType = 'a' | 'c' | 'd' | 'e' | 'f';
+export type NewsPostStatus = 'draft' | 'exported' | 'posted';
+
+export interface MarketImpactItem {
+  icon: string;
+  name: string;
+  change: string;
+  price?: string;
+  direction: 'up' | 'down';
+}
+
+export interface BigStat {
+  number: string;
+  label: string;
+  color?: string;
+}
+
+export interface TimelineEvent {
+  time: string;
+  title: string;
+  description: string;
+  color: string;
+}
+
+export interface NewsImagePost {
+  id: string;
+  template_type: NewsTemplateType;
+  headline: string;
+  source: string | null;
+  source_url: string | null;
+  category: string;
+  date: string | null;
+  key_points: string[];
+  quote: { text: string; attribution: string };
+  market_impact: MarketImpactItem[];
+  big_stat: BigStat;
+  timeline_events: TimelineEvent[];
+  context_points: string[];
+  exported_url: string | null;
+  status: NewsPostStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NewsImagePostInsert {
+  template_type: NewsTemplateType;
+  headline: string;
+  source?: string | null;
+  source_url?: string | null;
+  category?: string;
+  date?: string | null;
+  key_points?: string[];
+  quote?: { text: string; attribution: string };
+  market_impact?: MarketImpactItem[];
+  big_stat?: BigStat;
+  timeline_events?: TimelineEvent[];
+  context_points?: string[];
+}
+
+// ============================================
 // SUPABASE DATABASE TYPE EXPORT
 // ============================================
 
@@ -591,6 +732,16 @@ export interface Database {
         Row: TelegramSession;
         Insert: Omit<TelegramSession, 'id' | 'created_at'>;
         Update: Partial<TelegramSession>;
+      };
+      carousel_content_packs: {
+        Row: CarouselContentPack;
+        Insert: CarouselContentPackInsert;
+        Update: Partial<CarouselContentPackInsert>;
+      };
+      news_image_posts: {
+        Row: NewsImagePost;
+        Insert: NewsImagePostInsert;
+        Update: Partial<NewsImagePostInsert>;
       };
     };
   };

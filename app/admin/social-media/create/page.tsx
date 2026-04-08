@@ -2,9 +2,11 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Send, Calendar, Sparkles, ImageIcon, Loader2, X, Youtube, Film, Search } from 'lucide-react'
+import { ArrowLeft, Send, Calendar, Sparkles, ImageIcon, Loader2, X, Youtube, Film, Search, LayoutGrid, Newspaper } from 'lucide-react'
+import CarouselTab from '@/components/admin/carousel-tab'
+import BlogImageTab from '@/components/admin/blog-image-tab'
 
-type ContentType = 'reel' | 'image' | 'youtube'
+type ContentType = 'reel' | 'image' | 'youtube' | 'carousel' | 'blog-image'
 type ImageMode = 'search' | 'create'
 
 export default function CreatePostPage() {
@@ -312,7 +314,7 @@ export default function CreatePostPage() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold">Create Post</h1>
-          <p className="text-muted-foreground text-sm">Add a new reel, image post, or YouTube video</p>
+          <p className="text-muted-foreground text-sm">Create reels, image posts, carousels, blog images, or YouTube videos</p>
         </div>
       </div>
 
@@ -353,8 +355,36 @@ export default function CreatePostPage() {
         >
           <Youtube className="h-4 w-4" /> YouTube
         </button>
+        <button
+          onClick={() => switchTab('carousel')}
+          className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2 ${
+            contentType === 'carousel' ? 'bg-emerald-600 text-white' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+          }`}
+        >
+          <LayoutGrid className="h-4 w-4" /> Carousel
+        </button>
+        <button
+          onClick={() => switchTab('blog-image')}
+          className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2 ${
+            contentType === 'blog-image' ? 'bg-orange-600 text-white' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+          }`}
+        >
+          <Newspaper className="h-4 w-4" /> Blog Image
+        </button>
       </div>
 
+      {/* Carousel Tab */}
+      {contentType === 'carousel' && (
+        <CarouselTab onMessage={setMessage} />
+      )}
+
+      {/* Blog Image Tab */}
+      {contentType === 'blog-image' && (
+        <BlogImageTab onMessage={setMessage} />
+      )}
+
+      {/* Existing tabs content */}
+      {(contentType === 'reel' || contentType === 'image' || contentType === 'youtube') && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Column */}
         <div className="space-y-6">
@@ -752,6 +782,7 @@ export default function CreatePostPage() {
           </div>
         </div>
       </div>
+      )}
     </div>
   )
 }

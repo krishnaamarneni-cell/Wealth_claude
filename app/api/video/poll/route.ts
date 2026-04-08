@@ -17,15 +17,26 @@ function isAuthorized(req: NextRequest): boolean {
 }
 
 // GET — Fetch next approved video to process
+// ?type=reel or ?type=youtube to filter by content type
 export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data, error } = await supabase
+  const type = req.nextUrl.searchParams.get('type')
+
+  let query = supabase
     .from('video_queue')
     .select('*')
     .eq('status', 'approved')
+
+  if (type === 'reel') {
+    query = query.in('content_type', ['reel', 'video'])
+  } else if (type === 'youtube') {
+    query = query.eq('content_type', 'youtube')
+  }
+
+  const { data, error } = await query
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle()

@@ -145,8 +145,8 @@ def reel_worker():
                 time.sleep(wait)
                 continue
 
-            # Poll
-            res = requests.get(f"{API_URL}/api/video/poll", headers=HEADERS, timeout=15)
+            # Poll (only reels, not youtube)
+            res = requests.get(f"{API_URL}/api/video/poll?type=reel", headers=HEADERS, timeout=15)
             if res.status_code != 200:
                 time.sleep(REEL_POLL_INTERVAL)
                 continue

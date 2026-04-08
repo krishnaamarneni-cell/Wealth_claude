@@ -1,7 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
+import { v2 as cloudinary } from 'cloudinary'
 
 const MAKE_WEBHOOK_URL = process.env.MAKE_WEBHOOK_URL
+
+// Configure Cloudinary from URL
+const cloudinaryUrl = process.env.CLOUDINARY_URL
+if (cloudinaryUrl) {
+  const match = cloudinaryUrl.match(/cloudinary:\/\/(\d+):([^@]+)@(.+)/)
+  if (match) {
+    cloudinary.config({
+      cloud_name: match[3],
+      api_key: match[1],
+      api_secret: match[2],
+    })
+  }
+}
 
 export async function POST(request: NextRequest) {
   const auth = await requireAdmin()
@@ -15,6 +29,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'MAKE_WEBHOOK_URL not configured' }, { status: 500 })
     }
 
+    let finalImageUrl = image_url
+
+    // Upload image to Cloudinary for reliable public URL
+    if (image_url && content_type === 'image' && cloudinaryUrl) {
+      try {
+        const upload = await cloudinary.uploader.upload(image_url, {
+          folder: 'wealthclaude/posts',
+          resource_type: 'image',
+        })
+        finalImageUrl = upload.secure_url
+      } catch (uploadErr: any) {
+        console.error('Cloudinary upload failed, using original URL:', uploadErr.message)
+      }
+    }
+
     // Send to Make.com webhook
     const payload: Record<string, any> = {
       text: text || '',
@@ -22,7 +51,7 @@ export async function POST(request: NextRequest) {
       content_type: content_type || 'image',
       timestamp: new Date().toISOString(),
     }
-    if (image_url) payload.image_url = image_url
+    if (finalImageUrl) payload.image_url = finalImageUrl
 
     const res = await fetch(MAKE_WEBHOOK_URL, {
       method: 'POST',

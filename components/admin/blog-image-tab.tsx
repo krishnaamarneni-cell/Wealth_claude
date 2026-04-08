@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Loader2, ChevronLeft, Download, Save, Plus, Trash2 } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Loader2, ChevronLeft, Download, Save, Plus, Trash2, Link, Sparkles } from 'lucide-react'
 import type { NewsTemplateType, MarketImpactItem, BigStat, TimelineEvent } from '@/src/types/database'
 import { renderNewsImage } from '@/lib/news-image-renderers'
 
@@ -24,6 +24,9 @@ export default function BlogImageTab({ onMessage }: BlogImageTabProps) {
   const [selectedTemplate, setSelectedTemplate] = useState<NewsTemplateType | null>(null)
   const [isExporting, setIsExporting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isCrawling, setIsCrawling] = useState(false)
+  const [articleUrl, setArticleUrl] = useState('')
+  const previewRef = useRef<HTMLDivElement>(null)
 
   // Form fields
   const [headline, setHeadline] = useState('')
@@ -98,6 +101,45 @@ export default function BlogImageTab({ onMessage }: BlogImageTabProps) {
     context_points: contextPoints.filter(c => c.trim()),
   })
 
+  const handleCrawlArticle = async () => {
+    if (!articleUrl.trim()) {
+      onMessage({ type: 'error', text: 'Paste a news article URL first' })
+      return
+    }
+    setIsCrawling(true)
+    onMessage({ type: 'success', text: 'Crawling article and extracting data with AI...' })
+    try {
+      const res = await fetch('/api/social/crawl-article', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: articleUrl }),
+      })
+      const result = await res.json()
+      if (result.error) {
+        onMessage({ type: 'error', text: result.error })
+        return
+      }
+      const d = result.data
+      // Auto-fill all form fields from AI extraction
+      if (d.headline) setHeadline(d.headline)
+      if (d.source) setSource(d.source)
+      if (d.category) setCategory(d.category)
+      if (d.date) setDate(d.date)
+      if (d.key_points?.length) setKeyPoints(d.key_points)
+      if (d.quote?.text) { setQuoteText(d.quote.text); setQuoteAttr(d.quote.attribution || '') }
+      if (d.market_impact?.length) setMarketImpact(d.market_impact)
+      if (d.big_stat?.number) setBigStat(d.big_stat)
+      if (d.timeline_events?.length) setTimelineEvents(d.timeline_events)
+      if (d.context_points?.length) setContextPoints(d.context_points)
+      setSourceUrl(articleUrl)
+      onMessage({ type: 'success', text: 'Article data extracted! Review and edit below.' })
+    } catch {
+      onMessage({ type: 'error', text: 'Failed to crawl article' })
+    } finally {
+      setIsCrawling(false)
+    }
+  }
+
   const handleExport = async () => {
     if (!selectedTemplate || !headline.trim()) {
       onMessage({ type: 'error', text: 'Enter a headline first' })
@@ -105,19 +147,65 @@ export default function BlogImageTab({ onMessage }: BlogImageTabProps) {
     }
     setIsExporting(true)
     try {
-      const res = await fetch('/api/social/export-news-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(getFormData()),
-      })
-      const data = await res.json()
-      if (data.error) {
-        onMessage({ type: 'error', text: data.error })
+      // Use html2canvas approach — render the preview div to a downloadable image
+      const previewEl = previewRef.current
+      if (previewEl) {
+        const { default: html2canvas } = await import('html2canvas')
+        const canvas = await html2canvas(previewEl, {
+          width: 420,
+          height: 525,
+          scale: 2.5714, // 420 * 2.5714 = 1080px output
+          backgroundColor: '#0A0A08',
+          useCORS: true,
+        })
+        // Download as PNG
+        const link = document.createElement('a')
+        link.download = `${headline.slice(0, 40).replace(/[^a-zA-Z0-9]/g, '_')}_${selectedTemplate}.png`
+        link.href = canvas.toDataURL('image/png')
+        link.click()
+        onMessage({ type: 'success', text: 'Image downloaded as PNG!' })
       } else {
-        onMessage({ type: 'success', text: 'News image exported as PNG!' })
+        // Fallback: download as HTML file
+        const res = await fetch('/api/social/export-news-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(getFormData()),
+        })
+        const data = await res.json()
+        if (data.error) {
+          onMessage({ type: 'error', text: data.error })
+        } else {
+          // Download the HTML file
+          const blob = new Blob([data.html_page], { type: 'text/html' })
+          const link = document.createElement('a')
+          link.download = `news_image_${selectedTemplate}.html`
+          link.href = URL.createObjectURL(blob)
+          link.click()
+          URL.revokeObjectURL(link.href)
+          onMessage({ type: 'success', text: 'HTML file downloaded! Open in browser and screenshot at 1080x1350.' })
+        }
       }
     } catch {
-      onMessage({ type: 'error', text: 'Export failed' })
+      // Fallback to HTML download if html2canvas fails
+      try {
+        const res = await fetch('/api/social/export-news-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(getFormData()),
+        })
+        const data = await res.json()
+        if (!data.error) {
+          const blob = new Blob([data.html_page], { type: 'text/html' })
+          const link = document.createElement('a')
+          link.download = `news_image_${selectedTemplate}.html`
+          link.href = URL.createObjectURL(blob)
+          link.click()
+          URL.revokeObjectURL(link.href)
+          onMessage({ type: 'success', text: 'HTML file downloaded (install html2canvas for direct PNG export).' })
+        }
+      } catch {
+        onMessage({ type: 'error', text: 'Export failed' })
+      }
     } finally {
       setIsExporting(false)
     }
@@ -204,6 +292,34 @@ export default function BlogImageTab({ onMessage }: BlogImageTabProps) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left: Form */}
           <div className="space-y-4">
+            {/* URL Auto-fill */}
+            <div className="rounded-xl border bg-card p-5 space-y-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" /> Auto-fill from Article URL
+              </h3>
+              <p className="text-xs text-muted-foreground">Paste a CNBC or news article link — AI will extract all the data automatically.</p>
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
+                  <Link className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <input
+                    value={articleUrl}
+                    onChange={e => setArticleUrl(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleCrawlArticle()}
+                    className={fieldClass + ' pl-9'}
+                    placeholder="https://www.cnbc.com/2026/04/08/..."
+                  />
+                </div>
+                <button
+                  onClick={handleCrawlArticle}
+                  disabled={isCrawling || !articleUrl.trim()}
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors text-sm font-medium inline-flex items-center gap-1.5 whitespace-nowrap"
+                >
+                  {isCrawling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  {isCrawling ? 'Extracting...' : 'Extract'}
+                </button>
+              </div>
+            </div>
+
             {/* Common fields */}
             <div className="rounded-xl border bg-card p-5 space-y-4">
               <h3 className="text-sm font-semibold">Article Info</h3>
@@ -340,6 +456,7 @@ export default function BlogImageTab({ onMessage }: BlogImageTabProps) {
             <div className="rounded-xl border bg-card p-4">
               <h3 className="text-sm font-semibold mb-3">Live Preview</h3>
               <div
+                ref={previewRef}
                 className="mx-auto bg-black rounded-lg overflow-hidden"
                 style={{ width: '100%', maxWidth: 420, aspectRatio: '4/5' }}
                 dangerouslySetInnerHTML={{

@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Send, Calendar, Sparkles, ImageIcon, Loader2, X, Youtube, Film } from 'lucide-react'
+import { ArrowLeft, Send, Calendar, Sparkles, ImageIcon, Loader2, X, Youtube, Film, Search } from 'lucide-react'
 
 type ContentType = 'reel' | 'image' | 'youtube'
+type ImageMode = 'search' | 'create'
 
 export default function CreatePostPage() {
   const [text, setText] = useState('')
@@ -19,9 +20,15 @@ export default function CreatePostPage() {
 
   const [isGeneratingText, setIsGeneratingText] = useState(false)
   const [isGeneratingImage, setIsGeneratingImage] = useState(false)
+  const [isSearchingImage, setIsSearchingImage] = useState(false)
   const [isPosting, setIsPosting] = useState(false)
   const [isScheduling, setIsScheduling] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [imageMode, setImageMode] = useState<ImageMode>('search')
+  const [imageSearchQuery, setImageSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<{ id: number; preview: string; full: string; tags: string; user: string }[]>([])
+  const [searchTotal, setSearchTotal] = useState(0)
+  const [searchPage, setSearchPage] = useState(1)
 
   // Reset platforms when switching tabs
   const switchTab = (type: ContentType) => {
@@ -89,6 +96,38 @@ export default function CreatePostPage() {
       setMessage({ type: 'error', text: 'Failed to generate image' })
     } finally {
       setIsGeneratingImage(false)
+    }
+  }
+
+  const handleSearchImage = async (page = 1) => {
+    const query = imageSearchQuery.trim() || text.trim().slice(0, 100)
+    if (!query) {
+      setMessage({ type: 'error', text: 'Enter a search term or write a caption first' })
+      return
+    }
+    setIsSearchingImage(true)
+    setMessage(null)
+    try {
+      const res = await fetch('/api/social/search-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, page }),
+      })
+      const data = await res.json()
+      if (data.error) {
+        setMessage({ type: 'error', text: data.error })
+      } else {
+        setSearchResults(data.images)
+        setSearchTotal(data.total)
+        setSearchPage(page)
+        if (data.images.length === 0) {
+          setMessage({ type: 'error', text: 'No images found. Try different keywords.' })
+        }
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to search images' })
+    } finally {
+      setIsSearchingImage(false)
     }
   }
 
@@ -414,35 +453,118 @@ export default function CreatePostPage() {
           {contentType === 'image' && (
             <div className="rounded-xl border bg-card p-6">
               <h2 className="text-lg font-semibold mb-4">Image</h2>
-              <div className="mb-4">
-                <label className="block text-sm text-muted-foreground mb-2">Paste image URL</label>
-                <input
-                  type="url"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="https://example.com/image.jpg"
-                  className="w-full px-4 py-2 rounded-lg border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-                />
+
+              {/* Mode toggle: Find vs Create */}
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={() => setImageMode('search')}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center justify-center gap-2 ${
+                    imageMode === 'search' ? 'bg-blue-600 text-white' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                  }`}
+                >
+                  <Search className="h-3.5 w-3.5" /> Find Image
+                </button>
+                <button
+                  onClick={() => setImageMode('create')}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center justify-center gap-2 ${
+                    imageMode === 'create' ? 'bg-purple-600 text-white' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                  }`}
+                >
+                  <Sparkles className="h-3.5 w-3.5" /> Create with AI
+                </button>
               </div>
-              <div className="relative flex items-center my-4">
-                <div className="flex-1 border-t border-border" />
-                <span className="px-3 text-xs text-muted-foreground">or</span>
-                <div className="flex-1 border-t border-border" />
-              </div>
-              <button
-                onClick={handleGenerateImage}
-                disabled={isGeneratingImage || !text.trim()}
-                className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:opacity-90 disabled:opacity-50 transition-all text-sm font-medium inline-flex items-center justify-center gap-2"
-              >
-                {isGeneratingImage ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" /> Generating image...</>
-                ) : (
-                  <><ImageIcon className="h-4 w-4" /> Generate Image from Caption</>
-                )}
-              </button>
-              {!text.trim() && (
-                <p className="text-xs text-muted-foreground mt-2">Write a caption first — the image will be based on it</p>
+
+              {/* Find Image (Pixabay) */}
+              {imageMode === 'search' && (
+                <div>
+                  <div className="flex gap-2 mb-3">
+                    <input
+                      type="text"
+                      value={imageSearchQuery}
+                      onChange={(e) => setImageSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSearchImage(1)}
+                      placeholder="Search stock images (e.g., finance, trading, economy)"
+                      className="flex-1 px-4 py-2 rounded-lg border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                    <button
+                      onClick={() => handleSearchImage(1)}
+                      disabled={isSearchingImage}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors text-sm font-medium inline-flex items-center gap-1.5"
+                    >
+                      {isSearchingImage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+                      Search
+                    </button>
+                  </div>
+
+                  {/* Search Results Grid */}
+                  {searchResults.length > 0 && (
+                    <div>
+                      <div className="grid grid-cols-3 gap-2 mb-3">
+                        {searchResults.map((img) => (
+                          <button
+                            key={img.id}
+                            onClick={() => { setImageUrl(img.full); setSearchResults([]); setMessage({ type: 'success', text: 'Image selected!' }) }}
+                            className={`relative group rounded-lg overflow-hidden border-2 transition-all hover:border-blue-500 ${
+                              imageUrl === img.full ? 'border-blue-500 ring-2 ring-blue-500/30' : 'border-transparent'
+                            }`}
+                          >
+                            <img src={img.preview} alt={img.tags} className="w-full aspect-square object-cover" />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                              <span className="text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity">Select</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-muted-foreground">{searchTotal.toLocaleString()} results</p>
+                        <div className="flex gap-2">
+                          {searchPage > 1 && (
+                            <button onClick={() => handleSearchImage(searchPage - 1)} className="text-xs text-blue-400 hover:text-blue-300">Previous</button>
+                          )}
+                          {searchTotal > searchPage * 12 && (
+                            <button onClick={() => handleSearchImage(searchPage + 1)} className="text-xs text-blue-400 hover:text-blue-300">More</button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="relative flex items-center my-4">
+                    <div className="flex-1 border-t border-border" />
+                    <span className="px-3 text-xs text-muted-foreground">or paste URL</span>
+                    <div className="flex-1 border-t border-border" />
+                  </div>
+                  <input
+                    type="url"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder="https://example.com/image.jpg"
+                    className="w-full px-4 py-2 rounded-lg border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                  />
+                </div>
               )}
+
+              {/* Create Image (FAL AI) */}
+              {imageMode === 'create' && (
+                <div>
+                  <button
+                    onClick={handleGenerateImage}
+                    disabled={isGeneratingImage || !text.trim()}
+                    className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:opacity-90 disabled:opacity-50 transition-all text-sm font-medium inline-flex items-center justify-center gap-2"
+                  >
+                    {isGeneratingImage ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" /> Generating image...</>
+                    ) : (
+                      <><Sparkles className="h-4 w-4" /> Generate AI Image from Caption</>
+                    )}
+                  </button>
+                  {!text.trim() && (
+                    <p className="text-xs text-muted-foreground mt-2">Write a caption first — the image will be based on it</p>
+                  )}
+                </div>
+              )}
+
+              {/* Selected Image Preview */}
               {imageUrl && (
                 <div className="mt-4 relative inline-block">
                   <img

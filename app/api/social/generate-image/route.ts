@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 
-const FAL_API_KEY = process.env.FAL_API_KEY
+const FAL_API_KEY = process.env.FAL_API_KEY || process.env.FAL_AI_API_KEY
 
 export async function POST(request: NextRequest) {
   const auth = await requireAdmin()

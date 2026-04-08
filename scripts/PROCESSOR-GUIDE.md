@@ -91,19 +91,29 @@ python wealthclaude-processor.py --youtube-only
 
 ## How to Stop / Pause
 
+### Easiest: Double-click stop script
+```
+Double-click: scripts/stop-all.vbs
+```
+This kills all background processors instantly. A popup confirms they're stopped.
+
+Or use the BAT version (shows a terminal):
+```
+Double-click: scripts/stop-all.bat
+```
+
 ### If running with visible window (BAT file)
 - Just **close the window** or press **Ctrl+C**
 
-### If running in background (VBS file)
+### Manual (Task Manager)
 1. Open **Task Manager** (Ctrl+Shift+Esc)
 2. Go to **Details** tab
 3. Find **pythonw.exe**
 4. Right-click → **End Task**
 
 ### Pause temporarily
-There is no pause button. To pause:
-1. Stop the processor (see above)
-2. Start it again when ready
+1. Double-click `stop-all.vbs` to stop
+2. Double-click `start-all-background.vbs` to resume
 
 ### The processor automatically sleeps outside operating hours
 - Default: **7:00 AM - 11:00 PM**

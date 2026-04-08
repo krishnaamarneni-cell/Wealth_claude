@@ -211,7 +211,7 @@ def reel_worker():
 
             # Make.com webhook
             if cloud_url and MAKE_WEBHOOK_URL:
-                requests.post(MAKE_WEBHOOK_URL, json={"video_id": vid_id, "video_url": cloud_url, "caption": caption, "source_url": source_url, "platform": "instagram", "timestamp": datetime.utcnow().isoformat()}, timeout=30)
+                requests.post(MAKE_WEBHOOK_URL, json={"video_id": vid_id, "video_url": cloud_url, "text": caption, "caption": caption, "source_url": source_url, "platform": "instagram", "content_type": "reel", "timestamp": datetime.now().isoformat()}, timeout=30)
 
             # Report
             requests.post(f"{API_URL}/api/video/complete", headers=HEADERS, json={"video_id": vid_id, "cloudinary_url": cloud_url or "", "caption": caption, "status": "posted" if cloud_url else "error"}, timeout=15)

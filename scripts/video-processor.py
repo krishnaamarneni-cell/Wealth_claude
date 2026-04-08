@@ -246,10 +246,12 @@ def send_to_make(video_id: str, cloudinary_url: str, caption: str, source_url: s
         payload = {
             "video_id": video_id,
             "video_url": cloudinary_url,
+            "text": caption,
             "caption": caption,
             "source_url": source_url,
             "platform": "instagram",
-            "timestamp": datetime.utcnow().isoformat(),
+            "content_type": "reel",
+            "timestamp": datetime.now().isoformat(),
         }
         res = requests.post(MAKE_WEBHOOK_URL, json=payload, timeout=30)
         if res.status_code == 200:

@@ -21,10 +21,14 @@ const supabase = createClient(
 )
 
 function isAuthorized(req: NextRequest): boolean {
-  const auth = req.headers.get('authorization')
   const secret = process.env.CRON_SECRET
   if (!secret) return false
-  return auth === `Bearer ${secret}`
+  // Support both: Authorization header OR ?secret= query param (for cron-job.org)
+  const auth = req.headers.get('authorization')
+  if (auth === `Bearer ${secret}`) return true
+  const qSecret = req.nextUrl.searchParams.get('secret')
+  if (qSecret === secret) return true
+  return false
 }
 
 // CNBC RSS feeds by category

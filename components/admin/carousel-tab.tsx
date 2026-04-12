@@ -32,6 +32,9 @@ interface CarouselTabProps {
   onMessage: (msg: { type: 'success' | 'error'; text: string }) => void
 }
 
+// All Google Fonts used by carousel templates
+const CAROUSEL_FONTS_URL = 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;700;800&family=DM+Sans:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&family=Libre+Baskerville:wght@400;700&family=Lora:wght@400;600;700&family=Nunito+Sans:wght@400;600;700&family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Work+Sans:wght@400;500;600;700&display=swap'
+
 export default function CarouselTab({ onMessage }: CarouselTabProps) {
   const [step, setStep] = useState<Step>('pick-template')
   const [selectedTemplate, setSelectedTemplate] = useState<CarouselTemplateType | null>(null)
@@ -39,6 +42,16 @@ export default function CarouselTab({ onMessage }: CarouselTabProps) {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [isExporting, setIsExporting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+
+  // Load Google Fonts for carousel template rendering
+  useEffect(() => {
+    if (!document.querySelector(`link[href*="fonts.googleapis"]`)) {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = CAROUSEL_FONTS_URL
+      document.head.appendChild(link)
+    }
+  }, [])
 
   // Editable slide data
   const [editTitle, setEditTitle] = useState('')

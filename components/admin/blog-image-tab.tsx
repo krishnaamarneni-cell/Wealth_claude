@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Loader2, ChevronLeft, Download, Save, Plus, Trash2, Link, Sparkles } from 'lucide-react'
 import type { NewsTemplateType, MarketImpactItem, BigStat, TimelineEvent } from '@/src/types/database'
 import { renderNewsImage } from '@/lib/news-image-renderers'
@@ -19,6 +19,9 @@ interface BlogImageTabProps {
   onMessage: (msg: { type: 'success' | 'error'; text: string }) => void
 }
 
+// Google Fonts needed by news image templates
+const GOOGLE_FONTS_URL = 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap'
+
 export default function BlogImageTab({ onMessage }: BlogImageTabProps) {
   const [step, setStep] = useState<Step>('pick-template')
   const [selectedTemplate, setSelectedTemplate] = useState<NewsTemplateType | null>(null)
@@ -27,6 +30,16 @@ export default function BlogImageTab({ onMessage }: BlogImageTabProps) {
   const [isCrawling, setIsCrawling] = useState(false)
   const [articleUrl, setArticleUrl] = useState('')
   const previewRef = useRef<HTMLDivElement>(null)
+
+  // Load Google Fonts for template rendering
+  useEffect(() => {
+    if (!document.querySelector(`link[href*="fonts.googleapis"]`)) {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = GOOGLE_FONTS_URL
+      document.head.appendChild(link)
+    }
+  }, [])
 
   // Form fields
   const [headline, setHeadline] = useState('')

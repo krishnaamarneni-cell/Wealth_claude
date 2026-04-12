@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS news_image_posts (
   -- context_points: string[] (for template F)
   exported_url TEXT,
   -- Cloudinary URL after export
-  status TEXT DEFAULT 'draft' CHECK (status IN ('draft','exported','posted')),
+  status TEXT DEFAULT 'draft' CHECK (status IN ('draft','queued','processing','exported','posted','error')),
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );

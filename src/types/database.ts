@@ -618,7 +618,7 @@ export interface CarouselContentPackInsert {
 // ============================================
 
 export type NewsTemplateType = 'a' | 'c' | 'd' | 'e' | 'f';
-export type NewsPostStatus = 'draft' | 'exported' | 'posted';
+export type NewsPostStatus = 'draft' | 'queued' | 'processing' | 'exported' | 'posted' | 'error';
 
 export interface MarketImpactItem {
   icon: string;

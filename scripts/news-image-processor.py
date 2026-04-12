@@ -57,8 +57,7 @@ def poll_queue() -> dict | None:
     """Fetch next queued news image from API."""
     try:
         res = requests.get(
-            f"{API_BASE}/api/social/news-queue",
-            headers={'Authorization': f'Bearer {CRON_SECRET}'},
+            f"{API_BASE}/api/social/news-queue?secret={CRON_SECRET}",
             timeout=30,
         )
         if res.status_code != 200:
@@ -152,11 +151,8 @@ def complete_post(post_id: str, cloudinary_url: str | None, error: str | None = 
             payload['error'] = 'No Cloudinary URL'
 
         res = requests.post(
-            f"{API_BASE}/api/social/news-queue",
-            headers={
-                'Authorization': f'Bearer {CRON_SECRET}',
-                'Content-Type': 'application/json',
-            },
+            f"{API_BASE}/api/social/news-queue?secret={CRON_SECRET}",
+            headers={'Content-Type': 'application/json'},
             json=payload,
             timeout=30,
         )
@@ -210,8 +206,7 @@ def trigger_auto_news(count: int = 3):
     log(f"Triggering auto-news (count={count})...")
     try:
         res = requests.post(
-            f"{API_BASE}/api/social/auto-news?count={count}",
-            headers={'Authorization': f'Bearer {CRON_SECRET}'},
+            f"{API_BASE}/api/social/auto-news?count={count}&secret={CRON_SECRET}",
             timeout=120,
         )
         if res.status_code == 200:

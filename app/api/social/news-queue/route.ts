@@ -18,10 +18,14 @@ const supabase = createClient(
 )
 
 function isAuthorized(req: NextRequest): boolean {
-  const auth = req.headers.get('authorization')
   const secret = process.env.CRON_SECRET
   if (!secret) return false
-  return auth === `Bearer ${secret}`
+  // Support both: Authorization header OR ?secret= query param
+  const auth = req.headers.get('authorization')
+  if (auth === `Bearer ${secret}`) return true
+  const qSecret = req.nextUrl.searchParams.get('secret')
+  if (qSecret === secret) return true
+  return false
 }
 
 // GET — Fetch next queued news image
@@ -121,27 +125,45 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // If exported, also send to Make.com webhook for Instagram posting
+  // If exported, send to Make.com webhook for Instagram + LinkedIn posting
   if (cloudinary_url && process.env.MAKE_WEBHOOK_URL) {
     try {
       // Get the post data for caption
       const { data: post } = await supabase
         .from('news_image_posts')
-        .select('headline, category, source')
+        .select('headline, category, source, source_url')
         .eq('id', post_id)
         .single()
 
-      const caption = post
-        ? `${post.headline}\n\nSource: ${post.source || 'CNBC'}\n\n#${(post.category || 'markets').toLowerCase()} #finance #investing #wealthclaude #news`
+      const hashtags = `#${(post?.category || 'markets').toLowerCase()} #finance #investing #wealthclaude #news`
+
+      // Instagram caption (shorter, hashtag-heavy)
+      const igCaption = post
+        ? `${post.headline}\n\nSource: ${post.source || 'CNBC'}\n\n${hashtags}`
         : ''
+
+      // LinkedIn caption (professional, includes article link)
+      const liCaption = post
+        ? `${post.headline}\n\nSource: ${post.source || 'CNBC'}\n${post.source_url ? `\nRead more: ${post.source_url}` : ''}\n\n${hashtags}`
+        : ''
+
+      // Generate LinkedIn-sized image via Cloudinary transformation
+      // Original: 1080x1350 (4:5 Instagram) → LinkedIn: 1200x627 (1.91:1 landscape)
+      // Crops from top (where headline + key info is) and pads if needed
+      const linkedinImageUrl = cloudinary_url.replace(
+        '/upload/',
+        '/upload/c_fill,w_1200,h_627,g_north/'
+      )
 
       await fetch(process.env.MAKE_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text: caption,
+          text: igCaption,
+          linkedin_text: liCaption,
           image_url: cloudinary_url,
-          platform: 'instagram',
+          linkedin_image_url: linkedinImageUrl,
+          platforms: ['instagram', 'linkedin'],
           content_type: 'image',
           timestamp: new Date().toISOString(),
           source: 'auto-news',

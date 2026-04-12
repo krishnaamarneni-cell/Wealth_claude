@@ -59,14 +59,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Send to Make.com webhook
+    // Send to Make.com webhook (supports Instagram + LinkedIn)
     const payload: Record<string, any> = {
       text: text || '',
-      platform: platform || 'instagram',
+      linkedin_text: text || '',
+      platforms: [platform || 'instagram', 'linkedin'],
       content_type: content_type || 'image',
       timestamp: new Date().toISOString(),
     }
-    if (finalImageUrl) payload.image_url = finalImageUrl
+    if (finalImageUrl) {
+      payload.image_url = finalImageUrl
+      // LinkedIn-optimized image via Cloudinary transformation (1200x627 landscape)
+      payload.linkedin_image_url = finalImageUrl.replace(
+        '/upload/',
+        '/upload/c_fill,w_1200,h_627,g_north/'
+      )
+    }
 
     const res = await fetch(process.env.MAKE_WEBHOOK_URL, {
       method: 'POST',

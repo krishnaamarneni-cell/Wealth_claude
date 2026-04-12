@@ -167,7 +167,13 @@ export async function POST(req: NextRequest) {
 
 async function handleAutoNews(req: NextRequest) {
   if (!isAuthorized(req)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const hasEnvSecret = !!process.env.CRON_SECRET
+    const gotHeader = req.headers.get('authorization') || 'none'
+    const gotParam = req.nextUrl.searchParams.get('secret') ? 'present' : 'missing'
+    return NextResponse.json({
+      error: 'Unauthorized',
+      debug: { env_secret_set: hasEnvSecret, auth_header: gotHeader.slice(0, 15) + '...', query_param: gotParam }
+    }, { status: 401 })
   }
 
   const count = parseInt(req.nextUrl.searchParams.get('count') || '3')

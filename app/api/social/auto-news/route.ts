@@ -178,6 +178,7 @@ async function handleAutoNews(req: NextRequest) {
 
   const count = parseInt(req.nextUrl.searchParams.get('count') || '3')
   const manualUrl = req.nextUrl.searchParams.get('url')
+  const force = req.nextUrl.searchParams.get('force') === 'true'
   const results: any[] = []
 
   try {
@@ -190,16 +191,18 @@ async function handleAutoNews(req: NextRequest) {
     // 2. Process each article
     for (const url of articleUrls) {
       try {
-        // Check if already processed (avoid duplicates)
-        const { data: existing } = await supabase
-          .from('news_image_posts')
-          .select('id')
-          .eq('source_url', url)
-          .maybeSingle()
+        // Check if already processed (skip duplicate check if force=true)
+        if (!force) {
+          const { data: existing } = await supabase
+            .from('news_image_posts')
+            .select('id')
+            .eq('source_url', url)
+            .maybeSingle()
 
-        if (existing) {
-          console.log(`Skipping duplicate: ${url}`)
-          continue
+          if (existing) {
+            console.log(`Skipping duplicate: ${url}`)
+            continue
+          }
         }
 
         // Crawl and extract

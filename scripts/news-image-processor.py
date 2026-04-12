@@ -210,7 +210,7 @@ def trigger_auto_news(count: int = 3, url: str = None):
     try:
         params = f"secret={CRON_SECRET}"
         if url:
-            params += f"&url={url}"
+            params += f"&url={url}&force=true"
         else:
             params += f"&count={count}"
         res = requests.post(
@@ -234,6 +234,7 @@ def main():
     parser.add_argument('--fetch', action='store_true', help='Fetch fresh CNBC articles first')
     parser.add_argument('--count', type=int, default=3, help='Number of articles to fetch (default: 3)')
     parser.add_argument('--url', type=str, help='Manually queue a specific article URL')
+    parser.add_argument('--force', action='store_true', help='Skip duplicate check')
     args = parser.parse_args()
 
     print("=" * 55)

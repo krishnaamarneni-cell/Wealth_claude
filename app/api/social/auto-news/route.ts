@@ -177,11 +177,12 @@ async function handleAutoNews(req: NextRequest) {
   }
 
   const count = parseInt(req.nextUrl.searchParams.get('count') || '3')
+  const manualUrl = req.nextUrl.searchParams.get('url')
   const results: any[] = []
 
   try {
-    // 1. Fetch top CNBC articles
-    const articleUrls = await fetchCNBCArticles(count)
+    // 1. Fetch articles — manual URL or CNBC RSS
+    const articleUrls = manualUrl ? [manualUrl] : await fetchCNBCArticles(count)
     if (articleUrls.length === 0) {
       return NextResponse.json({ error: 'No CNBC articles found' }, { status: 404 })
     }

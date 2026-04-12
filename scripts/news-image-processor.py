@@ -201,12 +201,20 @@ def process_one() -> bool:
     return True
 
 
-def trigger_auto_news(count: int = 3):
-    """Trigger the auto-news endpoint to fetch fresh CNBC articles."""
-    log(f"Triggering auto-news (count={count})...")
+def trigger_auto_news(count: int = 3, url: str = None):
+    """Trigger the auto-news endpoint to fetch fresh CNBC articles or a specific URL."""
+    if url:
+        log(f"Queuing manual article: {url}")
+    else:
+        log(f"Triggering auto-news (count={count})...")
     try:
+        params = f"secret={CRON_SECRET}"
+        if url:
+            params += f"&url={url}"
+        else:
+            params += f"&count={count}"
         res = requests.post(
-            f"{API_BASE}/api/social/auto-news?count={count}&secret={CRON_SECRET}",
+            f"{API_BASE}/api/social/auto-news?{params}",
             timeout=120,
         )
         if res.status_code == 200:
@@ -225,6 +233,7 @@ def main():
     parser.add_argument('--loop', action='store_true', help='Poll continuously')
     parser.add_argument('--fetch', action='store_true', help='Fetch fresh CNBC articles first')
     parser.add_argument('--count', type=int, default=3, help='Number of articles to fetch (default: 3)')
+    parser.add_argument('--url', type=str, help='Manually queue a specific article URL')
     args = parser.parse_args()
 
     print("=" * 55)
@@ -240,7 +249,10 @@ def main():
         log("ERROR: CRON_SECRET not set in .env")
         sys.exit(1)
 
-    if args.fetch:
+    if args.url:
+        trigger_auto_news(url=args.url)
+        time.sleep(3)  # Wait for queue to populate
+    elif args.fetch:
         trigger_auto_news(args.count)
         time.sleep(3)  # Wait for queue to populate
 

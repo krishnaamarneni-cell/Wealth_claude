@@ -11,7 +11,7 @@ const B   = '#4ADE80'
 const BL  = '#7AEEA6'
 const BD  = '#1E7A45'
 const DBG = '#0A0A08'
-const LBG = '#F7F5F2'
+// All slides are dark — no light/cream backgrounds
 const RED = '#EF4444'
 
 /* -- Inline WealthClaude logo (base64 PNG) ----------------- */
@@ -35,6 +35,7 @@ function cornerGlow(variant: 'tl' | 'br' | 'both' = 'both'): string {
 }
 
 /* -- Logo block for hero slides ---------------------------- */
+// Large logo + brand for hero slides
 function logoBrand(): string {
   return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
     <img src="data:image/png;base64,${LOGO_B64}" width="36" height="36" style="border-radius:10px;display:block;" alt="WealthClaude" />
@@ -43,26 +44,29 @@ function logoBrand(): string {
   <div style="width:40px;height:3px;background:${B};border-radius:2px;margin-bottom:20px;"></div>`
 }
 
-/* -- Progress bar ------------------------------------------ */
-function progressBar(i: number, total: number, isLight: boolean): string {
-  const pct = ((i + 1) / total) * 100
-  const tc = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.1)'
-  const fc = isLight ? B : '#fff'
-  const lc = isLight ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.3)'
-  return `<div style="position:absolute;bottom:0;left:0;right:0;padding:16px 28px 20px;z-index:10;display:flex;align-items:center;gap:10px;">
-    <div style="flex:1;height:3px;background:${tc};border-radius:2px;overflow:hidden;">
-      <div style="height:100%;width:${pct.toFixed(1)}%;background:${fc};border-radius:2px;transition:width 0.3s ease;"></div>
-    </div>
-    <span style="font-size:11px;color:${lc};font-weight:500;font-family:sans-serif;letter-spacing:0.5px;">${i + 1}/${total}</span>
+// Small logo for non-hero slides (top-left header)
+function logoSmall(): string {
+  return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:14px;">
+    <img src="data:image/png;base64,${LOGO_B64}" width="20" height="20" style="border-radius:5px;display:block;" alt="WC" />
+    <span style="font-size:9px;font-weight:700;letter-spacing:2px;color:rgba(255,255,255,0.3);">WEALTHCLAUDE</span>
   </div>`
 }
 
-/* -- Swipe arrow ------------------------------------------- */
-function arrow(isLight: boolean): string {
-  const st = isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)'
-  const bg = isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.05)'
-  return `<div style="position:absolute;right:0;top:0;bottom:0;width:48px;z-index:9;display:flex;align-items:center;justify-content:center;background:linear-gradient(to right,transparent,${bg});">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="${st}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+/* -- Progress bar (always dark) ----------------------------- */
+function progressBar(i: number, total: number): string {
+  const pct = ((i + 1) / total) * 100
+  return `<div style="position:absolute;bottom:0;left:0;right:0;padding:16px 28px 20px;z-index:10;display:flex;align-items:center;gap:10px;">
+    <div style="flex:1;height:3px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;">
+      <div style="height:100%;width:${pct.toFixed(1)}%;background:#fff;border-radius:2px;transition:width 0.3s ease;"></div>
+    </div>
+    <span style="font-size:11px;color:rgba(255,255,255,0.3);font-weight:500;font-family:sans-serif;letter-spacing:0.5px;">${i + 1}/${total}</span>
+  </div>`
+}
+
+/* -- Swipe arrow (always dark) ------------------------------ */
+function arrow(): string {
+  return `<div style="position:absolute;right:0;top:0;bottom:0;width:48px;z-index:9;display:flex;align-items:center;justify-content:center;background:linear-gradient(to right,transparent,rgba(255,255,255,0.05));">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="rgba(255,255,255,0.2)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
   </div>`
 }
 
@@ -90,28 +94,20 @@ export function renderCarouselSlide(
 /* ==========================================================
    V3 -- Bold Editorial
    Font: Work Sans body / Libre Baskerville headings
-   Pattern: alternating cream/dark, accent bar on light
+   Pattern: always dark, green accent bar on left
    ========================================================== */
 function renderV3(slide: any, index: number, total: number): string {
-  const isLight = index % 2 === 0
-  const bg = isLight ? LBG : DBG
-  const hColor = isLight ? DBG : '#fff'
-  const bColor = isLight ? '#6B6560' : 'rgba(255,255,255,0.5)'
-  const tagColor = isLight ? BD : BL
-  const numOpacity = isLight ? '0.12' : '0.15'
   const num = String(index + 1).padStart(2, '0')
   const heading = (slide.heading || '').replace(/\n/g, '<br>')
-  const fixColor = isLight ? BD : BL
-  const accentBar = isLight ? `<div style="position:absolute;left:0;top:0;width:6px;height:100%;background:${B};z-index:2;"></div>` : ''
-  const dividerColor = isLight ? '#E8E4DF' : 'rgba(255,255,255,0.08)'
 
-  // Hero slide (index 0) -- dark with logo + brand
+  // Hero slide (index 0) -- logo + brand
   if (index === 0) {
     return `<div style="width:420px;height:525px;position:relative;overflow:hidden;background:${DBG};font-family:'Work Sans',sans-serif;">
       ${noise(false)}
       ${cornerGlow('both')}
-      ${progressBar(index, total, false)}${arrow(false)}
-      <div style="display:flex;flex-direction:column;justify-content:center;height:100%;padding:0 36px 52px;position:relative;z-index:2;">
+      ${progressBar(index, total)}${arrow()}
+      <div style="position:absolute;left:0;top:0;width:6px;height:100%;background:${B};z-index:2;"></div>
+      <div style="display:flex;flex-direction:column;justify-content:center;height:100%;padding:0 36px 52px 46px;position:relative;z-index:2;">
         ${logoBrand()}
         <span style="display:inline-block;font-size:10px;font-weight:600;letter-spacing:2px;color:${BL};margin-bottom:12px;text-transform:uppercase;">${slide.tag || ''}</span>
         <h2 style="font-family:'Libre Baskerville',Georgia,serif;font-size:30px;font-weight:700;letter-spacing:-0.5px;line-height:1.08;color:#fff;margin:0 0 14px;">${heading}</h2>
@@ -120,18 +116,19 @@ function renderV3(slide: any, index: number, total: number): string {
     </div>`
   }
 
-  return `<div style="width:420px;height:525px;position:relative;overflow:hidden;background:${bg};font-family:'Work Sans',sans-serif;">
-    ${noise(isLight)}
-    ${!isLight ? cornerGlow('br') : ''}
-    ${accentBar}
-    ${progressBar(index, total, isLight)}${arrow(isLight)}
-    <div style="display:flex;flex-direction:column;justify-content:flex-end;height:100%;padding:${isLight ? '0 40px 52px 46px' : '0 36px 52px'};position:relative;z-index:2;">
-      <span style="font-family:'Libre Baskerville',Georgia,serif;font-size:80px;font-weight:700;line-height:1;letter-spacing:-3px;color:${B};opacity:${numOpacity};">${num}</span>
-      <div style="width:100%;height:1px;background:${dividerColor};margin:12px 0 16px;"></div>
-      <span style="display:inline-block;font-size:10px;font-weight:600;letter-spacing:2px;color:${tagColor};margin-bottom:12px;text-transform:uppercase;">${slide.tag || ''}</span>
-      <h2 style="font-family:'Libre Baskerville',Georgia,serif;font-size:28px;font-weight:700;letter-spacing:-0.5px;line-height:1.08;color:${hColor};margin:0 0 12px;">${heading}</h2>
-      <p style="font-size:13px;color:${bColor};line-height:1.55;margin:0 0 14px;">${slide.body || ''}</p>
-      ${slide.fix ? `<p style="font-size:12px;font-weight:600;color:${fixColor};margin:0;">&#10003; ${slide.fix}</p>` : ''}
+  return `<div style="width:420px;height:525px;position:relative;overflow:hidden;background:${DBG};font-family:'Work Sans',sans-serif;">
+    ${noise(false)}
+    ${cornerGlow('br')}
+    <div style="position:absolute;left:0;top:0;width:6px;height:100%;background:${B};z-index:2;"></div>
+    ${progressBar(index, total)}${arrow()}
+    <div style="display:flex;flex-direction:column;justify-content:flex-end;height:100%;padding:0 36px 52px 46px;position:relative;z-index:2;">
+      ${logoSmall()}
+      <span style="font-family:'Libre Baskerville',Georgia,serif;font-size:80px;font-weight:700;line-height:1;letter-spacing:-3px;color:${B};opacity:0.15;">${num}</span>
+      <div style="width:100%;height:1px;background:rgba(255,255,255,0.08);margin:12px 0 16px;"></div>
+      <span style="display:inline-block;font-size:10px;font-weight:600;letter-spacing:2px;color:${BL};margin-bottom:12px;text-transform:uppercase;">${slide.tag || ''}</span>
+      <h2 style="font-family:'Libre Baskerville',Georgia,serif;font-size:28px;font-weight:700;letter-spacing:-0.5px;line-height:1.08;color:#fff;margin:0 0 12px;">${heading}</h2>
+      <p style="font-size:13px;color:rgba(255,255,255,0.5);line-height:1.55;margin:0 0 14px;">${slide.body || ''}</p>
+      ${slide.fix ? `<p style="font-size:12px;font-weight:600;color:${BL};margin:0;">&#10003; ${slide.fix}</p>` : ''}
     </div>
   </div>`
 }
@@ -139,24 +136,18 @@ function renderV3(slide: any, index: number, total: number): string {
 /* ==========================================================
    V5 -- Bold Type
    Font: Bricolage Grotesque
-   Pattern: alternating dark/light, ghost numbers
+   Pattern: always dark, ghost numbers
    ========================================================== */
 function renderV5(slide: any, index: number, total: number): string {
-  const isLight = index % 2 !== 0
-  const bg = isLight ? LBG : DBG
-  const hColor = isLight ? DBG : '#fff'
-  const bColor = isLight ? '#6B6560' : 'rgba(255,255,255,0.5)'
-  const tagColor = isLight ? BD : BL
   const ghostNum = String(index + 1).padStart(2, '0')
   const heading = (slide.heading || '').replace(/\n/g, '<br>')
-  const ghostColor = isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)'
 
-  // Hero slide (index 0) -- dark with logo
+  // Hero slide (index 0) -- logo + brand
   if (index === 0) {
     return `<div style="width:420px;height:525px;position:relative;overflow:hidden;background:${DBG};font-family:'Bricolage Grotesque','Inter',sans-serif;">
       ${noise(false)}
       ${cornerGlow('tl')}
-      ${progressBar(index, total, false)}${arrow(false)}
+      ${progressBar(index, total)}${arrow()}
       <div style="position:absolute;right:-20px;top:50%;transform:translateY(-50%);font-size:220px;font-weight:800;color:rgba(255,255,255,0.02);line-height:1;pointer-events:none;">${ghostNum}</div>
       <div style="display:flex;flex-direction:column;justify-content:center;height:100%;padding:0 36px 52px;position:relative;z-index:2;">
         ${logoBrand()}
@@ -167,15 +158,16 @@ function renderV5(slide: any, index: number, total: number): string {
     </div>`
   }
 
-  return `<div style="width:420px;height:525px;position:relative;overflow:hidden;background:${bg};font-family:'Bricolage Grotesque','Inter',sans-serif;">
-    ${noise(isLight)}
-    ${!isLight ? cornerGlow('br') : ''}
-    ${progressBar(index, total, isLight)}${arrow(isLight)}
-    <div style="position:absolute;right:-20px;top:50%;transform:translateY(-50%);font-size:220px;font-weight:800;color:${ghostColor};line-height:1;pointer-events:none;">${ghostNum}</div>
+  return `<div style="width:420px;height:525px;position:relative;overflow:hidden;background:${DBG};font-family:'Bricolage Grotesque','Inter',sans-serif;">
+    ${noise(false)}
+    ${cornerGlow('br')}
+    ${progressBar(index, total)}${arrow()}
+    <div style="position:absolute;right:-20px;top:50%;transform:translateY(-50%);font-size:220px;font-weight:800;color:rgba(255,255,255,0.03);line-height:1;pointer-events:none;">${ghostNum}</div>
     <div style="display:flex;flex-direction:column;justify-content:center;height:100%;padding:0 36px 52px;position:relative;z-index:2;">
-      <span style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:2.5px;color:${tagColor};margin-bottom:16px;text-transform:uppercase;">${slide.tag || ''}</span>
-      <h2 style="font-size:38px;font-weight:800;text-transform:uppercase;letter-spacing:-0.5px;line-height:1.05;color:${hColor};margin:0 0 16px;">${heading}</h2>
-      <p style="font-size:14px;color:${bColor};line-height:1.5;margin:0;">${slide.body || ''}</p>
+      ${logoSmall()}
+      <span style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:2.5px;color:${BL};margin-bottom:16px;text-transform:uppercase;">${slide.tag || ''}</span>
+      <h2 style="font-size:38px;font-weight:800;text-transform:uppercase;letter-spacing:-0.5px;line-height:1.05;color:#fff;margin:0 0 16px;">${heading}</h2>
+      <p style="font-size:14px;color:rgba(255,255,255,0.5);line-height:1.5;margin:0;">${slide.body || ''}</p>
     </div>
   </div>`
 }
@@ -216,8 +208,9 @@ function renderV6(slide: any, index: number, total: number): string {
   return `<div style="width:420px;height:525px;position:relative;overflow:hidden;background:${DBG};font-family:'Outfit','Inter',sans-serif;">
     ${noise(false)}
     ${cornerGlow('tl')}
-    ${progressBar(index, total, false)}${arrow(false)}
+    ${progressBar(index, total)}${arrow()}
     <div style="display:flex;flex-direction:column;justify-content:center;height:100%;padding:0 28px 52px;position:relative;z-index:2;">
+      ${logoSmall()}
       <span style="display:inline-block;font-size:10px;font-weight:600;letter-spacing:2px;color:${B};margin-bottom:14px;text-transform:uppercase;">${slide.tag || ''}</span>
       <h2 style="font-size:24px;font-weight:700;letter-spacing:-0.5px;line-height:1.1;color:#fff;margin:0 0 14px;">${heading}</h2>
       <p style="font-size:13px;color:rgba(255,255,255,0.5);line-height:1.5;margin:0 0 18px;">${slide.body || ''}</p>
@@ -246,8 +239,9 @@ function renderV7(slide: any, index: number, total: number): string {
   return `<div style="width:420px;height:525px;position:relative;overflow:hidden;background:${DBG};font-family:'DM Sans','Inter',sans-serif;">
     ${noise(false)}
     ${cornerGlow('both')}
-    ${progressBar(index, total, false)}${arrow(false)}
+    ${progressBar(index, total)}${arrow()}
     <div style="display:flex;flex-direction:column;justify-content:center;height:100%;padding:0 28px 52px;position:relative;z-index:2;">
+      ${logoSmall()}
       <span style="display:inline-block;font-size:10px;font-weight:600;letter-spacing:2px;color:${B};margin-bottom:12px;text-transform:uppercase;">${slide.tag || ''}</span>
       <h2 style="font-size:22px;font-weight:700;letter-spacing:-0.3px;line-height:1.1;color:#fff;margin:0 0 16px;">${heading}</h2>
 
@@ -280,8 +274,9 @@ function renderV8(slide: any, index: number, total: number): string {
   return `<div style="width:420px;height:525px;position:relative;overflow:hidden;background:${DBG};font-family:'Inter',sans-serif;">
     ${noise(false)}
     ${cornerGlow('both')}
-    ${progressBar(index, total, false)}${arrow(false)}
+    ${progressBar(index, total)}${arrow()}
     <div style="display:flex;flex-direction:column;justify-content:center;height:100%;padding:0 28px 52px;position:relative;z-index:2;">
+      ${logoSmall()}
       <span style="display:inline-block;font-size:10px;font-weight:600;letter-spacing:2px;color:rgba(255,255,255,0.3);margin-bottom:16px;text-transform:uppercase;">${slide.tag || ''}</span>
 
       <!-- Myth -->
@@ -343,7 +338,7 @@ function renderV9(slide: any, index: number, total: number): string {
   return `<div style="width:420px;height:525px;position:relative;overflow:hidden;background:${DBG};font-family:'Nunito Sans','Inter',sans-serif;">
     ${noise(false)}
     ${cornerGlow('tl')}
-    ${progressBar(index, total, false)}${arrow(false)}
+    ${progressBar(index, total)}${arrow()}
     <div style="display:flex;height:100%;padding:24px 0 52px;position:relative;z-index:2;">
       <!-- Timeline -->
       <div style="width:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 0 0 16px;">
@@ -351,6 +346,7 @@ function renderV9(slide: any, index: number, total: number): string {
       </div>
       <!-- Content -->
       <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 28px 0 16px;">
+        ${logoSmall()}
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
           <span style="font-size:10px;font-weight:700;letter-spacing:2px;color:${B};text-transform:uppercase;">${slide.tag || `CHAPTER ${chapter}`}</span>
           ${slide.date ? `<span style="font-size:10px;color:rgba(255,255,255,0.25);">${slide.date}</span>` : ''}
@@ -386,8 +382,9 @@ function renderV10(slide: any, index: number, total: number): string {
   return `<div style="width:420px;height:525px;position:relative;overflow:hidden;background:${DBG};font-family:'Plus Jakarta Sans','Inter',sans-serif;">
     ${noise(false)}
     ${cornerGlow('both')}
-    ${progressBar(index, total, false)}${arrow(false)}
+    ${progressBar(index, total)}${arrow()}
     <div style="display:flex;flex-direction:column;justify-content:center;height:100%;padding:0 24px 52px;position:relative;z-index:2;">
+      ${logoSmall()}
       <!-- Category header -->
       <div style="text-align:center;margin-bottom:16px;">
         <span style="font-size:10px;font-weight:700;letter-spacing:2px;color:rgba(255,255,255,0.3);text-transform:uppercase;">${slide.category?.toUpperCase() || ''}</span>

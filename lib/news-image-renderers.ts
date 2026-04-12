@@ -83,9 +83,9 @@ function renderTemplateA(data: NewsData): string {
     ${NOISE}
     ${cornerGlow(RED, 'top-right')}
 
-    <!-- Red alert bar -->
+    <!-- Red alert bar with logo -->
     <div style="position:relative;z-index:2;background:linear-gradient(135deg,${RED},#DC2626);padding:9px 20px;display:flex;align-items:center;gap:8px;">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 22h20L12 2z" stroke="#fff" stroke-width="2" fill="none"/><line x1="12" y1="10" x2="12" y2="14" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="18" r="1" fill="#fff"/></svg>
+      ${LOGO}
       <span style="font-size:10px;font-weight:700;letter-spacing:2.5px;color:#fff;">BREAKING NEWS</span>
       <span style="margin-left:auto;font-size:10px;color:rgba(255,255,255,0.5);font-weight:500;">${data.date || ''}</span>
     </div>
@@ -109,10 +109,9 @@ function renderTemplateA(data: NewsData): string {
         <div style="display:flex;">${impact}</div>
       </div>
 
-      <!-- Footer with logo -->
-      <div style="display:flex;align-items:center;gap:8px;margin-top:14px;">
-        ${LOGO}
-        <span style="font-size:10px;font-weight:600;color:rgba(255,255,255,0.25);letter-spacing:0.5px;">wealthclaude.com</span>
+      <!-- Footer -->
+      <div style="display:flex;align-items:center;gap:6px;margin-top:12px;">
+        <span style="font-size:10px;color:rgba(255,255,255,0.2);font-weight:500;">wealthclaude.com</span>
       </div>
     </div>
   </div>`
@@ -142,9 +141,9 @@ function renderTemplateC(data: NewsData): string {
     <!-- Green accent line top -->
     <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,${BD},${B},${BL});z-index:2;"></div>
 
-    <div style="position:relative;z-index:2;display:flex;flex-direction:column;justify-content:flex-end;height:100%;padding:24px 28px 24px;">
-      <!-- Category badge + logo -->
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+    <div style="position:relative;z-index:2;display:flex;flex-direction:column;height:100%;padding:20px 28px 20px;">
+      <!-- Category badge + logo (always visible at top) -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-shrink:0;">
         ${LOGO}
         <span style="font-size:9px;font-weight:700;letter-spacing:2.5px;color:${B};">MARKET ANALYSIS</span>
         <span style="margin-left:auto;font-size:10px;color:rgba(255,255,255,0.25);font-weight:500;">${data.date || ''}</span>

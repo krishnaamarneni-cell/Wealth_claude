@@ -128,24 +128,104 @@ export async function POST(req: NextRequest) {
   // If exported, send to Make.com webhook for Instagram + LinkedIn posting
   if (cloudinary_url && process.env.MAKE_WEBHOOK_URL) {
     try {
-      // Get the post data for caption
+      // Get the full post data for rich captions
       const { data: post } = await supabase
         .from('news_image_posts')
-        .select('headline, category, source, source_url')
+        .select('headline, category, source, source_url, key_points, quote, market_impact, big_stat, context_points')
         .eq('id', post_id)
         .single()
 
-      const hashtags = `#${(post?.category || 'markets').toLowerCase()} #finance #investing #wealthclaude #news`
+      if (!post) throw new Error('Post not found')
 
-      // Instagram caption (shorter, hashtag-heavy)
-      const igCaption = post
-        ? `${post.headline}\n\nSource: ${post.source || 'CNBC'}\n\n${hashtags}`
-        : ''
+      const category = (post.category || 'MARKETS').toUpperCase()
+      const src = post.source || 'CNBC'
+      const keyPoints = (post.key_points as string[]) || []
+      const quote = (post.quote as { text?: string; attribution?: string }) || {}
+      const bigStat = (post.big_stat as { number?: string; label?: string }) || {}
+      const marketImpact = (post.market_impact as { icon?: string; name?: string; change?: string }[]) || []
+      const contextPoints = (post.context_points as string[]) || []
 
-      // LinkedIn caption (professional, includes article link)
-      const liCaption = post
-        ? `${post.headline}\n\nSource: ${post.source || 'CNBC'}\n${post.source_url ? `\nRead more: ${post.source_url}` : ''}\n\n${hashtags}`
-        : ''
+      // --- Instagram caption (engaging, visual, hashtag-heavy) ---
+      const igParts: string[] = []
+      // Hook line
+      igParts.push(`${post.headline}`)
+      igParts.push('')
+      // Big stat if available
+      if (bigStat.number) {
+        igParts.push(`${bigStat.number} — ${bigStat.label || ''}`)
+        igParts.push('')
+      }
+      // Key points as bullet list
+      if (keyPoints.length > 0) {
+        igParts.push('Here\'s what you need to know:')
+        keyPoints.slice(0, 4).forEach(p => igParts.push(`- ${p}`))
+        igParts.push('')
+      }
+      // Market movers
+      if (marketImpact.length > 0) {
+        const movers = marketImpact.slice(0, 4).map(m => `${m.icon || ''} ${m.name}: ${m.change}`).join('\n')
+        igParts.push(movers)
+        igParts.push('')
+      }
+      // Quote
+      if (quote.text) {
+        igParts.push(`"${quote.text}" — ${quote.attribution || ''}`)
+        igParts.push('')
+      }
+      // CTA + hashtags
+      igParts.push(`Follow @wealthclaude for daily market updates`)
+      igParts.push('')
+      igParts.push(`Source: ${src}`)
+      igParts.push('')
+      const igHashtags = `#${category.toLowerCase()} #finance #investing #stockmarket #wealthclaude #news #money #trading #economy #markets`
+      igParts.push(igHashtags)
+      const igCaption = igParts.join('\n')
+
+      // --- LinkedIn caption (professional, insightful) ---
+      const liParts: string[] = []
+      // Hook line
+      liParts.push(`${post.headline}`)
+      liParts.push('')
+      // Big stat
+      if (bigStat.number) {
+        liParts.push(`${bigStat.number} — ${bigStat.label || ''}`)
+        liParts.push('')
+      }
+      // Key takeaways
+      if (keyPoints.length > 0) {
+        liParts.push('Key takeaways:')
+        liParts.push('')
+        keyPoints.slice(0, 5).forEach(p => liParts.push(`- ${p}`))
+        liParts.push('')
+      }
+      // Market impact
+      if (marketImpact.length > 0) {
+        liParts.push('Market impact:')
+        marketImpact.slice(0, 4).forEach(m => {
+          liParts.push(`${m.icon || ''} ${m.name}: ${m.change}`)
+        })
+        liParts.push('')
+      }
+      // Quote
+      if (quote.text) {
+        liParts.push(`"${quote.text}"`)
+        if (quote.attribution) liParts.push(`— ${quote.attribution}`)
+        liParts.push('')
+      }
+      // Context
+      if (contextPoints.length > 0) {
+        contextPoints.slice(0, 3).forEach(c => liParts.push(`${c}`))
+        liParts.push('')
+      }
+      // Source + CTA
+      liParts.push(`Source: ${src}`)
+      if (post.source_url) liParts.push(`Read more: ${post.source_url}`)
+      liParts.push('')
+      liParts.push('Follow Wealth Claude for daily market intelligence.')
+      liParts.push('')
+      const liHashtags = `#${category.toLowerCase()} #finance #investing #wealthclaude #news #economy`
+      liParts.push(liHashtags)
+      const liCaption = liParts.join('\n')
 
       // Generate LinkedIn-sized image via Cloudinary transformation
       // Original: 1080x1350 (4:5 Instagram) → LinkedIn: 1200x627 (1.91:1 landscape)

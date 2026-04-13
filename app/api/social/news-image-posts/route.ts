@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
       big_stat: body.big_stat || {},
       timeline_events: body.timeline_events || [],
       context_points: body.context_points || [],
+      status: body.status || 'draft',
     } as any)
     .select()
     .single()

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Loader2, ChevronLeft, Download, Save, Plus, Trash2, Link, Sparkles } from 'lucide-react'
+import { Loader2, ChevronLeft, Download, Save, Plus, Trash2, Link, Sparkles, Send } from 'lucide-react'
 import type { NewsTemplateType, MarketImpactItem, BigStat, TimelineEvent } from '@/src/types/database'
 import { renderNewsImage } from '@/lib/news-image-renderers'
 
@@ -28,6 +28,7 @@ export default function BlogImageTab({ onMessage }: BlogImageTabProps) {
   const [isExporting, setIsExporting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isCrawling, setIsCrawling] = useState(false)
+  const [isPosting, setIsPosting] = useState(false)
   const [articleUrl, setArticleUrl] = useState('')
   const previewRef = useRef<HTMLDivElement>(null)
 
@@ -246,6 +247,33 @@ export default function BlogImageTab({ onMessage }: BlogImageTabProps) {
       onMessage({ type: 'error', text: 'Failed to save' })
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handlePostToSocial = async () => {
+    if (!selectedTemplate || !headline.trim()) {
+      onMessage({ type: 'error', text: 'Enter a headline first' })
+      return
+    }
+    setIsPosting(true)
+    onMessage({ type: 'success', text: 'Queuing for Instagram + LinkedIn...' })
+    try {
+      // Save to Supabase with status 'queued' so the local Python script picks it up
+      const res = await fetch('/api/social/news-image-posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...getFormData(), status: 'queued' }),
+      })
+      const data = await res.json()
+      if (data.error) {
+        onMessage({ type: 'error', text: data.error })
+      } else {
+        onMessage({ type: 'success', text: 'Queued! Local script will screenshot, upload to Cloudinary, and post to Instagram + LinkedIn.' })
+      }
+    } catch {
+      onMessage({ type: 'error', text: 'Failed to queue post' })
+    } finally {
+      setIsPosting(false)
     }
   }
 
@@ -490,6 +518,14 @@ export default function BlogImageTab({ onMessage }: BlogImageTabProps) {
             </div>
 
             <div className="space-y-3">
+              <button
+                onClick={handlePostToSocial}
+                disabled={isPosting}
+                className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors font-semibold inline-flex items-center justify-center gap-2"
+              >
+                {isPosting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {isPosting ? 'Queuing...' : 'Post to Instagram + LinkedIn'}
+              </button>
               <button
                 onClick={handleExport}
                 disabled={isExporting}

@@ -145,86 +145,95 @@ export async function POST(req: NextRequest) {
       const marketImpact = (post.market_impact as { icon?: string; name?: string; change?: string }[]) || []
       const contextPoints = (post.context_points as string[]) || []
 
-      // --- Instagram caption (engaging, visual, hashtag-heavy) ---
-      const igParts: string[] = []
-      // Hook line
-      igParts.push(`${post.headline}`)
-      igParts.push('')
-      // Big stat if available
-      if (bigStat.number) {
-        igParts.push(`${bigStat.number} — ${bigStat.label || ''}`)
-        igParts.push('')
-      }
-      // Key points as bullet list
-      if (keyPoints.length > 0) {
-        igParts.push('Here\'s what you need to know:')
-        keyPoints.slice(0, 4).forEach(p => igParts.push(`- ${p}`))
-        igParts.push('')
-      }
-      // Market movers
-      if (marketImpact.length > 0) {
-        const movers = marketImpact.slice(0, 4).map(m => `${m.icon || ''} ${m.name}: ${m.change}`).join('\n')
-        igParts.push(movers)
-        igParts.push('')
-      }
-      // Quote
-      if (quote.text) {
-        igParts.push(`"${quote.text}" — ${quote.attribution || ''}`)
-        igParts.push('')
-      }
-      // CTA + hashtags
-      igParts.push(`Follow @wealthclaude for daily market updates`)
-      igParts.push('')
-      igParts.push(`Source: ${src}`)
-      igParts.push('')
-      const igHashtags = `#${category.toLowerCase()} #finance #investing #stockmarket #wealthclaude #news #money #trading #economy #markets`
-      igParts.push(igHashtags)
-      const igCaption = igParts.join('\n')
+      // --- Style 3: Professional Analyst caption (same for both platforms) ---
+      function buildCaption(platform: 'instagram' | 'linkedin'): string {
+        const parts: string[] = []
 
-      // --- LinkedIn caption (professional, insightful) ---
-      const liParts: string[] = []
-      // Hook line
-      liParts.push(`${post.headline}`)
-      liParts.push('')
-      // Big stat
-      if (bigStat.number) {
-        liParts.push(`${bigStat.number} — ${bigStat.label || ''}`)
-        liParts.push('')
+        // Hook — headline as authority statement
+        parts.push(post.headline)
+        parts.push('')
+
+        // Big stat hook
+        if (bigStat.number) {
+          parts.push(`${bigStat.number} — that's ${bigStat.label || 'the key number to watch'}.`)
+          parts.push('')
+        }
+
+        // Context narrative — weave key points into a story
+        if (keyPoints.length >= 2) {
+          parts.push(`Here's what happened:`)
+          parts.push('')
+          keyPoints.slice(0, 5).forEach(p => {
+            parts.push(`• ${p}`)
+          })
+          parts.push('')
+        }
+
+        // Market impact section
+        if (marketImpact.length > 0) {
+          parts.push('Market impact:')
+          parts.push('')
+          marketImpact.slice(0, 4).forEach(m => {
+            parts.push(`${m.icon || '📊'} ${m.name}: ${m.change}`)
+          })
+          parts.push('')
+        }
+
+        // Quote block
+        if (quote.text) {
+          parts.push(`"${quote.text}"`)
+          if (quote.attribution) parts.push(`— ${quote.attribution}`)
+          parts.push('')
+        }
+
+        // Why this matters — context points
+        if (contextPoints.length > 0) {
+          parts.push('Why this matters:')
+          parts.push('')
+          contextPoints.slice(0, 3).forEach(c => {
+            parts.push(`→ ${c}`)
+          })
+          parts.push('')
+        }
+
+        // What to watch next
+        parts.push('What to watch next:')
+        parts.push('→ How U.S. markets react at the open')
+        parts.push('→ Any new diplomatic or policy signals')
+        parts.push('→ Rotation into safe-haven assets')
+        parts.push('')
+
+        // Source
+        parts.push(`Source: ${src}`)
+        if (platform === 'linkedin' && post.source_url) {
+          parts.push(`Read more: ${post.source_url}`)
+        }
+        parts.push('')
+
+        // CTA
+        if (platform === 'instagram') {
+          parts.push('Follow @wealthclaude for daily market intelligence.')
+          parts.push('Save this post. Share it with someone who needs to see this.')
+        } else {
+          parts.push('Follow Wealth Claude for daily market intelligence.')
+        }
+        parts.push('')
+
+        // Hashtags
+        if (platform === 'instagram') {
+          parts.push('.')
+          parts.push('.')
+          parts.push('.')
+          parts.push(`#${category.toLowerCase()} #finance #investing #stockmarket #wealthclaude #news #money #trading #economy #markets #breakingnews`)
+        } else {
+          parts.push(`#${category.toLowerCase()} #finance #investing #wealthclaude #news #economy #markets`)
+        }
+
+        return parts.join('\n')
       }
-      // Key takeaways
-      if (keyPoints.length > 0) {
-        liParts.push('Key takeaways:')
-        liParts.push('')
-        keyPoints.slice(0, 5).forEach(p => liParts.push(`- ${p}`))
-        liParts.push('')
-      }
-      // Market impact
-      if (marketImpact.length > 0) {
-        liParts.push('Market impact:')
-        marketImpact.slice(0, 4).forEach(m => {
-          liParts.push(`${m.icon || ''} ${m.name}: ${m.change}`)
-        })
-        liParts.push('')
-      }
-      // Quote
-      if (quote.text) {
-        liParts.push(`"${quote.text}"`)
-        if (quote.attribution) liParts.push(`— ${quote.attribution}`)
-        liParts.push('')
-      }
-      // Context
-      if (contextPoints.length > 0) {
-        contextPoints.slice(0, 3).forEach(c => liParts.push(`${c}`))
-        liParts.push('')
-      }
-      // Source + CTA
-      liParts.push(`Source: ${src}`)
-      if (post.source_url) liParts.push(`Read more: ${post.source_url}`)
-      liParts.push('')
-      liParts.push('Follow Wealth Claude for daily market intelligence.')
-      liParts.push('')
-      const liHashtags = `#${category.toLowerCase()} #finance #investing #wealthclaude #news #economy`
-      liParts.push(liHashtags)
+
+      const igCaption = buildCaption('instagram')
+      const liCaption = buildCaption('linkedin')
       const liCaption = liParts.join('\n')
 
       // Generate LinkedIn-sized image via Cloudinary transformation

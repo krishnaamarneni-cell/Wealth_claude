@@ -2,11 +2,12 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Send, Calendar, Sparkles, ImageIcon, Loader2, X, Youtube, Film, Search, LayoutGrid, Newspaper } from 'lucide-react'
+import { ArrowLeft, Send, Calendar, Sparkles, ImageIcon, Loader2, X, Youtube, Film, Search, LayoutGrid, Newspaper, Globe } from 'lucide-react'
 import CarouselTab from '@/components/admin/carousel-tab'
 import BlogImageTab from '@/components/admin/blog-image-tab'
+import ArticlePostTab from '@/components/admin/article-post-tab'
 
-type ContentType = 'reel' | 'image' | 'youtube' | 'carousel' | 'blog-image'
+type ContentType = 'reel' | 'image' | 'youtube' | 'carousel' | 'blog-image' | 'article'
 type ImageMode = 'search' | 'create'
 
 export default function CreatePostPage() {
@@ -371,6 +372,14 @@ export default function CreatePostPage() {
         >
           <Newspaper className="h-4 w-4" /> Blog Image
         </button>
+        <button
+          onClick={() => switchTab('article')}
+          className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2 ${
+            contentType === 'article' ? 'bg-cyan-600 text-white' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+          }`}
+        >
+          <Globe className="h-4 w-4" /> Article Post
+        </button>
       </div>
 
       {/* Carousel Tab */}
@@ -381,6 +390,11 @@ export default function CreatePostPage() {
       {/* Blog Image Tab */}
       {contentType === 'blog-image' && (
         <BlogImageTab onMessage={setMessage} />
+      )}
+
+      {/* Article Post Tab */}
+      {contentType === 'article' && (
+        <ArticlePostTab onMessage={setMessage} />
       )}
 
       {/* Existing tabs content */}

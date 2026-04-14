@@ -1,18 +1,26 @@
 import { type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase'
 
-export async function middleware(request: NextRequest) {
-  console.log('[v0-middleware] Request:', request.nextUrl.pathname)
+function applySecurityHeaders(response: Response) {
+  response.headers.set('X-Frame-Options', 'DENY')
+  response.headers.set('Content-Security-Policy', "frame-ancestors 'none';")
+  response.headers.set('X-Content-Type-Options', 'nosniff')
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload')
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), interest-cohort=()')
+  response.headers.set('X-XSS-Protection', '1; mode=block')
+  return response
+}
 
+export async function middleware(request: NextRequest) {
   // Protect /dashboard routes - redirect to auth if not logged in
   if (request.nextUrl.pathname.startsWith('/dashboard')) {
-    console.log('[v0-middleware] Checking auth for /dashboard')
     const response = await updateSession(request)
-    console.log('[v0-middleware] Auth check response status:', response.status)
-    return response
+    return applySecurityHeaders(response)
   }
 
-  return updateSession(request)
+  const response = await updateSession(request)
+  return applySecurityHeaders(response)
 }
 
 export const config = {

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Mail, Github, Loader2, Check, LineChart } from 'lucide-react'
+import { Mail, Loader2, Check, LineChart } from 'lucide-react'
 
 const COMPANY_NAME = 'WealthClaude'
 
@@ -96,21 +96,6 @@ export default function AuthPage() {
       if (error) throw error
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Google login failed')
-    }
-  }
-
-  // GitHub OAuth
-  const handleGithubAuth = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'github',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
-      })
-      if (error) throw error
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'GitHub login failed')
     }
   }
 
@@ -259,26 +244,15 @@ export default function AuthPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  onClick={handleGoogleAuth}
-                  disabled={loading}
-                  className="w-full"
-                >
-                  <Mail className="mr-2 h-4 w-4" />
-                  Google
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleGithubAuth}
-                  disabled={loading}
-                  className="w-full"
-                >
-                  <Github className="mr-2 h-4 w-4" />
-                  GitHub
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                onClick={handleGoogleAuth}
+                disabled={loading}
+                className="w-full"
+              >
+                <Mail className="mr-2 h-4 w-4" />
+                Continue with Google
+              </Button>
             </TabsContent>
 
             {/* Sign In Tab */}
@@ -391,26 +365,15 @@ export default function AuthPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={handleGoogleAuth}
-                      disabled={loading}
-                      className="w-full"
-                    >
-                      <Mail className="mr-2 h-4 w-4" />
-                      Google
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleGithubAuth}
-                      disabled={loading}
-                      className="w-full"
-                    >
-                      <Github className="mr-2 h-4 w-4" />
-                      GitHub
-                    </Button>
-                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={handleGoogleAuth}
+                    disabled={loading}
+                    className="w-full"
+                  >
+                    <Mail className="mr-2 h-4 w-4" />
+                    Continue with Google
+                  </Button>
                 </>
               )}
             </TabsContent>

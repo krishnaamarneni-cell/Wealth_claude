@@ -234,7 +234,6 @@ export async function POST(req: NextRequest) {
 
       const igCaption = buildCaption('instagram')
       const liCaption = buildCaption('linkedin')
-      const liCaption = liParts.join('\n')
 
       // Generate LinkedIn-sized image via Cloudinary transformation
       // Original: 1080x1350 (4:5 Instagram) → LinkedIn: 1200x627 (1.91:1 landscape)

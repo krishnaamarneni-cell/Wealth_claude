@@ -39,7 +39,7 @@ class VideoStudioProcessor:
         self.youtube = YouTubeUploader()
 
         # Settings
-        self.poll_interval = int(os.getenv('POLL_INTERVAL_SECONDS', 30))
+        self.poll_interval = 60  # Check every 60 seconds
         self.max_posts_per_day = int(os.getenv('MAX_POSTS_PER_DAY', 10))
         self.output_dir = os.getenv('OUTPUT_DIR', './output')
         self.temp_dir = os.getenv('TEMP_DIR', './temp')
@@ -221,6 +221,21 @@ class VideoStudioProcessor:
 
             print(f"Waiting {self.poll_interval}s...")
             time.sleep(self.poll_interval)
+
+
+def process_pending_videos():
+    """Called by master_processor.py every 60 seconds"""
+    try:
+        p = VideoStudioProcessor()
+        items = p.get_approved_items()
+        if items:
+            print(f"[YouTube] Found {len(items)} approved video(s)")
+            for item in items:
+                p.process_and_upload(item)
+        else:
+            print("[YouTube] No approved videos")
+    except Exception as e:
+        print(f"[YouTube] Error: {e}")
 
 
 if __name__ == '__main__':

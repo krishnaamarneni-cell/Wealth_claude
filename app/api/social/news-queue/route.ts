@@ -235,6 +235,51 @@ export async function POST(req: NextRequest) {
       const igCaption = buildCaption('instagram')
       const liCaption = buildCaption('linkedin')
 
+      // --- X/Twitter caption (short, punchy, under 280 chars) ---
+      function buildXCaption(): string {
+        const maxLen = 275 // leave room for safety
+
+        // Core: headline + top stat + 2 hashtags
+        const parts: string[] = []
+        parts.push(post.headline)
+
+        if (bigStat.number) {
+          parts.push(`\n${bigStat.number} — ${bigStat.label || ''}`)
+        }
+
+        // Top 1-2 key points if space allows
+        if (keyPoints.length > 0) {
+          parts.push('')
+          keyPoints.slice(0, 2).forEach(p => {
+            parts.push(`• ${p}`)
+          })
+        }
+
+        // Top market mover
+        if (marketImpact.length > 0) {
+          const m = marketImpact[0]
+          parts.push(`\n${m.icon || ''} ${m.name}: ${m.change}`)
+        }
+
+        // Hashtags (short set for X)
+        const hashtags = `\n\n#${category.toLowerCase()} #markets #stocks`
+
+        let caption = parts.join('\n') + hashtags
+
+        // Trim if over limit
+        if (caption.length > maxLen) {
+          // Fallback: just headline + 1 stat + hashtags
+          const minimal = `${post.headline}${bigStat.number ? `\n\n${bigStat.number} — ${bigStat.label || ''}` : ''}${hashtags}`
+          caption = minimal.length > maxLen
+            ? post.headline.slice(0, maxLen - hashtags.length - 3) + '...' + hashtags
+            : minimal
+        }
+
+        return caption
+      }
+
+      const xCaption = buildXCaption()
+
       // Generate LinkedIn-sized image via Cloudinary transformation
       // Original: 1080x1350 (4:5 Instagram) → LinkedIn: 1200x627 (1.91:1 landscape)
       // Crops from top (where headline + key info is) and pads if needed
@@ -243,15 +288,20 @@ export async function POST(req: NextRequest) {
         '/upload/c_fill,w_1200,h_627,g_north/'
       )
 
+      // Send to Make.com webhook — Instagram, LinkedIn, and X (Twitter)
+      // Make.com Router branches filter on content_type and platform fields
       await fetch(process.env.MAKE_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text: igCaption,
           linkedin_text: liCaption,
+          twitter_text: xCaption,
+          x_text: xCaption,
           image_url: cloudinary_url,
           linkedin_image_url: linkedinImageUrl,
-          platforms: ['instagram', 'linkedin'],
+          x_image_url: cloudinary_url,
+          platforms: ['instagram', 'linkedin', 'x'],
           content_type: 'image',
           timestamp: new Date().toISOString(),
           source: 'auto-news',

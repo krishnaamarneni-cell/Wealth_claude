@@ -1,0 +1,5 @@
+2026-04-08 07:26:51,106 [WealthClaude] INFO: Started: ReelProcessor
+2026-04-08 07:26:51,107 [WealthClaude] INFO: Started: YouTubeProcessor
+2026-04-08 07:26:53,237 [Reels] INFO: Reel processor started (poll every 60s)
+2026-04-08 07:26:53,237 [Reels] INFO: API: https://www.wealthclaude.com | Cloudinary: ddyhi6nej | Make: OK
+2026-04-08 07:27:14,197 [YouTube] INFO: YouTube processor loaded

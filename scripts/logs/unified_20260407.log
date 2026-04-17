@@ -1,0 +1,105 @@
+2026-04-07 20:02:11,165 [WealthClaude] INFO: Started: ReelProcessor
+2026-04-07 20:02:11,166 [WealthClaude] INFO: Started: YouTubeProcessor
+2026-04-07 20:02:13,101 [Reels] INFO: Reel processor started (poll every 60s)
+2026-04-07 20:02:13,101 [Reels] INFO: API: https://www.wealthclaude.com | Cloudinary: ddyhi6nej | Make: OK
+2026-04-07 20:02:13,101 [Reels] INFO: Outside hours. Sleeping 11.0h
+2026-04-07 20:02:23,789 [YouTube] INFO: YouTube processor loaded
+2026-04-07 20:10:03,682 [WealthClaude] INFO: Started: ReelProcessor
+2026-04-07 20:10:03,682 [WealthClaude] INFO: Started: YouTubeProcessor
+2026-04-07 20:10:03,982 [Reels] INFO: Reel processor started (poll every 60s)
+2026-04-07 20:10:03,983 [Reels] INFO: API: https://www.wealthclaude.com | Cloudinary: ddyhi6nej | Make: OK
+2026-04-07 20:10:03,983 [Reels] INFO: Outside hours. Sleeping 10.8h
+2026-04-07 20:10:04,709 [YouTube] INFO: YouTube processor loaded
+2026-04-07 20:23:07,726 [WealthClaude] INFO: Started: ReelProcessor
+2026-04-07 20:23:07,727 [WealthClaude] INFO: Started: YouTubeProcessor
+2026-04-07 20:23:08,000 [Reels] INFO: Reel processor started (poll every 60s)
+2026-04-07 20:23:08,000 [Reels] INFO: API: https://www.wealthclaude.com | Cloudinary: ddyhi6nej | Make: OK
+2026-04-07 20:23:08,000 [Reels] INFO: Outside hours. Sleeping 10.6h
+2026-04-07 20:23:08,582 [YouTube] INFO: YouTube processor loaded
+2026-04-07 20:32:36,774 [WealthClaude] INFO: Started: ReelProcessor
+2026-04-07 20:32:36,774 [WealthClaude] INFO: Started: YouTubeProcessor
+2026-04-07 20:32:37,037 [Reels] INFO: Reel processor started (poll every 60s)
+2026-04-07 20:32:37,037 [Reels] INFO: API: https://www.wealthclaude.com | Cloudinary: ddyhi6nej | Make: OK
+2026-04-07 20:32:37,037 [Reels] INFO: Outside hours. Sleeping 10.5h
+2026-04-07 20:32:37,591 [YouTube] INFO: YouTube processor loaded
+2026-04-07 20:41:23,632 [WealthClaude] INFO: Started: ReelProcessor
+2026-04-07 20:41:23,632 [WealthClaude] INFO: Started: YouTubeProcessor
+2026-04-07 20:41:26,430 [Reels] INFO: Reel processor started (poll every 60s)
+2026-04-07 20:41:26,431 [Reels] INFO: API: https://www.wealthclaude.com | Cloudinary: ddyhi6nej | Make: OK
+2026-04-07 20:41:26,431 [Reels] INFO: Outside hours. Sleeping 10.3h
+2026-04-07 20:41:40,395 [YouTube] INFO: YouTube processor loaded
+2026-04-07 20:42:55,023 [WealthClaude] INFO: Started: ReelProcessor
+2026-04-07 20:42:55,168 [Reels] INFO: Reel processor started (poll every 60s)
+2026-04-07 20:42:55,168 [Reels] INFO: API: https://www.wealthclaude.com | Cloudinary: ddyhi6nej | Make: OK
+2026-04-07 20:42:55,168 [Reels] INFO: Outside hours. Sleeping 10.3h
+2026-04-07 20:49:22,403 [WealthClaude] INFO: Started: ReelProcessor
+2026-04-07 20:49:22,404 [WealthClaude] INFO: Started: YouTubeProcessor
+2026-04-07 20:49:22,639 [Reels] INFO: Reel processor started (poll every 60s)
+2026-04-07 20:49:22,639 [Reels] INFO: API: https://www.wealthclaude.com | Cloudinary: ddyhi6nej | Make: OK
+2026-04-07 20:49:23,264 [YouTube] INFO: YouTube processor loaded
+2026-04-07 20:54:08,663 [WealthClaude] INFO: Started: ReelProcessor
+2026-04-07 20:54:08,826 [Reels] INFO: Reel processor started (poll every 60s)
+2026-04-07 20:54:08,826 [Reels] INFO: API: https://www.wealthclaude.com | Cloudinary: ddyhi6nej | Make: OK
+2026-04-07 20:56:42,540 [WealthClaude] INFO: Started: ReelProcessor
+2026-04-07 20:56:42,685 [Reels] INFO: Reel processor started (poll every 60s)
+2026-04-07 20:56:42,685 [Reels] INFO: API: https://www.wealthclaude.com | Cloudinary: ddyhi6nej | Make: OK
+2026-04-07 20:56:51,476 [WealthClaude] INFO: Started: ReelProcessor
+2026-04-07 20:56:51,476 [WealthClaude] INFO: Started: YouTubeProcessor
+2026-04-07 20:56:51,786 [Reels] INFO: Reel processor started (poll every 60s)
+2026-04-07 20:56:51,786 [Reels] INFO: API: https://www.wealthclaude.com | Cloudinary: ddyhi6nej | Make: OK
+2026-04-07 20:56:52,388 [YouTube] INFO: YouTube processor loaded
+2026-04-07 20:57:53,610 [Reels] INFO: Processing reel: 4d98cf86-03d5-470e-bb31-255d8e346c27 — https://www.instagram.com/reel/DW1EadpkiQF/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA==
+2026-04-07 20:58:02,898 [Reels] INFO: Uploaded: https://res.cloudinary.com/ddyhi6nej/video/upload/v1775609882/wealthclaude/reels/wealthclaude/reels/4d98cf86-03d5-470e-bb31-255d8e346c27.mp4
+2026-04-07 20:58:05,159 [Reels] INFO: Done: 4d98cf86-03d5-470e-bb31-255d8e346c27
+2026-04-07 20:58:44,460 [WealthClaude] INFO: Started: ReelProcessor
+2026-04-07 20:58:44,461 [WealthClaude] INFO: Started: YouTubeProcessor
+2026-04-07 20:58:44,830 [Reels] INFO: Reel processor started (poll every 60s)
+2026-04-07 20:58:44,831 [Reels] INFO: API: https://www.wealthclaude.com | Cloudinary: ddyhi6nej | Make: OK
+2026-04-07 20:58:45,598 [YouTube] INFO: YouTube processor loaded
+2026-04-07 22:36:43,456 [Reels] INFO: Processing reel: 5db1dc57-6142-4388-a27a-db393923082c — https://youtube.com/shorts/VdRo5JBvmH8?si=CHyL-0Ove_SnIJMN
+2026-04-07 22:36:59,185 [Reels] INFO: Uploaded: https://res.cloudinary.com/ddyhi6nej/video/upload/v1775615818/wealthclaude/reels/wealthclaude/reels/5db1dc57-6142-4388-a27a-db393923082c.mp4
+2026-04-07 22:37:01,662 [Reels] INFO: Done: 5db1dc57-6142-4388-a27a-db393923082c
+2026-04-07 22:41:01,394 [WealthClaude] INFO: Started: ReelProcessor
+2026-04-07 22:41:01,394 [WealthClaude] INFO: Started: YouTubeProcessor
+2026-04-07 22:41:01,630 [Reels] INFO: Reel processor started (poll every 60s)
+2026-04-07 22:41:01,630 [Reels] INFO: API: https://www.wealthclaude.com | Cloudinary: ddyhi6nej | Make: OK
+2026-04-07 22:41:03,088 [YouTube] INFO: YouTube processor loaded
+2026-04-07 22:44:43,656 [WealthClaude] INFO: Started: ReelProcessor
+2026-04-07 22:44:43,657 [WealthClaude] INFO: Started: YouTubeProcessor
+2026-04-07 22:44:43,905 [Reels] INFO: Reel processor started (poll every 60s)
+2026-04-07 22:44:43,906 [Reels] INFO: API: https://www.wealthclaude.com | Cloudinary: ddyhi6nej | Make: OK
+2026-04-07 22:44:44,518 [YouTube] INFO: YouTube processor loaded
+2026-04-07 22:48:45,642 [WealthClaude] INFO: Started: ReelProcessor
+2026-04-07 22:48:45,643 [WealthClaude] INFO: Started: YouTubeProcessor
+2026-04-07 22:48:45,906 [Reels] INFO: Reel processor started (poll every 60s)
+2026-04-07 22:48:45,906 [Reels] INFO: API: https://www.wealthclaude.com | Cloudinary: ddyhi6nej | Make: OK
+2026-04-07 22:48:46,557 [YouTube] INFO: YouTube processor loaded
+2026-04-07 22:52:14,988 [WealthClaude] INFO: Started: ReelProcessor
+2026-04-07 22:52:14,989 [WealthClaude] INFO: Started: YouTubeProcessor
+2026-04-07 22:52:15,281 [Reels] INFO: Reel processor started (poll every 60s)
+2026-04-07 22:52:15,283 [Reels] INFO: API: https://www.wealthclaude.com | Cloudinary: ddyhi6nej | Make: OK
+2026-04-07 22:52:15,941 [YouTube] INFO: YouTube processor loaded
+2026-04-07 22:56:22,120 [WealthClaude] INFO: Started: ReelProcessor
+2026-04-07 22:56:22,121 [WealthClaude] INFO: Started: YouTubeProcessor
+2026-04-07 22:56:22,370 [Reels] INFO: Reel processor started (poll every 60s)
+2026-04-07 22:56:22,370 [Reels] INFO: API: https://www.wealthclaude.com | Cloudinary: ddyhi6nej | Make: OK
+2026-04-07 22:56:23,014 [YouTube] INFO: YouTube processor loaded
+2026-04-07 23:00:26,724 [Reels] INFO: Outside hours. Sleeping 8.0h
+2026-04-07 23:06:34,003 [WealthClaude] INFO: Started: ReelProcessor
+2026-04-07 23:06:34,004 [WealthClaude] INFO: Started: YouTubeProcessor
+2026-04-07 23:06:34,278 [Reels] INFO: Reel processor started (poll every 60s)
+2026-04-07 23:06:34,280 [Reels] INFO: API: https://www.wealthclaude.com | Cloudinary: ddyhi6nej | Make: OK
+2026-04-07 23:06:34,281 [Reels] INFO: Outside hours. Sleeping 7.9h
+2026-04-07 23:06:34,873 [YouTube] INFO: YouTube processor loaded
+2026-04-07 23:13:31,703 [WealthClaude] INFO: Started: ReelProcessor
+2026-04-07 23:13:31,704 [WealthClaude] INFO: Started: YouTubeProcessor
+2026-04-07 23:13:32,062 [Reels] INFO: Reel processor started (poll every 60s)
+2026-04-07 23:13:32,063 [Reels] INFO: API: https://www.wealthclaude.com | Cloudinary: ddyhi6nej | Make: OK
+2026-04-07 23:13:32,064 [Reels] INFO: Outside hours. Sleeping 7.8h
+2026-04-07 23:13:33,453 [YouTube] INFO: YouTube processor loaded
+2026-04-07 23:18:16,563 [WealthClaude] INFO: Started: ReelProcessor
+2026-04-07 23:18:16,564 [WealthClaude] INFO: Started: YouTubeProcessor
+2026-04-07 23:18:16,862 [Reels] INFO: Reel processor started (poll every 60s)
+2026-04-07 23:18:16,862 [Reels] INFO: API: https://www.wealthclaude.com | Cloudinary: ddyhi6nej | Make: OK
+2026-04-07 23:18:16,862 [Reels] INFO: Outside hours. Sleeping 7.7h
+2026-04-07 23:18:17,384 [YouTube] INFO: YouTube processor loaded

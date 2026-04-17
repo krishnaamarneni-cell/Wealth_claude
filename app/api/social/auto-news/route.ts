@@ -83,8 +83,9 @@ async function fetchCNBCArticles(count: number = 3): Promise<string[]> {
 }
 
 async function crawlArticle(url: string): Promise<any | null> {
-  const groqKey = process.env.GROQ_API_KEY
-  if (!groqKey) return null
+  // Use Claude (Anthropic) for social post data extraction - higher quality than Groq
+  const claudeKey = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY
+  if (!claudeKey) return null
 
   try {
     // Fetch article
@@ -106,47 +107,64 @@ async function crawlArticle(url: string): Promise<any | null> {
       .replace(/<[^>]+>/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
-      .slice(0, 6000)
+      .slice(0, 8000)
 
-    if (textContent.length < 100) return null
+    if (textContent.length < 200) return null
 
-    // AI extraction via Groq
-    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    // AI extraction via Claude
+    const systemPrompt = `You are a financial news article analyzer for a social media automation system. Extract rich, accurate, structured data from news articles for Instagram/LinkedIn/X posts.
+
+Return ONLY a valid JSON object (no markdown, no explanation):
+
+{
+  "headline": "Main headline - short, punchy, under 80 chars. Make it compelling.",
+  "source": "News source name",
+  "category": "One of: MARKETS, GEOPOLITICS, ECONOMY, CRYPTO, TECHNOLOGY, ENERGY, COMMODITIES, HEALTHCARE, POLITICS, REAL_ESTATE",
+  "date": "Month Day, Year",
+  "key_points": ["4-5 specific, data-rich bullet points. Each must be a full sentence with concrete facts, numbers, or names. NO vague statements."],
+  "quote": {"text": "Most impactful direct quote from the article", "attribution": "Speaker name + title"},
+  "market_impact": [
+    {"icon": "emoji", "name": "Asset name", "change": "+X.X% or -X.X% (real number from article)", "price": "$XX.XX if actually mentioned, else OMIT", "direction": "up or down"}
+  ],
+  "big_stat": {"number": "Most striking specific number (e.g. '$5.28 billion', '8.56%')", "label": "What it represents", "color": "#EF4444 negative, #4ADE80 positive, #FBBF24 neutral"},
+  "timeline_events": [
+    {"time": "Time/date from article", "title": "Short event title", "description": "One sentence", "color": "#EF4444/#FBBF24/#4ADE80"}
+  ],
+  "context_points": ["3-4 context points explaining WHY this matters for investors"]
+}
+
+CRITICAL RULES:
+- NEVER use placeholder values like "XX.XX", "X.X%", "$XXX", "N/A". If data isn't in the article, OMIT the field.
+- Key points must be SPECIFIC with real numbers, company names, and facts.
+- Market impact entries MUST have real percentages from the article - not made up.
+- If an asset isn't mentioned with a percentage, omit it.
+- Emojis: 🛢️ oil, 💵 USD, 🌍 global, 📈📉 stocks, ₿ crypto, 🏠 real estate, 💊 pharma, 🇺🇸 US, 🇨🇳 China.
+- Timeline events must come from the article's chronology.
+- Big stat must be a number that appears in the article.`
+
+    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${groqKey}`,
-        'Content-Type': 'application/json',
+        'x-api-key': claudeKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: 'claude-sonnet-4-5',
+        max_tokens: 2000,
+        system: systemPrompt,
         messages: [
-          {
-            role: 'system',
-            content: `You are a news article analyzer. Extract structured data and return ONLY valid JSON:
-{
-  "headline": "Short punchy headline under 80 chars",
-  "source": "CNBC",
-  "category": "One of: MARKETS, GEOPOLITICS, ECONOMY, CRYPTO, TECHNOLOGY, ENERGY, COMMODITIES, HEALTHCARE, POLITICS",
-  "date": "Month Day, Year",
-  "key_points": ["4-5 key bullet points"],
-  "quote": {"text": "Most impactful quote", "attribution": "Who said it"},
-  "market_impact": [{"icon": "emoji", "name": "Asset", "change": "+X.X%", "price": "$XX.XX", "direction": "up or down"}],
-  "big_stat": {"number": "Striking number", "label": "What it represents", "color": "#EF4444 for negative, #4ADE80 for positive"},
-  "timeline_events": [{"time": "Time", "title": "Event", "description": "Brief desc", "color": "#EF4444/#FBBF24/#4ADE80"}],
-  "context_points": ["3-4 context points"]
-}
-Use emojis: 🛢️ oil, 💵 USD, 🌍 global, 📈📉 stocks, ₿ crypto. Return ONLY JSON.`
-          },
           { role: 'user', content: `Extract from:\n\nURL: ${url}\n\n${textContent}` }
         ],
-        temperature: 0.3,
-        max_tokens: 2000,
       }),
     })
 
-    if (!groqRes.ok) return null
-    const groqData = await groqRes.json()
-    const aiResponse = groqData.choices?.[0]?.message?.content || ''
+    if (!claudeRes.ok) {
+      console.error(`Claude API error: ${claudeRes.status}`, await claudeRes.text())
+      return null
+    }
+    const claudeData = await claudeRes.json()
+    const aiResponse = claudeData.content?.[0]?.text || ''
     const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
     return jsonMatch ? JSON.parse(jsonMatch[0]) : null
   } catch (e) {

@@ -8,6 +8,7 @@ import {
   Building2, ChevronDown, Menu, X, LineChart, Star,
   GraduationCap, HelpCircle, Briefcase, Info, Layers,
   CalendarDays, Flame, ArrowUpRight, Zap, UserCircle2,
+  Activity,
 } from "lucide-react"
 
 // ── Data ──────────────────────────────────────────────────────────────────────
@@ -26,6 +27,7 @@ const PRODUCTS_TOOLS = [
 ]
 
 const MARKETS_ITEMS = [
+  { icon: Activity, title: "Global Pulse", href: "/global-pulse", desc: "Real-time world events moving markets" },
   { icon: Newspaper, title: "Global News", href: "/news", desc: "AI-summarised market news" },
   { icon: CalendarDays, title: "Economic Calendar", href: "/calendar", desc: "Earnings, IPOs, macro events" },
   { icon: TrendingUp, title: "Sector Performance", href: "/markets?tab=sectors", desc: "11 sectors — 1Y/3Y/5Y returns" },

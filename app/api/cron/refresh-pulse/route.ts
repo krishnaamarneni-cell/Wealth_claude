@@ -78,7 +78,7 @@ function parseRSS(xml: string, feedName: string): any[] {
 
   // Match <item>...</item> (RSS) or <entry>...</entry> (Atom)
   const itemRegex = /<(item|entry)[^>]*>([\s\S]*?)<\/\1>/gi
-  const matches = [...xml.matchAll(itemRegex)]
+  const matches = Array.from(xml.matchAll(itemRegex))
 
   for (const match of matches.slice(0, 20)) {
     const body = match[2]
@@ -240,7 +240,7 @@ async function fetchMarketOverview() {
   const TICKER_SYMS = ['SPY', 'QQQ', 'DIA', 'IWM', 'GLD', 'SLV', 'USO', 'UNG', 'CPER', 'AGG', 'UUP']
   const SECTOR_SYMS = ['XLK', 'XLE', 'XLC', 'XLY', 'XLF', 'XLI', 'XLB', 'XLRE', 'XLV', 'XLP', 'XLU']
   const GLOBAL_SYMS = ['SPY', 'EWG', 'EWU', 'EWJ', 'MCHI', 'EWZ', 'INDA']
-  const all = [...new Set([...TICKER_SYMS, ...SECTOR_SYMS, ...GLOBAL_SYMS, 'BINANCE:BTCUSDT'])]
+  const all = Array.from(new Set([...TICKER_SYMS, ...SECTOR_SYMS, ...GLOBAL_SYMS, 'BINANCE:BTCUSDT']))
 
   // Batch in 5s groups to respect Finnhub burst limit
   const results: Record<string, any> = {}
@@ -298,7 +298,7 @@ async function fetchMarketMovers() {
   const finnhubKey = process.env.FINNHUB_API_KEY
   if (!finnhubKey) throw new Error('FINNHUB_API_KEY not set')
 
-  const symbols = [...new Set(SP500_WATCHLIST)]
+  const symbols = Array.from(new Set(SP500_WATCHLIST))
   const quotes: { symbol: string; price: number; change: number; changePercent: number; name?: string }[] = []
 
   // Batch in 5s groups

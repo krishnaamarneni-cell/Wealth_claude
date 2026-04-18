@@ -206,6 +206,8 @@ async function handleAutoNews(req: NextRequest) {
       return NextResponse.json({ error: 'No CNBC articles found' }, { status: 404 })
     }
 
+    const errors: string[] = []
+
     // 2. Process each article
     for (const url of articleUrls) {
       try {
@@ -219,6 +221,7 @@ async function handleAutoNews(req: NextRequest) {
 
           if (existing) {
             console.log(`Skipping duplicate: ${url}`)
+            errors.push(`duplicate: ${url}`)
             continue
           }
         }
@@ -227,6 +230,7 @@ async function handleAutoNews(req: NextRequest) {
         const data = await crawlArticle(url)
         if (!data) {
           console.log(`Failed to crawl: ${url}`)
+          errors.push(`crawl failed: ${url}`)
           continue
         }
 
@@ -279,6 +283,7 @@ ${html}
 
         if (error) {
           console.error(`DB insert error: ${error.message}`)
+          errors.push(`db insert: ${error.message}`)
           continue
         }
 
@@ -289,8 +294,9 @@ ${html}
           url,
           html_length: fullHtml.length,
         })
-      } catch (e) {
+      } catch (e: any) {
         console.error(`Error processing ${url}:`, e)
+        errors.push(`exception: ${e?.message || 'unknown'} for ${url}`)
       }
     }
 
@@ -298,6 +304,11 @@ ${html}
       success: true,
       processed: results.length,
       articles: results,
+      urls_attempted: articleUrls.length,
+      errors: errors.length > 0 ? errors : undefined,
+      env: {
+        claude: !!(process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY),
+      },
     })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })

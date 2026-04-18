@@ -37,9 +37,9 @@ export default function GlobalMarkets({ compact = false }: { compact?: boolean }
         <div className="h-6 w-40 bg-secondary rounded animate-pulse" />
       </CardHeader>
       <CardContent>
-        <div className="flex gap-3 overflow-x-auto pb-1">
+        <div className="flex gap-4 overflow-x-auto pb-1">
           {[...Array(7)].map((_, i) => (
-            <div key={i} className="h-20 w-28 bg-secondary rounded-lg animate-pulse shrink-0" />
+            <div key={i} className="h-36 w-44 bg-secondary rounded-lg animate-pulse shrink-0" />
           ))}
         </div>
       </CardContent>
@@ -50,9 +50,9 @@ export default function GlobalMarkets({ compact = false }: { compact?: boolean }
 
   return (
     <Card className="border-border bg-card h-full">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base font-bold flex items-center gap-2">
-          <Globe className="h-4 w-4 text-blue-500" />
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg font-bold flex items-center gap-2">
+          <Globe className="h-5 w-5 text-blue-500" />
           Global Markets
         </CardTitle>
         {!compact && (
@@ -63,25 +63,26 @@ export default function GlobalMarkets({ compact = false }: { compact?: boolean }
       </CardHeader>
       <CardContent>
         {/* Scrollable single row */}
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
           {markets.map((m) => {
             const up = m.changePercent >= 0
             return (
               <div
                 key={m.symbol}
-                className={`shrink-0 p-2.5 rounded-xl border-2 transition-all hover:scale-105 cursor-default min-w-[90px] ${up
+                className={`shrink-0 p-4 rounded-xl border-2 transition-all hover:scale-105 cursor-default min-w-[160px] ${up
                     ? "bg-green-500/5 border-green-500/20"
                     : "bg-red-500/5 border-red-500/20"
                   }`}
               >
-                <div className="text-xl mb-1">{m.flag}</div>
-                <p className="text-xs font-bold truncate">{m.region}</p>
-                <p className="font-bold text-xs mt-1">${fmt(m.price)}</p>
-                <div className={`flex items-center gap-0.5 text-xs font-semibold mt-0.5 ${up ? "text-green-500" : "text-red-500"
+                <div className="text-3xl mb-2">{m.flag}</div>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{m.label}</p>
+                <p className="text-sm font-semibold truncate mt-0.5">{m.region}</p>
+                <p className="font-bold text-xl mt-2">${fmt(m.price)}</p>
+                <div className={`flex items-center gap-1 text-sm font-semibold mt-1 ${up ? "text-green-500" : "text-red-500"
                   }`}>
                   {up
-                    ? <TrendingUp className="h-2.5 w-2.5" />
-                    : <TrendingDown className="h-2.5 w-2.5" />
+                    ? <TrendingUp className="h-4 w-4" />
+                    : <TrendingDown className="h-4 w-4" />
                   }
                   {m.changePercent >= 0 ? "+" : ""}
                   {m.changePercent.toFixed(2)}%

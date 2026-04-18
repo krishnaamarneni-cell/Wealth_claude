@@ -30,76 +30,143 @@ function isAuthorized(req: NextRequest): boolean {
   return req.nextUrl.searchParams.get('secret') === secret
 }
 
-// ─── GDELT ──────────────────────────────────────────────────────────────
-const MASTER_QUERY =
-  '(federal reserve OR inflation OR sanctions OR tariff OR recession OR ' +
-  '"artificial intelligence" OR semiconductor OR nvidia OR openai OR ' +
-  'airstrike OR ceasefire OR "military operation" OR conflict OR ' +
-  '"crude oil" OR "gold price" OR "natural gas" OR copper OR lithium OR ' +
-  '"stock market" OR nasdaq OR bitcoin OR "wall street" OR earnings OR ' +
-  '"breaking news") sourcelang:english'
+// ─── News Aggregator (RSS feeds instead of GDELT) ──────────────────────
+// RSS feeds don't rate-limit like GDELT and provide higher quality sources.
 
-const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  wars: ['airstrike', 'ceasefire', 'military', 'war ', 'strike', 'conflict', 'troops', 'missile', 'drone', 'hostage', 'combat', 'invasion', 'attack'],
-  technology: ['ai ', 'a.i.', 'artificial intelligence', 'semiconductor', 'chip', 'nvidia', 'apple ', 'microsoft', 'google', 'openai', 'tech ', 'software', 'cloud', 'data center', 'cyber', 'robot'],
-  commodities: ['oil', 'brent', 'crude', 'gold', 'copper', 'natural gas', 'lng', 'wheat', 'corn', 'lithium', 'commodity', 'metal', 'silver'],
-  markets: ['stock', 'nasdaq', 's&p', 'dow', 'crypto', 'bitcoin', 'ethereum', 'wall street', 'earnings', 'shares', 'equity', 'dividend', 'ipo'],
-  geopolitics: ['federal reserve', 'fed ', 'powell', 'inflation', 'sanctions', 'tariff', 'trade war', 'recession', 'election', 'central bank', 'ecb', 'boe', 'boj', 'economy'],
+interface RSSFeed {
+  name: string
+  url: string
+  defaultCategory: string
 }
 
-function categorize(title: string): string {
+const RSS_FEEDS: RSSFeed[] = [
+  // Markets & Finance
+  { name: 'CNBC Top', url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114', defaultCategory: 'markets' },
+  { name: 'CNBC Markets', url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20409666', defaultCategory: 'markets' },
+  { name: 'CNBC Economy', url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258', defaultCategory: 'geopolitics' },
+  { name: 'Yahoo Finance', url: 'https://finance.yahoo.com/news/rssindex', defaultCategory: 'markets' },
+  // Technology
+  { name: 'BBC Tech', url: 'http://feeds.bbci.co.uk/news/technology/rss.xml', defaultCategory: 'technology' },
+  { name: 'CNBC Tech', url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=19854910', defaultCategory: 'technology' },
+  // World + Wars
+  { name: 'BBC World', url: 'http://feeds.bbci.co.uk/news/world/rss.xml', defaultCategory: 'world' },
+  { name: 'Al Jazeera', url: 'https://www.aljazeera.com/xml/rss/all.xml', defaultCategory: 'world' },
+  { name: 'BBC Business', url: 'http://feeds.bbci.co.uk/news/business/rss.xml', defaultCategory: 'geopolitics' },
+  // Crypto
+  { name: 'CoinDesk', url: 'https://www.coindesk.com/arc/outboundfeeds/rss/', defaultCategory: 'markets' },
+]
+
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  wars: ['airstrike', 'ceasefire', 'military', 'war ', 'strikes', 'conflict', 'troops', 'missile', 'drone', 'hostage', 'combat', 'invasion', 'soldier', 'gaza', 'ukraine', 'russia invade', 'iran israel', 'hamas', 'hezbollah', 'nato'],
+  technology: ['ai ', 'a.i.', 'artificial intelligence', 'semiconductor', 'chip ', 'chips', 'nvidia', 'apple ', 'microsoft', 'google', 'openai', 'meta ', 'software', 'cloud', 'data center', 'cyber', 'robot', 'chatgpt', 'llm', 'gpu'],
+  commodities: ['oil price', 'brent', 'crude', 'gold price', 'copper', 'natural gas', 'lng', 'wheat', 'corn', 'lithium', 'commodity', 'commodities', 'silver price', 'opec'],
+  markets: ['stock', 'nasdaq', 's&p', 'dow ', 'crypto', 'bitcoin', 'ethereum', 'wall street', 'earnings', 'shares', 'equity', 'dividend', 'ipo', 'trading', 'bull market', 'bear market'],
+  geopolitics: ['federal reserve', 'fed ', 'powell', 'inflation', 'sanctions', 'tariff', 'trade war', 'recession', 'election', 'central bank', 'ecb', 'boe', 'boj', 'economy', 'gdp', 'unemployment', 'trump', 'biden', 'white house'],
+}
+
+function categorize(title: string, fallback: string): string {
   const t = title.toLowerCase()
   for (const [cat, kws] of Object.entries(CATEGORY_KEYWORDS)) {
     if (kws.some(kw => t.includes(kw))) return cat
   }
-  return 'world'
+  return fallback
+}
+
+// Simple XML RSS parser — handles both RSS 2.0 and Atom feeds
+function parseRSS(xml: string, feedName: string): any[] {
+  const articles: any[] = []
+
+  // Match <item>...</item> (RSS) or <entry>...</entry> (Atom)
+  const itemRegex = /<(item|entry)[^>]*>([\s\S]*?)<\/\1>/gi
+  const matches = [...xml.matchAll(itemRegex)]
+
+  for (const match of matches.slice(0, 20)) {
+    const body = match[2]
+
+    // Title: handle CDATA
+    const titleMatch = body.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i)
+    const title = titleMatch?.[1]?.trim().replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+
+    // Link: href attr or content
+    const linkMatch = body.match(/<link[^>]*?href=["']([^"']+)["']/i) || body.match(/<link[^>]*>([^<]+)<\/link>/i)
+    const link = linkMatch?.[1]?.trim()
+
+    // Pub date
+    const dateMatch = body.match(/<pubDate[^>]*>([^<]+)<\/pubDate>/i) || body.match(/<published[^>]*>([^<]+)<\/published>/i) || body.match(/<updated[^>]*>([^<]+)<\/updated>/i)
+    const pubDate = dateMatch?.[1]?.trim()
+
+    if (!title || !link) continue
+
+    articles.push({
+      title,
+      url: link,
+      source: feedName,
+      publishedAt: pubDate || new Date().toISOString(),
+      image: null,
+      tone: null,
+    })
+  }
+
+  return articles
+}
+
+async function fetchFeed(feed: RSSFeed): Promise<any[]> {
+  try {
+    const res = await fetch(feed.url, {
+      cache: 'no-store',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; WealthClaude/1.0; +https://wealthclaude.com)',
+        'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+      },
+    })
+    if (!res.ok) return []
+    const xml = await res.text()
+    const articles = parseRSS(xml, feed.name)
+    // Tag each article with its feed's default category
+    return articles.map(a => ({ ...a, _defaultCategory: feed.defaultCategory }))
+  } catch {
+    return []
+  }
 }
 
 async function fetchGDELT() {
-  const url = new URL('https://api.gdeltproject.org/api/v2/doc/doc')
-  url.searchParams.set('query', MASTER_QUERY)
-  url.searchParams.set('mode', 'ArtList')
-  url.searchParams.set('maxrecords', '75')
-  url.searchParams.set('format', 'json')
-  url.searchParams.set('sort', 'DateDesc')
-  url.searchParams.set('timespan', '24h')
+  // Fetch all RSS feeds in parallel (different hosts, so no rate limit issues)
+  const feedResults = await Promise.all(RSS_FEEDS.map(fetchFeed))
+  const allArticles = feedResults.flat()
 
-  const res = await fetch(url.toString(), {
-    cache: 'no-store',
-    headers: { 'User-Agent': 'WealthClaude/1.0 (https://wealthclaude.com)' },
-  })
-  if (!res.ok) throw new Error(`GDELT ${res.status}`)
-  const text = await res.text()
-  if (!text.trim().startsWith('{')) throw new Error('GDELT rate-limited or non-JSON')
-
-  const data = JSON.parse(text)
-  const articles = data.articles || []
-
+  // Dedupe by title prefix
   const seen = new Set<string>()
   const normalized: any[] = []
-  for (const a of articles) {
+  for (const a of allArticles) {
     const key = a.title.slice(0, 60).toLowerCase()
     if (seen.has(key)) continue
     seen.add(key)
     normalized.push({
       title: a.title,
       url: a.url,
-      source: a.domain,
-      country: a.sourcecountry,
-      publishedAt: a.seendate,
-      image: a.socialimage || null,
-      tone: a.tone ? parseFloat(a.tone) : null,
+      source: a.source,
+      country: '',
+      publishedAt: a.publishedAt,
+      image: a.image,
+      tone: a.tone,
+      _defaultCategory: a._defaultCategory,
     })
   }
 
+  // Categorize
   const categorized: Record<string, any[]> = {
     wars: [], technology: [], commodities: [], markets: [], geopolitics: [], world: [],
   }
   for (const a of normalized) {
-    const cat = categorize(a.title)
-    if (categorized[cat].length < 10) categorized[cat].push(a)
+    const cat = categorize(a.title, a._defaultCategory)
+    if (categorized[cat].length < 10) {
+      // Strip internal field before storing
+      const { _defaultCategory, ...clean } = a
+      categorized[cat].push(clean)
+    }
   }
-  // Fill empty categories from world as fallback
+
+  // Fill empty categories from world
   for (const cat of Object.keys(categorized)) {
     if (cat === 'world') continue
     if (categorized[cat].length === 0 && categorized.world.length > 3) {
@@ -108,7 +175,7 @@ async function fetchGDELT() {
   }
 
   return {
-    events: normalized.slice(0, 20),
+    events: normalized.slice(0, 20).map(a => { const { _defaultCategory, ...clean } = a; return clean }),
     categories: categorized,
     timestamp: Date.now(),
   }

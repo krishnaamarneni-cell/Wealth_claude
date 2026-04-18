@@ -50,11 +50,17 @@ interface MarketMover {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 function parseGDELTDate(s: string): number {
-  // Format: 20260417T102030Z
-  if (!s || s.length < 15) return Date.now()
-  const year = +s.slice(0, 4), month = +s.slice(4, 6) - 1, day = +s.slice(6, 8)
-  const hour = +s.slice(9, 11), min = +s.slice(11, 13), sec = +s.slice(13, 15)
-  return Date.UTC(year, month, day, hour, min, sec)
+  if (!s) return Date.now()
+  // Try standard Date.parse first (handles ISO 8601 + RFC 2822 from RSS feeds)
+  const std = Date.parse(s)
+  if (!isNaN(std)) return std
+  // Legacy GDELT format: 20260417T102030Z
+  if (s.length >= 15 && s[8] === 'T') {
+    const year = +s.slice(0, 4), month = +s.slice(4, 6) - 1, day = +s.slice(6, 8)
+    const hour = +s.slice(9, 11), min = +s.slice(11, 13), sec = +s.slice(13, 15)
+    return Date.UTC(year, month, day, hour, min, sec)
+  }
+  return Date.now()
 }
 
 function timeAgo(ms: number): string {

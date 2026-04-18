@@ -212,6 +212,54 @@ async function fetchEarthquakes() {
   return { earthquakes, timestamp: Date.now() }
 }
 
+// ─── Crypto (CoinGecko - free, no key) ──────────────────────────────────
+async function fetchCrypto() {
+  const res = await fetch(
+    'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,binancecoin,solana,ripple,cardano&order=market_cap_desc&per_page=6&page=1&sparkline=false&price_change_percentage=24h',
+    { cache: 'no-store', headers: { 'User-Agent': 'WealthClaude/1.0' } }
+  )
+  if (!res.ok) throw new Error(`CoinGecko ${res.status}`)
+  const data = await res.json()
+  const coins = (data || []).map((c: any) => ({
+    id: c.id,
+    symbol: c.symbol.toUpperCase(),
+    name: c.name,
+    price: c.current_price,
+    change24h: c.price_change_percentage_24h,
+    marketCap: c.market_cap,
+    image: c.image,
+  }))
+  return { coins, timestamp: Date.now() }
+}
+
+// ─── Macro indicators (VIX, via Finnhub) ────────────────────────────────
+async function fetchMacro() {
+  const finnhubKey = process.env.FINNHUB_API_KEY
+  if (!finnhubKey) throw new Error('FINNHUB_API_KEY not set')
+
+  // VIX proxy via VIXY ETF, Treasury 10Y yield, sector performance
+  const symbols = ['VIXY', 'TLT', 'SHY'] // VIXY=VIX proxy, TLT=20Y Treasury, SHY=short-term Treasury
+
+  const results = await Promise.all(
+    symbols.map(async (sym) => {
+      try {
+        const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=${finnhubKey}`, { cache: 'no-store' })
+        if (!r.ok) return null
+        const d = await r.json()
+        return d.c > 0 ? { symbol: sym, price: d.c, change: d.d, changePct: d.dp } : null
+      } catch { return null }
+    })
+  )
+
+  const [vixy, tlt, shy] = results
+  return {
+    vixy,
+    tlt,
+    shy,
+    timestamp: Date.now(),
+  }
+}
+
 // ─── NASA EONET ─────────────────────────────────────────────────────────
 const CATEGORY_ICON: Record<string, string> = {
   'Wildfires': '🔥', 'Severe Storms': '🌀', 'Volcanoes': '🌋',
@@ -268,11 +316,13 @@ async function handler(req: NextRequest) {
   const results: Record<string, any> = {}
   const errors: Record<string, string> = {}
 
-  // Fetch all 3 sources in parallel — each hits a DIFFERENT external API so no rate conflict
-  const [gdeltRes, quakesRes, naturalRes] = await Promise.allSettled([
+  // Fetch all sources in parallel — each hits a DIFFERENT external API so no rate conflict
+  const [gdeltRes, quakesRes, naturalRes, cryptoRes, macroRes] = await Promise.allSettled([
     fetchGDELT(),
     fetchEarthquakes(),
     fetchNatural(),
+    fetchCrypto(),
+    fetchMacro(),
   ])
 
   if (gdeltRes.status === 'fulfilled') {
@@ -306,6 +356,28 @@ async function handler(req: NextRequest) {
     }
   } else {
     errors.natural = naturalRes.reason?.message || 'fetch failed'
+  }
+
+  if (cryptoRes.status === 'fulfilled') {
+    try {
+      await saveToCache('crypto', cryptoRes.value)
+      results.crypto = { count: cryptoRes.value.coins.length }
+    } catch (e: any) {
+      errors.crypto = `save failed: ${e.message}`
+    }
+  } else {
+    errors.crypto = cryptoRes.reason?.message || 'fetch failed'
+  }
+
+  if (macroRes.status === 'fulfilled') {
+    try {
+      await saveToCache('macro', macroRes.value)
+      results.macro = { ok: true }
+    } catch (e: any) {
+      errors.macro = `save failed: ${e.message}`
+    }
+  } else {
+    errors.macro = macroRes.reason?.message || 'fetch failed'
   }
 
   return NextResponse.json({

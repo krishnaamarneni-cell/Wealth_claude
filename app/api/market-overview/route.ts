@@ -80,7 +80,7 @@ export async function GET() {
     return NextResponse.json({ error: 'FINNHUB_API_KEY not set' }, { status: 500 })
   }
 
-  const TICKER_SYMS = ['SPY', 'QQQ', 'DIA', 'IWM', 'GLD', 'USO', 'AGG', 'UUP']
+  const TICKER_SYMS = ['SPY', 'QQQ', 'DIA', 'IWM', 'GLD', 'SLV', 'USO', 'UNG', 'CPER', 'AGG', 'UUP']
   const SECTOR_SYMS = Object.keys(SECTOR_META)
   const GLOBAL_SYMS = Object.keys(GLOBAL_META)
   const BTC_SYM = 'BINANCE:BTCUSDT'
@@ -101,7 +101,10 @@ export async function GET() {
     dow: toItem('DIA'),
     russell2000: toItem('IWM'),
     gold: toItem('GLD'),
+    silver: toItem('SLV'),
     oil: toItem('USO'),
+    natgas: toItem('UNG'),
+    copper: toItem('CPER'),
     bonds: toItem('AGG'),
     usdDollar: toItem('UUP'),
     bitcoin: toItem('BTC'),
@@ -130,7 +133,7 @@ export async function GET() {
   // If too many fields are null (rate-limited), cache for only 60 seconds so next request retries.
   const tickerFilled = Object.values(ticker).filter(v => v !== null).length
   const tickerTotal = Object.keys(ticker).length
-  const isHealthy = tickerFilled >= tickerTotal * 0.7 && sectors.length >= 7 && globalMarkets.length >= 5
+  const isHealthy = tickerFilled >= tickerTotal * 0.6 && sectors.length >= 7 && globalMarkets.length >= 5
 
   const cacheExpiry = isHealthy
     ? Date.now() + getMsUntilNextMarketClose()

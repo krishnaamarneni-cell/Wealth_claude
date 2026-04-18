@@ -10,6 +10,8 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import LiveNewsPlayer from "@/components/live-news-player"
+import { Header } from "@/components/header"
+import { CryptoPanel, CommoditiesPanel, MacroStressPanel } from "@/components/global-pulse-sidebar-panels"
 
 // ─── Types ───────────────────────────────────────────────────────────────
 interface GDELTEvent {
@@ -148,8 +150,11 @@ export default function GlobalPulsePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* ── Header ────────────────────────────────────────── */}
-      <div className="border-b border-border bg-card/30 backdrop-blur-sm sticky top-0 z-20">
+      {/* ── Main site header (WealthClaude nav) ────────────── */}
+      <Header />
+
+      {/* ── Page sub-header ────────────────────────────────── */}
+      <div className="border-b border-border bg-card/30 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/" className="text-muted-foreground hover:text-foreground">
@@ -338,10 +343,19 @@ export default function GlobalPulsePage() {
         {/* End of LEFT COLUMN */}
         </div>
 
-        {/* ==== RIGHT COLUMN: sticky live video (desktop only) ==== */}
+        {/* ==== RIGHT COLUMN: live video + data panels (desktop only) ==== */}
         <aside className="hidden lg:block">
-          <div className="sticky top-[84px] space-y-4">
+          <div className="sticky top-4 space-y-4 max-h-[calc(100vh-2rem)] overflow-y-auto scrollbar-hide pr-1">
             <LiveNewsPlayer mode="sticky" />
+
+            {/* Crypto prices */}
+            <CryptoPanel />
+
+            {/* Commodities (Gold, Silver, Oil, Nat Gas, Copper) */}
+            <CommoditiesPanel />
+
+            {/* Macro Stress (VIX volatility, Treasuries) */}
+            <MacroStressPanel />
 
             {/* Quick Earthquake alert card */}
             {earthquakes[0] && earthquakes[0].magnitude >= 5 && (

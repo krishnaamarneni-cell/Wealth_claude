@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { ChevronDown, ArrowLeft, HelpCircle, Shield, CreditCard, Zap, BarChart3, MessageCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -187,6 +187,15 @@ function FAQSection({ category }: { category: FAQCategory }) {
 }
 
 export default function FAQPage() {
+  const [plansEnabled, setPlansEnabled] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/admin/settings', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(s => setPlansEnabled(s.plans_enabled === true || s.plans_enabled === 'true'))
+      .catch(() => setPlansEnabled(false))
+  }, [])
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -231,11 +240,13 @@ export default function FAQPage() {
                 Contact Support
               </a>
             </Button>
-            <Button variant="outline" asChild>
-              <Link href="/upgrade">
-                View Pricing
-              </Link>
-            </Button>
+            {plansEnabled && (
+              <Button variant="outline" asChild>
+                <Link href="/upgrade">
+                  View Pricing
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
       </div>

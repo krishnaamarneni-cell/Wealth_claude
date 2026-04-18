@@ -25,8 +25,13 @@ export function TierGate({
   feature,
 }: TierGateProps) {
   const pathname = usePathname()
-  const { tier, isLoading, canAccess } = useTier()
+  const { tier, isLoading, canAccess, plansEnabled } = useTier()
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+
+  // Plans disabled globally — everyone gets access, skip gating entirely
+  if (!plansEnabled) {
+    return <>{children}</>
+  }
 
   // Determine if user has access
   const hasAccess = requiredTier
@@ -169,10 +174,11 @@ function TierBadge({
 
 // ─── AI Chat Gate (for the chat button) ──────────────────────────────────────
 export function AIChatGate({ children }: { children: React.ReactNode }) {
-  const { canUseFeature } = useTier()
+  const { canUseFeature, plansEnabled } = useTier()
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
-  if (canUseFeature('ai-chat')) {
+  // Plans disabled — everyone can use AI chat
+  if (!plansEnabled || canUseFeature('ai-chat')) {
     return <>{children}</>
   }
 

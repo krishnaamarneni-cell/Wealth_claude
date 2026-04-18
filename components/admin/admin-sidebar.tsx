@@ -15,6 +15,7 @@ import {
   ChevronRight,
   LineChart,
   LogOut,
+  Settings,
 } from 'lucide-react'
 
 interface NavItem {
@@ -29,6 +30,7 @@ const adminNav: NavItem[] = [
   { title: 'Blog', url: '/admin/blog', icon: BookOpen },
   { title: 'Assessments', url: '/admin/assessments', icon: ClipboardCheck },
   { title: 'Careers', url: '/admin/careers', icon: Briefcase },
+  { title: 'Settings', url: '/admin/settings', icon: Settings },
 ]
 
 export function AdminSidebar() {

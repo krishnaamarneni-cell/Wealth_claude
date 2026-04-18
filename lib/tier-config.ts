@@ -165,6 +165,37 @@ export function getUpgradeMessage(path: string): { title: string; description: s
 }
 
 /**
+ * Server-side helper: fetch whether subscription plans are enabled globally.
+ * Reads from app_settings table. Falls back to `false` (plans disabled) on error.
+ *
+ * When plans are disabled, all users effectively get Premium-level access.
+ * The /upgrade page + pricing UI should be hidden.
+ *
+ * Use this in server components that need to redirect based on plan state.
+ */
+export async function arePlansEnabled(): Promise<boolean> {
+  try {
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    const { data } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'plans_enabled')
+      .maybeSingle()
+
+    if (!data) return false // default: plans disabled
+    // value is JSONB, could be boolean or string
+    const v = data.value
+    return v === true || v === 'true'
+  } catch {
+    return false
+  }
+}
+
+/**
  * Get price ID for a tier and interval
  */
 export function getPriceId(tier: 'pro' | 'premium', interval: BillingInterval): string {

@@ -1,8 +1,10 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { LineChart } from "lucide-react"
+import { arePlansEnabled } from "@/lib/tier-config"
 
-export function Footer() {
+export async function Footer() {
+  const plansEnabled = await arePlansEnabled()
   return (
     <footer className="border-t border-border">
       {/* CTA Section */}
@@ -44,11 +46,13 @@ export function Footer() {
                     Heat Maps
                   </Link>
                 </li>
-                <li>
-                  <Link href="/pricing" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
-                    Pricing
-                  </Link>
-                </li>
+                {plansEnabled && (
+                  <li>
+                    <Link href="/upgrade" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
+                      Pricing
+                    </Link>
+                  </li>
+                )}
               </ul>
             </div>
 

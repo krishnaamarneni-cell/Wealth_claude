@@ -128,11 +128,12 @@ export function DashboardSidebar() {
 
 // ─── Nav Menu Item with Lock Support ─────────────────────────────────────────
 function NavMenuItem({ item, pathname }: { item: NavItem; pathname: string }) {
-  const { tier } = useTier()
+  const { tier, plansEnabled } = useTier()
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
   const isActive = pathname === item.url
-  const hasAccess = !item.requiresPro || tier === 'pro' || tier === 'premium'
+  // When plans are disabled globally, everyone has access to everything
+  const hasAccess = !plansEnabled || !item.requiresPro || tier === 'pro' || tier === 'premium'
 
   // User has access - render normal link
   if (hasAccess) {

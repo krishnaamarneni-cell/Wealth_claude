@@ -7,6 +7,8 @@ import { Tier, canAccessPage, canAccessFeature, FEATURE_ACCESS } from '@/lib/tie
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface TierContextType {
   tier: Tier
+  actualTier: Tier // user's real tier from DB (may differ from effective `tier` when plans are disabled)
+  plansEnabled: boolean // global flag — when false, all gating is bypassed
   isLoading: boolean
   isTrialing: boolean
   trialEndsAt: Date | null
@@ -23,7 +25,8 @@ const TierContext = createContext<TierContextType | undefined>(undefined)
 
 // ─── Provider ────────────────────────────────────────────────────────────────
 export function TierProvider({ children }: { children: React.ReactNode }) {
-  const [tier, setTier] = useState<Tier>('free')
+  const [actualTier, setActualTier] = useState<Tier>('free')
+  const [plansEnabled, setPlansEnabled] = useState<boolean>(false)
   const [isLoading, setIsLoading] = useState(true)
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null)
   const [trialEndsAt, setTrialEndsAt] = useState<Date | null>(null)
@@ -32,12 +35,28 @@ export function TierProvider({ children }: { children: React.ReactNode }) {
 
   const supabase = createClient()
 
+  // Fetch global plans_enabled flag from app_settings
+  const fetchPlansEnabled = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/settings', { cache: 'no-store' })
+      if (!res.ok) {
+        setPlansEnabled(false)
+        return
+      }
+      const settings = await res.json()
+      const v = settings.plans_enabled
+      setPlansEnabled(v === true || v === 'true')
+    } catch {
+      setPlansEnabled(false)
+    }
+  }, [])
+
   const fetchTier = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      
+
       if (!user) {
-        setTier('free')
+        setActualTier('free')
         setIsLoading(false)
         return
       }
@@ -50,9 +69,9 @@ export function TierProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         console.error('[TierContext] Error fetching profile:', error)
-        setTier('free')
+        setActualTier('free')
       } else if (profile) {
-        setTier((profile.tier as Tier) || 'free')
+        setActualTier((profile.tier as Tier) || 'free')
         setSubscriptionStatus(profile.subscription_status)
         setTrialEndsAt(profile.trial_ends_at ? new Date(profile.trial_ends_at) : null)
         setCurrentPeriodEnd(profile.current_period_end ? new Date(profile.current_period_end) : null)
@@ -60,16 +79,17 @@ export function TierProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error('[TierContext] Error:', error)
-      setTier('free')
+      setActualTier('free')
     } finally {
       setIsLoading(false)
     }
   }, [supabase])
 
-  // Fetch tier on mount
+  // Fetch tier + plans flag on mount
   useEffect(() => {
     fetchTier()
-  }, [fetchTier])
+    fetchPlansEnabled()
+  }, [fetchTier, fetchPlansEnabled])
 
   // Listen for auth changes
   useEffect(() => {
@@ -77,7 +97,7 @@ export function TierProvider({ children }: { children: React.ReactNode }) {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         fetchTier()
       } else if (event === 'SIGNED_OUT') {
-        setTier('free')
+        setActualTier('free')
         setSubscriptionStatus(null)
         setTrialEndsAt(null)
         setCurrentPeriodEnd(null)
@@ -88,15 +108,28 @@ export function TierProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe()
   }, [supabase, fetchTier])
 
+  // Effective tier: when plans are disabled globally, everyone gets 'premium' access.
+  // This makes all existing canAccessPage() / canAccessFeature() checks naturally return true.
+  const tier: Tier = plansEnabled ? actualTier : 'premium'
+
   // Check if user is in trial period
   const isTrialing = subscriptionStatus === 'trialing' && trialEndsAt && new Date() < trialEndsAt
 
-  // Access check functions
-  const canAccess = useCallback((path: string) => canAccessPage(tier, path), [tier])
-  const canUseFeature = useCallback((feature: keyof typeof FEATURE_ACCESS) => canAccessFeature(tier, feature), [tier])
+  // Access check functions — use effective tier
+  const canAccess = useCallback((path: string) => {
+    if (!plansEnabled) return true
+    return canAccessPage(tier, path)
+  }, [tier, plansEnabled])
+
+  const canUseFeature = useCallback((feature: keyof typeof FEATURE_ACCESS) => {
+    if (!plansEnabled) return true
+    return canAccessFeature(tier, feature)
+  }, [tier, plansEnabled])
 
   const value: TierContextType = {
     tier,
+    actualTier,
+    plansEnabled,
     isLoading,
     isTrialing: !!isTrialing,
     trialEndsAt,
@@ -105,7 +138,9 @@ export function TierProvider({ children }: { children: React.ReactNode }) {
     cancelAtPeriodEnd,
     canAccess,
     canUseFeature,
-    refreshTier: fetchTier,
+    refreshTier: async () => {
+      await Promise.all([fetchTier(), fetchPlansEnabled()])
+    },
   }
 
   return (

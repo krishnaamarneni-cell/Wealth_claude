@@ -1,13 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { 
-  Check, 
-  Zap, 
-  Crown, 
+import {
+  Check,
+  Zap,
+  Crown,
   Loader2,
   ArrowLeft,
   Sparkles,
@@ -20,9 +21,26 @@ import { useTier } from '@/lib/tier-context'
 import { cn } from '@/lib/utils'
 
 export default function UpgradePage() {
-  const { tier: currentTier } = useTier()
+  const { tier: currentTier, plansEnabled, isLoading: tierLoading } = useTier()
+  const router = useRouter()
   const [isAnnual, setIsAnnual] = useState(false)
   const [loadingTier, setLoadingTier] = useState<string | null>(null)
+
+  // When plans are disabled globally, this page shouldn't be accessible
+  useEffect(() => {
+    if (!tierLoading && !plansEnabled) {
+      router.replace('/dashboard')
+    }
+  }, [plansEnabled, tierLoading, router])
+
+  // Show nothing while redirect is happening
+  if (!tierLoading && !plansEnabled) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   const handleUpgrade = async (tier: 'pro' | 'premium') => {
     setLoadingTier(tier)

@@ -4,7 +4,8 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import {
   ArrowLeft, Globe, TrendingUp, TrendingDown, AlertCircle, Flame,
-  ExternalLink, Activity, Zap, Sparkles, Clock, RefreshCw
+  ExternalLink, Activity, Zap, Sparkles, Clock, RefreshCw,
+  Swords, Cpu, Package, Newspaper, DollarSign
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -75,7 +76,7 @@ function magColor(mag: number): string {
 
 // ─── Main Page ───────────────────────────────────────────────────────────
 export default function GlobalPulsePage() {
-  const [events, setEvents] = useState<GDELTEvent[]>([])
+  const [categories, setCategories] = useState<Record<string, GDELTEvent[]>>({})
   const [earthquakes, setEarthquakes] = useState<Earthquake[]>([])
   const [naturalEvents, setNaturalEvents] = useState<NaturalEvent[]>([])
   const [gainers, setGainers] = useState<MarketMover[]>([])
@@ -87,12 +88,12 @@ export default function GlobalPulsePage() {
     setLoading(true)
     try {
       const [eventsRes, quakesRes, naturalRes, moversRes] = await Promise.all([
-        fetch('/api/global-pulse/events').then(r => r.json()).catch(() => ({ events: [] })),
+        fetch('/api/global-pulse/events').then(r => r.json()).catch(() => ({ categories: {} })),
         fetch('/api/global-pulse/earthquakes').then(r => r.json()).catch(() => ({ earthquakes: [] })),
         fetch('/api/global-pulse/natural').then(r => r.json()).catch(() => ({ events: [] })),
         fetch('/api/market-movers').then(r => r.json()).catch(() => ({ sp500: { gainers: [], losers: [] } })),
       ])
-      setEvents(eventsRes.events || [])
+      setCategories(eventsRes.categories || {})
       setEarthquakes(quakesRes.earthquakes || [])
       setNaturalEvents(naturalRes.events || [])
       setGainers(moversRes.sp500?.gainers?.slice(0, 5) || [])
@@ -110,7 +111,8 @@ export default function GlobalPulsePage() {
     return () => clearInterval(interval)
   }, [])
 
-  const totalEvents = events.length + earthquakes.length + naturalEvents.length
+  const allGdelt = Object.values(categories).flat()
+  const totalEvents = allGdelt.length + earthquakes.length + naturalEvents.length
 
   return (
     <div className="min-h-screen bg-background">
@@ -180,10 +182,10 @@ export default function GlobalPulsePage() {
           />
         </div>
 
-        {/* ── 2x2 grid of feeds ─────────────────────────────── */}
+        {/* ── Grid of feeds ─────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
-          {/* MARKETS */}
+          {/* MARKET MOVERS */}
           <FeedCard
             title="Market Movers"
             subtitle="S&P 500 top moves today"
@@ -211,43 +213,59 @@ export default function GlobalPulsePage() {
             </div>
           </FeedCard>
 
-          {/* GEOPOLITICS / NEWS */}
-          <FeedCard
+          {/* MARKETS & FINANCE NEWS */}
+          <NewsFeedCard
+            title="Markets & Finance"
+            subtitle="Stock market, crypto, earnings"
+            icon={<DollarSign className="h-5 w-5 text-green-500" />}
+            loading={loading}
+            events={categories.markets || []}
+          />
+
+          {/* GEOPOLITICS */}
+          <NewsFeedCard
             title="Geopolitics & Economy"
-            subtitle="High-impact news, last 24h"
+            subtitle="Fed, central banks, tariffs, elections"
             icon={<Sparkles className="h-5 w-5 text-purple-500" />}
             loading={loading}
-            empty={events.length === 0}
-          >
-            <div className="space-y-2.5">
-              {events.slice(0, 8).map((e, i) => (
-                <a
-                  key={i}
-                  href={e.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block group"
-                >
-                  <div className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-secondary/50 transition-colors">
-                    <span className="shrink-0 mt-0.5">
-                      <AlertCircle className={`h-4 w-4 ${e.tone !== null && e.tone < -3 ? 'text-red-500' : 'text-primary/60'}`} />
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium leading-snug line-clamp-2 group-hover:text-primary transition-colors">
-                        {e.title}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
-                        <span className="font-medium">{e.source}</span>
-                        <span>·</span>
-                        <span>{timeAgo(parseGDELTDate(e.publishedAt))}</span>
-                        <ExternalLink className="h-2.5 w-2.5 opacity-0 group-hover:opacity-100 transition-opacity ml-auto" />
-                      </div>
-                    </div>
-                  </div>
-                </a>
-              ))}
-            </div>
-          </FeedCard>
+            events={categories.geopolitics || []}
+          />
+
+          {/* WARS & CONFLICTS */}
+          <NewsFeedCard
+            title="Wars & Conflicts"
+            subtitle="Military operations, ceasefires, strikes"
+            icon={<Swords className="h-5 w-5 text-red-500" />}
+            loading={loading}
+            events={categories.wars || []}
+          />
+
+          {/* TECHNOLOGY */}
+          <NewsFeedCard
+            title="Technology"
+            subtitle="AI, semiconductors, Big Tech"
+            icon={<Cpu className="h-5 w-5 text-blue-500" />}
+            loading={loading}
+            events={categories.technology || []}
+          />
+
+          {/* COMMODITIES */}
+          <NewsFeedCard
+            title="Commodities"
+            subtitle="Oil, gold, copper, gas, agriculture"
+            icon={<Package className="h-5 w-5 text-amber-500" />}
+            loading={loading}
+            events={categories.commodities || []}
+          />
+
+          {/* WORLD NEWS */}
+          <NewsFeedCard
+            title="World News"
+            subtitle="Breaking news from around the globe"
+            icon={<Newspaper className="h-5 w-5 text-cyan-500" />}
+            loading={loading}
+            events={categories.world || []}
+          />
 
           {/* EARTHQUAKES */}
           <FeedCard
@@ -397,6 +415,56 @@ function FeedCard({
         )}
       </div>
     </div>
+  )
+}
+
+// Reusable GDELT news feed card
+function NewsFeedCard({
+  title, subtitle, icon, loading, events,
+}: {
+  title: string
+  subtitle: string
+  icon: React.ReactNode
+  loading: boolean
+  events: GDELTEvent[]
+}) {
+  return (
+    <FeedCard
+      title={title}
+      subtitle={subtitle}
+      icon={icon}
+      loading={loading}
+      empty={events.length === 0}
+    >
+      <div className="space-y-2.5">
+        {events.slice(0, 8).map((e, i) => (
+          <a
+            key={i}
+            href={e.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block group"
+          >
+            <div className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-secondary/50 transition-colors">
+              <span className="shrink-0 mt-0.5">
+                <AlertCircle className={`h-4 w-4 ${e.tone !== null && e.tone < -3 ? 'text-red-500' : 'text-primary/60'}`} />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+                  {e.title}
+                </p>
+                <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
+                  <span className="font-medium truncate max-w-[120px]">{e.source}</span>
+                  <span>·</span>
+                  <span>{timeAgo(parseGDELTDate(e.publishedAt))}</span>
+                  <ExternalLink className="h-2.5 w-2.5 opacity-0 group-hover:opacity-100 transition-opacity ml-auto" />
+                </div>
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </FeedCard>
   )
 }
 

@@ -83,10 +83,14 @@ async function fetchCNBCArticles(count: number = 3): Promise<string[]> {
   return urls.slice(0, count)
 }
 
+// Last crawl error for debugging
+let lastCrawlError: string = ''
+export function getLastCrawlError() { return lastCrawlError }
+
 async function crawlArticle(url: string): Promise<any | null> {
   // Use Claude (Anthropic) for social post data extraction - higher quality than Groq
   const claudeKey = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY
-  if (!claudeKey) return null
+  if (!claudeKey) { lastCrawlError = 'no-claude-key'; return null }
 
   try {
     // Fetch article
@@ -96,7 +100,7 @@ async function crawlArticle(url: string): Promise<any | null> {
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       },
     })
-    if (!articleRes.ok) return null
+    if (!articleRes.ok) { lastCrawlError = `cnbc-${articleRes.status}`; return null }
 
     const html = await articleRes.text()
     const textContent = html
@@ -110,7 +114,7 @@ async function crawlArticle(url: string): Promise<any | null> {
       .trim()
       .slice(0, 8000)
 
-    if (textContent.length < 200) return null
+    if (textContent.length < 200) { lastCrawlError = `short-content-${textContent.length}`; return null }
 
     // AI extraction via Claude
     const systemPrompt = `You are a financial news article analyzer for a social media automation system. Extract rich, accurate, structured data from news articles for Instagram/LinkedIn/X posts.
@@ -161,14 +165,24 @@ CRITICAL RULES:
     })
 
     if (!claudeRes.ok) {
-      console.error(`Claude API error: ${claudeRes.status}`, await claudeRes.text())
+      const errText = await claudeRes.text()
+      lastCrawlError = `claude-${claudeRes.status}: ${errText.slice(0, 150)}`
+      console.error(`Claude API error: ${claudeRes.status}`, errText)
       return null
     }
     const claudeData = await claudeRes.json()
     const aiResponse = claudeData.content?.[0]?.text || ''
+    if (!aiResponse) { lastCrawlError = 'claude-empty-response'; return null }
     const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
-    return jsonMatch ? JSON.parse(jsonMatch[0]) : null
-  } catch (e) {
+    if (!jsonMatch) { lastCrawlError = 'no-json-in-response'; return null }
+    try {
+      return JSON.parse(jsonMatch[0])
+    } catch (e: any) {
+      lastCrawlError = `json-parse: ${e.message}`
+      return null
+    }
+  } catch (e: any) {
+    lastCrawlError = `exception: ${e?.message || 'unknown'}`
     console.error(`Failed to crawl: ${url}`, e)
     return null
   }
@@ -231,7 +245,7 @@ async function handleAutoNews(req: NextRequest) {
         const data = await crawlArticle(url)
         if (!data) {
           console.log(`Failed to crawl: ${url}`)
-          errors.push(`crawl failed: ${url}`)
+          errors.push(`crawl failed [${getLastCrawlError()}]: ${url}`)
           continue
         }
 

@@ -5,7 +5,8 @@ import Link from "next/link"
 import {
   ArrowLeft, Globe, TrendingUp, TrendingDown, AlertCircle, Flame,
   ExternalLink, Activity, Zap, Sparkles, Clock, RefreshCw,
-  Swords, Cpu, Package, Newspaper, DollarSign
+  Swords, Cpu, Package, Newspaper, DollarSign,
+  ChevronLeft, ChevronRight
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import LiveNewsPlayer from "@/components/live-news-player"
@@ -141,7 +142,7 @@ export default function GlobalPulsePage() {
         return { ev, score: toneScore * 2 + recencyScore }
       })
       .sort((a, b) => b.score - a.score)
-      .slice(0, 8)
+      .slice(0, 20)
       .map(x => x.ev)
   })()
 
@@ -309,121 +310,13 @@ export default function GlobalPulsePage() {
           />
 
           {/* EARTHQUAKES */}
-          <FeedCard
-            title="Earthquakes"
-            subtitle="M4.5+, last 24h"
-            icon={<Zap className="h-5 w-5 text-yellow-500" />}
-            loading={loading}
-            empty={earthquakes.length === 0}
-          >
-            <div className="space-y-2">
-              {earthquakes.slice(0, 8).map(q => (
-                <a
-                  key={q.id}
-                  href={q.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-secondary/50 transition-colors group"
-                >
-                  <div className={`shrink-0 px-2 py-1 rounded-md border text-sm font-bold tabular-nums ${magColor(q.magnitude)}`}>
-                    M{q.magnitude.toFixed(1)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {q.place}
-                      {q.tsunami && <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">TSUNAMI</span>}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {timeAgo(q.time)} · Depth {q.coordinates.depth.toFixed(0)}km
-                      {q.felt && ` · ${q.felt} felt reports`}
-                    </p>
-                  </div>
-                  <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                </a>
-              ))}
-            </div>
-          </FeedCard>
+          <EarthquakeFeedCard loading={loading} earthquakes={earthquakes} />
 
           {/* NATURAL DISASTERS */}
-          <FeedCard
-            title="Natural Events"
-            subtitle="Active wildfires, storms, volcanoes"
-            icon={<Flame className="h-5 w-5 text-orange-500" />}
-            loading={loading}
-            empty={naturalEvents.length === 0}
-          >
-            <div className="space-y-2">
-              {naturalEvents.slice(0, 8).map(ev => (
-                <a
-                  key={ev.id}
-                  href={ev.source}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-secondary/50 transition-colors group"
-                >
-                  <span className="text-2xl shrink-0 leading-none">{ev.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium leading-snug line-clamp-2">{ev.title}</p>
-                    <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
-                      <span className="px-1.5 py-0.5 rounded bg-secondary text-foreground/80 font-medium">
-                        {ev.category}
-                      </span>
-                      {ev.date && (
-                        <>
-                          <span>·</span>
-                          <span>{timeAgo(new Date(ev.date).getTime())}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-1" />
-                </a>
-              ))}
-            </div>
-          </FeedCard>
+          <NaturalEventsFeedCard loading={loading} events={naturalEvents} />
 
           {/* TRENDING STORIES — cross-category top news by impact */}
-          <FeedCard
-            title="Trending Now"
-            subtitle="Top stories across all categories"
-            icon={<Activity className="h-5 w-5 text-primary" />}
-            loading={loading}
-            empty={trendingStories.length === 0}
-          >
-            <div className="space-y-2.5">
-              {trendingStories.map((e, i) => (
-                <a
-                  key={i}
-                  href={e.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block group"
-                >
-                  <div className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-secondary/50 transition-colors">
-                    <span className="shrink-0 mt-0.5 w-6 h-6 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[11px] font-bold text-primary">
-                      {i + 1}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium leading-snug line-clamp-2 group-hover:text-primary transition-colors">
-                        {e.title}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
-                        <span className="font-medium truncate max-w-[120px]">{e.source}</span>
-                        <span>·</span>
-                        <span>{timeAgo(parseGDELTDate(e.publishedAt))}</span>
-                        {e.tone !== null && e.tone < -5 && (
-                          <span className="ml-auto px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 text-[10px] font-semibold">
-                            HIGH IMPACT
-                          </span>
-                        )}
-                        <ExternalLink className="h-2.5 w-2.5 opacity-0 group-hover:opacity-100 transition-opacity ml-auto" />
-                      </div>
-                    </div>
-                  </div>
-                </a>
-              ))}
-            </div>
-          </FeedCard>
+          <TrendingFeedCard loading={loading} events={trendingStories} />
 
         </div>
 
@@ -558,7 +451,35 @@ function FeedCard({
   )
 }
 
-// Reusable GDELT news feed card
+// Pagination footer — shows "Prev | 1/3 | Next"
+function PaginationFooter({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (p: number) => void }) {
+  if (totalPages <= 1) return null
+  return (
+    <div className="flex items-center justify-center gap-2 mt-4 pt-3 border-t border-border/50">
+      <button
+        onClick={() => onChange(Math.max(0, page - 1))}
+        disabled={page === 0}
+        className="p-1.5 rounded-md hover:bg-secondary disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+        aria-label="Previous page"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      <span className="text-xs text-muted-foreground tabular-nums font-medium">
+        {page + 1} / {totalPages}
+      </span>
+      <button
+        onClick={() => onChange(Math.min(totalPages - 1, page + 1))}
+        disabled={page >= totalPages - 1}
+        className="p-1.5 rounded-md hover:bg-secondary disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+        aria-label="Next page"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
+    </div>
+  )
+}
+
+// Reusable news feed card with pagination (5 per page)
 function NewsFeedCard({
   title, subtitle, icon, loading, events,
 }: {
@@ -568,6 +489,11 @@ function NewsFeedCard({
   loading: boolean
   events: GDELTEvent[]
 }) {
+  const [page, setPage] = useState(0)
+  const pageSize = 5
+  const totalPages = Math.ceil(events.length / pageSize)
+  const pageEvents = events.slice(page * pageSize, (page + 1) * pageSize)
+
   return (
     <FeedCard
       title={title}
@@ -577,9 +503,9 @@ function NewsFeedCard({
       empty={events.length === 0}
     >
       <div className="space-y-2.5">
-        {events.slice(0, 8).map((e, i) => (
+        {pageEvents.map((e, i) => (
           <a
-            key={i}
+            key={page * pageSize + i}
             href={e.url}
             target="_blank"
             rel="noopener noreferrer"
@@ -604,6 +530,157 @@ function NewsFeedCard({
           </a>
         ))}
       </div>
+      <PaginationFooter page={page} totalPages={totalPages} onChange={setPage} />
+    </FeedCard>
+  )
+}
+
+// Earthquakes feed with pagination
+function EarthquakeFeedCard({ loading, earthquakes }: { loading: boolean; earthquakes: Earthquake[] }) {
+  const [page, setPage] = useState(0)
+  const pageSize = 5
+  const totalPages = Math.ceil(earthquakes.length / pageSize)
+  const pageItems = earthquakes.slice(page * pageSize, (page + 1) * pageSize)
+
+  return (
+    <FeedCard
+      title="Earthquakes"
+      subtitle="M4.5+, last 24h"
+      icon={<Zap className="h-5 w-5 text-yellow-500" />}
+      loading={loading}
+      empty={earthquakes.length === 0}
+    >
+      <div className="space-y-2">
+        {pageItems.map(q => (
+          <a
+            key={q.id}
+            href={q.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-secondary/50 transition-colors group"
+          >
+            <div className={`shrink-0 px-2 py-1 rounded-md border text-sm font-bold tabular-nums ${magColor(q.magnitude)}`}>
+              M{q.magnitude.toFixed(1)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">
+                {q.place}
+                {q.tsunami && <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">TSUNAMI</span>}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                {timeAgo(q.time)} · Depth {q.coordinates.depth.toFixed(0)}km
+                {q.felt && ` · ${q.felt} felt reports`}
+              </p>
+            </div>
+            <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+          </a>
+        ))}
+      </div>
+      <PaginationFooter page={page} totalPages={totalPages} onChange={setPage} />
+    </FeedCard>
+  )
+}
+
+// Natural Events feed with pagination
+function NaturalEventsFeedCard({ loading, events }: { loading: boolean; events: NaturalEvent[] }) {
+  const [page, setPage] = useState(0)
+  const pageSize = 5
+  const totalPages = Math.ceil(events.length / pageSize)
+  const pageItems = events.slice(page * pageSize, (page + 1) * pageSize)
+
+  return (
+    <FeedCard
+      title="Natural Events"
+      subtitle="Active wildfires, storms, volcanoes"
+      icon={<Flame className="h-5 w-5 text-orange-500" />}
+      loading={loading}
+      empty={events.length === 0}
+    >
+      <div className="space-y-2">
+        {pageItems.map(ev => (
+          <a
+            key={ev.id}
+            href={ev.source}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-secondary/50 transition-colors group"
+          >
+            <span className="text-2xl shrink-0 leading-none">{ev.icon}</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium leading-snug line-clamp-2">{ev.title}</p>
+              <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
+                <span className="px-1.5 py-0.5 rounded bg-secondary text-foreground/80 font-medium">
+                  {ev.category}
+                </span>
+                {ev.date && (
+                  <>
+                    <span>·</span>
+                    <span>{timeAgo(new Date(ev.date).getTime())}</span>
+                  </>
+                )}
+              </div>
+            </div>
+            <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-1" />
+          </a>
+        ))}
+      </div>
+      <PaginationFooter page={page} totalPages={totalPages} onChange={setPage} />
+    </FeedCard>
+  )
+}
+
+// Trending Now feed with pagination (numbered with impact badges)
+function TrendingFeedCard({ loading, events }: { loading: boolean; events: GDELTEvent[] }) {
+  const [page, setPage] = useState(0)
+  const pageSize = 5
+  const totalPages = Math.ceil(events.length / pageSize)
+  const pageItems = events.slice(page * pageSize, (page + 1) * pageSize)
+
+  return (
+    <FeedCard
+      title="Trending Now"
+      subtitle="Top stories across all categories"
+      icon={<Activity className="h-5 w-5 text-primary" />}
+      loading={loading}
+      empty={events.length === 0}
+    >
+      <div className="space-y-2.5">
+        {pageItems.map((e, i) => {
+          const rank = page * pageSize + i + 1
+          return (
+            <a
+              key={page * pageSize + i}
+              href={e.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block group"
+            >
+              <div className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-secondary/50 transition-colors">
+                <span className="shrink-0 mt-0.5 w-6 h-6 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[11px] font-bold text-primary">
+                  {rank}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+                    {e.title}
+                  </p>
+                  <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
+                    <span className="font-medium truncate max-w-[120px]">{e.source}</span>
+                    <span>·</span>
+                    <span>{timeAgo(parseGDELTDate(e.publishedAt))}</span>
+                    {e.tone !== null && e.tone < -5 && (
+                      <span className="ml-auto px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 text-[10px] font-semibold">
+                        HIGH IMPACT
+                      </span>
+                    )}
+                    <ExternalLink className="h-2.5 w-2.5 opacity-0 group-hover:opacity-100 transition-opacity ml-auto" />
+                  </div>
+                </div>
+              </div>
+            </a>
+          )
+        })}
+      </div>
+      <PaginationFooter page={page} totalPages={totalPages} onChange={setPage} />
     </FeedCard>
   )
 }

@@ -159,7 +159,7 @@ async function fetchGDELT() {
   }
   for (const a of normalized) {
     const cat = categorize(a.title, a._defaultCategory)
-    if (categorized[cat].length < 10) {
+    if (categorized[cat].length < 15) {
       // Strip internal field before storing
       const { _defaultCategory, ...clean } = a
       categorized[cat].push(clean)

@@ -63,8 +63,9 @@ async function fetchCNBCArticles(count: number = 3): Promise<string[]> {
       if (!res.ok) continue
       const xml = await res.text()
 
-      // Extract article URLs from RSS
-      const linkMatches = xml.matchAll(/<link>(https:\/\/www\.cnbc\.com\/[^<]+)<\/link>/g)
+      // Only match ARTICLE URLs (must contain /YYYY/MM/DD/ date pattern)
+      // Excludes landing pages like /us-top-news-and-analysis/
+      const linkMatches = xml.matchAll(/<link>(https:\/\/www\.cnbc\.com\/\d{4}\/\d{2}\/\d{2}\/[^<]+)<\/link>/g)
       for (const match of linkMatches) {
         const articleUrl = match[1]
         // Skip non-article URLs

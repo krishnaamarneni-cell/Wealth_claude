@@ -115,6 +115,30 @@ export default function GlobalPulsePage() {
   const allGdelt = Object.values(categories).flat()
   const totalEvents = allGdelt.length + earthquakes.length + naturalEvents.length
 
+  // Trending: dedupe across categories, rank by most-negative tone (high-impact) + recency
+  const trendingStories = (() => {
+    const seen = new Set<string>()
+    const unique: GDELTEvent[] = []
+    for (const ev of allGdelt) {
+      const key = ev.title.slice(0, 60).toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      unique.push(ev)
+    }
+    // Score: lower tone + more recent = higher rank
+    return unique
+      .map(ev => {
+        const toneScore = ev.tone !== null ? Math.abs(ev.tone) : 0 // bigger = more impact (either direction)
+        const pubTime = parseGDELTDate(ev.publishedAt)
+        const hoursAgo = (Date.now() - pubTime) / 3_600_000
+        const recencyScore = Math.max(0, 24 - hoursAgo) // 0-24
+        return { ev, score: toneScore * 2 + recencyScore }
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 8)
+      .map(x => x.ev)
+  })()
+
   return (
     <div className="min-h-screen bg-background">
       {/* ── Header ────────────────────────────────────────── */}
@@ -347,6 +371,49 @@ export default function GlobalPulsePage() {
                     </div>
                   </div>
                   <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-1" />
+                </a>
+              ))}
+            </div>
+          </FeedCard>
+
+          {/* TRENDING STORIES — cross-category top news by impact */}
+          <FeedCard
+            title="Trending Now"
+            subtitle="Top stories across all categories"
+            icon={<Activity className="h-5 w-5 text-primary" />}
+            loading={loading}
+            empty={trendingStories.length === 0}
+          >
+            <div className="space-y-2.5">
+              {trendingStories.map((e, i) => (
+                <a
+                  key={i}
+                  href={e.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block group"
+                >
+                  <div className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-secondary/50 transition-colors">
+                    <span className="shrink-0 mt-0.5 w-6 h-6 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[11px] font-bold text-primary">
+                      {i + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+                        {e.title}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
+                        <span className="font-medium truncate max-w-[120px]">{e.source}</span>
+                        <span>·</span>
+                        <span>{timeAgo(parseGDELTDate(e.publishedAt))}</span>
+                        {e.tone !== null && e.tone < -5 && (
+                          <span className="ml-auto px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 text-[10px] font-semibold">
+                            HIGH IMPACT
+                          </span>
+                        )}
+                        <ExternalLink className="h-2.5 w-2.5 opacity-0 group-hover:opacity-100 transition-opacity ml-auto" />
+                      </div>
+                    </div>
+                  </div>
                 </a>
               ))}
             </div>

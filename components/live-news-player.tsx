@@ -16,27 +16,51 @@ import { Play, Tv, Volume2, VolumeX, Maximize2, ChevronDown, ChevronUp } from "l
 interface Channel {
   id: string
   name: string
-  channelId: string // YouTube channel ID
+  /** YouTube channel ID — uses live_stream?channel=X (auto-finds current live) */
+  channelId?: string
+  /** OR direct video ID — uses embed/VIDEO_ID (for channels where live_stream fails) */
+  videoId?: string
   color: string
   region: string
 }
 
+// Bloomberg + Sky News use direct video IDs since their live_stream?channel= doesn't always work.
+// Other channels use channel-based URLs which auto-redirect to whatever is currently live.
 const CHANNELS: Channel[] = [
-  { id: 'bloomberg', name: 'Bloomberg', channelId: 'UCIRYBXDze5krPDzAEOxFGVA', color: 'bg-orange-600', region: '🇺🇸 US' },
+  { id: 'bloomberg', name: 'Bloomberg', videoId: 'iEpJwprxDdk', color: 'bg-orange-600', region: '🇺🇸 US' },
   { id: 'cnbc', name: 'CNBC', channelId: 'UCvJJ_dzjViJCoLf5uKUTwoA', color: 'bg-blue-600', region: '🇺🇸 US' },
-  { id: 'sky', name: 'Sky News', channelId: 'UCoMdktPbSTixAyNGwb-UYkQ', color: 'bg-red-600', region: '🇬🇧 UK' },
+  { id: 'sky', name: 'Sky News', videoId: 'YDvsBbKfLPA', color: 'bg-red-600', region: '🇬🇧 UK' },
   { id: 'euronews', name: 'Euronews', channelId: 'UCSrZ3UV4jOidv8ppoVuvW9Q', color: 'bg-blue-500', region: '🇪🇺 EU' },
   { id: 'dw', name: 'DW News', channelId: 'UCknLrEdhRCp1aegoMqRaCZg', color: 'bg-red-500', region: '🇩🇪 DE' },
   { id: 'france24', name: 'France 24', channelId: 'UCQfwfsi5VrQ8yKZ-UWmAEFg', color: 'bg-blue-700', region: '🇫🇷 FR' },
   { id: 'aljazeera', name: 'Al Jazeera', channelId: 'UCNye-wNBqNL5ZzHSJj3l8Bg', color: 'bg-yellow-600', region: '🇶🇦 QA' },
 ]
 
-export default function LiveNewsPlayer() {
+function buildEmbedUrl(ch: Channel, muted: boolean): string {
+  const base = ch.videoId
+    ? `https://www.youtube.com/embed/${ch.videoId}`
+    : `https://www.youtube.com/embed/live_stream?channel=${ch.channelId}`
+  const params = `autoplay=1&mute=${muted ? 1 : 0}&modestbranding=1&rel=0`
+  return `${base}${ch.videoId ? '?' : '&'}${params}`
+}
+
+function buildYouTubeUrl(ch: Channel): string {
+  return ch.videoId
+    ? `https://www.youtube.com/watch?v=${ch.videoId}`
+    : `https://www.youtube.com/channel/${ch.channelId}/live`
+}
+
+interface LiveNewsPlayerProps {
+  /** Layout mode: "card" = inline collapsible card, "sticky" = always-visible panel */
+  mode?: 'card' | 'sticky'
+}
+
+export default function LiveNewsPlayer({ mode = 'card' }: LiveNewsPlayerProps) {
   const [selectedChannel, setSelectedChannel] = useState<Channel>(CHANNELS[0])
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(mode === 'sticky')
   const [muted, setMuted] = useState(true)
 
-  const embedUrl = `https://www.youtube.com/embed/live_stream?channel=${selectedChannel.channelId}&autoplay=1&mute=${muted ? 1 : 0}&modestbranding=1&rel=0`
+  const embedUrl = buildEmbedUrl(selectedChannel, muted)
 
   return (
     <div className="rounded-xl border bg-card overflow-hidden mb-6">
@@ -114,7 +138,7 @@ export default function LiveNewsPlayer() {
                 {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
               </button>
               <a
-                href={`https://www.youtube.com/channel/${selectedChannel.channelId}/live`}
+                href={buildYouTubeUrl(selectedChannel)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-1.5 rounded-md hover:bg-secondary transition-colors"

@@ -154,11 +154,16 @@ export default function GlobalPulsePage() {
         </div>
       </div>
 
-      {/* ── Main content ──────────────────────────────────── */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      {/* ── Main content ── full width on desktop, split layout ── */}
+      <div className="max-w-[1600px] mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[1fr_440px] gap-6">
 
-        {/* Live News Player (collapsed by default) */}
-        <LiveNewsPlayer />
+        {/* ==== LEFT COLUMN: feeds and stats ==== */}
+        <div className="min-w-0">
+
+        {/* Live News Player (mobile only — shown inline). On desktop, it's in the right sidebar */}
+        <div className="lg:hidden">
+          <LiveNewsPlayer />
+        </div>
 
         {/* Hero stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
@@ -363,6 +368,62 @@ export default function GlobalPulsePage() {
           </p>
           <p>Refreshes every 5 minutes · All data is public domain</p>
         </div>
+
+        {/* End of LEFT COLUMN */}
+        </div>
+
+        {/* ==== RIGHT COLUMN: sticky live video (desktop only) ==== */}
+        <aside className="hidden lg:block">
+          <div className="sticky top-[84px] space-y-4">
+            <LiveNewsPlayer mode="sticky" />
+
+            {/* Quick Earthquake alert card */}
+            {earthquakes[0] && earthquakes[0].magnitude >= 5 && (
+              <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Zap className="h-4 w-4 text-yellow-500" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-yellow-500">
+                    Earthquake Alert
+                  </span>
+                </div>
+                <p className="text-sm font-semibold">
+                  M{earthquakes[0].magnitude.toFixed(1)} · {earthquakes[0].place}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {timeAgo(earthquakes[0].time)}
+                  {earthquakes[0].tsunami && (
+                    <span className="ml-2 px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 text-[10px] font-bold">
+                      TSUNAMI WARNING
+                    </span>
+                  )}
+                </p>
+              </div>
+            )}
+
+            {/* Top market mover snapshot */}
+            {gainers[0] && (
+              <div className="rounded-xl border bg-card p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <TrendingUp className="h-4 w-4 text-green-500" />
+                  <span className="text-xs font-bold uppercase tracking-wider">Top S&P Mover</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-lg font-bold">{gainers[0].symbol}</p>
+                    <p className="text-xs text-muted-foreground truncate max-w-[200px]">{gainers[0].name}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-bold text-green-500 tabular-nums">
+                      +{gainers[0].changePercent.toFixed(2)}%
+                    </p>
+                    <p className="text-xs text-muted-foreground tabular-nums">${gainers[0].price.toFixed(2)}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </aside>
+
       </div>
     </div>
   )

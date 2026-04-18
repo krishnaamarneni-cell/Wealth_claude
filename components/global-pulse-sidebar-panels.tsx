@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { TrendingUp, TrendingDown, Bitcoin, Coins, Activity, Package } from "lucide-react"
+import { TrendingUp, TrendingDown, Bitcoin, Coins, Activity, Package, ChevronUp, ChevronDown } from "lucide-react"
 
 // ─── Crypto Panel ────────────────────────────────────────────────────────
 interface Coin {
@@ -29,7 +29,7 @@ export function CryptoPanel() {
   if (coins.length === 0) return null
 
   return (
-    <SidebarCard title="Crypto" icon={<Bitcoin className="h-4 w-4 text-amber-500" />}>
+    <SidebarCard storageKey="crypto" title="Crypto" icon={<Bitcoin className="h-4 w-4 text-amber-500" />}>
       <div className="space-y-2">
         {coins.slice(0, 5).map(c => {
           const up = c.change24h >= 0
@@ -99,7 +99,7 @@ export function CommoditiesPanel() {
   if (visible.length === 0) return null
 
   return (
-    <SidebarCard title="Commodities" icon={<Package className="h-4 w-4 text-amber-500" />}>
+    <SidebarCard storageKey="commodities" title="Commodities" icon={<Package className="h-4 w-4 text-amber-500" />}>
       <div className="space-y-2">
         {visible.map(i => {
           const t = data[i.key]!
@@ -156,7 +156,7 @@ export function MacroStressPanel() {
   else if (vixyPrice > 18) { stressLabel = 'Moderate'; stressColor = 'text-yellow-500' }
 
   return (
-    <SidebarCard title="Macro Stress" icon={<Activity className="h-4 w-4 text-red-500" />}>
+    <SidebarCard storageKey="macro" title="Macro Stress" icon={<Activity className="h-4 w-4 text-red-500" />}>
       <div className="space-y-3">
         {macro.vixy && (
           <div>
@@ -194,15 +194,41 @@ export function MacroStressPanel() {
 // ─── Shared UI ──────────────────────────────────────────────────────────
 
 function SidebarCard({
-  title, icon, children,
-}: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+  title, icon, children, defaultOpen = true, storageKey,
+}: {
+  title: string
+  icon: React.ReactNode
+  children: React.ReactNode
+  defaultOpen?: boolean
+  storageKey?: string
+}) {
+  const [open, setOpen] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || !storageKey) return defaultOpen
+    const saved = localStorage.getItem(`gp-card-${storageKey}`)
+    if (saved === null) return defaultOpen
+    return saved === 'true'
+  })
+
+  const toggle = () => {
+    const next = !open
+    setOpen(next)
+    if (storageKey && typeof window !== 'undefined') {
+      localStorage.setItem(`gp-card-${storageKey}`, String(next))
+    }
+  }
+
   return (
-    <div className="rounded-xl border bg-card p-4">
-      <div className="flex items-center gap-2 mb-3">
+    <div className="rounded-xl border bg-card overflow-hidden">
+      <button
+        onClick={toggle}
+        className="w-full flex items-center gap-2 px-4 py-3 hover:bg-secondary/30 transition-colors"
+        aria-expanded={open}
+      >
         {icon}
-        <span className="text-xs font-bold uppercase tracking-wider">{title}</span>
-      </div>
-      {children}
+        <span className="text-xs font-bold uppercase tracking-wider flex-1 text-left">{title}</span>
+        {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+      </button>
+      {open && <div className="px-4 pb-4">{children}</div>}
     </div>
   )
 }

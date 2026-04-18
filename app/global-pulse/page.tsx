@@ -194,7 +194,7 @@ export default function GlobalPulsePage() {
       </div>
 
       {/* ── Main content ── full width on desktop, split layout ── */}
-      <div className="max-w-[1600px] mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[1fr_440px] gap-6">
+      <div className="max-w-[1600px] mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[1fr_560px] gap-6">
 
         {/* ==== LEFT COLUMN: feeds and stats ==== */}
         <div className="min-w-0">

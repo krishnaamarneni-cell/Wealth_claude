@@ -6,8 +6,10 @@ import { getMockMarketData, type MarketDataMap } from "@/lib/mockData"
 import { COUNTRY_INDEX_MAP } from "@/lib/countryIndexMap"
 import { pctToColor, pctToTextClass, LEGEND_STOPS } from "@/lib/colorScale"
 import { CountryPanel } from "@/components/CountryPanel"
+import { TradingViewHeatmap } from "@/components/heatmaps-section"
 
-type ViewMode = "globe" | "map"
+type ViewMode = "globe" | "map" | "heatmap"
+type HeatmapSource = "SPX500" | "NASDAQ100" | "CRYPTO"
 
 // Dynamic imports — both require browser APIs
 const GlobeWrapper = dynamic(
@@ -36,6 +38,7 @@ const FlatMapWrapper = dynamic(
 
 export default function GlobePage() {
   const [viewMode, setViewMode] = useState<ViewMode>("globe")
+  const [heatmapSource, setHeatmapSource] = useState<HeatmapSource>("SPX500")
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
   const [selectedName, setSelectedName] = useState<string | null>(null)
   const [showLegend, setShowLegend] = useState(true)
@@ -96,7 +99,7 @@ export default function GlobePage() {
       {/* Background */}
       <div className="absolute inset-0 pointer-events-none z-0 bg-black" />
 
-      {/* Globe (always mounted, hidden when map active) */}
+      {/* Globe (always mounted, hidden when map or heatmap active) */}
       <div
         className="absolute inset-0 z-10"
         style={{
@@ -125,6 +128,43 @@ export default function GlobePage() {
         </div>
       )}
 
+      {/* Heat map (only rendered when active) */}
+      {viewMode === "heatmap" && (
+        <div className="absolute inset-0 z-10 pt-20 px-4 pb-4" style={{ height: "100vh", width: "100vw" }}>
+          {/* Heatmap source tabs */}
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-30 flex items-center rounded-full border border-white/10 bg-[#0d1117]/90 backdrop-blur-sm p-0.5">
+            {(["SPX500", "NASDAQ100", "CRYPTO"] as HeatmapSource[]).map((src) => (
+              <button
+                key={src}
+                onClick={() => setHeatmapSource(src)}
+                className={`text-[11px] rounded-full px-4 py-1.5 transition-all ${
+                  heatmapSource === src
+                    ? "bg-white/15 text-white font-semibold"
+                    : "text-white/40 hover:text-white/70"
+                }`}
+              >
+                {src === "SPX500" ? "S&P 500" : src === "NASDAQ100" ? "Nasdaq 100" : "Crypto"}
+              </button>
+            ))}
+          </div>
+
+          <div className="w-full h-full rounded-xl overflow-hidden border border-white/10 bg-[#0d1117]">
+            {(["SPX500", "NASDAQ100", "CRYPTO"] as HeatmapSource[]).map((src) => (
+              <div
+                key={src}
+                style={{
+                  display: heatmapSource === src ? "block" : "none",
+                  width: "100%",
+                  height: "100%",
+                }}
+              >
+                <TradingViewHeatmap dataSource={src} height={900} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* TOP BAR */}
       <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none">
         <div className="flex items-center justify-between px-5 py-4">
@@ -143,7 +183,7 @@ export default function GlobePage() {
           {/* Right controls */}
           <div className="flex items-center gap-2 pointer-events-auto">
 
-            {/* Globe / Map toggle */}
+            {/* Globe / Map / Heat Map toggle */}
             <div className="flex items-center rounded-full border border-white/10 bg-white/5 p-0.5">
               <button
                 onClick={() => setViewMode("globe")}
@@ -164,6 +204,16 @@ export default function GlobePage() {
               >
                 <span className="text-sm">🗺️</span>
                 Map
+              </button>
+              <button
+                onClick={() => setViewMode("heatmap")}
+                className={`flex items-center gap-1.5 text-[10px] rounded-full px-3 py-1.5 transition-all ${viewMode === "heatmap"
+                    ? "bg-white/15 text-white font-semibold"
+                    : "text-white/30 hover:text-white/60"
+                  }`}
+              >
+                <span className="text-sm">🔥</span>
+                Heat Map
               </button>
             </div>
 
@@ -188,7 +238,8 @@ export default function GlobePage() {
         </div>
       </div>
 
-      {/* LEFT STATS BAR */}
+      {/* LEFT STATS BAR (hidden on heatmap) */}
+      {viewMode !== "heatmap" && (
       <div className="absolute left-4 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2 pointer-events-auto">
         <div className="rounded-2xl border border-white/8 bg-[#0d1117]/90 backdrop-blur-sm px-4 py-3 min-w-[130px] space-y-3">
           <div className="text-[10px] font-bold uppercase tracking-widest text-white/30 mb-1">Markets Today</div>
@@ -234,9 +285,10 @@ export default function GlobePage() {
           </div>
         )}
       </div>
+      )}
 
-      {/* LEGEND */}
-      {showLegend && (
+      {/* LEGEND (hidden on heatmap) */}
+      {viewMode !== "heatmap" && showLegend && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-auto">
           <div className="rounded-2xl border border-white/8 bg-[#0d1117]/90 backdrop-blur-sm px-5 py-3 flex items-center gap-4">
             <span className="text-[10px] text-white/30 uppercase tracking-widest shrink-0">Daily Change</span>

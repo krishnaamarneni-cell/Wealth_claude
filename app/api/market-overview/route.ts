@@ -7,16 +7,47 @@ interface Quote { c: number; d: number; dp: number; h: number; l: number; pc: nu
 
 const serverCache = new Map<string, { data: unknown; expiresAt: number }>()
 
-async function fetchQuote(symbol: string): Promise<Quote | null> {
-  try {
-    const res = await fetch(
-      `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${FINNHUB_API_KEY}`,
-      { cache: 'no-store' }
+// Sleep helper for throttling
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+// Fetch with retry on rate limit (429)
+async function fetchQuote(symbol: string, retries = 2): Promise<Quote | null> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(
+        `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${FINNHUB_API_KEY}`,
+        { cache: 'no-store' }
+      )
+      if (res.status === 429 && attempt < retries) {
+        // Rate-limited — wait and retry with exponential backoff
+        await sleep(1000 * (attempt + 1))
+        continue
+      }
+      if (!res.ok) return null
+      const data: Quote = await res.json()
+      return data.c > 0 ? data : null
+    } catch {
+      if (attempt === retries) return null
+      await sleep(500)
+    }
+  }
+  return null
+}
+
+// Batch quotes with small delays to avoid Finnhub burst rate limit
+async function fetchQuotesBatched(symbols: string[], batchSize = 5, delayMs = 150): Promise<Record<string, Quote | null>> {
+  const result: Record<string, Quote | null> = {}
+  for (let i = 0; i < symbols.length; i += batchSize) {
+    const batch = symbols.slice(i, i + batchSize)
+    const batchResults = await Promise.all(
+      batch.map(sym => fetchQuote(sym).then(data => ({ sym, data })))
     )
-    if (!res.ok) return null
-    const data: Quote = await res.json()
-    return data.c > 0 ? data : null
-  } catch { return null }
+    batchResults.forEach(({ sym, data }) => { result[sym] = data })
+    if (i + batchSize < symbols.length) {
+      await sleep(delayMs)
+    }
+  }
+  return result
 }
 
 const SECTOR_META: Record<string, string> = {
@@ -54,16 +85,11 @@ export async function GET() {
   const GLOBAL_SYMS = Object.keys(GLOBAL_META)
   const BTC_SYM = 'BINANCE:BTCUSDT'
 
-  const allSymbols = [...new Set([...TICKER_SYMS, ...SECTOR_SYMS, ...GLOBAL_SYMS])]
+  const allSymbols = [...new Set([...TICKER_SYMS, ...SECTOR_SYMS, ...GLOBAL_SYMS, BTC_SYM])]
 
-  const [stockResults, btcQuote] = await Promise.all([
-    Promise.all(allSymbols.map(sym => fetchQuote(sym).then(data => ({ sym, data })))),
-    fetchQuote(BTC_SYM),
-  ])
-
-  const q: Record<string, Quote | null> = {}
-  stockResults.forEach(({ sym, data }) => { q[sym] = data })
-  q['BTC'] = btcQuote
+  // Fetch in batches of 5 with 150ms delay to respect Finnhub burst limits
+  const q = await fetchQuotesBatched(allSymbols, 5, 150)
+  q['BTC'] = q[BTC_SYM] ?? null
 
   const toItem = (sym: string) => q[sym]
     ? { price: q[sym]!.c, change: q[sym]!.d, changePercent: q[sym]!.dp }
@@ -99,6 +125,17 @@ export async function GET() {
     .filter(g => g.price > 0)
 
   const result = { ticker, sectors, globalMarkets, timestamp: Date.now() }
-  serverCache.set(CACHE_KEY, { data: result, expiresAt: Date.now() + getMsUntilNextMarketClose() })
-  return NextResponse.json(result)
+
+  // Only cache for full duration if we got mostly complete data.
+  // If too many fields are null (rate-limited), cache for only 60 seconds so next request retries.
+  const tickerFilled = Object.values(ticker).filter(v => v !== null).length
+  const tickerTotal = Object.keys(ticker).length
+  const isHealthy = tickerFilled >= tickerTotal * 0.7 && sectors.length >= 7 && globalMarkets.length >= 5
+
+  const cacheExpiry = isHealthy
+    ? Date.now() + getMsUntilNextMarketClose()
+    : Date.now() + 60 * 1000 // 60s for partial data — retry soon
+
+  serverCache.set(CACHE_KEY, { data: result, expiresAt: cacheExpiry })
+  return NextResponse.json({ ...result, healthy: isHealthy })
 }

@@ -153,6 +153,9 @@ export default function GlobalPulsePage() {
       {/* ── Main site header (WealthClaude nav) ────────────── */}
       <Header />
 
+      {/* Spacer to push content below the fixed header */}
+      <div className="h-20" />
+
       {/* ── Page sub-header ────────────────────────────────── */}
       <div className="border-b border-border bg-card/30 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">

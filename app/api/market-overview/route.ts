@@ -76,6 +76,30 @@ export async function GET() {
     return NextResponse.json({ ...cached.data, fromCache: true })
   }
 
+  // Try Supabase cache first (populated by /api/cron/refresh-pulse)
+  try {
+    const { createClient: createSbClient } = await import('@supabase/supabase-js')
+    const sb = createSbClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    const { data: row } = await sb
+      .from('global_pulse_cache')
+      .select('data, updated_at')
+      .eq('key', 'market-overview')
+      .maybeSingle()
+    if (row?.data) {
+      const ageMs = Date.now() - new Date(row.updated_at).getTime()
+      // If cache is <30 min old, serve it
+      if (ageMs < 30 * 60 * 1000) {
+        return NextResponse.json({
+          ...(row.data as object),
+          fromSupabaseCache: true,
+        }, { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' } })
+      }
+    }
+  } catch { /* fall through to live fetch */ }
+
   if (!FINNHUB_API_KEY) {
     return NextResponse.json({ error: 'FINNHUB_API_KEY not set' }, { status: 500 })
   }

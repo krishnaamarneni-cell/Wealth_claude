@@ -106,6 +106,29 @@ export async function GET() {
     return NextResponse.json({ ...cached.data, fromCache: true })
   }
 
+  // ── 0: Try Supabase cache first (populated by /api/cron/refresh-pulse) ──
+  try {
+    const { createClient: createSbClient } = await import('@supabase/supabase-js')
+    const sb = createSbClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    const { data: row } = await sb
+      .from('global_pulse_cache')
+      .select('data, updated_at')
+      .eq('key', 'market-movers')
+      .maybeSingle()
+    if (row?.data) {
+      const ageMs = Date.now() - new Date(row.updated_at).getTime()
+      if (ageMs < 30 * 60 * 1000) {
+        return NextResponse.json({
+          ...(row.data as object),
+          fromSupabaseCache: true,
+        }, { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' } })
+      }
+    }
+  } catch { /* fall through to live fetch */ }
+
   // ── 1st: Try Polygon (market-wide, same data for all 3 tabs) ──────────
   if (POLYGON_API_KEY) {
     try {

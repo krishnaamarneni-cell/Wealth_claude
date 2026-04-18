@@ -232,6 +232,102 @@ async function fetchCrypto() {
   return { coins, timestamp: Date.now() }
 }
 
+// ─── Market Overview (S&P, sectors, global markets) ───────────────────
+async function fetchMarketOverview() {
+  const finnhubKey = process.env.FINNHUB_API_KEY
+  if (!finnhubKey) throw new Error('FINNHUB_API_KEY not set')
+
+  const TICKER_SYMS = ['SPY', 'QQQ', 'DIA', 'IWM', 'GLD', 'SLV', 'USO', 'UNG', 'CPER', 'AGG', 'UUP']
+  const SECTOR_SYMS = ['XLK', 'XLE', 'XLC', 'XLY', 'XLF', 'XLI', 'XLB', 'XLRE', 'XLV', 'XLP', 'XLU']
+  const GLOBAL_SYMS = ['SPY', 'EWG', 'EWU', 'EWJ', 'MCHI', 'EWZ', 'INDA']
+  const all = [...new Set([...TICKER_SYMS, ...SECTOR_SYMS, ...GLOBAL_SYMS, 'BINANCE:BTCUSDT'])]
+
+  // Batch in 5s groups to respect Finnhub burst limit
+  const results: Record<string, any> = {}
+  for (let i = 0; i < all.length; i += 5) {
+    const batch = all.slice(i, i + 5)
+    const res = await Promise.all(batch.map(async (sym) => {
+      try {
+        const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(sym)}&token=${finnhubKey}`, { cache: 'no-store' })
+        if (!r.ok) return { sym, data: null }
+        const d = await r.json()
+        return { sym, data: d.c > 0 ? d : null }
+      } catch { return { sym, data: null } }
+    }))
+    res.forEach(({ sym, data }) => { results[sym] = data })
+    if (i + 5 < all.length) await new Promise(r => setTimeout(r, 150))
+  }
+
+  const toItem = (s: string) => results[s] ? { price: results[s].c, change: results[s].d, changePercent: results[s].dp } : null
+  const BTC = results['BINANCE:BTCUSDT']
+
+  return {
+    ticker: {
+      sp500: toItem('SPY'),
+      nasdaq: toItem('QQQ'),
+      dow: toItem('DIA'),
+      russell2000: toItem('IWM'),
+      gold: toItem('GLD'),
+      silver: toItem('SLV'),
+      oil: toItem('USO'),
+      natgas: toItem('UNG'),
+      copper: toItem('CPER'),
+      bonds: toItem('AGG'),
+      usdDollar: toItem('UUP'),
+      bitcoin: BTC ? { price: BTC.c, change: BTC.d, changePercent: BTC.dp } : null,
+    },
+    sectors: SECTOR_SYMS
+      .map(s => ({ name: s, symbol: s, price: results[s]?.c ?? 0, change: results[s]?.d ?? 0, changePercent: results[s]?.dp ?? 0 }))
+      .filter(s => s.price > 0),
+    globalMarkets: GLOBAL_SYMS
+      .map(s => ({ symbol: s, price: results[s]?.c ?? 0, change: results[s]?.d ?? 0, changePercent: results[s]?.dp ?? 0 }))
+      .filter(g => g.price > 0),
+    timestamp: Date.now(),
+  }
+}
+
+// ─── Market Movers (top S&P gainers/losers via Finnhub) ────────────────
+const SP500_WATCHLIST = [
+  'AAPL','MSFT','GOOGL','AMZN','META','NVDA','TSLA','BRK.B','JPM','V','UNH','XOM','JNJ',
+  'WMT','PG','MA','HD','BAC','AVGO','CVX','LLY','ABBV','KO','PEP','TMO','COST','MRK',
+  'ADBE','CRM','NFLX','AMD','DIS','CSCO','PFE','INTC','VZ','CMCSA','MRVL','SHW','KLAC',
+  'GILD','ADBE','CME','CVX','NFLX','VZ','MU','ICE',
+]
+
+async function fetchMarketMovers() {
+  const finnhubKey = process.env.FINNHUB_API_KEY
+  if (!finnhubKey) throw new Error('FINNHUB_API_KEY not set')
+
+  const symbols = [...new Set(SP500_WATCHLIST)]
+  const quotes: { symbol: string; price: number; change: number; changePercent: number; name?: string }[] = []
+
+  // Batch in 5s groups
+  for (let i = 0; i < symbols.length; i += 5) {
+    const batch = symbols.slice(i, i + 5)
+    const res = await Promise.all(batch.map(async (sym) => {
+      try {
+        const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=${finnhubKey}`, { cache: 'no-store' })
+        if (!r.ok) return null
+        const d = await r.json()
+        if (d.c <= 0) return null
+        return { symbol: sym, price: d.c, change: d.d, changePercent: d.dp }
+      } catch { return null }
+    }))
+    res.forEach(q => q && quotes.push(q))
+    if (i + 5 < symbols.length) await new Promise(r => setTimeout(r, 150))
+  }
+
+  // Sort
+  const sorted = [...quotes].sort((a, b) => b.changePercent - a.changePercent)
+  const gainers = sorted.slice(0, 8)
+  const losers = sorted.slice(-8).reverse()
+
+  return {
+    sp500: { gainers, losers },
+    timestamp: Date.now(),
+  }
+}
+
 // ─── Macro indicators (VIX, via Finnhub) ────────────────────────────────
 async function fetchMacro() {
   const finnhubKey = process.env.FINNHUB_API_KEY
@@ -316,14 +412,19 @@ async function handler(req: NextRequest) {
   const results: Record<string, any> = {}
   const errors: Record<string, string> = {}
 
-  // Fetch all sources in parallel — each hits a DIFFERENT external API so no rate conflict
-  const [gdeltRes, quakesRes, naturalRes, cryptoRes, macroRes] = await Promise.allSettled([
+  // Fetch all sources — each hits a DIFFERENT external API so no rate conflict between them
+  // (but Finnhub-based ones run sequentially to avoid burst limit)
+  const [gdeltRes, quakesRes, naturalRes, cryptoRes] = await Promise.allSettled([
     fetchGDELT(),
     fetchEarthquakes(),
     fetchNatural(),
     fetchCrypto(),
-    fetchMacro(),
   ])
+
+  // Finnhub-based fetches — sequential to avoid rate limits
+  const marketOverviewRes = await Promise.allSettled([fetchMarketOverview()]).then(r => r[0])
+  const marketMoversRes = await Promise.allSettled([fetchMarketMovers()]).then(r => r[0])
+  const macroRes = await Promise.allSettled([fetchMacro()]).then(r => r[0])
 
   if (gdeltRes.status === 'fulfilled') {
     try {
@@ -378,6 +479,31 @@ async function handler(req: NextRequest) {
     }
   } else {
     errors.macro = macroRes.reason?.message || 'fetch failed'
+  }
+
+  if (marketOverviewRes.status === 'fulfilled') {
+    try {
+      await saveToCache('market-overview', marketOverviewRes.value)
+      results.marketOverview = { sectors: marketOverviewRes.value.sectors.length, global: marketOverviewRes.value.globalMarkets.length }
+    } catch (e: any) {
+      errors.marketOverview = `save failed: ${e.message}`
+    }
+  } else {
+    errors.marketOverview = marketOverviewRes.reason?.message || 'fetch failed'
+  }
+
+  if (marketMoversRes.status === 'fulfilled') {
+    try {
+      await saveToCache('market-movers', marketMoversRes.value)
+      results.marketMovers = {
+        gainers: marketMoversRes.value.sp500.gainers.length,
+        losers: marketMoversRes.value.sp500.losers.length,
+      }
+    } catch (e: any) {
+      errors.marketMovers = `save failed: ${e.message}`
+    }
+  } else {
+    errors.marketMovers = marketMoversRes.reason?.message || 'fetch failed'
   }
 
   return NextResponse.json({

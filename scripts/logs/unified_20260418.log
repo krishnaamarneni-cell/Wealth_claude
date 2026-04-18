@@ -1,0 +1,12 @@
+2026-04-18 00:34:24,521 [WealthClaude] INFO: Started: ReelProcessor
+2026-04-18 00:34:24,522 [WealthClaude] INFO: Started: YouTubeProcessor
+2026-04-18 00:34:26,337 [Reels] INFO: Reel processor started (poll every 60s)
+2026-04-18 00:34:26,337 [Reels] INFO: API: https://www.wealthclaude.com | Cloudinary: ddyhi6nej | Make: OK
+2026-04-18 00:34:26,337 [Reels] INFO: Outside hours. Sleeping 6.4h
+2026-04-18 00:34:41,445 [WealthClaude] INFO: Started: ReelProcessor
+2026-04-18 00:34:41,446 [WealthClaude] INFO: Started: YouTubeProcessor
+2026-04-18 00:34:41,777 [Reels] INFO: Reel processor started (poll every 60s)
+2026-04-18 00:34:41,778 [Reels] INFO: API: https://www.wealthclaude.com | Cloudinary: ddyhi6nej | Make: OK
+2026-04-18 00:34:41,778 [Reels] INFO: Outside hours. Sleeping 6.4h
+2026-04-18 00:34:42,804 [YouTube] INFO: YouTube processor loaded
+2026-04-18 00:34:42,810 [YouTube] INFO: YouTube processor loaded

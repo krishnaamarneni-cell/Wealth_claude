@@ -8,6 +8,7 @@ import {
   Swords, Cpu, Package, Newspaper, DollarSign
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import LiveNewsPlayer from "@/components/live-news-player"
 
 // ─── Types ───────────────────────────────────────────────────────────────
 interface GDELTEvent {
@@ -153,8 +154,13 @@ export default function GlobalPulsePage() {
         </div>
       </div>
 
-      {/* ── Hero stats ────────────────────────────────────── */}
+      {/* ── Main content ──────────────────────────────────── */}
       <div className="max-w-7xl mx-auto px-4 py-6">
+
+        {/* Live News Player (collapsed by default) */}
+        <LiveNewsPlayer />
+
+        {/* Hero stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <StatCard
             icon={<Activity className="h-4 w-4 text-primary" />}

@@ -40,15 +40,133 @@ const CNBC_FEEDS = [
 ]
 
 // Pick best template based on category
-function pickTemplate(category: string): 'a' | 'c' | 'd' | 'e' | 'f' {
+// Detects placeholder values that AI sometimes leaves in
+const PLACEHOLDER_PATTERNS = [
+  /\bX+\.X+\b/i,       // XX.XX, X.X
+  /\bX+\%/i,           // X%, XX%
+  /\bN\/A\b/i,
+  /\bTBD\b/i,
+  /\$X+/i,             // $X, $XX, $XXX
+  /\bUNKNOWN\b/i,
+]
+
+function isPlaceholder(val: any): boolean {
+  if (val == null) return true
+  const s = String(val).trim()
+  if (!s || s === '0' || s === '0%' || s === '$0' || s === '0.00') return true
+  return PLACEHOLDER_PATTERNS.some(p => p.test(s))
+}
+
+/**
+ * Clean extracted data — remove fields with placeholder values so the
+ * image templates can hide those sections cleanly.
+ */
+function cleanExtractedData(data: any): any {
+  const clean: any = { ...data }
+
+  // Clean key_points: drop empty/trivial items
+  if (Array.isArray(clean.key_points)) {
+    clean.key_points = clean.key_points
+      .filter((p: any) => typeof p === 'string' && p.trim().length > 15)
+      .slice(0, 5)
+  }
+
+  // Clean market_impact: drop entries with placeholder change/price
+  if (Array.isArray(clean.market_impact)) {
+    clean.market_impact = clean.market_impact
+      .filter((m: any) => m && m.name && !isPlaceholder(m.change))
+      .map((m: any) => {
+        const cleaned = { ...m }
+        if (isPlaceholder(cleaned.price)) delete cleaned.price
+        return cleaned
+      })
+  }
+
+  // Clean big_stat: drop if number is a placeholder
+  if (clean.big_stat && isPlaceholder(clean.big_stat.number)) {
+    delete clean.big_stat
+  }
+
+  // Clean quote: drop if text is too short or placeholder
+  if (clean.quote && (typeof clean.quote.text !== 'string' || clean.quote.text.trim().length < 15)) {
+    delete clean.quote
+  }
+
+  // Clean timeline_events: must have real title and description
+  if (Array.isArray(clean.timeline_events)) {
+    clean.timeline_events = clean.timeline_events.filter(
+      (e: any) => e && e.title && e.description && e.title.length > 3
+    )
+  }
+
+  // Clean context_points
+  if (Array.isArray(clean.context_points)) {
+    clean.context_points = clean.context_points.filter(
+      (p: any) => typeof p === 'string' && p.trim().length > 15
+    )
+  }
+
+  return clean
+}
+
+/**
+ * Quality gate — decide whether we have enough rich data to make a good image.
+ * Returns ok=false with reason if the article should be skipped.
+ */
+function validateQuality(data: any): { ok: boolean; reason?: string } {
+  if (!data.headline || data.headline.length < 10) {
+    return { ok: false, reason: 'headline too short' }
+  }
+  const keyPoints = Array.isArray(data.key_points) ? data.key_points : []
+  if (keyPoints.length < 3) {
+    return { ok: false, reason: `only ${keyPoints.length} key points (need 3+)` }
+  }
+
+  // Count meaningful content fields to make sure there's enough to fill a card
+  let signal = 0
+  if (keyPoints.length >= 3) signal += 2
+  if (keyPoints.length >= 4) signal += 1
+  if (Array.isArray(data.market_impact) && data.market_impact.length >= 2) signal += 2
+  if (data.big_stat?.number) signal += 1
+  if (data.quote?.text) signal += 1
+  if (Array.isArray(data.timeline_events) && data.timeline_events.length >= 2) signal += 1
+  if (Array.isArray(data.context_points) && data.context_points.length >= 2) signal += 1
+
+  if (signal < 4) {
+    return { ok: false, reason: `signal score ${signal}/4 (not enough rich data)` }
+  }
+
+  return { ok: true }
+}
+
+/**
+ * Pick the template based on what DATA we actually have, not just category.
+ * This avoids showing empty sections.
+ */
+function pickTemplate(category: string, data?: any): 'a' | 'c' | 'd' | 'e' | 'f' {
   const cat = (category || '').toUpperCase()
-  if (cat.includes('BREAKING') || cat.includes('POLITIC') || cat.includes('GEOPOL')) return 'a'
-  if (cat.includes('MARKET') || cat.includes('STOCK') || cat.includes('CRYPTO')) return 'd'
-  if (cat.includes('ENERGY') || cat.includes('COMMODIT') || cat.includes('OIL')) return 'f'
-  if (cat.includes('ECONOMY') || cat.includes('FED') || cat.includes('RATE')) return 'c'
-  // Random pick for others
-  const templates: Array<'a' | 'c' | 'd' | 'e' | 'f'> = ['a', 'c', 'd', 'e', 'f']
-  return templates[Math.floor(Math.random() * templates.length)]
+
+  // Check what rich data is available
+  const hasMarket = data && Array.isArray(data.market_impact) && data.market_impact.length >= 2
+  const hasBigStat = data && data.big_stat?.number
+  const hasQuote = data && data.quote?.text
+  const hasTimeline = data && Array.isArray(data.timeline_events) && data.timeline_events.length >= 3
+  const hasContext = data && Array.isArray(data.context_points) && data.context_points.length >= 2
+
+  // Template D: Ticker Dashboard — needs market_impact + big_stat
+  if (hasMarket && hasBigStat && (cat.includes('MARKET') || cat.includes('STOCK') || cat.includes('CRYPTO'))) return 'd'
+
+  // Template E: Timeline — needs timeline_events
+  if (hasTimeline) return 'e'
+
+  // Template F: Split Stat + Context — needs big_stat + context_points
+  if (hasBigStat && hasContext) return 'f'
+
+  // Template C: Editorial + Data — needs big_stat + quote
+  if (hasBigStat && hasQuote) return 'c'
+
+  // Template A: Breaking Alert — always works with just key_points
+  return 'a'
 }
 
 async function fetchCNBCArticles(count: number = 3): Promise<string[]> {
@@ -117,20 +235,37 @@ async function crawlArticle(url: string): Promise<any | null> {
     if (textContent.length < 200) { lastCrawlError = `short-content-${textContent.length}`; return null }
 
     // AI extraction via Groq
-    const systemPrompt = `You are a financial news article analyzer. Extract structured data and return ONLY valid JSON (no markdown):
+    const systemPrompt = `You are a financial news analyzer extracting data for Instagram-style info cards. Return ONLY valid JSON (no markdown).
+
 {
-  "headline": "Short punchy headline under 80 chars",
+  "headline": "Compelling headline under 80 chars",
   "source": "CNBC",
-  "category": "One of: MARKETS, GEOPOLITICS, ECONOMY, CRYPTO, TECHNOLOGY, ENERGY, COMMODITIES, HEALTHCARE, POLITICS",
+  "category": "MARKETS | GEOPOLITICS | ECONOMY | CRYPTO | TECHNOLOGY | ENERGY | COMMODITIES | HEALTHCARE | POLITICS",
   "date": "Month Day, Year",
-  "key_points": ["4-5 specific bullet points with real numbers and facts"],
-  "quote": {"text": "Most impactful direct quote", "attribution": "Who said it"},
-  "market_impact": [{"icon": "emoji", "name": "Asset", "change": "+X.X%", "direction": "up or down"}],
-  "big_stat": {"number": "Striking number like '$5.28B' or '8.5%'", "label": "What it represents", "color": "#EF4444 negative, #4ADE80 positive"},
-  "timeline_events": [{"time": "Time", "title": "Event", "description": "Brief desc", "color": "#EF4444/#FBBF24/#4ADE80"}],
-  "context_points": ["3-4 context points"]
+  "key_points": [
+    "MUST have AT LEAST 4 rich bullet points (full sentences, 15+ words each)",
+    "Each must contain a specific FACT: number, name, event, or quote from the article",
+    "Example: 'Nvidia shares fell 3.2% to $128.50 after Q3 earnings missed analyst estimates'"
+  ],
+  "quote": {"text": "Actual direct quote (20+ chars) with quotation marks in the article", "attribution": "Name + title of who said it"},
+  "market_impact": [
+    {"icon": "📈", "name": "S&P 500", "change": "+1.2%", "direction": "up"},
+    {"icon": "🛢️", "name": "Oil WTI", "change": "-2.5%", "direction": "down"}
+  ],
+  "big_stat": {"number": "Real number from article ('$5.28B', '8.5%', '2,400 jobs')", "label": "What it represents", "color": "#EF4444 if negative, #4ADE80 if positive, #FBBF24 if neutral"},
+  "timeline_events": [
+    {"time": "Date/phase from article (e.g. 'March 15', 'Q4 2025')", "title": "Event name", "description": "One-sentence description", "color": "#EF4444/#FBBF24/#4ADE80"}
+  ],
+  "context_points": ["Explain WHY the investor cares — what this means for markets, jobs, spending, etc."]
 }
-Use emojis: 🛢️ oil, 💵 USD, 🌍 global, 📈📉 stocks, ₿ crypto. NEVER use placeholders like XX.XX or X.X% — omit fields instead. Return ONLY JSON.`
+
+STRICT RULES:
+1. NEVER use placeholder text like "XX.XX", "X.X%", "$XXX", "N/A", "TBD", "0.00". If you can't find real data, OMIT that field entirely (don't include an empty or placeholder value).
+2. key_points REQUIRES at least 4 rich items. If the article is too thin to produce 4 substantive points, return {"insufficient_data": true} instead.
+3. market_impact entries MUST have a real percentage change from the article. Don't invent ones. If no market data is mentioned, return an empty array.
+4. Emojis: 🛢️ oil, 🥇 gold, 💵 USD, 🌍 global markets, 📈 stocks up, 📉 stocks down, ₿ bitcoin, 💊 pharma, 🇺🇸 US, 🇨🇳 China, 🇯🇵 Japan.
+5. big_stat must be an exact number that appears in the article text — no rounding placeholders.
+6. Return ONLY JSON — no markdown fences, no explanation.`
 
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -161,7 +296,13 @@ Use emojis: 🛢️ oil, 💵 USD, 🌍 global, 📈📉 stocks, ₿ crypto. NEV
     const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
     if (!jsonMatch) { lastCrawlError = 'no-json-in-response'; return null }
     try {
-      return JSON.parse(jsonMatch[0])
+      const parsed = JSON.parse(jsonMatch[0])
+      // AI explicitly signaled the article doesn't have enough data
+      if (parsed.insufficient_data) {
+        lastCrawlError = 'insufficient-data'
+        return null
+      }
+      return parsed
     } catch (e: any) {
       lastCrawlError = `json-parse: ${e.message}`
       return null
@@ -227,15 +368,24 @@ async function handleAutoNews(req: NextRequest) {
         }
 
         // Crawl and extract
-        const data = await crawlArticle(url)
-        if (!data) {
+        const rawData = await crawlArticle(url)
+        if (!rawData) {
           console.log(`Failed to crawl: ${url}`)
           errors.push(`crawl failed [${getLastCrawlError()}]: ${url}`)
           continue
         }
 
-        // Pick template
-        const template = pickTemplate(data.category)
+        // Clean placeholder values and validate quality
+        const data = cleanExtractedData(rawData)
+        const quality = validateQuality(data)
+        if (!quality.ok) {
+          console.log(`Low quality article skipped: ${url} - ${quality.reason}`)
+          errors.push(`low quality [${quality.reason}]: ${url}`)
+          continue
+        }
+
+        // Pick template based on what data we actually have (not just category)
+        const template = pickTemplate(data.category, data)
 
         // Generate HTML for the local processor to screenshot
         const html = renderNewsImage(template, {

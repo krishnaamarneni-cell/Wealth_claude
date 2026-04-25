@@ -19,3 +19,32 @@
 2026-04-18 16:57:35,842 [Reels] INFO: Reel processor started (poll every 60s)
 2026-04-18 16:57:35,843 [Reels] INFO: API: https://www.wealthclaude.com | Cloudinary: ddyhi6nej | Make: OK
 2026-04-18 16:57:54,739 [YouTube] INFO: YouTube processor loaded
+2026-04-18 23:00:07,284 [Reels] INFO: Outside hours. Sleeping 8.0h
+2026-04-18 23:00:07,342 [Reels] INFO: Outside hours. Sleeping 8.0h
+2026-04-18 23:00:17,467 [Reels] INFO: Outside hours. Sleeping 8.0h
+2026-04-19 23:00:13,048 [Reels] INFO: Outside hours. Sleeping 8.0h
+2026-04-19 23:00:13,390 [Reels] INFO: Outside hours. Sleeping 8.0h
+2026-04-19 23:00:51,549 [Reels] INFO: Outside hours. Sleeping 8.0h
+2026-04-20 08:49:48,798 [Reels] ERROR: Error: HTTPSConnectionPool(host='www.wealthclaude.com', port=443): Max retries exceeded with url: /api/video/poll?type=reel (Caused by NameResolutionError("HTTPSConnection(host='www.wealthclaude.com', port=443): Failed to resolve 'www.wealthclaude.com' ([Errno 11001] getaddrinfo failed)"))
+2026-04-20 23:00:41,278 [Reels] INFO: Outside hours. Sleeping 8.0h
+2026-04-20 23:00:53,879 [Reels] INFO: Outside hours. Sleeping 8.0h
+2026-04-20 23:00:57,980 [Reels] INFO: Outside hours. Sleeping 8.0h
+2026-04-21 23:01:00,881 [Reels] INFO: Outside hours. Sleeping 8.0h
+2026-04-21 23:01:01,205 [Reels] INFO: Outside hours. Sleeping 8.0h
+2026-04-21 23:01:01,386 [Reels] INFO: Outside hours. Sleeping 8.0h
+2026-04-22 08:35:15,138 [Reels] ERROR: Error: HTTPSConnectionPool(host='www.wealthclaude.com', port=443): Max retries exceeded with url: /api/video/poll?type=reel (Caused by NameResolutionError("HTTPSConnection(host='www.wealthclaude.com', port=443): Failed to resolve 'www.wealthclaude.com' ([Errno 11001] getaddrinfo failed)"))
+2026-04-22 08:35:17,980 [Reels] ERROR: Error: HTTPSConnectionPool(host='www.wealthclaude.com', port=443): Max retries exceeded with url: /api/video/poll?type=reel (Caused by NameResolutionError("HTTPSConnection(host='www.wealthclaude.com', port=443): Failed to resolve 'www.wealthclaude.com' ([Errno 11001] getaddrinfo failed)"))
+2026-04-22 08:35:17,486 [Reels] ERROR: Error: HTTPSConnectionPool(host='www.wealthclaude.com', port=443): Max retries exceeded with url: /api/video/poll?type=reel (Caused by NameResolutionError("HTTPSConnection(host='www.wealthclaude.com', port=443): Failed to resolve 'www.wealthclaude.com' ([Errno 11001] getaddrinfo failed)"))
+2026-04-22 08:36:18,876 [Reels] ERROR: Error: HTTPSConnectionPool(host='www.wealthclaude.com', port=443): Max retries exceeded with url: /api/video/poll?type=reel (Caused by NameResolutionError("HTTPSConnection(host='www.wealthclaude.com', port=443): Failed to resolve 'www.wealthclaude.com' ([Errno 11001] getaddrinfo failed)"))
+2026-04-22 08:36:18,915 [Reels] ERROR: Error: HTTPSConnectionPool(host='www.wealthclaude.com', port=443): Max retries exceeded with url: /api/video/poll?type=reel (Caused by NameResolutionError("HTTPSConnection(host='www.wealthclaude.com', port=443): Failed to resolve 'www.wealthclaude.com' ([Errno 11001] getaddrinfo failed)"))
+2026-04-22 12:26:59,847 [Reels] ERROR: Error: HTTPSConnectionPool(host='www.wealthclaude.com', port=443): Read timed out. (read timeout=15)
+2026-04-22 13:03:50,081 [Reels] ERROR: Error: HTTPSConnectionPool(host='www.wealthclaude.com', port=443): Read timed out. (read timeout=15)
+2026-04-22 23:00:21,405 [Reels] INFO: Outside hours. Sleeping 8.0h
+2026-04-22 23:00:38,754 [Reels] INFO: Outside hours. Sleeping 8.0h
+2026-04-22 23:00:38,780 [Reels] INFO: Outside hours. Sleeping 8.0h
+2026-04-23 23:00:21,244 [Reels] INFO: Outside hours. Sleeping 8.0h
+2026-04-23 23:00:29,490 [Reels] INFO: Outside hours. Sleeping 8.0h
+2026-04-23 23:00:31,124 [Reels] INFO: Outside hours. Sleeping 8.0h
+2026-04-24 23:00:24,744 [Reels] INFO: Outside hours. Sleeping 8.0h
+2026-04-24 23:00:24,746 [Reels] INFO: Outside hours. Sleeping 8.0h
+2026-04-24 23:00:27,067 [Reels] INFO: Outside hours. Sleeping 8.0h

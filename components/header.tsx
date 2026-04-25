@@ -102,7 +102,7 @@ function DropdownWrapper({
       {open && (
         <div className={`absolute top-full left-1/2 -translate-x-1/2 z-50 ${wide ? "w-[680px]" : "w-[300px]"}`}>
           <div className="h-1" /> {/* bridge gap */}
-          <div className="rounded-2xl border border-border bg-background/95 backdrop-blur-xl shadow-2xl shadow-black/50 overflow-hidden">
+          <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-2xl shadow-2xl shadow-black/60 overflow-hidden">
             {children}
           </div>
         </div>

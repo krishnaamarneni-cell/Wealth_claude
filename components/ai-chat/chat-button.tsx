@@ -338,7 +338,7 @@ function ChatButtonCore({
       <Sheet open={isChatOpen} onOpenChange={setIsChatOpen}>
         <SheetContent
           side="right"
-          className="w-[380px] sm:max-w-[380px] p-0 flex flex-col gap-0 bg-background/95 backdrop-blur-xl"
+          className="w-[380px] sm:max-w-[380px] p-0 flex flex-col gap-0 bg-white/5 backdrop-blur-2xl border border-white/10"
         >
           <SheetHeader className="p-3 pb-2 border-b border-border/50">
             <div className="flex items-center justify-between">
@@ -547,7 +547,7 @@ function ChatButtonCore({
         {/* Preview bubble — appears above the icon like HubSpot */}
         {showPreview && !isChatOpen && (
           <div className="animate-in slide-in-from-bottom-4 fade-in duration-500 max-w-[300px]">
-            <div className="relative bg-background border border-border/60 rounded-2xl shadow-2xl shadow-black/20 p-4">
+            <div className="relative bg-white/5 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl shadow-black/40 p-4">
               {/* Close X */}
               <button
                 onClick={(e) => {
@@ -614,7 +614,7 @@ function ChatButtonCore({
               </div>
 
               {/* Triangle pointer towards the chat icon */}
-              <div className="absolute -bottom-2 right-7 w-4 h-4 bg-background border-r border-b border-border/60 transform rotate-45" />
+              <div className="absolute -bottom-2 right-7 w-4 h-4 bg-white/5 backdrop-blur-2xl border-r border-b border-white/10 transform rotate-45" />
             </div>
           </div>
         )}

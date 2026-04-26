@@ -5,11 +5,12 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import {
   Globe, Map, BarChart3, TrendingUp, Newspaper,
-  Building2, ChevronDown, Menu, X, LineChart, Star,
+  ChevronDown, Menu, X, LineChart, Star,
   GraduationCap, HelpCircle, Briefcase, Info, Layers,
   CalendarDays, Flame, ArrowUpRight, Zap, UserCircle2,
-  Activity,
+  Activity, Sparkles,
 } from "lucide-react"
+import { useScrolled } from "@/lib/use-scrolled"
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
@@ -69,8 +70,8 @@ function Badge({ label }: { label: string }) {
 
 // ── Dropdown wrapper ──────────────────────────────────────────────────────────
 function DropdownWrapper({
-  label, children, wide = false,
-}: { label: string; children: React.ReactNode; wide?: boolean }) {
+  label, children, wide = false, scrolled = false,
+}: { label: string; children: React.ReactNode; wide?: boolean; scrolled?: boolean }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -90,18 +91,20 @@ function DropdownWrapper({
       onMouseLeave={() => setOpen(false)}
     >
       <button
-        className={`flex items-center gap-1 text-sm transition-colors h-16 px-3 border-b-2 ${open
-          ? "text-foreground border-primary"
-          : "text-muted-foreground hover:text-foreground border-transparent"
-          }`}
+        className={`flex items-center gap-1 rounded-full transition-all whitespace-nowrap ${
+          scrolled ? "text-xs h-8 px-2.5" : "text-sm h-9 px-3.5"
+        } ${open
+          ? "text-foreground bg-white/10"
+          : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+        }`}
       >
         {label}
-        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+        <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && (
         <div className={`absolute top-full left-1/2 -translate-x-1/2 z-50 ${wide ? "w-[680px]" : "w-[300px]"}`}>
-          <div className="h-1" /> {/* bridge gap */}
+          <div className="h-2" /> {/* bridge gap */}
           <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-2xl shadow-2xl shadow-black/60 overflow-hidden">
             {children}
           </div>
@@ -112,9 +115,9 @@ function DropdownWrapper({
 }
 
 // ── Products mega-menu ────────────────────────────────────────────────────────
-function ProductsMegaMenu() {
+function ProductsMegaMenu({ scrolled }: { scrolled: boolean }) {
   return (
-    <DropdownWrapper label="Products" wide>
+    <DropdownWrapper label="Products" wide scrolled={scrolled}>
       <div className="p-6 grid grid-cols-2 gap-x-6">
 
         <div>
@@ -180,9 +183,9 @@ function ProductsMegaMenu() {
 }
 
 // ── Markets dropdown ──────────────────────────────────────────────────────────
-function MarketsDropdown() {
+function MarketsDropdown({ scrolled }: { scrolled: boolean }) {
   return (
-    <DropdownWrapper label="Markets">
+    <DropdownWrapper label="Markets" scrolled={scrolled}>
       <div className="p-4 space-y-1">
         {MARKETS_ITEMS.map(item => (
           <Link key={item.title} href={item.href}
@@ -205,9 +208,9 @@ function MarketsDropdown() {
 }
 
 // ── Brokers dropdown ──────────────────────────────────────────────────────────
-function BrokersDropdown() {
+function BrokersDropdown({ scrolled }: { scrolled: boolean }) {
   return (
-    <DropdownWrapper label="Brokers" wide>
+    <DropdownWrapper label="Brokers" wide scrolled={scrolled}>
       <div className="p-5 grid grid-cols-2 gap-x-6">
 
         <div>
@@ -255,9 +258,9 @@ function BrokersDropdown() {
 }
 
 // ── More dropdown ─────────────────────────────────────────────────────────────
-function MoreDropdown() {
+function MoreDropdown({ scrolled }: { scrolled: boolean }) {
   return (
-    <DropdownWrapper label="More">
+    <DropdownWrapper label="More" scrolled={scrolled}>
       <div className="p-4 space-y-1">
         {MORE_ITEMS.map(item => (
           <Link key={item.title} href={item.href}
@@ -279,79 +282,113 @@ function MoreDropdown() {
   )
 }
 
-// ── Main export ───────────────────────────────────────────────────────────────
+// ── Main export — Floating Pill Morph header ──────────────────────────────────
 export function Header() {
-  const [scrolled, setScrolled] = useState(false)
+  const { scrolled } = useScrolled(80)
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40)
-    window.addEventListener("scroll", onScroll, { passive: true })
-    return () => window.removeEventListener("scroll", onScroll)
-  }, [])
-
   return (
-    <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled
-        ? "bg-background/90 backdrop-blur-xl border-b border-border"
-        : "bg-transparent"
-        }`}
+    <div
+      className={`fixed left-0 right-0 z-50 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+        scrolled ? "top-3" : "top-0"
+      }`}
     >
-      <nav className="container mx-auto px-6 flex items-center justify-between">
+      <div className="flex items-center justify-center px-4 pointer-events-none">
+        <header
+          className={`pointer-events-auto flex items-center justify-between transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+            scrolled
+              ? "w-full max-w-5xl h-13 px-3 rounded-full bg-white/5 backdrop-blur-2xl border border-white/15 shadow-2xl shadow-black/40"
+              : "w-full max-w-7xl h-20 px-6 rounded-none bg-transparent border border-transparent"
+          }`}
+          style={scrolled ? { height: '52px' } : undefined}
+        >
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2 shrink-0">
+            <div
+              className={`flex items-center justify-center rounded-lg bg-primary transition-all duration-500 ${
+                scrolled ? "h-7 w-7" : "h-9 w-9"
+              }`}
+            >
+              <LineChart
+                className={`text-primary-foreground transition-all duration-500 ${
+                  scrolled ? "h-3.5 w-3.5" : "h-5 w-5"
+                }`}
+              />
+            </div>
+            <span
+              className={`font-bold text-foreground transition-all duration-500 whitespace-nowrap ${
+                scrolled ? "text-sm" : "text-lg"
+              }`}
+            >
+              WealthClaude
+            </span>
+          </Link>
 
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 shrink-0">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <LineChart className="h-5 w-5 text-primary-foreground" />
+          {/* Desktop nav */}
+          <nav className="hidden lg:flex items-center gap-0.5">
+            <ProductsMegaMenu scrolled={scrolled} />
+            <MarketsDropdown scrolled={scrolled} />
+            <Link
+              href="/news"
+              className={`flex items-center rounded-full text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all whitespace-nowrap ${
+                scrolled ? "text-xs h-8 px-2.5" : "text-sm h-9 px-3.5"
+              }`}
+            >
+              Blog
+            </Link>
+            <BrokersDropdown scrolled={scrolled} />
+            <MoreDropdown scrolled={scrolled} />
+          </nav>
+
+          {/* Desktop CTA */}
+          <div className="hidden lg:flex items-center gap-2 shrink-0">
+            <Link
+              href="/auth"
+              className={`flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all ${
+                scrolled ? "h-8 w-8" : "h-9 w-9"
+              }`}
+              aria-label="Login"
+            >
+              <UserCircle2 className={scrolled ? "w-4 h-4" : "w-5 h-5"} />
+            </Link>
+            <Link
+              href="/auth"
+              className={`inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground font-semibold shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all whitespace-nowrap ${
+                scrolled ? "px-3 h-8 text-xs" : "px-4 h-9 text-sm"
+              }`}
+            >
+              <Sparkles className={`transition-all ${scrolled ? "w-3 h-3" : "w-3.5 h-3.5"}`} />
+              {scrolled ? "Try Free" : "Try for Free"}
+            </Link>
           </div>
-          <span className="font-bold text-base text-foreground">WealthClaude</span>
-        </Link>
 
-        {/* Desktop nav */}
-        <div className="hidden lg:flex items-center">
-          <ProductsMegaMenu />
-          <MarketsDropdown />
-          <Link
-            href="/news"
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors h-16 flex items-center px-3 border-b-2 border-transparent hover:border-primary"
+          {/* Mobile toggle */}
+          <button
+            className="lg:hidden text-foreground p-2 rounded-full hover:bg-white/5"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label="Toggle menu"
           >
-            Blog
-          </Link>
-          <BrokersDropdown />
-          <MoreDropdown />
-        </div>
-
-        {/* Desktop CTA */}
-        <div className="hidden lg:flex items-center gap-3 shrink-0">
-          <Link
-            href="/auth"
-            className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-secondary/60"
-            aria-label="Login"
-          >
-            <UserCircle2 className="w-5 h-5" />
-          </Link>
-          <Button size="sm"
-            className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20"
-            asChild
-          >
-            <Link href="/auth">Try for Free</Link>
-          </Button>
-        </div>
-
-        {/* Mobile toggle */}
-        <button className="lg:hidden text-foreground p-2" onClick={() => setMobileOpen(!mobileOpen)}>
-          {mobileOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
-      </nav>
+            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </header>
+      </div>
 
       {/* Mobile drawer */}
       {mobileOpen && (
-        <div className="lg:hidden bg-background/98 backdrop-blur-xl border-b border-border max-h-[85vh] overflow-y-auto">
-          <div className="container mx-auto px-6 py-6 space-y-6">
+        <div
+          className={`lg:hidden mx-4 mt-2 rounded-2xl bg-white/5 backdrop-blur-2xl border border-white/15 shadow-2xl shadow-black/60 max-h-[80vh] overflow-y-auto pointer-events-auto`}
+        >
+          <div className="px-5 py-5 space-y-5">
 
             <MobileSection title="Products">
               {[...PRODUCTS_FEATURED, ...PRODUCTS_TOOLS].map(item => (
-                <MobileLink key={item.title} href={item.href} icon={item.icon} badge={item.badge}>
+                <MobileLink
+                  key={item.title}
+                  href={item.href}
+                  icon={item.icon}
+                  badge={item.badge}
+                  onClose={() => setMobileOpen(false)}
+                >
                   {item.title}
                 </MobileLink>
               ))}
@@ -359,20 +396,23 @@ export function Header() {
 
             <MobileSection title="Markets">
               {MARKETS_ITEMS.map(item => (
-                <MobileLink key={item.title} href={item.href} icon={item.icon}>
+                <MobileLink key={item.title} href={item.href} icon={item.icon} onClose={() => setMobileOpen(false)}>
                   {item.title}
                 </MobileLink>
               ))}
             </MobileSection>
 
-            <Link href="/news" className="block text-sm font-bold text-foreground py-1"
-              onClick={() => setMobileOpen(false)}>
+            <Link
+              href="/news"
+              className="block text-sm font-bold text-foreground py-1"
+              onClick={() => setMobileOpen(false)}
+            >
               Blog
             </Link>
 
             <MobileSection title="Brokers">
               {BROKERS_LINKS.map(item => (
-                <MobileLink key={item.title} href={item.href} icon={item.icon}>
+                <MobileLink key={item.title} href={item.href} icon={item.icon} onClose={() => setMobileOpen(false)}>
                   {item.title}
                 </MobileLink>
               ))}
@@ -380,13 +420,19 @@ export function Header() {
 
             <MobileSection title="More">
               {MORE_ITEMS.map(item => (
-                <MobileLink key={item.title} href={item.href} icon={item.icon} badge={item.badge}>
+                <MobileLink
+                  key={item.title}
+                  href={item.href}
+                  icon={item.icon}
+                  badge={item.badge}
+                  onClose={() => setMobileOpen(false)}
+                >
                   {item.title}
                 </MobileLink>
               ))}
             </MobileSection>
 
-            <div className="flex flex-col gap-2 pt-4 border-t border-border">
+            <div className="flex flex-col gap-2 pt-4 border-t border-white/10">
               <Button variant="outline" className="w-full" asChild>
                 <Link href="/auth" onClick={() => setMobileOpen(false)}>Login</Link>
               </Button>
@@ -397,7 +443,7 @@ export function Header() {
           </div>
         </div>
       )}
-    </header>
+    </div>
   )
 }
 
@@ -412,13 +458,19 @@ function MobileSection({ title, children }: { title: string; children: React.Rea
 }
 
 function MobileLink({
-  href, icon: Icon, badge, children,
+  href, icon: Icon, badge, children, onClose,
 }: {
-  href: string; icon: React.ElementType; badge?: string | null; children: React.ReactNode
+  href: string
+  icon: React.ElementType
+  badge?: string | null
+  children: React.ReactNode
+  onClose?: () => void
 }) {
   return (
-    <Link href={href}
-      className="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-secondary/60 transition-colors"
+    <Link
+      href={href}
+      onClick={onClose}
+      className="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-white/5 transition-colors"
     >
       <div className="flex items-center gap-3">
         <Icon className="w-4 h-4 text-primary" />

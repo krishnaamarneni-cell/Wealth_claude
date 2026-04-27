@@ -34,6 +34,7 @@ export default function StartPage() {
   const [error, setError] = useState<string | null>(null)
   const [hasAccess, setHasAccess] = useState(false)
   const [isCheckingAccess, setIsCheckingAccess] = useState(true)
+  const [plansEnabled, setPlansEnabled] = useState(false)
 
   // Check if user already has access
   useEffect(() => {
@@ -43,6 +44,14 @@ export default function StartPage() {
       setHasAccess(true)
     }
     setIsCheckingAccess(false)
+  }, [])
+
+  // Check global plans_enabled flag — when OFF, hide all paid sections
+  useEffect(() => {
+    fetch('/api/admin/settings', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(s => setPlansEnabled(s.plans_enabled === true || s.plans_enabled === 'true'))
+      .catch(() => setPlansEnabled(false))
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -205,7 +214,8 @@ export default function StartPage() {
             </Card>
           </div>
 
-          {/* Premium Section - MOVED ABOVE FREE TOOLS */}
+          {/* Premium Section — only visible when plans are enabled (admin toggle) */}
+          {plansEnabled && (
           <div className="border-t pt-12 mb-12">
             <div className="text-center mb-8">
               <Badge variant="outline" className="mb-4">
@@ -282,6 +292,7 @@ export default function StartPage() {
               </CardContent>
             </Card>
           </div>
+          )}
 
           {/* Free Tools Section */}
           <div className="border-t pt-12 mb-12">

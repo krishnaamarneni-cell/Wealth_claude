@@ -43,9 +43,9 @@ const BROKERS_FEATURED = [
 ]
 
 const BROKERS_LINKS = [
-  { icon: Star, title: "Top Brokers", href: "/brokers" },
-  { icon: Layers, title: "Compare Brokers", href: "/brokers/compare" },
-  { icon: ArrowUpRight, title: "Open an Account", href: "/brokers/open" },
+  { icon: Star, title: "Top Brokers", href: "/" },
+  { icon: Layers, title: "Compare Brokers", href: "/" },
+  { icon: ArrowUpRight, title: "Open an Account", href: "/auth" },
 ]
 
 const MORE_ITEMS = [

@@ -214,13 +214,12 @@ export default function StartPage() {
             </Card>
           </div>
 
-          {/* Premium Section — only visible when plans are enabled (admin toggle) */}
-          {plansEnabled && (
+          {/* Premium Section — always visible. Price/payment hidden when plans toggle is OFF. */}
           <div className="border-t pt-12 mb-12">
             <div className="text-center mb-8">
               <Badge variant="outline" className="mb-4">
                 <Sparkles className="mr-1 h-3 w-3" />
-                Premium
+                {plansEnabled ? 'Premium' : 'Featured'}
               </Badge>
               <h2 className="text-2xl font-bold mb-2">Want to See How I'm Actually Doing It?</h2>
               <p className="text-muted-foreground">
@@ -240,19 +239,28 @@ export default function StartPage() {
                       </CardDescription>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <Badge className="bg-red-500 text-white whitespace-nowrap">
-                      🔥 37% OFF
-                    </Badge>
-                    <div className="text-right">
-                      <div className="flex items-center gap-2 justify-end">
-                        <p className="text-lg line-through text-muted-foreground">$7.99</p>
-                        <p className="text-3xl font-bold text-primary">$4.99</p>
+                  {/* Price block — only shown when plans are enabled */}
+                  {plansEnabled && (
+                    <div className="flex items-center gap-4">
+                      <Badge className="bg-red-500 text-white whitespace-nowrap">
+                        🔥 37% OFF
+                      </Badge>
+                      <div className="text-right">
+                        <div className="flex items-center gap-2 justify-end">
+                          <p className="text-lg line-through text-muted-foreground">$7.99</p>
+                          <p className="text-3xl font-bold text-primary">$4.99</p>
+                        </div>
+                        <p className="text-sm text-green-600 font-medium">Save $3.00!</p>
+                        <p className="text-sm text-muted-foreground">one-time</p>
                       </div>
-                      <p className="text-sm text-green-600 font-medium">Save $3.00!</p>
-                      <p className="text-sm text-muted-foreground">one-time</p>
                     </div>
-                  </div>
+                  )}
+                  {/* Free badge when plans are off */}
+                  {!plansEnabled && (
+                    <Badge className="bg-green-500 text-white whitespace-nowrap text-sm px-3 py-1.5">
+                      ✨ Free Access
+                    </Badge>
+                  )}
                 </div>
               </CardHeader>
               <CardContent>
@@ -292,7 +300,6 @@ export default function StartPage() {
               </CardContent>
             </Card>
           </div>
-          )}
 
           {/* Free Tools Section */}
           <div className="border-t pt-12 mb-12">
@@ -358,8 +365,8 @@ export default function StartPage() {
                 </Card>
               </Link>
 
-              {/* Compound Interest Calculator */}
-              <Link href="/tools/compound-interest-calculator">
+              {/* Compound Interest Calculator (DCA covers compound growth) */}
+              <Link href="/tools/dca-calculator">
                 <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer group">
                   <CardContent className="pt-6">
                     <div className="flex items-center gap-3 mb-3">
@@ -375,8 +382,8 @@ export default function StartPage() {
                 </Card>
               </Link>
 
-              {/* Investment Return Calculator */}
-              <Link href="/tools/investment-return-calculator">
+              {/* Investment Return Calculator → stock profit calc */}
+              <Link href="/tools/stock-profit-calculator">
                 <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer group">
                   <CardContent className="pt-6">
                     <div className="flex items-center gap-3 mb-3">
@@ -392,8 +399,8 @@ export default function StartPage() {
                 </Card>
               </Link>
 
-              {/* Debt Payoff Calculator */}
-              <Link href="/tools/debt-payoff-calculator">
+              {/* Debt Payoff Calculator → credit card debt calc */}
+              <Link href="/tools/credit-card-debt-calculator">
                 <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer group">
                   <CardContent className="pt-6">
                     <div className="flex items-center gap-3 mb-3">

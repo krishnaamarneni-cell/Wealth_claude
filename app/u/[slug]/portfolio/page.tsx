@@ -225,6 +225,15 @@ export default function SecurePortfolioPage() {
 
   // Security state
   const [isBlurred, setIsBlurred] = useState(false)
+
+  // Global plans toggle — when OFF, hide $ values from public view
+  const [plansEnabled, setPlansEnabled] = useState(false)
+  useEffect(() => {
+    fetch('/api/admin/settings', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(s => setPlansEnabled(s.plans_enabled === true || s.plans_enabled === 'true'))
+      .catch(() => setPlansEnabled(false))
+  }, [])
   const [codeExpiresIn, setCodeExpiresIn] = useState<number>(0)
   const [sessionExpiresAt, setSessionExpiresAt] = useState<Date | null>(null)
 
@@ -1082,7 +1091,7 @@ export default function SecurePortfolioPage() {
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className={`grid grid-cols-2 ${plansEnabled ? "md:grid-cols-4" : "md:grid-cols-2"} gap-4 mb-8`}>
             <Card>
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2 mb-1">
@@ -1107,29 +1116,34 @@ export default function SecurePortfolioPage() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">Portfolio Value</p>
-                </div>
-                <p className="text-2xl font-bold">
-                  {formatCurrency(portfolio.totalValue)}
-                </p>
-              </CardContent>
-            </Card>
+            {/* $ value cards — only shown when plans are enabled */}
+            {plansEnabled && (
+              <>
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">Portfolio Value</p>
+                    </div>
+                    <p className="text-2xl font-bold">
+                      {formatCurrency(portfolio.totalValue)}
+                    </p>
+                  </CardContent>
+                </Card>
 
-            <Card>
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">Cost Basis</p>
-                </div>
-                <p className="text-2xl font-bold">
-                  {formatCurrency(portfolio.totalCost)}
-                </p>
-              </CardContent>
-            </Card>
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">Cost Basis</p>
+                    </div>
+                    <p className="text-2xl font-bold">
+                      {formatCurrency(portfolio.totalCost)}
+                    </p>
+                  </CardContent>
+                </Card>
+              </>
+            )}
           </div>
 
           {/* Holdings Table */}
@@ -1144,11 +1158,11 @@ export default function SecurePortfolioPage() {
                     <TableRow>
                       <TableHead>Symbol</TableHead>
                       <TableHead>Sector</TableHead>
-                      <TableHead className="text-right">Shares</TableHead>
-                      <TableHead className="text-right">Avg Cost</TableHead>
-                      <TableHead className="text-right">Price</TableHead>
-                      <TableHead className="text-right">Value</TableHead>
-                      <TableHead className="text-right">Gain</TableHead>
+                      {plansEnabled && <TableHead className="text-right">Shares</TableHead>}
+                      {plansEnabled && <TableHead className="text-right">Avg Cost</TableHead>}
+                      {plansEnabled && <TableHead className="text-right">Price</TableHead>}
+                      {plansEnabled && <TableHead className="text-right">Value</TableHead>}
+                      {plansEnabled && <TableHead className="text-right">Gain</TableHead>}
                       <TableHead className="text-right">Return</TableHead>
                       <TableHead className="text-right">Allocation</TableHead>
                     </TableRow>
@@ -1162,13 +1176,15 @@ export default function SecurePortfolioPage() {
                             {holding.sector}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right">{holding.shares?.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(holding.avgCost)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(holding.currentPrice)}</TableCell>
-                        <TableCell className="text-right font-medium">{formatCurrency(holding.marketValue)}</TableCell>
-                        <TableCell className={`text-right ${(holding.totalGain || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
-                          {formatCurrency(holding.totalGain)}
-                        </TableCell>
+                        {plansEnabled && <TableCell className="text-right">{holding.shares?.toFixed(2)}</TableCell>}
+                        {plansEnabled && <TableCell className="text-right">{formatCurrency(holding.avgCost)}</TableCell>}
+                        {plansEnabled && <TableCell className="text-right">{formatCurrency(holding.currentPrice)}</TableCell>}
+                        {plansEnabled && <TableCell className="text-right font-medium">{formatCurrency(holding.marketValue)}</TableCell>}
+                        {plansEnabled && (
+                          <TableCell className={`text-right ${(holding.totalGain || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            {formatCurrency(holding.totalGain)}
+                          </TableCell>
+                        )}
                         <TableCell className={`text-right font-medium ${holding.totalGainPercent >= 0 ? "text-green-600" : "text-red-600"}`}>
                           {formatPercent(holding.totalGainPercent)}
                         </TableCell>
